@@ -29,6 +29,13 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>
 /// A boxed stream of `Result<T>`.
 pub type BoxStream<'a, T> = Pin<Box<dyn Stream<Item = Result<T>> + Send + 'a>>;
 
+/// Result of [`DefaultClient::prepare_request`]: `(url, optional_auth_header, body)`.
+///
+/// The auth header is `None` when the provider requires no authentication
+/// (e.g. local models or providers with `auth: none`).
+#[cfg(feature = "native-http")]
+type PreparedRequest = (String, Option<(String, String)>, serde_json::Value);
+
 /// Core LLM client trait.
 pub trait LlmClient: Send + Sync {
     /// Send a chat completion request.
@@ -111,18 +118,26 @@ impl DefaultClient {
     /// `stream` is inserted into the body **before** `transform_request` runs,
     /// so providers can inspect the final body state in one pass.
     ///
-    /// Returns `(url, header_name, header_value, body_value)`.
+    /// Returns `(url, optional_auth_header, body_value)` where the auth header
+    /// is `None` when the provider requires no authentication.
     fn prepare_request(
         &self,
         serializable: &impl serde::Serialize,
         endpoint_path: &str,
         model: &str,
         stream: Option<bool>,
-    ) -> Result<(String, String, String, serde_json::Value)> {
+    ) -> Result<PreparedRequest> {
+        if model.is_empty() {
+            return Err(LiterLmError::BadRequest {
+                message: "model must not be empty".into(),
+            });
+        }
+
         let url = format!("{}{}", self.provider.base_url(), endpoint_path);
-        let (header_name_cow, header_value_cow) = self.provider.auth_header(self.config.api_key.expose_secret());
-        let header_name = header_name_cow.into_owned();
-        let header_value = header_value_cow.into_owned();
+        let auth_header = self
+            .provider
+            .auth_header(self.config.api_key.expose_secret())
+            .map(|(name, value)| (name.into_owned(), value.into_owned()));
 
         let bare_model = self.provider.strip_model_prefix(model).to_owned();
 
@@ -135,7 +150,7 @@ impl DefaultClient {
         }
         self.provider.transform_request(&mut body)?;
 
-        Ok((url, header_name, header_value, body))
+        Ok((url, auth_header, body))
     }
 }
 
@@ -171,18 +186,11 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             let model = req.model.clone();
             // Pass stream=false so providers can inspect the flag in transform_request.
-            let (url, header_name, header_value, body) =
+            let (url, auth_header, body) =
                 self.prepare_request(&req, self.provider.chat_completions_path(), &model, Some(false))?;
 
-            http::request::post_json(
-                &self.http,
-                &url,
-                &header_name,
-                &header_value,
-                body,
-                self.config.max_retries,
-            )
-            .await
+            let auth = auth_header.as_ref().map(|(n, v)| (n.as_str(), v.as_str()));
+            http::request::post_json(&self.http, &url, auth, body, self.config.max_retries).await
         })
     }
 
@@ -190,18 +198,11 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             let model = req.model.clone();
             // Pass stream=true so providers can inspect the flag in transform_request.
-            let (url, header_name, header_value, body) =
+            let (url, auth_header, body) =
                 self.prepare_request(&req, self.provider.chat_completions_path(), &model, Some(true))?;
 
-            let stream = http::streaming::post_stream(
-                &self.http,
-                &url,
-                &header_name,
-                &header_value,
-                body,
-                self.config.max_retries,
-            )
-            .await?;
+            let auth = auth_header.as_ref().map(|(n, v)| (n.as_str(), v.as_str()));
+            let stream = http::streaming::post_stream(&self.http, &url, auth, body, self.config.max_retries).await?;
             Ok(stream)
         })
     }
@@ -210,18 +211,10 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             let model = req.model.clone();
             // Embeddings have no stream flag; pass None so it is not inserted.
-            let (url, header_name, header_value, body) =
-                self.prepare_request(&req, self.provider.embeddings_path(), &model, None)?;
+            let (url, auth_header, body) = self.prepare_request(&req, self.provider.embeddings_path(), &model, None)?;
 
-            http::request::post_json(
-                &self.http,
-                &url,
-                &header_name,
-                &header_value,
-                body,
-                self.config.max_retries,
-            )
-            .await
+            let auth = auth_header.as_ref().map(|(n, v)| (n.as_str(), v.as_str()));
+            http::request::post_json(&self.http, &url, auth, body, self.config.max_retries).await
         })
     }
 
@@ -229,11 +222,13 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             // Use the stored provider — no more hardcoded "gpt-4" fallback.
             let url = format!("{}{}", self.provider.base_url(), self.provider.models_path());
-            let (header_name_cow, header_value_cow) = self.provider.auth_header(self.config.api_key.expose_secret());
-            let header_name = header_name_cow.as_ref();
-            let header_value = header_value_cow.as_ref();
+            let auth_header = self
+                .provider
+                .auth_header(self.config.api_key.expose_secret())
+                .map(|(name, value)| (name.into_owned(), value.into_owned()));
+            let auth = auth_header.as_ref().map(|(n, v)| (n.as_str(), v.as_str()));
 
-            http::request::get_json(&self.http, &url, header_name, header_value, self.config.max_retries).await
+            http::request::get_json(&self.http, &url, auth, self.config.max_retries).await
         })
     }
 }

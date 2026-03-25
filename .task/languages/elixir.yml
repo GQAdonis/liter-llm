@@ -74,7 +74,7 @@ tasks:
     env:
       PROJECT_ROOT: "{{.PROJECT_ROOT}}"
     cmds:
-      - cargo run -p codegen -- generate --lang elixir
+      - cargo run -p e2e-generator -- generate --lang elixir
 
   e2e:test:
     desc: Run Elixir E2E tests

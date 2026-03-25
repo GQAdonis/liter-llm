@@ -7,6 +7,11 @@ tasks:
     cmds:
       - pnpm install
 
+  install:
+    desc: Install Node.js dependencies (alias for deps)
+    cmds:
+      - task: deps
+
   update:
     desc: Update Node/TypeScript dependencies (all workspace packages)
     cmds:
@@ -70,7 +75,7 @@ tasks:
     env:
       PROJECT_ROOT: "{{.PROJECT_ROOT}}"
     cmds:
-      - cargo run -p codegen -- e2e --lang typescript
+      - cargo run -p e2e-generator -- generate --lang typescript
 
   e2e:test:
     desc: Run TypeScript/Node E2E tests

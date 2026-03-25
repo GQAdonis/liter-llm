@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 // ─── Messages ────────────────────────────────────────────────────────────────
 
 /// A chat message in a conversation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "role")]
 pub enum Message {
     #[serde(rename = "system")]
@@ -21,28 +21,28 @@ pub enum Message {
     Function(FunctionMessage),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SystemMessage {
     pub content: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserMessage {
     pub content: UserContent,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum UserContent {
     Text(String),
     Parts(Vec<ContentPart>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ContentPart {
     #[serde(rename = "text")]
@@ -51,14 +51,14 @@ pub enum ContentPart {
     ImageUrl { image_url: ImageUrl },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ImageUrl {
     pub url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<ImageDetail>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ImageDetail {
     Low,
@@ -81,7 +81,7 @@ pub struct AssistantMessage {
     pub function_call: Option<FunctionCall>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolMessage {
     pub content: String,
     pub tool_call_id: String,
@@ -89,7 +89,7 @@ pub struct ToolMessage {
     pub name: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeveloperMessage {
     pub content: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -97,7 +97,7 @@ pub struct DeveloperMessage {
 }
 
 /// Deprecated legacy function-role message body.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FunctionMessage {
     pub content: String,
     pub name: String,
@@ -115,14 +115,14 @@ pub enum ToolType {
     Function,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChatCompletionTool {
     #[serde(rename = "type")]
     pub tool_type: ToolType,
     pub function: FunctionDefinition,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FunctionDefinition {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -149,14 +149,14 @@ pub struct FunctionCall {
 
 // ─── Tool Choice ─────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ToolChoice {
     Mode(ToolChoiceMode),
     Specific(SpecificToolChoice),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ToolChoiceMode {
     Auto,
@@ -164,21 +164,21 @@ pub enum ToolChoiceMode {
     None,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpecificToolChoice {
     #[serde(rename = "type")]
     pub choice_type: ToolType,
     pub function: SpecificFunction,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpecificFunction {
     pub name: String,
 }
 
 // ─── Response Format ─────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ResponseFormat {
     #[serde(rename = "text")]
@@ -189,7 +189,7 @@ pub enum ResponseFormat {
     JsonSchema { json_schema: JsonSchemaFormat },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JsonSchemaFormat {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -210,7 +210,7 @@ pub struct Usage {
 
 // ─── Stop Sequence ───────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StopSequence {
     Single(String),

@@ -98,7 +98,7 @@ tasks:
       - task: rust:build:release
 
   test:
-    desc: Run test suites for all languages
+    desc: Run Rust tests
     cmds:
       - task: rust:test
 
@@ -118,9 +118,12 @@ tasks:
     cmds:
       - task: rust:format
       - task: python:format
+      - task: node:format
       - task: ruby:format
       - task: go:format
       - task: java:format
+      - task: csharp:format
+      - task: php:format
       - task: elixir:format
 
   update:
@@ -155,7 +158,12 @@ tasks:
     cmds:
       - task: rust:clean
       - task: python:clean
+      - task: node:clean
       - task: ruby:clean
+      - task: go:clean
+      - task: java:clean
+      - task: csharp:clean
+      - task: php:clean
       - task: wasm:clean
       - task: elixir:clean
 
@@ -163,17 +171,17 @@ tasks:
   generate:types:
     desc: Generate types from schemas/api/ for all languages
     cmds:
-      - cargo run -p codegen -- types --target all
+      - cargo run -p e2e-generator -- types --target all
 
   generate:providers:
     desc: Generate provider code from schemas/providers.json
     cmds:
-      - cargo run -p codegen -- providers --target all
+      - cargo run -p e2e-generator -- providers --target all
 
   generate:check:
     desc: Verify generated code matches schemas (CI)
     cmds:
-      - cargo run -p codegen -- check
+      - cargo run -p e2e-generator -- check
 
   generate:all:
     desc: Regenerate all code from schemas
@@ -246,6 +254,7 @@ tasks:
   e2e:test:rust:
     desc: Run Rust E2E tests (generate + format + test)
     cmds:
-      - task: e2e:test:rust
+      - task: rust:e2e:generate
+      - cargo test --manifest-path e2e/rust/Cargo.toml
     env:
       PROJECT_ROOT: "{{.PROJECT_ROOT}}"

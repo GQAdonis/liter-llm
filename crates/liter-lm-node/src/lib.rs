@@ -43,6 +43,11 @@ fn snake_to_camel(s: &str) -> String {
 }
 
 /// Recursively convert all object keys from snake_case to camelCase.
+///
+/// Note: `tool_calls[].function.arguments` is a JSON-encoded string
+/// (`Value::String`), not a nested object, so the recursive descent stops
+/// there naturally — the contents of `arguments` are never key-converted.
+/// This is correct behaviour: the arguments payload must remain unchanged.
 fn to_camel_case_keys(value: serde_json::Value) -> serde_json::Value {
     match value {
         serde_json::Value::Object(map) => {

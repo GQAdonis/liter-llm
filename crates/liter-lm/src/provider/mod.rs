@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
 use serde::Deserialize;
@@ -28,8 +28,20 @@ fn registry() -> Result<&'static ProviderRegistry> {
 #[derive(Debug, Deserialize)]
 struct ProviderRegistry {
     providers: Vec<ProviderConfig>,
-    #[serde(default)]
-    complex_providers: Vec<String>,
+    /// Set of complex provider names for O(1) lookup.
+    ///
+    /// Deserialized from a JSON array; converted to a `HashSet` for fast
+    /// membership tests in the hot `detect_provider` path.
+    #[serde(default, deserialize_with = "deserialize_hashset")]
+    complex_providers: HashSet<String>,
+}
+
+fn deserialize_hashset<'de, D>(deserializer: D) -> std::result::Result<HashSet<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let vec = Vec::<String>::deserialize(deserializer)?;
+    Ok(vec.into_iter().collect())
 }
 
 /// Static configuration for a single provider entry in providers.json.
@@ -78,11 +90,15 @@ pub trait Provider: Send + Sync {
     /// Base URL (e.g., "https://api.openai.com/v1").
     fn base_url(&self) -> &str;
 
-    /// Build the authorization header as (header-name, header-value).
+    /// Build the authorization header as `Some((header-name, header-value))`.
     ///
-    /// Returns a static header name and a borrowed-or-owned value to avoid
-    /// allocating the header name string on every request.
-    fn auth_header<'a>(&'a self, api_key: &'a str) -> (Cow<'static, str>, Cow<'a, str>);
+    /// Returns `None` when the provider requires no authentication header
+    /// (e.g. local models or providers with `auth: none`).  Callers must skip
+    /// inserting any header when `None` is returned.
+    ///
+    /// When `Some`, returns a static header name and a borrowed-or-owned value
+    /// to avoid allocating the header name string on every request.
+    fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)>;
 
     /// Whether this provider matches a given model string.
     fn matches_model(&self, model: &str) -> bool;
@@ -143,8 +159,8 @@ impl Provider for OpenAiProvider {
         "https://api.openai.com/v1"
     }
 
-    fn auth_header<'a>(&'a self, api_key: &'a str) -> (Cow<'static, str>, Cow<'a, str>) {
-        (Cow::Borrowed("Authorization"), Cow::Owned(format!("Bearer {api_key}")))
+    fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
+        Some((Cow::Borrowed("Authorization"), Cow::Owned(format!("Bearer {api_key}"))))
     }
 
     fn matches_model(&self, model: &str) -> bool {
@@ -182,8 +198,8 @@ impl Provider for OpenAiCompatibleProvider {
         &self.base_url
     }
 
-    fn auth_header<'a>(&'a self, api_key: &'a str) -> (Cow<'static, str>, Cow<'a, str>) {
-        (Cow::Borrowed("Authorization"), Cow::Owned(format!("Bearer {api_key}")))
+    fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
+        Some((Cow::Borrowed("Authorization"), Cow::Owned(format!("Bearer {api_key}"))))
     }
 
     fn matches_model(&self, model: &str) -> bool {
@@ -240,7 +256,7 @@ impl Provider for ConfigDrivenProvider {
         self.resolved_base_url.as_deref().unwrap_or("")
     }
 
-    fn auth_header<'a>(&'a self, api_key: &'a str) -> (Cow<'static, str>, Cow<'a, str>) {
+    fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
         let auth_type = self
             .config
             .auth
@@ -249,15 +265,12 @@ impl Provider for ConfigDrivenProvider {
             .unwrap_or(&AuthType::Bearer);
 
         match auth_type {
-            AuthType::None => {
-                // No auth header required; return empty values that the HTTP
-                // layer will ignore when the key is also empty.
-                (Cow::Borrowed(""), Cow::Borrowed(""))
-            }
-            AuthType::ApiKey => (Cow::Borrowed("x-api-key"), Cow::Borrowed(api_key)),
+            // No auth header required; return None so callers skip it entirely.
+            AuthType::None => None,
+            AuthType::ApiKey => Some((Cow::Borrowed("x-api-key"), Cow::Borrowed(api_key))),
             // Bearer, Unknown, and anything else defaults to Bearer token.
             AuthType::Bearer | AuthType::Unknown => {
-                (Cow::Borrowed("Authorization"), Cow::Owned(format!("Bearer {api_key}")))
+                Some((Cow::Borrowed("Authorization"), Cow::Owned(format!("Bearer {api_key}"))))
             }
         }
     }
@@ -339,6 +352,9 @@ pub fn all_providers() -> Result<&'static [ProviderConfig]> {
 ///
 /// Complex providers require custom auth/routing logic beyond simple bearer
 /// tokens (e.g. AWS Bedrock SigV4, Vertex AI OAuth2).
-pub fn complex_provider_names() -> Result<&'static [String]> {
-    Ok(&registry()?.complex_providers)
+///
+/// The returned `Vec` is freshly allocated from the static `HashSet` on each
+/// call; for performance-sensitive callers, cache the result.
+pub fn complex_provider_names() -> Result<Vec<&'static String>> {
+    Ok(registry()?.complex_providers.iter().collect())
 }
