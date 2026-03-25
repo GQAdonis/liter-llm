@@ -75,8 +75,6 @@ repos:
             "--allow-staged",
             "--workspace",
             "--exclude",
-            "liter-lm-ruby",
-            "--exclude",
             "liter-lm-php",
             "--exclude",
             "liter-lm-wasm",

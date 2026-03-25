@@ -10,6 +10,7 @@ from liter_lm._internal_bindings import (
     ChatStreamIterator,
     Choice,
     ContentPartImageParam,
+    ContentPartParam,
     ContentPartTextParam,
     ContentPolicyError,
     ContextWindowExceededError,
@@ -34,6 +35,7 @@ from liter_lm._internal_bindings import (
     RateLimitedError,
     ResponseFormatJsonObjectParam,
     ResponseFormatJsonSchemaParam,
+    ResponseFormatParam,
     ResponseFormatTextParam,
     ServerError,
     ServiceUnavailableError,
@@ -45,11 +47,13 @@ from liter_lm._internal_bindings import (
     StreamOptionsParam,
     ToolCall,
     ToolCallParam,
+    ToolChoiceParam,
     ToolParam,
     # Response types
     Usage,
     # Version
     __version__,
+    _FinishReason,
 )
 
 __all__ = [
@@ -62,6 +66,7 @@ __all__ = [
     "ChatStreamIterator",
     "Choice",
     "ContentPartImageParam",
+    "ContentPartParam",
     "ContentPartTextParam",
     "ContentPolicyError",
     "ContextWindowExceededError",
@@ -86,6 +91,7 @@ __all__ = [
     "RateLimitedError",
     "ResponseFormatJsonObjectParam",
     "ResponseFormatJsonSchemaParam",
+    "ResponseFormatParam",
     "ResponseFormatTextParam",
     "ServerError",
     "ServiceUnavailableError",
@@ -97,8 +103,10 @@ __all__ = [
     "StreamingError",
     "ToolCall",
     "ToolCallParam",
+    "ToolChoiceParam",
     "ToolParam",
     # Response types
     "Usage",
+    "_FinishReason",
     "__version__",
 ]

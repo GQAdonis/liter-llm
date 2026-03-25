@@ -59,7 +59,7 @@ tasks:
     env:
       PROJECT_ROOT: "{{.PROJECT_ROOT}}"
     cmds:
-      - cargo run -p codegen -- generate --lang wasm
+      - cargo run -p e2e-generator -- generate --lang wasm
 
   update:
     desc: Update WASM dependencies

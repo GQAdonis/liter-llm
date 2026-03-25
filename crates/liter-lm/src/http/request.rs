@@ -22,24 +22,25 @@ fn retry_after_from_response(resp: &reqwest::Response) -> Option<std::time::Dura
 /// Retries on 429 / 5xx according to `max_retries`.  When the server sends a
 /// `Retry-After` header on a 429 response the supplied delay is respected
 /// instead of the default exponential backoff.
+///
+/// `auth_header` is `Some((name, value))` when the provider requires
+/// authentication, or `None` when no auth header should be added (e.g. local
+/// models or providers with `auth: none`).
 pub async fn post_json<T: DeserializeOwned>(
     client: &reqwest::Client,
     url: &str,
-    auth_header_name: &str,
-    auth_header_value: &str,
+    auth_header: Option<(&str, &str)>,
     body: serde_json::Value,
     max_retries: u32,
 ) -> Result<T> {
     let mut attempt = 0u32;
 
     loop {
-        let resp = client
-            .post(url)
-            .header(auth_header_name, auth_header_value)
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await?;
+        let mut builder = client.post(url).header("Content-Type", "application/json").json(&body);
+        if let Some((name, value)) = auth_header {
+            builder = builder.header(name, value);
+        }
+        let resp = builder.send().await?;
 
         let status = resp.status().as_u16();
 
@@ -71,21 +72,23 @@ pub async fn post_json<T: DeserializeOwned>(
 ///
 /// Retries on 429 / 5xx according to `max_retries`, honouring any
 /// `Retry-After` header from the server.
+///
+/// `auth_header` is `Some((name, value))` when the provider requires
+/// authentication, or `None` when no auth header should be added.
 pub async fn get_json<T: DeserializeOwned>(
     client: &reqwest::Client,
     url: &str,
-    auth_header_name: &str,
-    auth_header_value: &str,
+    auth_header: Option<(&str, &str)>,
     max_retries: u32,
 ) -> Result<T> {
     let mut attempt = 0u32;
 
     loop {
-        let resp = client
-            .get(url)
-            .header(auth_header_name, auth_header_value)
-            .send()
-            .await?;
+        let mut builder = client.get(url);
+        if let Some((name, value)) = auth_header {
+            builder = builder.header(name, value);
+        }
+        let resp = builder.send().await?;
 
         let status = resp.status().as_u16();
 

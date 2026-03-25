@@ -7,6 +7,11 @@ tasks:
     cmds:
       - bundle install
 
+  install:
+    desc: Install Ruby dependencies (alias for deps)
+    cmds:
+      - task: deps
+
   update:
     desc: Update Ruby dependencies to latest versions
     dir: packages/ruby
@@ -87,7 +92,7 @@ tasks:
     env:
       PROJECT_ROOT: "{{.PROJECT_ROOT}}"
     cmds:
-      - cargo run -p codegen -- generate --lang ruby
+      - cargo run -p e2e-generator -- generate --lang ruby
 
   e2e:test:
     desc: Run Ruby E2E tests

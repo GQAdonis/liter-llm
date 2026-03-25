@@ -178,7 +178,7 @@ wheels = [
 
 [[package]]
 name = "liter-lm"
-version = "0.1.0"
+version = "1.0.0rc1"
 source = { virtual = "." }
 
 [package.dev-dependencies]

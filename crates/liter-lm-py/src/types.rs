@@ -325,6 +325,75 @@ impl From<liter_lm::types::ChatCompletionResponse> for PyChatCompletionResponse 
 
 // ─── Streaming chunk types ────────────────────────────────────────────────────
 
+/// The partial function call delta within a streaming tool call.
+#[pyclass(frozen, name = "StreamFunctionCall")]
+pub struct PyStreamFunctionCall {
+    inner: liter_lm::types::StreamFunctionCall,
+}
+
+#[pymethods]
+impl PyStreamFunctionCall {
+    /// Partial function name, or `None` if not present in this chunk.
+    #[getter]
+    fn name(&self) -> Option<&str> {
+        self.inner.name.as_deref()
+    }
+
+    /// Partial arguments JSON string delta, or `None` if not present in this chunk.
+    #[getter]
+    fn arguments(&self) -> Option<&str> {
+        self.inner.arguments.as_deref()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "StreamFunctionCall(name={:?}, arguments={:?})",
+            self.inner.name, self.inner.arguments
+        )
+    }
+
+    fn __eq__(&self, other: &PyStreamFunctionCall) -> bool {
+        self.inner.name == other.inner.name && self.inner.arguments == other.inner.arguments
+    }
+}
+
+/// A tool call delta within a streaming chunk.
+#[pyclass(frozen, name = "StreamToolCall")]
+pub struct PyStreamToolCall {
+    inner: liter_lm::types::StreamToolCall,
+}
+
+#[pymethods]
+impl PyStreamToolCall {
+    /// The index of this tool call in the list.
+    #[getter]
+    fn index(&self) -> u32 {
+        self.inner.index
+    }
+
+    /// The tool call ID, present only in the first chunk for this index.
+    #[getter]
+    fn id(&self) -> Option<&str> {
+        self.inner.id.as_deref()
+    }
+
+    /// The partial function call delta, or `None` if not present in this chunk.
+    #[getter]
+    fn function(&self) -> Option<PyStreamFunctionCall> {
+        self.inner.function.clone().map(|f| PyStreamFunctionCall { inner: f })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("StreamToolCall(index={}, id={:?})", self.inner.index, self.inner.id)
+    }
+
+    fn __eq__(&self, other: &PyStreamToolCall) -> bool {
+        self.inner.index == other.inner.index
+            && self.inner.id == other.inner.id
+            && self.inner.function == other.inner.function
+    }
+}
+
 /// The delta object in a streaming chunk choice.
 #[pyclass(frozen, name = "StreamDelta")]
 pub struct PyStreamDelta {
@@ -351,6 +420,15 @@ impl PyStreamDelta {
         self.inner.refusal.as_deref()
     }
 
+    /// Tool call deltas, or `None` if not present in this chunk.
+    #[getter]
+    fn tool_calls(&self) -> Option<Vec<PyStreamToolCall>> {
+        self.inner
+            .tool_calls
+            .as_ref()
+            .map(|calls| calls.iter().map(|tc| PyStreamToolCall { inner: tc.clone() }).collect())
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "StreamDelta(role={:?}, content={:?}, refusal={:?})",
@@ -362,6 +440,7 @@ impl PyStreamDelta {
         self.inner.role == other.inner.role
             && self.inner.content == other.inner.content
             && self.inner.refusal == other.inner.refusal
+            && self.inner.tool_calls == other.inner.tool_calls
     }
 }
 
@@ -600,6 +679,9 @@ impl PyModelObject {
 
     fn __eq__(&self, other: &PyModelObject) -> bool {
         self.inner.id == other.inner.id
+            && self.inner.owned_by == other.inner.owned_by
+            && self.inner.created == other.inner.created
+            && self.inner.object == other.inner.object
     }
 }
 
@@ -644,6 +726,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyAssistantMessage>()?;
     m.add_class::<PyChoice>()?;
     m.add_class::<PyChatCompletionResponse>()?;
+    m.add_class::<PyStreamFunctionCall>()?;
+    m.add_class::<PyStreamToolCall>()?;
     m.add_class::<PyStreamDelta>()?;
     m.add_class::<PyStreamChoice>()?;
     m.add_class::<PyChatCompletionChunk>()?;

@@ -23,24 +23,24 @@ const MAX_BUFFER_BYTES: usize = 1024 * 1024; // 1 MiB
 /// Before opening the stream, retries on 429 / 503 up to `max_retries` times
 /// honouring any `Retry-After` header.  Once the stream is open, individual
 /// chunk errors are yielded as `Err` items rather than causing a retry.
+///
+/// `auth_header` is `Some((name, value))` when the provider requires
+/// authentication, or `None` when no auth header should be added.
 pub async fn post_stream(
     client: &reqwest::Client,
     url: &str,
-    auth_header_name: &str,
-    auth_header_value: &str,
+    auth_header: Option<(&str, &str)>,
     body: serde_json::Value,
     max_retries: u32,
 ) -> Result<Pin<Box<dyn Stream<Item = Result<ChatCompletionChunk>> + Send>>> {
     let mut attempt = 0u32;
 
     loop {
-        let resp = client
-            .post(url)
-            .header(auth_header_name, auth_header_value)
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await?;
+        let mut builder = client.post(url).header("Content-Type", "application/json").json(&body);
+        if let Some((name, value)) = auth_header {
+            builder = builder.header(name, value);
+        }
+        let resp = builder.send().await?;
 
         let status = resp.status().as_u16();
 
@@ -67,7 +67,7 @@ pub async fn post_stream(
             .text()
             .await
             .unwrap_or_else(|e| format!("(failed to read body: {e})"));
-        return Err(LiterLmError::from_status(status, &text, None));
+        return Err(LiterLmError::from_status(status, &text, server_retry_after));
     }
 }
 

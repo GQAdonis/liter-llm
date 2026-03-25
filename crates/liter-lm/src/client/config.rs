@@ -50,12 +50,18 @@ impl ClientConfig {
 /// accidentally logged via `{:?}`.
 impl std::fmt::Debug for ClientConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Redact all header values — they may contain API keys or secrets.
+        let redacted_headers: Vec<(&str, &str)> = self
+            .extra_headers
+            .iter()
+            .map(|(k, _v)| (k.as_str(), "[redacted]"))
+            .collect();
         f.debug_struct("ClientConfig")
             .field("api_key", &"[redacted]")
             .field("base_url", &self.base_url)
             .field("timeout", &self.timeout)
             .field("max_retries", &self.max_retries)
-            .field("extra_headers", &self.extra_headers)
+            .field("extra_headers", &redacted_headers)
             .finish()
     }
 }
