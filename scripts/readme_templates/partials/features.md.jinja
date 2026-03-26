@@ -1,0 +1,43 @@
+### Supported Providers (100+)
+
+Route to any provider using the `provider/model` prefix convention:
+
+| Provider | Example Model |
+|----------|--------------|
+| **OpenAI** | `openai/gpt-4o`, `openai/gpt-4o-mini` |
+| **Anthropic** | `anthropic/claude-3-5-sonnet-20241022` |
+| **Groq** | `groq/llama-3.1-70b-versatile` |
+| **Mistral** | `mistral/mistral-large-latest` |
+| **Cohere** | `cohere/command-r-plus` |
+| **Together AI** | `together/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo` |
+| **Fireworks** | `fireworks/accounts/fireworks/models/llama-v3p1-70b-instruct` |
+| **Google Vertex** | `vertexai/gemini-1.5-pro` |
+| **Amazon Bedrock** | `bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0` |
+
+**[Complete Provider List](https://github.com/kreuzberg-dev/liter-lm/blob/main/schemas/providers.json)**
+
+### Key Capabilities
+
+- **Provider Routing** - Single client for 100+ LLM providers via `provider/model` prefix
+- **Unified API** - Consistent `chat`, `chat_stream`, `embeddings`, `list_models` interface
+{% if features.streaming %}
+- **Streaming** - Real-time token streaming via `chat_stream` with async iterators
+{% endif %}
+{% if features.async %}
+- **Async/Await** - Non-blocking requests with full async support
+{% endif %}
+{% if features.tool_calling %}
+- **Tool Calling** - Function calling and tool use across all supporting providers
+{% endif %}
+- **Type Safe** - Schema-driven types from JSON schemas, language-native definitions
+- **Auth Injection** - API keys managed via environment variables, never hardcoded
+- **Error Handling** - Structured errors with provider context and retry hints
+
+### Performance
+
+| Characteristic | Detail |
+|----------------|--------|
+| **Provider resolution** | Once at client construction, zero per-request overhead |
+| **HTTP layer** | `reqwest` with configurable timeouts and connection pooling |
+| **Streaming** | `BoxStream` for composable async streaming |
+| **Memory** | Keys wrapped in `secrecy::SecretString`, never logged |

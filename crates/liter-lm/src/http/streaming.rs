@@ -7,8 +7,7 @@ use memchr::memchr;
 use pin_project_lite::pin_project;
 
 use crate::error::{LiterLmError, Result};
-use crate::http::request::retry_after_from_response;
-use crate::http::retry;
+use crate::http::request::with_retry;
 use crate::types::ChatCompletionChunk;
 
 /// Maximum number of bytes buffered before declaring a streaming error.
@@ -31,6 +30,18 @@ const MAX_BUFFER_BYTES: usize = 1024 * 1024; // 1 MiB
 ///
 /// `extra_headers` carries provider-specific mandatory headers (e.g.
 /// `anthropic-version`) beyond the single auth header.
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(
+        skip_all,
+        fields(
+            http.method = "POST",
+            http.url = %url,
+            http.status_code = tracing::field::Empty,
+            http.retry_count = tracing::field::Empty,
+        )
+    )
+)]
 pub async fn post_stream(
     client: &reqwest::Client,
     url: &str,
@@ -39,9 +50,9 @@ pub async fn post_stream(
     body: serde_json::Value,
     max_retries: u32,
 ) -> Result<Pin<Box<dyn Stream<Item = Result<ChatCompletionChunk>> + Send>>> {
-    let mut attempt = 0u32;
+    let mut retry_count = 0u32;
 
-    loop {
+    let resp = with_retry(max_retries, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -52,31 +63,21 @@ pub async fn post_stream(
         for (name, value) in extra_headers {
             builder = builder.header(*name, *value);
         }
-        let resp = builder.send().await?;
+        retry_count += 1;
+        builder.send()
+    })
+    .await?;
 
-        let status = resp.status().as_u16();
-
-        if resp.status().is_success() {
-            let byte_stream = resp.bytes_stream();
-            let stream = SseParser::new(byte_stream);
-            return Ok(Box::pin(stream));
-        }
-
-        // Parse Retry-After before consuming the body.
-        let server_retry_after = retry_after_from_response(&resp);
-
-        if let Some(delay) = retry::should_retry(status, attempt, max_retries, server_retry_after) {
-            attempt += 1;
-            tokio::time::sleep(delay).await;
-            continue;
-        }
-
-        let text = resp
-            .text()
-            .await
-            .unwrap_or_else(|e| format!("(failed to read body: {e})"));
-        return Err(LiterLmError::from_status(status, &text, server_retry_after));
+    #[cfg(feature = "tracing")]
+    {
+        let span = tracing::Span::current();
+        span.record("http.status_code", resp.status().as_u16());
+        span.record("http.retry_count", retry_count.saturating_sub(1));
     }
+
+    let byte_stream = resp.bytes_stream();
+    let stream = SseParser::new(byte_stream);
+    Ok(Box::pin(stream))
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +159,7 @@ where
                 // line that would be silently dropped.  Emit a warning so that
                 // protocol bugs or truncated responses are visible in logs.
                 if !this.buffer.is_empty() {
-                    #[cfg(feature = "tower")]
+                    #[cfg(feature = "tracing")]
                     tracing::warn!(
                         leftover_bytes = this.buffer.len(),
                         preview = &this.buffer[..this.buffer.len().min(64)],

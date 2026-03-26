@@ -15,5 +15,9 @@ MD024:
   siblings_only: true
 # MD046/code-block-style
 MD046: false
+# MD003/heading-style — generated READMEs mix atx/atx_closed
+MD003: false
+# MD040/fenced-code-language — some generated code blocks lack language
+MD040: false
 # MD060/table-column-style
 MD060: false
