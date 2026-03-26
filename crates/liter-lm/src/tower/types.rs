@@ -20,13 +20,27 @@ pub enum LlmRequest {
 }
 
 impl LlmRequest {
+    /// OpenTelemetry GenAI `gen_ai.operation.name` value for this request.
+    ///
+    /// Maps each variant to one of the canonical GenAI semantic convention
+    /// operation names: `"chat"`, `"embeddings"`, or `"list_models"`.
+    /// Both streaming and non-streaming chat map to `"chat"`.
+    #[must_use]
+    pub fn operation_name(&self) -> &'static str {
+        match self {
+            Self::Chat(_) | Self::ChatStream(_) => "chat",
+            Self::Embed(_) => "embeddings",
+            Self::ListModels => "list_models",
+        }
+    }
+
     /// Human-readable name of the request type; used as a span / metric label.
     #[must_use]
     pub fn request_type(&self) -> &'static str {
         match self {
             Self::Chat(_) => "chat",
             Self::ChatStream(_) => "chat_stream",
-            Self::Embed(_) => "embed",
+            Self::Embed(_) => "embeddings",
             Self::ListModels => "list_models",
         }
     }

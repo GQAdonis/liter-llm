@@ -7,20 +7,28 @@ use tracing::Instrument as _;
 use super::types::{LlmRequest, LlmResponse};
 use crate::client::BoxFuture;
 use crate::error::{LiterLmError, Result};
+use crate::types::FinishReason;
 
-/// Tower [`Layer`] that wraps a service with OTEL-compatible tracing spans.
+/// Tower [`Layer`] that wraps a service with OpenTelemetry GenAI semantic
+/// convention tracing spans.
 ///
-/// Each call creates an [`tracing::info_span`] named `"llm.request"` with the
-/// following fields:
+/// Each call creates a [`tracing::info_span`] named `"gen_ai"` with the
+/// following attributes:
 ///
-/// - `llm.request.type` — `"chat"`, `"chat_stream"`, `"embed"`, or
-///   `"list_models"`.
-/// - `llm.model` — the model name from the request, or `""` for
+/// - `gen_ai.operation.name` — `"chat"`, `"embeddings"`, or `"list_models"`.
+/// - `gen_ai.request.model` — the model name from the request, or `""` for
 ///   [`LlmRequest::ListModels`].
-/// - `llm.usage.input_tokens` — populated on successful chat / embed
+/// - `gen_ai.system` — the provider prefix extracted from the model name (e.g.
+///   `"openai"` for `"openai/gpt-4"`), or `""` when absent.
+/// - `gen_ai.usage.input_tokens` — populated on successful chat / embed
 ///   responses where usage data is present.
-/// - `llm.usage.output_tokens` — populated on successful chat responses.
-/// - `error` — set to `"true"` if the inner service returns an error.
+/// - `gen_ai.usage.output_tokens` — populated on successful chat responses.
+/// - `gen_ai.response.id` — the completion ID from the response.
+/// - `gen_ai.response.model` — the actual model used (may differ from requested).
+/// - `gen_ai.response.finish_reasons` — space-separated finish reasons from
+///   all choices (e.g. `"stop"`).
+/// - `error.type` — set to the error variant name if the inner service returns
+///   an error.
 pub struct TracingLayer;
 
 impl<S> Layer<S> for TracingLayer {
@@ -61,16 +69,25 @@ where
     }
 
     fn call(&mut self, req: LlmRequest) -> Self::Future {
-        let request_type = req.request_type();
+        let operation_name = req.operation_name();
         let model = req.model().unwrap_or("").to_owned();
+        // Extract provider prefix from "provider/model-name" convention.
+        let system = model
+            .split_once('/')
+            .map(|(prefix, _)| prefix.to_owned())
+            .unwrap_or_default();
 
         let span = tracing::info_span!(
-            "llm.request",
-            llm.request.type = request_type,
-            llm.model = %model,
-            llm.usage.input_tokens = tracing::field::Empty,
-            llm.usage.output_tokens = tracing::field::Empty,
-            error = tracing::field::Empty,
+            "gen_ai",
+            gen_ai.operation.name = operation_name,
+            gen_ai.request.model = %model,
+            gen_ai.system = %system,
+            gen_ai.usage.input_tokens = tracing::field::Empty,
+            gen_ai.usage.output_tokens = tracing::field::Empty,
+            gen_ai.response.id = tracing::field::Empty,
+            gen_ai.response.model = tracing::field::Empty,
+            gen_ai.response.finish_reasons = tracing::field::Empty,
+            error.type = tracing::field::Empty,
         );
 
         let fut = self.inner.call(req);
@@ -84,12 +101,12 @@ where
             async move {
                 match fut.await {
                     Ok(resp) => {
-                        // Record usage statistics from the response when available.
-                        record_usage(&tracing::Span::current(), &resp);
+                        // Record usage statistics and response metadata from the response when available.
+                        record_response(&tracing::Span::current(), &resp);
                         Ok(resp)
                     }
                     Err(e) => {
-                        tracing::Span::current().record("error", true);
+                        tracing::Span::current().record("error.type", e.error_type());
                         Err(e)
                     }
                 }
@@ -117,21 +134,54 @@ pub use tracing_opentelemetry;
 #[cfg(feature = "otel")]
 pub use opentelemetry;
 
-/// Record token-usage fields on the span from the response payload.
-fn record_usage(span: &tracing::Span, resp: &LlmResponse) {
+/// Record span attributes from the response according to GenAI semantic conventions.
+fn record_response(span: &tracing::Span, resp: &LlmResponse) {
     match resp {
         LlmResponse::Chat(r) => {
+            span.record("gen_ai.response.id", r.id.as_str());
+            span.record("gen_ai.response.model", r.model.as_str());
+
+            let finish_reasons =
+                finish_reasons_str(&r.choices.iter().map(|c| c.finish_reason.as_ref()).collect::<Vec<_>>());
+            if !finish_reasons.is_empty() {
+                span.record("gen_ai.response.finish_reasons", finish_reasons.as_str());
+            }
+
             if let Some(ref usage) = r.usage {
-                span.record("llm.usage.input_tokens", usage.prompt_tokens);
-                span.record("llm.usage.output_tokens", usage.completion_tokens);
+                span.record("gen_ai.usage.input_tokens", usage.prompt_tokens);
+                span.record("gen_ai.usage.output_tokens", usage.completion_tokens);
             }
         }
         LlmResponse::Embed(r) => {
+            span.record("gen_ai.response.model", r.model.as_str());
+
             if let Some(ref usage) = r.usage {
-                span.record("llm.usage.input_tokens", usage.prompt_tokens);
+                span.record("gen_ai.usage.input_tokens", usage.prompt_tokens);
             }
         }
-        // Streaming and model-list responses do not carry aggregated usage.
+        // Streaming and model-list responses do not carry aggregated usage or response metadata.
         LlmResponse::ChatStream(_) | LlmResponse::ListModels(_) => {}
+    }
+}
+
+/// Build a space-separated string of finish reason names from an iterator of
+/// optional [`FinishReason`] values.  `None` entries are skipped.
+fn finish_reasons_str(reasons: &[Option<&FinishReason>]) -> String {
+    reasons
+        .iter()
+        .filter_map(|r| r.map(finish_reason_name))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Map a [`FinishReason`] variant to its GenAI semantic convention string.
+const fn finish_reason_name(reason: &FinishReason) -> &'static str {
+    match reason {
+        FinishReason::Stop => "stop",
+        FinishReason::Length => "length",
+        FinishReason::ToolCalls => "tool_calls",
+        FinishReason::ContentFilter => "content_filter",
+        FinishReason::FunctionCall => "function_call",
+        FinishReason::Other => "other",
     }
 }

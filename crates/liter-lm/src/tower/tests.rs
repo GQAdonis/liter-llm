@@ -350,9 +350,27 @@ fn request_type_labels() {
             user: None,
         })
         .request_type(),
-        "embed"
+        "embeddings"
     );
     assert_eq!(LlmRequest::ListModels.request_type(), "list_models");
+}
+
+#[test]
+fn operation_name_labels() {
+    assert_eq!(LlmRequest::Chat(chat_req("m")).operation_name(), "chat");
+    assert_eq!(LlmRequest::ChatStream(chat_req("m")).operation_name(), "chat");
+    assert_eq!(
+        LlmRequest::Embed(EmbeddingRequest {
+            model: "e".into(),
+            input: EmbeddingInput::Single("x".into()),
+            encoding_format: None,
+            dimensions: None,
+            user: None,
+        })
+        .operation_name(),
+        "embeddings"
+    );
+    assert_eq!(LlmRequest::ListModels.operation_name(), "list_models");
 }
 
 #[test]
