@@ -149,6 +149,17 @@ pub trait Provider: Send + Sync {
         &[]
     }
 
+    /// Compute request-dependent headers based on the request body.
+    ///
+    /// Called by the client for each request. Use this for headers that
+    /// vary per-request, like Anthropic's `anthropic-beta` which depends
+    /// on whether thinking or hosted tools are enabled.
+    ///
+    /// The default implementation returns an empty vector.
+    fn dynamic_headers(&self, _body: &serde_json::Value) -> Vec<(String, String)> {
+        vec![]
+    }
+
     /// Whether this provider matches a given model string.
     fn matches_model(&self, model: &str) -> bool;
 
@@ -180,6 +191,31 @@ pub trait Provider: Send + Sync {
     /// Path for list models endpoint.
     fn models_path(&self) -> &str {
         "/models"
+    }
+
+    /// Path for image generations endpoint.
+    fn image_generations_path(&self) -> &str {
+        "/images/generations"
+    }
+
+    /// Path for text-to-speech endpoint.
+    fn audio_speech_path(&self) -> &str {
+        "/audio/speech"
+    }
+
+    /// Path for audio transcription endpoint.
+    fn audio_transcriptions_path(&self) -> &str {
+        "/audio/transcriptions"
+    }
+
+    /// Path for content moderation endpoint.
+    fn moderations_path(&self) -> &str {
+        "/moderations"
+    }
+
+    /// Path for document reranking endpoint.
+    fn rerank_path(&self) -> &str {
+        "/rerank"
     }
 
     /// Whether streaming is supported.

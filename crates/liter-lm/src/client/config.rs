@@ -1,7 +1,9 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use secrecy::SecretString;
 
+use crate::auth::CredentialProvider;
 use crate::error::{LiterLmError, Result};
 
 /// Configuration for an LLM client.
@@ -26,6 +28,12 @@ pub struct ClientConfig {
     /// `HeaderMap`.  Access via [`ClientConfig::headers`]; do not mutate
     /// directly from outside this crate.
     pub(crate) extra_headers: Vec<(String, String)>,
+    /// Optional dynamic credential provider for token-based auth
+    /// (Azure AD, Vertex OAuth2) or refreshable credentials (AWS STS).
+    ///
+    /// When set, the client calls `resolve()` before each request to obtain
+    /// a fresh credential.  When `None`, the static `api_key` is used.
+    pub credential_provider: Option<Arc<dyn CredentialProvider>>,
 }
 
 impl ClientConfig {
@@ -37,6 +45,7 @@ impl ClientConfig {
             timeout: Duration::from_secs(60),
             max_retries: 3,
             extra_headers: Vec::new(),
+            credential_provider: None,
         }
     }
 
@@ -62,6 +71,10 @@ impl std::fmt::Debug for ClientConfig {
             .field("timeout", &self.timeout)
             .field("max_retries", &self.max_retries)
             .field("extra_headers", &redacted_headers)
+            .field(
+                "credential_provider",
+                &self.credential_provider.as_ref().map(|_| "[configured]"),
+            )
             .finish()
     }
 }
@@ -99,6 +112,15 @@ impl ClientConfigBuilder {
     /// Set the maximum number of retries on 429 / 5xx responses (default: 3).
     pub fn max_retries(mut self, retries: u32) -> Self {
         self.config.max_retries = retries;
+        self
+    }
+
+    /// Set a dynamic credential provider for token-based or refreshable auth.
+    ///
+    /// When configured, the client calls `resolve()` before each request
+    /// instead of using the static `api_key` for authentication.
+    pub fn credential_provider(mut self, provider: Arc<dyn CredentialProvider>) -> Self {
+        self.config.credential_provider = Some(provider);
         self
     }
 

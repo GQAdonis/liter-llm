@@ -18,6 +18,10 @@ use crate::tower::fallback::FallbackLayer;
 use crate::tower::service::LlmService;
 use crate::tower::tracing::TracingLayer;
 use crate::tower::types::{LlmRequest, LlmResponse};
+use crate::types::audio::{CreateSpeechRequest, CreateTranscriptionRequest, TranscriptionResponse};
+use crate::types::image::{CreateImageRequest, ImagesResponse};
+use crate::types::moderation::{ModerationRequest, ModerationResponse};
+use crate::types::rerank::{RerankRequest, RerankResponse};
 use crate::types::{
     AssistantMessage, ChatCompletionRequest, ChatCompletionResponse, Choice, EmbeddingInput, EmbeddingObject,
     EmbeddingRequest, EmbeddingResponse, FinishReason, Message, ModelsListResponse, SystemMessage, Usage,
@@ -207,6 +211,50 @@ impl LlmClient for MockClient {
             Ok(ModelsListResponse {
                 object: "list".into(),
                 data: vec![],
+            })
+        })
+    }
+
+    fn image_generate(&self, _req: CreateImageRequest) -> BoxFuture<'_, ImagesResponse> {
+        Box::pin(async move {
+            Ok(ImagesResponse {
+                created: 0,
+                data: vec![],
+            })
+        })
+    }
+
+    fn speech(&self, _req: CreateSpeechRequest) -> BoxFuture<'_, bytes::Bytes> {
+        Box::pin(async move { Ok(bytes::Bytes::new()) })
+    }
+
+    fn transcribe(&self, _req: CreateTranscriptionRequest) -> BoxFuture<'_, TranscriptionResponse> {
+        Box::pin(async move {
+            Ok(TranscriptionResponse {
+                text: String::new(),
+                language: None,
+                duration: None,
+                segments: None,
+            })
+        })
+    }
+
+    fn moderate(&self, _req: ModerationRequest) -> BoxFuture<'_, ModerationResponse> {
+        Box::pin(async move {
+            Ok(ModerationResponse {
+                id: String::new(),
+                model: String::new(),
+                results: vec![],
+            })
+        })
+    }
+
+    fn rerank(&self, _req: RerankRequest) -> BoxFuture<'_, RerankResponse> {
+        Box::pin(async move {
+            Ok(RerankResponse {
+                id: None,
+                results: vec![],
+                meta: None,
             })
         })
     }

@@ -7,6 +7,10 @@ use std::sync::Arc;
 use futures_core::Stream;
 
 use crate::error::Result;
+use crate::types::audio::{CreateSpeechRequest, CreateTranscriptionRequest, TranscriptionResponse};
+use crate::types::image::{CreateImageRequest, ImagesResponse};
+use crate::types::moderation::{ModerationRequest, ModerationResponse};
+use crate::types::rerank::{RerankRequest, RerankResponse};
 use crate::types::{
     ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, EmbeddingRequest, EmbeddingResponse,
     ModelsListResponse,
@@ -31,17 +35,21 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>
 pub type BoxStream<'a, T> = Pin<Box<dyn Stream<Item = Result<T>> + Send + 'a>>;
 
 /// Result of [`DefaultClient::prepare_request`]:
-/// `(url, optional_auth_header, body_bytes)`.
+/// `(url, optional_auth_header, body_json, body_bytes)`.
 ///
 /// The body is pre-serialized into `bytes::Bytes` so it is serialized exactly
 /// once — the same bytes are used for signing headers and for the HTTP request
 /// body.  On retry, cloning `Bytes` is a zero-copy ref-count bump.
 ///
+/// `body_json` is the pre-serialization JSON value, retained so that
+/// [`Provider::dynamic_headers`] can inspect request fields without
+/// re-parsing.
+///
 /// The auth header is `None` when the provider requires no authentication
 /// (e.g. local models or providers with `auth: none`).
 /// Extra headers are accessed directly from the provider via `extra_headers()`.
 #[cfg(feature = "native-http")]
-type PreparedRequest = (String, Option<(String, String)>, bytes::Bytes);
+type PreparedRequest = (String, Option<(String, String)>, serde_json::Value, bytes::Bytes);
 
 /// Convert an owned `(String, String)` auth header pair to `(&str, &str)` borrows.
 ///
@@ -65,6 +73,21 @@ pub trait LlmClient: Send + Sync {
 
     /// List available models.
     fn list_models(&self) -> BoxFuture<'_, ModelsListResponse>;
+
+    /// Generate an image.
+    fn image_generate(&self, req: CreateImageRequest) -> BoxFuture<'_, ImagesResponse>;
+
+    /// Generate speech audio from text.
+    fn speech(&self, req: CreateSpeechRequest) -> BoxFuture<'_, bytes::Bytes>;
+
+    /// Transcribe audio to text.
+    fn transcribe(&self, req: CreateTranscriptionRequest) -> BoxFuture<'_, TranscriptionResponse>;
+
+    /// Check content against moderation policies.
+    fn moderate(&self, req: ModerationRequest) -> BoxFuture<'_, ModerationResponse>;
+
+    /// Rerank documents by relevance to a query.
+    fn rerank(&self, req: RerankRequest) -> BoxFuture<'_, RerankResponse>;
 }
 
 /// Default client implementation backed by `reqwest`.
@@ -196,16 +219,23 @@ impl DefaultClient {
         // retry is a zero-copy bump.
         let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body)?);
 
-        Ok((url, auth_header, body_bytes))
+        Ok((url, auth_header, body, body_bytes))
     }
 
     /// Build the combined header list for a request.
     ///
-    /// Merges the provider's static [`Provider::extra_headers`] with the
-    /// dynamic signing headers returned by [`Provider::signing_headers`] for
-    /// the given URL and body bytes.  Returns an owned vec of
-    /// `(name, value)` pairs; callers borrow these for the HTTP layer.
-    fn all_headers(&self, method: &str, url: &str, body_bytes: &[u8]) -> Vec<(String, String)> {
+    /// Merges the provider's static [`Provider::extra_headers`], the
+    /// dynamic signing headers returned by [`Provider::signing_headers`],
+    /// and the per-request [`Provider::dynamic_headers`] computed from the
+    /// JSON body.  Returns an owned vec of `(name, value)` pairs; callers
+    /// borrow these for the HTTP layer.
+    fn all_headers(
+        &self,
+        method: &str,
+        url: &str,
+        body_json: &serde_json::Value,
+        body_bytes: &[u8],
+    ) -> Vec<(String, String)> {
         // Start with dynamic signing headers (e.g. SigV4 Authorization + x-amz-date).
         let mut headers = self.provider.signing_headers(method, url, body_bytes);
         // Append static provider extra headers (e.g. anthropic-version).
@@ -215,6 +245,8 @@ impl DefaultClient {
                 .iter()
                 .map(|&(name, value)| (name.to_owned(), value.to_owned())),
         );
+        // Append per-request dynamic headers (e.g. anthropic-beta).
+        headers.extend(self.provider.dynamic_headers(body_json));
         headers
     }
 }
@@ -251,10 +283,10 @@ impl LlmClient for DefaultClient {
     fn chat(&self, req: ChatCompletionRequest) -> BoxFuture<'_, ChatCompletionResponse> {
         Box::pin(async move {
             // Pass stream=false so providers can inspect the flag in transform_request.
-            let (url, auth_header, body_bytes) =
+            let (url, auth_header, body_json, body_bytes) =
                 self.prepare_request(&req, self.provider.chat_completions_path(), &req.model, Some(false))?;
 
-            let all_headers = self.all_headers("POST", &url, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -270,7 +302,7 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             // Use prepare_request for validation, model-prefix stripping, and
             // transform_request — then override the URL for streaming providers.
-            let (mut url, auth_header, body_bytes) =
+            let (mut url, auth_header, body_json, body_bytes) =
                 self.prepare_request(&req, self.provider.chat_completions_path(), &req.model, Some(true))?;
 
             // Providers with a distinct streaming endpoint (e.g. Bedrock
@@ -283,7 +315,7 @@ impl LlmClient for DefaultClient {
                     .build_stream_url(self.provider.chat_completions_path(), bare_model);
             }
 
-            let all_headers = self.all_headers("POST", &url, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -323,10 +355,10 @@ impl LlmClient for DefaultClient {
     fn embed(&self, req: EmbeddingRequest) -> BoxFuture<'_, EmbeddingResponse> {
         Box::pin(async move {
             // Embeddings have no stream flag; pass None so it is not inserted.
-            let (url, auth_header, body_bytes) =
+            let (url, auth_header, body_json, body_bytes) =
                 self.prepare_request(&req, self.provider.embeddings_path(), &req.model, None)?;
 
-            let all_headers = self.all_headers("POST", &url, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -342,11 +374,95 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             let (url, auth_header) = self.prepare_headers(self.provider.models_path());
             let auth = auth_header.as_ref().map(str_pair);
-            // list_models is a GET request; signing headers use an empty body.
-            let all_headers = self.all_headers("GET", &url, &[]);
+            // list_models is a GET request; signing headers use an empty body,
+            // and dynamic_headers receives a null JSON value.
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             http::request::get_json(&self.http, &url, auth, &extra, self.config.max_retries).await
+        })
+    }
+
+    fn image_generate(&self, req: CreateImageRequest) -> BoxFuture<'_, ImagesResponse> {
+        Box::pin(async move {
+            let model = req.model.as_deref().unwrap_or_default();
+            let (url, auth_header, body_json, body_bytes) =
+                self.prepare_request(&req, self.provider.image_generations_path(), model, None)?;
+
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
+
+            let auth = auth_header.as_ref().map(str_pair);
+            let mut raw =
+                http::request::post_json_raw(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries)
+                    .await?;
+            self.provider.transform_response(&mut raw)?;
+            serde_json::from_value::<ImagesResponse>(raw).map_err(LiterLmError::from)
+        })
+    }
+
+    fn speech(&self, req: CreateSpeechRequest) -> BoxFuture<'_, bytes::Bytes> {
+        Box::pin(async move {
+            let (url, auth_header, body_json, body_bytes) =
+                self.prepare_request(&req, self.provider.audio_speech_path(), &req.model, None)?;
+
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
+
+            let auth = auth_header.as_ref().map(str_pair);
+            http::request::post_binary(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries).await
+        })
+    }
+
+    fn transcribe(&self, req: CreateTranscriptionRequest) -> BoxFuture<'_, TranscriptionResponse> {
+        Box::pin(async move {
+            let (url, auth_header, body_json, body_bytes) =
+                self.prepare_request(&req, self.provider.audio_transcriptions_path(), &req.model, None)?;
+
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
+
+            let auth = auth_header.as_ref().map(str_pair);
+            let mut raw =
+                http::request::post_json_raw(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries)
+                    .await?;
+            self.provider.transform_response(&mut raw)?;
+            serde_json::from_value::<TranscriptionResponse>(raw).map_err(LiterLmError::from)
+        })
+    }
+
+    fn moderate(&self, req: ModerationRequest) -> BoxFuture<'_, ModerationResponse> {
+        Box::pin(async move {
+            let model = req.model.as_deref().unwrap_or_default();
+            let (url, auth_header, body_json, body_bytes) =
+                self.prepare_request(&req, self.provider.moderations_path(), model, None)?;
+
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
+
+            let auth = auth_header.as_ref().map(str_pair);
+            let mut raw =
+                http::request::post_json_raw(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries)
+                    .await?;
+            self.provider.transform_response(&mut raw)?;
+            serde_json::from_value::<ModerationResponse>(raw).map_err(LiterLmError::from)
+        })
+    }
+
+    fn rerank(&self, req: RerankRequest) -> BoxFuture<'_, RerankResponse> {
+        Box::pin(async move {
+            let (url, auth_header, body_json, body_bytes) =
+                self.prepare_request(&req, self.provider.rerank_path(), &req.model, None)?;
+
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
+
+            let auth = auth_header.as_ref().map(str_pair);
+            let mut raw =
+                http::request::post_json_raw(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries)
+                    .await?;
+            self.provider.transform_response(&mut raw)?;
+            serde_json::from_value::<RerankResponse>(raw).map_err(LiterLmError::from)
         })
     }
 }

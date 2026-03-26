@@ -151,8 +151,14 @@ fn record_response(span: &tracing::Span, resp: &LlmResponse) {
         LlmResponse::Embed(r) => {
             span.record("gen_ai.response.model", r.model.as_str());
         }
-        // Streaming and model-list responses do not carry aggregated usage or response metadata.
-        LlmResponse::ChatStream(_) | LlmResponse::ListModels(_) => {}
+        // Other response variants do not carry aggregated usage or response metadata.
+        LlmResponse::ChatStream(_)
+        | LlmResponse::ListModels(_)
+        | LlmResponse::ImageGenerate(_)
+        | LlmResponse::Speech(_)
+        | LlmResponse::Transcribe(_)
+        | LlmResponse::Moderate(_)
+        | LlmResponse::Rerank(_) => {}
     }
 
     // Record usage tokens from the shared accessor — avoids duplicating the

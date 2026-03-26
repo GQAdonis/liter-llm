@@ -454,6 +454,8 @@ mod serde_tests {
             response_format: None,
             stream_options: None,
             seed: None,
+            reasoning_effort: None,
+            extra_body: None,
         };
 
         let json = serde_json::to_string(&req1).unwrap();
