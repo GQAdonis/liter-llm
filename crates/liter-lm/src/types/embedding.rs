@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::common::Usage;
+use crate::cost;
 
 // ─── Encoding format ──────────────────────────────────────────────────────────
 
@@ -46,6 +47,30 @@ pub struct EmbeddingResponse {
     pub model: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usage: Option<Usage>,
+}
+
+impl EmbeddingResponse {
+    /// Estimate the cost of this embedding request based on embedded pricing data.
+    ///
+    /// Returns `None` if:
+    /// - the `model` field is not present in the embedded pricing registry, or
+    /// - the `usage` field is absent from the response.
+    ///
+    /// Embedding models only charge for input tokens; output cost is zero.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let cost = response.estimated_cost();
+    /// if let Some(usd) = cost {
+    ///     println!("Embedding cost: ${usd:.8}");
+    /// }
+    /// ```
+    #[must_use]
+    pub fn estimated_cost(&self) -> Option<f64> {
+        let usage = self.usage.as_ref()?;
+        cost::completion_cost(&self.model, usage.prompt_tokens, usage.completion_tokens)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -35,6 +35,7 @@ urls.repository = "https://github.com/kreuzberg-dev/liter-lm"
 [dependency-groups]
 dev = [
   "anyio>=4.10.0",
+  "jinja2>=3.1.0",
   "jsonschema>=4.0.0",
   "mypy>=1.18.2",
   "prek>=0.2.19",
@@ -70,7 +71,7 @@ lint.ignore = [
   "TD",     # we allow todo and fixme comments
   "TRY",    # Try except block, rules are too strict
 ]
-lint.per-file-ignores."scripts/**/*.*" = [ "ASYNC", "D", "S", "T201" ]
+lint.per-file-ignores."scripts/**/*.*" = [ "ALL" ]
 lint.isort.known-first-party = [ "scripts" ]
 lint.pydocstyle.convention = "google"
 

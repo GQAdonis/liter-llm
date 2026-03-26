@@ -272,6 +272,16 @@ tasks:
     cmds:
       - task: e2e:generate:csharp
 
+  generate:readme:
+    desc: Generate package READMEs from Jinja2 templates
+    cmds:
+      - uv run python scripts/generate_readme.py {{.CLI_ARGS}}
+
+  generate:readme:check:
+    desc: Validate package READMEs match templates (CI)
+    cmds:
+      - uv run python scripts/generate_readme.py --validate
+
   e2e:test:rust:
     desc: Run Rust E2E tests (generate + format + test)
     cmds:

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::common::{
     AssistantMessage, ChatCompletionTool, Message, ResponseFormat, StopSequence, ToolChoice, ToolType, Usage,
 };
+use crate::cost;
 
 // ─── Finish Reason ────────────────────────────────────────────────────────────
 
@@ -96,6 +97,28 @@ pub struct ChatCompletionResponse {
     pub system_fingerprint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_tier: Option<String>,
+}
+
+impl ChatCompletionResponse {
+    /// Estimate the cost of this response based on embedded pricing data.
+    ///
+    /// Returns `None` if:
+    /// - the `model` field is not present in the embedded pricing registry, or
+    /// - the `usage` field is absent from the response.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let cost = response.estimated_cost();
+    /// if let Some(usd) = cost {
+    ///     println!("Request cost: ${usd:.6}");
+    /// }
+    /// ```
+    #[must_use]
+    pub fn estimated_cost(&self) -> Option<f64> {
+        let usage = self.usage.as_ref()?;
+        cost::completion_cost(&self.model, usage.prompt_tokens, usage.completion_tokens)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

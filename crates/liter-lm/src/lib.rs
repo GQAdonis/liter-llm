@@ -1,4 +1,5 @@
 pub mod client;
+pub mod cost;
 pub mod error;
 pub(crate) mod http;
 pub(crate) mod provider;
