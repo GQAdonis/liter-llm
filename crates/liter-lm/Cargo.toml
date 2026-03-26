@@ -34,7 +34,11 @@ otel = ["tracing", "dep:tracing-opentelemetry", "dep:opentelemetry"]
 # using a `base_url` override pointing to a mock server).
 bedrock = ["native-http", "dep:aws-credential-types", "dep:aws-sigv4"]
 # Full feature set: native HTTP + tower + tracing + otel + bedrock.
-full = ["native-http", "tower", "tracing", "otel", "bedrock"]
+# Token counting via HuggingFace tokenizers.  Provides lazy-cached tokenizer
+# loading and token counting for text and chat completion requests.
+tokenizer = ["dep:tokenizers"]
+# Full feature set: native HTTP + tower + tracing + otel + bedrock + tokenizer.
+full = ["native-http", "tower", "tracing", "otel", "bedrock", "tokenizer"]
 default = ["native-http"]
 
 [dependencies]
@@ -51,6 +55,7 @@ secrecy = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tokenizers = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["time", "rt", "macros"], optional = true }
 tower = { workspace = true, optional = true }
 tower-http = { workspace = true, optional = true }
