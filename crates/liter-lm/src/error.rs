@@ -72,6 +72,31 @@ pub enum LiterLmError {
 }
 
 impl LiterLmError {
+    /// Return the OpenTelemetry `error.type` string for this error variant.
+    ///
+    /// Used by the tracing middleware to record the `error.type` span attribute
+    /// on failed requests per the GenAI semantic conventions.
+    #[must_use]
+    pub fn error_type(&self) -> &'static str {
+        match self {
+            Self::Authentication { .. } => "Authentication",
+            Self::RateLimited { .. } => "RateLimited",
+            Self::BadRequest { .. } => "BadRequest",
+            Self::ContextWindowExceeded { .. } => "ContextWindowExceeded",
+            Self::ContentPolicy { .. } => "ContentPolicy",
+            Self::NotFound { .. } => "NotFound",
+            Self::ServerError { .. } => "ServerError",
+            Self::ServiceUnavailable { .. } => "ServiceUnavailable",
+            Self::Timeout => "Timeout",
+            #[cfg(feature = "native-http")]
+            Self::Network(_) => "Network",
+            Self::Streaming { .. } => "Streaming",
+            Self::EndpointNotSupported { .. } => "EndpointNotSupported",
+            Self::InvalidHeader { .. } => "InvalidHeader",
+            Self::Serialization(_) => "Serialization",
+        }
+    }
+
     /// Create from an HTTP status code, an API error response body, and an
     /// optional `Retry-After` duration already parsed from the response header.
     ///
