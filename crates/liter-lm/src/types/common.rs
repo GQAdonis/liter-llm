@@ -49,6 +49,10 @@ pub enum ContentPart {
     Text { text: String },
     #[serde(rename = "image_url")]
     ImageUrl { image_url: ImageUrl },
+    #[serde(rename = "document")]
+    Document { document: DocumentContent },
+    #[serde(rename = "input_audio")]
+    InputAudio { input_audio: AudioContent },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -64,6 +68,22 @@ pub enum ImageDetail {
     Low,
     High,
     Auto,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DocumentContent {
+    /// Base64-encoded document data or URL.
+    pub data: String,
+    /// MIME type (e.g., "application/pdf", "text/csv").
+    pub media_type: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AudioContent {
+    /// Base64-encoded audio data.
+    pub data: String,
+    /// Audio format (e.g., "wav", "mp3", "ogg").
+    pub format: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

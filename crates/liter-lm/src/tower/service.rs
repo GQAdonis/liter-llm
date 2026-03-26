@@ -97,6 +97,26 @@ where
                     let resp = client.list_models().await?;
                     Ok(LlmResponse::ListModels(resp))
                 }
+                LlmRequest::ImageGenerate(r) => {
+                    let resp = client.image_generate(r).await?;
+                    Ok(LlmResponse::ImageGenerate(resp))
+                }
+                LlmRequest::Speech(r) => {
+                    let resp = client.speech(r).await?;
+                    Ok(LlmResponse::Speech(resp))
+                }
+                LlmRequest::Transcribe(r) => {
+                    let resp = client.transcribe(r).await?;
+                    Ok(LlmResponse::Transcribe(resp))
+                }
+                LlmRequest::Moderate(r) => {
+                    let resp = client.moderate(r).await?;
+                    Ok(LlmResponse::Moderate(resp))
+                }
+                LlmRequest::Rerank(r) => {
+                    let resp = client.rerank(r).await?;
+                    Ok(LlmResponse::Rerank(resp))
+                }
             }
         })
     }

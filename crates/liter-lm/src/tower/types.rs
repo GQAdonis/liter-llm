@@ -1,4 +1,8 @@
 use crate::client::BoxStream;
+use crate::types::audio::{CreateSpeechRequest, CreateTranscriptionRequest, TranscriptionResponse};
+use crate::types::image::{CreateImageRequest, ImagesResponse};
+use crate::types::moderation::{ModerationRequest, ModerationResponse};
+use crate::types::rerank::{RerankRequest, RerankResponse};
 use crate::types::{
     ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, EmbeddingRequest, EmbeddingResponse,
     ModelsListResponse, Usage,
@@ -17,6 +21,16 @@ pub enum LlmRequest {
     Embed(EmbeddingRequest),
     /// List available models from the provider.
     ListModels,
+    /// Image generation.
+    ImageGenerate(CreateImageRequest),
+    /// Text-to-speech audio generation.
+    Speech(CreateSpeechRequest),
+    /// Audio transcription.
+    Transcribe(CreateTranscriptionRequest),
+    /// Content moderation.
+    Moderate(ModerationRequest),
+    /// Document reranking.
+    Rerank(RerankRequest),
 }
 
 impl LlmRequest {
@@ -31,6 +45,11 @@ impl LlmRequest {
             Self::Chat(_) | Self::ChatStream(_) => "chat",
             Self::Embed(_) => "embeddings",
             Self::ListModels => "list_models",
+            Self::ImageGenerate(_) => "image_generate",
+            Self::Speech(_) => "speech",
+            Self::Transcribe(_) => "transcribe",
+            Self::Moderate(_) => "moderate",
+            Self::Rerank(_) => "rerank",
         }
     }
 
@@ -42,6 +61,11 @@ impl LlmRequest {
             Self::ChatStream(_) => "chat_stream",
             Self::Embed(_) => "embeddings",
             Self::ListModels => "list_models",
+            Self::ImageGenerate(_) => "image_generate",
+            Self::Speech(_) => "speech",
+            Self::Transcribe(_) => "transcribe",
+            Self::Moderate(_) => "moderate",
+            Self::Rerank(_) => "rerank",
         }
     }
 
@@ -51,6 +75,11 @@ impl LlmRequest {
         match self {
             Self::Chat(r) | Self::ChatStream(r) => Some(r.model.as_str()),
             Self::Embed(r) => Some(r.model.as_str()),
+            Self::ImageGenerate(r) => r.model.as_deref(),
+            Self::Speech(r) => Some(r.model.as_str()),
+            Self::Transcribe(r) => Some(r.model.as_str()),
+            Self::Moderate(r) => r.model.as_deref(),
+            Self::Rerank(r) => Some(r.model.as_str()),
             Self::ListModels => None,
         }
     }
@@ -66,19 +95,35 @@ pub enum LlmResponse {
     Embed(EmbeddingResponse),
     /// Model list.
     ListModels(ModelsListResponse),
+    /// Image generation.
+    ImageGenerate(ImagesResponse),
+    /// Text-to-speech audio (raw bytes).
+    Speech(bytes::Bytes),
+    /// Audio transcription.
+    Transcribe(TranscriptionResponse),
+    /// Content moderation.
+    Moderate(ModerationResponse),
+    /// Document reranking.
+    Rerank(RerankResponse),
 }
 
 impl LlmResponse {
     /// Return the usage data from the response, if present.
     ///
-    /// Streaming and model-list responses do not carry aggregated usage data
-    /// and always return `None`.
+    /// Streaming, model-list, and non-chat responses do not carry aggregated
+    /// usage data and always return `None`.
     #[must_use]
     pub fn usage(&self) -> Option<&Usage> {
         match self {
             Self::Chat(r) => r.usage.as_ref(),
             Self::Embed(r) => r.usage.as_ref(),
-            Self::ChatStream(_) | Self::ListModels(_) => None,
+            Self::ChatStream(_)
+            | Self::ListModels(_)
+            | Self::ImageGenerate(_)
+            | Self::Speech(_)
+            | Self::Transcribe(_)
+            | Self::Moderate(_)
+            | Self::Rerank(_) => None,
         }
     }
 }
@@ -90,6 +135,14 @@ impl std::fmt::Debug for LlmResponse {
             Self::ChatStream(_) => f.write_str("ChatStream(<stream>)"),
             Self::Embed(r) => f.debug_tuple("Embed").field(r).finish(),
             Self::ListModels(r) => f.debug_tuple("ListModels").field(r).finish(),
+            Self::ImageGenerate(r) => f.debug_tuple("ImageGenerate").field(r).finish(),
+            Self::Speech(b) => f
+                .debug_tuple("Speech")
+                .field(&format_args!("<{} bytes>", b.len()))
+                .finish(),
+            Self::Transcribe(r) => f.debug_tuple("Transcribe").field(r).finish(),
+            Self::Moderate(r) => f.debug_tuple("Moderate").field(r).finish(),
+            Self::Rerank(r) => f.debug_tuple("Rerank").field(r).finish(),
         }
     }
 }

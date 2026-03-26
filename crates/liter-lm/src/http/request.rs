@@ -121,6 +121,61 @@ pub async fn post_json_raw(
     resp.json::<serde_json::Value>().await.map_err(LiterLmError::from)
 }
 
+/// Send a POST request with a JSON body and return the raw response bytes.
+///
+/// Identical to [`post_json_raw`] except it returns `bytes::Bytes` instead of
+/// deserializing JSON.  Useful for endpoints that return binary data (e.g.
+/// text-to-speech audio).
+///
+/// Retries on 429 / 5xx according to `max_retries`.
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(
+        skip_all,
+        fields(
+            http.method = "POST",
+            http.url = %url,
+            http.status_code = tracing::field::Empty,
+            http.retry_count = tracing::field::Empty,
+        )
+    )
+)]
+pub async fn post_binary(
+    client: &reqwest::Client,
+    url: &str,
+    auth_header: Option<(&str, &str)>,
+    extra_headers: &[(&str, &str)],
+    body: Bytes,
+    max_retries: u32,
+) -> Result<Bytes> {
+    let mut retry_count = 0u32;
+
+    let resp = with_retry(max_retries, || {
+        let mut builder = client
+            .post(url)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(body.clone());
+        if let Some((name, value)) = auth_header {
+            builder = builder.header(name, value);
+        }
+        for (name, value) in extra_headers {
+            builder = builder.header(*name, *value);
+        }
+        retry_count += 1;
+        builder.send()
+    })
+    .await?;
+
+    #[cfg(feature = "tracing")]
+    {
+        let span = tracing::Span::current();
+        span.record("http.status_code", resp.status().as_u16());
+        span.record("http.retry_count", retry_count.saturating_sub(1));
+    }
+
+    resp.bytes().await.map_err(LiterLmError::from)
+}
+
 /// Send a GET request and deserialize the JSON response.
 ///
 /// Retries on 429 / 5xx according to `max_retries`, honouring any

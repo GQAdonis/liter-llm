@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod client;
 pub mod cost;
 pub mod error;
