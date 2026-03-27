@@ -126,8 +126,13 @@ jobs:
           }
           # Cargo workspace (reads [workspace.package] version)
           check "Cargo.toml" "$(grep -m1 '^version = "' Cargo.toml | grep -oP '"\K[^"]+')"
-          # Python
-          check "pyproject.toml" "$(grep -m1 '^version' packages/python/pyproject.toml | grep -oP '"\K[^"]+')"
+          # Python — normalize PEP 440 to semver before comparing (e.g. 1.0.0rc1 → 1.0.0-rc.1)
+          PY_VER=$(grep -m1 '^version' packages/python/pyproject.toml | grep -oP '"\K[^"]+')
+          PY_VER_NORM=$(echo "$PY_VER" \
+            | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+)rc([0-9]+)/\1-rc.\2/' \
+            | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+)a([0-9]+)/\1-alpha.\2/' \
+            | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+)b([0-9]+)/\1-beta.\2/')
+          check "pyproject.toml" "$PY_VER_NORM"
           # Node
           check "package.json (node)" "$(python3 -c "import json; print(json.load(open('packages/typescript/package.json'))['version'])")"
           # Ruby gemspec (gem format "1.0.0.pre.rc.1" → semver "1.0.0-rc.1")
@@ -290,6 +295,31 @@ jobs:
           registry: nuget
           package: LiterLlm
           version: ${{ needs.prepare.outputs.version }}
+
+  check-go:
+    name: Check Go FFI release assets
+    needs: [prepare, validate-versions]
+    if: needs.prepare.outputs.release_go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - name: Check release assets
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          ASSET="liter-llm-ffi-v${VERSION}-linux-x64.tar.gz"
+          if gh release view "$TAG" --repo ${{ github.repository }} --json assets \
+              | jq -e --arg name "$ASSET" '.assets[] | select(.name == $name)' > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        shell: bash
 
   # ─────────────────────────────────────────────────────────────────────────
   # Phase 4 — Build jobs
@@ -632,11 +662,18 @@ jobs:
   # ── Rust FFI (shared for Go / Java / C# / C consumers) ────────────────────
   build-ffi:
     name: Build Rust FFI (${{ matrix.label }})
-    needs: prepare
+    needs: [prepare, check-go, check-maven, check-nuget]
     if: |
-      needs.prepare.outputs.release_go == 'true' ||
-      needs.prepare.outputs.release_java == 'true' ||
-      needs.prepare.outputs.release_csharp == 'true'
+      always() &&
+      needs.prepare.result == 'success' &&
+      (
+        (needs.prepare.outputs.release_go == 'true' &&
+         (needs.check-go.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) ||
+        (needs.prepare.outputs.release_java == 'true' &&
+         (needs.check-maven.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) ||
+        (needs.prepare.outputs.release_csharp == 'true' &&
+         (needs.check-nuget.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true'))
+      )
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
@@ -774,8 +811,12 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   upload-go-ffi:
     name: Upload Go FFI assets
-    needs: [prepare, build-ffi]
-    if: always() && needs.prepare.outputs.release_go == 'true' && needs.build-ffi.result == 'success'
+    needs: [prepare, check-go, build-ffi]
+    if: |
+      always() &&
+      needs.prepare.outputs.release_go == 'true' &&
+      needs.build-ffi.result == 'success' &&
+      (needs.check-go.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
