@@ -27,5 +27,8 @@ pub use client::DefaultClient;
 pub use error::{LiterLlmError, Result};
 // Re-export the public provider helper functions that are part of the crate's
 // public API even though the `provider` module itself is pub(crate).
+pub use provider::custom::{
+    AuthHeaderFormat, CustomProviderConfig, register_custom_provider, unregister_custom_provider,
+};
 pub use provider::{ProviderConfig, all_providers, complex_provider_names};
 pub use types::*;

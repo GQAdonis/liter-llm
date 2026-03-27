@@ -6,6 +6,8 @@ use secrecy::SecretString;
 use crate::auth::CredentialProvider;
 #[cfg(feature = "native-http")]
 use crate::error::{LiterLlmError, Result};
+#[cfg(feature = "tower")]
+use crate::tower::{BudgetConfig, CacheConfig, CacheStore, LlmHook};
 
 /// Configuration for an LLM client.
 ///
@@ -35,6 +37,36 @@ pub struct ClientConfig {
     /// When set, the client calls `resolve()` before each request to obtain
     /// a fresh credential.  When `None`, the static `api_key` is used.
     pub credential_provider: Option<Arc<dyn CredentialProvider>>,
+
+    /// Configuration for the response cache Tower middleware layer.
+    ///
+    /// When set, bindings and advanced Rust users can use this to construct
+    /// a [`CacheLayer`](crate::tower::CacheLayer) in their Tower stack.
+    #[cfg(feature = "tower")]
+    pub cache_config: Option<CacheConfig>,
+
+    /// Custom cache store backend for the cache Tower middleware layer.
+    ///
+    /// When set alongside `cache_config`, the cache layer will use this
+    /// store instead of the default in-memory LRU.
+    #[cfg(feature = "tower")]
+    pub cache_store: Option<Arc<dyn CacheStore>>,
+
+    /// Configuration for the budget enforcement Tower middleware layer.
+    ///
+    /// When set, bindings and advanced Rust users can use this to construct
+    /// a [`BudgetLayer`](crate::tower::BudgetLayer) in their Tower stack.
+    #[cfg(feature = "tower")]
+    pub budget_config: Option<BudgetConfig>,
+
+    /// User-defined hooks for the hooks Tower middleware layer.
+    ///
+    /// These hooks are invoked at request lifecycle points (pre-request,
+    /// post-response, on-error) when a
+    /// [`HooksLayer`](crate::tower::HooksLayer) is constructed from this
+    /// config.
+    #[cfg(feature = "tower")]
+    pub hooks: Vec<Arc<dyn LlmHook>>,
 }
 
 impl ClientConfig {
@@ -47,6 +79,14 @@ impl ClientConfig {
             max_retries: 3,
             extra_headers: Vec::new(),
             credential_provider: None,
+            #[cfg(feature = "tower")]
+            cache_config: None,
+            #[cfg(feature = "tower")]
+            cache_store: None,
+            #[cfg(feature = "tower")]
+            budget_config: None,
+            #[cfg(feature = "tower")]
+            hooks: Vec::new(),
         }
     }
 
@@ -66,8 +106,8 @@ impl std::fmt::Debug for ClientConfig {
             .iter()
             .map(|(k, _v)| (k.as_str(), "[redacted]"))
             .collect();
-        f.debug_struct("ClientConfig")
-            .field("api_key", &"[redacted]")
+        let mut dbg = f.debug_struct("ClientConfig");
+        dbg.field("api_key", &"[redacted]")
             .field("base_url", &self.base_url)
             .field("timeout", &self.timeout)
             .field("max_retries", &self.max_retries)
@@ -75,8 +115,17 @@ impl std::fmt::Debug for ClientConfig {
             .field(
                 "credential_provider",
                 &self.credential_provider.as_ref().map(|_| "[configured]"),
-            )
-            .finish()
+            );
+
+        #[cfg(feature = "tower")]
+        {
+            dbg.field("cache_config", &self.cache_config)
+                .field("cache_store", &self.cache_store.as_ref().map(|_| "[configured]"))
+                .field("budget_config", &self.budget_config)
+                .field("hooks_count", &self.hooks.len());
+        }
+
+        dbg.finish()
     }
 }
 
@@ -151,6 +200,58 @@ impl ClientConfigBuilder {
 
         self.config.extra_headers.push((key, value));
         Ok(self)
+    }
+
+    /// Set the response cache configuration for the Tower middleware stack.
+    ///
+    /// When set, bindings and advanced Rust users can read this from the
+    /// built [`ClientConfig`] to construct a
+    /// [`CacheLayer`](crate::tower::CacheLayer).
+    #[cfg(feature = "tower")]
+    pub fn cache(mut self, config: CacheConfig) -> Self {
+        self.config.cache_config = Some(config);
+        self
+    }
+
+    /// Set a custom cache store backend for the Tower cache middleware.
+    ///
+    /// When set alongside [`cache`](Self::cache), the cache layer will use
+    /// this store instead of the default in-memory LRU.
+    #[cfg(feature = "tower")]
+    pub fn cache_store(mut self, store: Arc<dyn CacheStore>) -> Self {
+        self.config.cache_store = Some(store);
+        self
+    }
+
+    /// Set the budget enforcement configuration for the Tower middleware stack.
+    ///
+    /// When set, bindings and advanced Rust users can read this from the
+    /// built [`ClientConfig`] to construct a
+    /// [`BudgetLayer`](crate::tower::BudgetLayer).
+    #[cfg(feature = "tower")]
+    pub fn budget(mut self, config: BudgetConfig) -> Self {
+        self.config.budget_config = Some(config);
+        self
+    }
+
+    /// Add a single hook to the Tower hooks middleware stack.
+    ///
+    /// Hooks are invoked sequentially in registration order at request
+    /// lifecycle points (pre-request, post-response, on-error).
+    #[cfg(feature = "tower")]
+    pub fn hook(mut self, hook: Arc<dyn LlmHook>) -> Self {
+        self.config.hooks.push(hook);
+        self
+    }
+
+    /// Set the full list of hooks for the Tower hooks middleware stack,
+    /// replacing any previously registered hooks.
+    ///
+    /// Hooks are invoked sequentially in registration order.
+    #[cfg(feature = "tower")]
+    pub fn hooks(mut self, hooks: Vec<Arc<dyn LlmHook>>) -> Self {
+        self.config.hooks = hooks;
+        self
     }
 
     /// Consume the builder and return the completed [`ClientConfig`].

@@ -12,25 +12,26 @@
 #define LITER_LLM_VERSION_PATCH 0
 #define LITER_LLM_VERSION "1.0.0-rc.2"
 
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 /* Symbol visibility */
 #ifndef LITER_LLM_EXPORT
-#if defined(LITER_LLM_STATIC)
-#define LITER_LLM_EXPORT
-#elif defined(_WIN32) || defined(__CYGWIN__)
-#ifdef LITER_LLM_BUILDING
-#define LITER_LLM_EXPORT __declspec(dllexport)
-#else
-#define LITER_LLM_EXPORT __declspec(dllimport)
-#endif
-#elif defined(__GNUC__) || defined(__clang__)
-#define LITER_LLM_EXPORT __attribute__((visibility("default")))
-#else
-#define LITER_LLM_EXPORT
-#endif
+  #if defined(LITER_LLM_STATIC)
+    #define LITER_LLM_EXPORT
+  #elif defined(_WIN32) || defined(__CYGWIN__)
+    #ifdef LITER_LLM_BUILDING
+      #define LITER_LLM_EXPORT __declspec(dllexport)
+    #else
+      #define LITER_LLM_EXPORT __declspec(dllimport)
+    #endif
+  #elif defined(__GNUC__) || defined(__clang__)
+    #define LITER_LLM_EXPORT __attribute__((visibility("default")))
+  #else
+    #define LITER_LLM_EXPORT
+  #endif
 #endif
 
 /* Compiler attribute helpers
@@ -42,11 +43,11 @@
  *                         this lets GCC/Clang warn at compile time.
  */
 #if defined(__GNUC__) || defined(__clang__)
-#define LITER_LLM_WARN_UNUSED __attribute__((warn_unused_result))
-#define LITER_LLM_NONNULL(...) __attribute__((nonnull(__VA_ARGS__)))
+#  define LITER_LLM_WARN_UNUSED   __attribute__((warn_unused_result))
+#  define LITER_LLM_NONNULL(...)  __attribute__((nonnull(__VA_ARGS__)))
 #else
-#define LITER_LLM_WARN_UNUSED
-#define LITER_LLM_NONNULL(...)
+#  define LITER_LLM_WARN_UNUSED
+#  define LITER_LLM_NONNULL(...)
 #endif
 
 /**
@@ -54,6 +55,7 @@
  * Create with literllm_client_new(), free with literllm_client_free().
  */
 typedef struct LiterLlmClient LiterLlmClient;
+
 
 /**
  * Callback invoked for each SSE chunk during a streaming chat completion.
@@ -95,7 +97,8 @@ typedef void (*LiterLlmStreamCallback)(const char *chunk_json, void *user_data);
  * - The caller owns the returned pointer and must call `literllm_client_free` exactly once.
  */
 LITER_LLM_EXPORT
-LiterLlmClient *literllm_client_new(const char *api_key, const char *base_url,
+LiterLlmClient *literllm_client_new(const char *api_key,
+                                    const char *base_url,
                                     const char *model_hint);
 
 /**
@@ -161,8 +164,10 @@ LITER_LLM_EXPORT char *literllm_chat(const LiterLlmClient *client, const char *r
  * - `user_data` is forwarded as-is; the caller is responsible for its lifetime.
  */
 LITER_LLM_EXPORT
-int32_t literllm_chat_stream(const LiterLlmClient *client, const char *request_json,
-                             LiterLlmStreamCallback callback, void *user_data);
+int32_t literllm_chat_stream(const LiterLlmClient *client,
+                             const char *request_json,
+                             LiterLlmStreamCallback callback,
+                             void *user_data);
 
 /**
  * Send an embedding request.
@@ -230,7 +235,8 @@ LITER_LLM_EXPORT char *literllm_list_models(const LiterLlmClient *client);
  * - `request_json` must be a valid, non-null, NUL-terminated UTF-8 JSON string.
  */
 LITER_LLM_EXPORT
-char *literllm_image_generate(const LiterLlmClient *client, const char *request_json);
+char *literllm_image_generate(const LiterLlmClient *client,
+                              const char *request_json);
 
 /**
  * Generate speech audio from text.
@@ -448,7 +454,8 @@ LITER_LLM_EXPORT char *literllm_file_content(const LiterLlmClient *client, const
  * - `request_json` must be a valid, non-null, NUL-terminated UTF-8 JSON string.
  */
 LITER_LLM_EXPORT
-char *literllm_create_batch(const LiterLlmClient *client, const char *request_json);
+char *literllm_create_batch(const LiterLlmClient *client,
+                            const char *request_json);
 
 /**
  * Retrieve a batch by ID.
@@ -535,7 +542,8 @@ LITER_LLM_EXPORT char *literllm_cancel_batch(const LiterLlmClient *client, const
  * - `request_json` must be a valid, non-null, NUL-terminated UTF-8 JSON string.
  */
 LITER_LLM_EXPORT
-char *literllm_create_response(const LiterLlmClient *client, const char *request_json);
+char *literllm_create_response(const LiterLlmClient *client,
+                               const char *request_json);
 
 /**
  * Retrieve a response by ID.
@@ -557,7 +565,8 @@ char *literllm_create_response(const LiterLlmClient *client, const char *request
  * - `response_id` must be a valid, non-null, NUL-terminated UTF-8 string.
  */
 LITER_LLM_EXPORT
-char *literllm_retrieve_response(const LiterLlmClient *client, const char *response_id);
+char *literllm_retrieve_response(const LiterLlmClient *client,
+                                 const char *response_id);
 
 /**
  * Cancel an in-progress response.
@@ -579,7 +588,8 @@ char *literllm_retrieve_response(const LiterLlmClient *client, const char *respo
  * - `response_id` must be a valid, non-null, NUL-terminated UTF-8 string.
  */
 LITER_LLM_EXPORT
-char *literllm_cancel_response(const LiterLlmClient *client, const char *response_id);
+char *literllm_cancel_response(const LiterLlmClient *client,
+                               const char *response_id);
 
 /**
  * Retrieve the last error message for the current thread.
@@ -622,4 +632,42 @@ LITER_LLM_EXPORT void literllm_free_string(char *s);
  */
 LITER_LLM_EXPORT const char *literllm_version(void);
 
-#endif /* LITER_LLM_FFI_H */
+/**
+ * Register a custom LLM provider at runtime.
+ *
+ * # Parameters
+ *
+ * - `config_json`: NUL-terminated JSON string conforming to the
+ *   [`CustomProviderConfig`](liter_llm::CustomProviderConfig) schema.
+ *
+ * # Return value
+ *
+ * Returns `0` on success, `-1` on failure.
+ * Check [`literllm_last_error`] for the error message when `-1` is returned.
+ *
+ * # Safety
+ *
+ * - `config_json` must be a valid, non-null, NUL-terminated UTF-8 JSON string.
+ */
+LITER_LLM_EXPORT int32_t literllm_register_provider(const char *config_json);
+
+/**
+ * Unregister a previously registered custom provider by name.
+ *
+ * # Parameters
+ *
+ * - `name`: NUL-terminated provider name string.
+ *
+ * # Return value
+ *
+ * Returns `0` if the provider was found and removed, `1` if no provider with
+ * that name existed, or `-1` on failure.
+ * Check [`literllm_last_error`] for the error message when `-1` is returned.
+ *
+ * # Safety
+ *
+ * - `name` must be a valid, non-null, NUL-terminated UTF-8 string.
+ */
+LITER_LLM_EXPORT int32_t literllm_unregister_provider(const char *name);
+
+#endif  /* LITER_LLM_FFI_H */
