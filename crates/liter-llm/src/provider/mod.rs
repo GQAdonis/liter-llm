@@ -324,6 +324,7 @@ pub mod anthropic;
 pub mod azure;
 pub mod bedrock;
 pub mod cohere;
+pub mod custom;
 pub mod google_ai;
 pub mod mistral;
 pub mod vertex;
@@ -485,6 +486,11 @@ impl Provider for ConfigDrivenProvider {
 /// are excluded from config-driven routing because they require custom
 /// auth/request logic beyond simple bearer tokens.
 pub fn detect_provider(model: &str) -> Option<Box<dyn Provider>> {
+    // 0. Custom (runtime-registered) providers take highest priority.
+    if let Some(provider) = custom::detect_custom_provider(model) {
+        return Some(provider);
+    }
+
     // 1. OpenAI hardcoded patterns.
     let openai = OpenAiProvider;
     if openai.matches_model(model) {

@@ -1479,6 +1479,105 @@ pub extern "C" fn literllm_version() -> *const c_char {
 }
 
 // ---------------------------------------------------------------------------
+// Custom provider registration
+// ---------------------------------------------------------------------------
+
+/// Register a custom LLM provider at runtime.
+///
+/// # Parameters
+///
+/// - `config_json`: NUL-terminated JSON string conforming to the
+///   [`CustomProviderConfig`](liter_llm::CustomProviderConfig) schema.
+///
+/// # Return value
+///
+/// Returns `0` on success, `-1` on failure.
+/// Check [`literllm_last_error`] for the error message when `-1` is returned.
+///
+/// # Safety
+///
+/// - `config_json` must be a valid, non-null, NUL-terminated UTF-8 JSON string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn literllm_register_provider(config_json: *const c_char) -> i32 {
+    clear_last_error();
+
+    if config_json.is_null() {
+        set_last_error("literllm_register_provider: config_json must not be NULL".into());
+        return -1;
+    }
+
+    // SAFETY: caller guarantees `config_json` is non-null and NUL-terminated.
+    let json_str = match unsafe { CStr::from_ptr(config_json) }.to_str() {
+        Ok(s) => s,
+        Err(e) => {
+            set_last_error(format!(
+                "literllm_register_provider: config_json is not valid UTF-8: {e}"
+            ));
+            return -1;
+        }
+    };
+
+    let config: liter_llm::CustomProviderConfig = match serde_json::from_str(json_str) {
+        Ok(c) => c,
+        Err(e) => {
+            set_last_error(format!("literllm_register_provider: failed to parse config JSON: {e}"));
+            return -1;
+        }
+    };
+
+    match liter_llm::register_custom_provider(config) {
+        Ok(()) => 0,
+        Err(e) => {
+            set_last_error(format!("literllm_register_provider: {e}"));
+            -1
+        }
+    }
+}
+
+/// Unregister a previously registered custom provider by name.
+///
+/// # Parameters
+///
+/// - `name`: NUL-terminated provider name string.
+///
+/// # Return value
+///
+/// Returns `0` if the provider was found and removed, `1` if no provider with
+/// that name existed, or `-1` on failure.
+/// Check [`literllm_last_error`] for the error message when `-1` is returned.
+///
+/// # Safety
+///
+/// - `name` must be a valid, non-null, NUL-terminated UTF-8 string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn literllm_unregister_provider(name: *const c_char) -> i32 {
+    clear_last_error();
+
+    if name.is_null() {
+        set_last_error("literllm_unregister_provider: name must not be NULL".into());
+        return -1;
+    }
+
+    // SAFETY: caller guarantees `name` is non-null and NUL-terminated.
+    let name_str = match unsafe { CStr::from_ptr(name) }.to_str() {
+        Ok(s) => s,
+        Err(e) => {
+            set_last_error(format!("literllm_unregister_provider: name is not valid UTF-8: {e}"));
+            return -1;
+        }
+    };
+
+    match liter_llm::unregister_custom_provider(name_str) {
+        Ok(true) => 0,
+        Ok(false) => 1,
+        Err(e) => {
+            set_last_error(format!("literllm_unregister_provider: {e}"));
+            -1
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1592,5 +1691,59 @@ mod tests {
         assert!(result.is_null());
         let err = literllm_last_error();
         assert!(!err.is_null());
+    }
+
+    #[test]
+    fn register_provider_null_json_returns_error() {
+        // SAFETY: NULL is documented to return -1 + set error.
+        let result = unsafe { literllm_register_provider(std::ptr::null()) };
+        assert_eq!(result, -1);
+        let err = literllm_last_error();
+        assert!(!err.is_null());
+        let msg = unsafe { CStr::from_ptr(err) }.to_str().unwrap();
+        assert!(msg.contains("NULL"));
+    }
+
+    #[test]
+    fn register_provider_invalid_json_returns_error() {
+        let json = CString::new("not valid json").unwrap();
+        // SAFETY: json is a valid NUL-terminated string.
+        let result = unsafe { literllm_register_provider(json.as_ptr()) };
+        assert_eq!(result, -1);
+        let err = literllm_last_error();
+        assert!(!err.is_null());
+        let msg = unsafe { CStr::from_ptr(err) }.to_str().unwrap();
+        assert!(msg.contains("parse"));
+    }
+
+    #[test]
+    fn register_and_unregister_provider_via_ffi() {
+        let json = CString::new(
+            r#"{"name":"ffi-test","base_url":"https://example.com/v1","auth_header":"Bearer","model_prefixes":["ffi-test/"]}"#,
+        )
+        .unwrap();
+        // SAFETY: json is a valid NUL-terminated string.
+        let result = unsafe { literllm_register_provider(json.as_ptr()) };
+        assert_eq!(result, 0, "registration should succeed");
+
+        let name = CString::new("ffi-test").unwrap();
+        // SAFETY: name is a valid NUL-terminated string.
+        let result = unsafe { literllm_unregister_provider(name.as_ptr()) };
+        assert_eq!(result, 0, "unregister should return 0 (found and removed)");
+
+        // Unregister again — should return 1 (not found).
+        let result = unsafe { literllm_unregister_provider(name.as_ptr()) };
+        assert_eq!(result, 1, "unregister should return 1 (not found)");
+    }
+
+    #[test]
+    fn unregister_provider_null_name_returns_error() {
+        // SAFETY: NULL is documented to return -1 + set error.
+        let result = unsafe { literllm_unregister_provider(std::ptr::null()) };
+        assert_eq!(result, -1);
+        let err = literllm_last_error();
+        assert!(!err.is_null());
+        let msg = unsafe { CStr::from_ptr(err) }.to_str().unwrap();
+        assert!(msg.contains("NULL"));
     }
 }
