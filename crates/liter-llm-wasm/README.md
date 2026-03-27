@@ -98,7 +98,7 @@ yarn add @kreuzberg/liter-llm-wasm
 Send a message to any provider using the `provider/model` prefix:
 
 ```typescript
-import init, { LlmClient } from "liter-llm-wasm";
+import init, { LlmClient } from "@kreuzberg/liter-llm-wasm";
 
 await init();
 
@@ -118,7 +118,7 @@ console.log(response.choices[0].message.content);
 Stream tokens in real time:
 
 ```typescript
-import init, { LlmClient } from "liter-llm-wasm";
+import init, { LlmClient } from "@kreuzberg/liter-llm-wasm";
 
 await init();
 

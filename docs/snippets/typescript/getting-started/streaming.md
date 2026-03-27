@@ -1,5 +1,5 @@
 ```typescript
-import { LlmClient } from "liter-llm";
+import { LlmClient } from "@kreuzberg/liter-llm";
 
 const client = new LlmClient({ apiKey: process.env.OPENAI_API_KEY! });
 const chunks = await client.chatStream({

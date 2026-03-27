@@ -112,7 +112,7 @@ from liter_llm import LlmClient
 
 async def main() -> None:
     client = LlmClient(api_key=os.environ["OPENAI_API_KEY"])
-    async for chunk in client.chat_stream(
+    async for chunk in await client.chat_stream(
         model="openai/gpt-4o",
         messages=[{"role": "user", "content": "Tell me a story"}],
     ):

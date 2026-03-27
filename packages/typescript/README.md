@@ -11,7 +11,7 @@
   <a href="https://www.npmjs.com/package/liter-llm">
     <img src="https://img.shields.io/npm/v/liter-llm?label=TypeScript&color=007ec6" alt="TypeScript">
   </a>
-  <a href="https://pkg.go.dev/github.com/kreuzberg-dev/liter-llm/go">
+  <a href="https://pkg.go.dev/github.com/kreuzberg-dev/liter-llm/packages/go">
     <img src="https://img.shields.io/github/v/tag/kreuzberg-dev/liter-llm?label=Go&color=007ec6" alt="Go">
   </a>
   <a href="https://central.sonatype.com/artifact/dev.kreuzberg/liter-llm">

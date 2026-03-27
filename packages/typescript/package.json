@@ -1,5 +1,5 @@
 {
-	"name": "liter-llm",
+	"name": "@kreuzberg/liter-llm",
 	"version": "1.0.0-rc.1",
 	"description": "High-performance LLM client library \u2014 unified interface for streaming, tool calling, and provider routing across 50+ providers",
 	"keywords": [

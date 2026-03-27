@@ -1,5 +1,5 @@
 ```typescript
-import { LlmClient } from "liter-llm";
+import { LlmClient } from "@kreuzberg/liter-llm";
 
 const client = new LlmClient({
   apiKey: "sk-...",           // or set OPENAI_API_KEY env var
