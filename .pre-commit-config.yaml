@@ -102,10 +102,13 @@ repos:
       - id: shfmt
         args: ["-w", "-i", "2"]
 
-  - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.11.0
+  - repo: local
     hooks:
       - id: shellcheck
+        name: shellcheck
+        entry: shellcheck
+        language: system
+        types: [shell]
 
   # GitHub Actions: linting
   - repo: https://github.com/rhysd/actionlint
@@ -161,7 +164,13 @@ repos:
         args: [--style=file]
         files: (^crates/liter-llm-ffi/)
         exclude: (include/)
+  - repo: local
+    hooks:
       - id: cppcheck
+        name: cppcheck
+        entry: cppcheck
+        language: system
+        types: [c]
         args:
           [
             "--std=c11",

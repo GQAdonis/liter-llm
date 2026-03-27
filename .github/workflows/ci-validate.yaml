@@ -160,16 +160,11 @@ jobs:
         run: task csharp:install
         shell: bash
 
-      - name: Install Prek
-        run: pip install prek
+      - name: Install C/C++ tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cppcheck clang-format shellcheck
         shell: bash
-
-      - name: Load Cached Prek Dependencies
-        id: cached-prek-dependencies
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/prek/
-          key: prek|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Run Rust Lint Check
         run: task rust:lint:check
@@ -208,8 +203,9 @@ jobs:
         shell: bash
 
       - name: Run Pre-commit Hooks
-        run: prek run --all-files
-        shell: bash
+        uses: j178/prek-action@v2
+        with:
+          extra-args: --all-files
 
       - name: Validate READMEs
         run: task generate:readme:check
