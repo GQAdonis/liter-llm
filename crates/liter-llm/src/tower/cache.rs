@@ -51,6 +51,19 @@ impl Default for CacheConfig {
 /// The subset of [`LlmResponse`] variants that can be cached.
 ///
 /// Streaming responses are not cacheable because they are consumed once.
+///
+/// # Performance note
+///
+/// `CachedResponse` is `Clone`d on every cache hit (to return a value while
+/// keeping the cache entry) and when storing (the response inner is cloned to
+/// build a `CachedResponse` while the original `LlmResponse` is returned to
+/// the caller).  For typical chat/embedding payloads this is inexpensive, but
+/// callers caching very large responses should be aware of the allocation
+/// cost.  An `Arc<CachedResponse>` wrapper was considered but rejected
+/// because it would complicate the [`CacheStore`] trait's serialisation
+/// contract (`Serialize`/`Deserialize` on `Arc` requires special handling)
+/// and would not benefit external store implementations (Redis, DynamoDB)
+/// that must serialise on every read anyway.
 #[derive(Clone, Serialize, Deserialize)]
 pub enum CachedResponse {
     /// A cached chat completion response.
@@ -141,6 +154,9 @@ impl InnerCache {
         if entry.inserted_at.elapsed() > self.ttl {
             return None;
         }
+        // Clone is required: the cache retains ownership while the caller
+        // receives an independent copy.  See `CachedResponse` doc comment for
+        // performance discussion.
         Some(entry.response.clone())
     }
 

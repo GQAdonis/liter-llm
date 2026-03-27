@@ -25,10 +25,12 @@
 //! ```
 
 use std::future::Future;
+use std::panic::AssertUnwindSafe;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use futures_util::FutureExt as _;
 use tower::Layer;
 use tower::Service;
 
@@ -138,23 +140,47 @@ where
         let fut = self.inner.call(req);
 
         Box::pin(async move {
-            // Pre-hooks: run sequentially; short-circuit on first Err.
+            // Pre-hooks: run sequentially; short-circuit on first Err or panic.
             for hook in hooks.iter() {
-                hook.on_request(&req_clone).await?;
+                let result = AssertUnwindSafe(hook.on_request(&req_clone)).catch_unwind().await;
+                match result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => return Err(e),
+                    Err(_panic) => {
+                        tracing::error!("hook panicked during on_request");
+                        return Err(LiterLlmError::HookRejected {
+                            message: "hook panicked".into(),
+                        });
+                    }
+                }
             }
 
             match fut.await {
                 Ok(resp) => {
-                    // Post-hooks (success path).
+                    // Post-hooks (success path) — panics are logged but do not
+                    // propagate so the caller still receives the response.
                     for hook in hooks.iter() {
-                        hook.on_response(&req_clone, &resp).await;
+                        if AssertUnwindSafe(hook.on_response(&req_clone, &resp))
+                            .catch_unwind()
+                            .await
+                            .is_err()
+                        {
+                            tracing::error!("hook panicked during on_response");
+                        }
                     }
                     Ok(resp)
                 }
                 Err(err) => {
-                    // Post-hooks (error path).
+                    // Post-hooks (error path) — panics are logged but do not
+                    // replace the original error.
                     for hook in hooks.iter() {
-                        hook.on_error(&req_clone, &err).await;
+                        if AssertUnwindSafe(hook.on_error(&req_clone, &err))
+                            .catch_unwind()
+                            .await
+                            .is_err()
+                        {
+                            tracing::error!("hook panicked during on_error");
+                        }
                     }
                     Err(err)
                 }
@@ -220,7 +246,7 @@ mod tests {
     impl LlmHook for RejectAllHook {
         fn on_request(&self, _req: &LlmRequest) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
             Box::pin(async {
-                Err(LiterLlmError::ContentPolicy {
+                Err(LiterLlmError::HookRejected {
                     message: "rejected by guardrail".into(),
                 })
             })
@@ -304,7 +330,7 @@ mod tests {
             .await
             .expect_err("should be rejected by guardrail");
 
-        assert!(matches!(err, LiterLlmError::ContentPolicy { .. }));
+        assert!(matches!(err, LiterLlmError::HookRejected { .. }));
         // The inner service must NOT have been called.
         assert_eq!(call_count.load(Ordering::SeqCst), 0);
     }
