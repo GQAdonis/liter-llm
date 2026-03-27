@@ -8,7 +8,10 @@
 //! Two enforcement modes are supported:
 //!
 //! - **Hard** — pre-request check rejects with [`LiterLlmError::BudgetExceeded`]
-//!   when the accumulated spend is at or above the configured limit.
+//!   when the accumulated spend is at or above the configured limit.  Note that
+//!   hard enforcement is **best-effort** under concurrent load: because cost is
+//!   recorded after the response, concurrent in-flight requests may collectively
+//!   overshoot the limit.  See [`check_budget`] for details.
 //! - **Soft** — requests are never rejected; a `tracing::warn!` is emitted when
 //!   the limit is exceeded.
 //!
@@ -260,6 +263,15 @@ where
 
 /// Check whether the current spend exceeds any configured limit.  Returns
 /// `Some(LiterLlmError)` if the budget is exceeded under hard enforcement.
+///
+/// **Concurrency note:** This check is best-effort under concurrent load.
+/// Because the budget is checked (read) before the request and recorded
+/// (write) after the response, concurrent requests may all pass the
+/// pre-flight check before any of them record their cost.  This means
+/// hard enforcement can slightly overshoot the configured limit by up to
+/// `N * max_single_request_cost` where `N` is the number of concurrent
+/// in-flight requests.  For strict dollar-accurate enforcement, use an
+/// external budget service with transactional semantics.
 fn check_budget(config: &BudgetConfig, state: &BudgetState, model: &str) -> Option<LiterLlmError> {
     // Global limit check.
     if let Some(limit) = config.global_limit

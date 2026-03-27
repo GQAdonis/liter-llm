@@ -23,7 +23,7 @@ native-http = ["dep:reqwest", "dep:tokio", "dep:memchr", "dep:base64"]
 # Tower middleware integration.
 tracing = ["dep:tracing"]
 # Tower middleware integration (LlmService, TracingLayer, FallbackLayer).
-tower = ["dep:tower", "dep:tower-http", "dep:dashmap", "tracing"]
+tower = ["dep:tower", "dep:tower-http", "dep:dashmap", "dep:futures-util", "tracing"]
 # OpenTelemetry export bridge via `tracing-opentelemetry`.  Depends on `tracing`
 # and re-exports `tracing_opentelemetry` so callers can compose their own
 # subscriber stack without a hard dependency on the crate themselves.
@@ -65,6 +65,7 @@ base64 = { workspace = true, optional = true }
 bytes = { workspace = true }
 dashmap = { workspace = true, optional = true }
 futures-core = { workspace = true }
+futures-util = { workspace = true, optional = true }
 jsonwebtoken = { workspace = true, optional = true }
 memchr = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }

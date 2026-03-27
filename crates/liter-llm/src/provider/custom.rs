@@ -124,20 +124,27 @@ pub(crate) fn clear_custom_providers() {
 // ── Validation ───────────────────────────────────────────────────────────────
 
 fn validate_config(config: &CustomProviderConfig) -> Result<()> {
-    if config.name.is_empty() {
+    if config.name.trim().is_empty() {
         return Err(LiterLlmError::BadRequest {
-            message: "custom provider name must not be empty".into(),
+            message: "custom provider name must not be empty or whitespace-only".into(),
         });
     }
-    if config.base_url.is_empty() {
+    if config.base_url.trim().is_empty() {
         return Err(LiterLlmError::BadRequest {
-            message: "custom provider base_url must not be empty".into(),
+            message: "custom provider base_url must not be empty or whitespace-only".into(),
         });
     }
     if config.model_prefixes.is_empty() {
         return Err(LiterLlmError::BadRequest {
             message: "custom provider must have at least one model prefix".into(),
         });
+    }
+    for prefix in &config.model_prefixes {
+        if prefix.is_empty() {
+            return Err(LiterLlmError::BadRequest {
+                message: "custom provider model prefix must not be empty (would match all models)".into(),
+            });
+        }
     }
     Ok(())
 }

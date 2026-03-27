@@ -78,6 +78,9 @@ pub enum LiterLlmError {
 
     #[error("budget exceeded: {message}")]
     BudgetExceeded { message: String, model: Option<String> },
+
+    #[error("hook rejected: {message}")]
+    HookRejected { message: String },
 }
 
 impl LiterLlmError {
@@ -122,6 +125,7 @@ impl LiterLlmError {
             Self::InvalidHeader { .. } => "InvalidHeader",
             Self::Serialization(_) => "Serialization",
             Self::BudgetExceeded { .. } => "BudgetExceeded",
+            Self::HookRejected { .. } => "HookRejected",
         }
     }
 

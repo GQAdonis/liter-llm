@@ -1879,6 +1879,7 @@ dependencies = [
  "bytes",
  "dashmap",
  "futures-core",
+ "futures-util",
  "jsonschema",
  "jsonwebtoken",
  "memchr",
