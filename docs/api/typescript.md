@@ -7,9 +7,9 @@ description: "liter-llm TypeScript / Node.js API reference"
 ## Installation
 
 ```bash
-pnpm add liter-llm
+pnpm add @kreuzberg/liter-llm
 # or
-npm install liter-llm
+npm install @kreuzberg/liter-llm
 ```
 
 ## Client

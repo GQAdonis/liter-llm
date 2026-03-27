@@ -27,15 +27,15 @@ liter-llm ships prebuilt native packages for all major languages. No Rust toolch
     Requires Node.js 18+
 
     ```bash
-    pnpm add liter-llm
+    pnpm add @kreuzberg/liter-llm
     ```
 
     Or with npm / yarn:
 
     ```bash
-    npm install liter-llm
+    npm install @kreuzberg/liter-llm
     # or
-    yarn add liter-llm
+    yarn add @kreuzberg/liter-llm
     ```
 
 === "Rust"
@@ -51,7 +51,7 @@ liter-llm ships prebuilt native packages for all major languages. No Rust toolch
     Requires Go 1.23+
 
     ```bash
-    go get github.com/kreuzberg-dev/liter-llm/go
+    go get github.com/kreuzberg-dev/liter-llm/packages/go
     ```
 
 === "Java"
@@ -127,7 +127,7 @@ liter-llm ships prebuilt native packages for all major languages. No Rust toolch
 === "WebAssembly"
 
     ```bash
-    pnpm add liter-llm-wasm
+    pnpm add @kreuzberg/liter-llm-wasm
     ```
 
 === "C / FFI"
@@ -172,7 +172,7 @@ You can also pass the key directly at client construction:
 === "TypeScript"
 
     ```typescript
-    import { LlmClient } from "liter-llm";
+    import { LlmClient } from "@kreuzberg/liter-llm";
 
     const client = new LlmClient({ apiKey: "sk-..." });
     ```
@@ -200,7 +200,7 @@ You can also pass the key directly at client construction:
 === "TypeScript"
 
     ```bash
-    node -e "import('liter-llm').then(m => { new m.LlmClient({ apiKey: 'test' }); console.log('ok') })"
+    node -e "import('@kreuzberg/liter-llm').then(m => { new m.LlmClient({ apiKey: 'test' }); console.log('ok') })"
     ```
 
 === "Rust"

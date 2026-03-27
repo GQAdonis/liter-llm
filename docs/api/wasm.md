@@ -9,7 +9,7 @@ The WASM package exposes a JavaScript-friendly `LlmClient` class via `wasm-bindg
 ## Installation
 
 ```bash
-npm install liter-llm-wasm
+npm install @kreuzberg/liter-llm-wasm
 ```
 
 ## Setup

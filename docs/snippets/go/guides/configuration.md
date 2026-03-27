@@ -6,7 +6,7 @@ import (
  "fmt"
  "time"
 
- llm "github.com/kreuzberg-dev/liter-llm/go"
+ llm "github.com/kreuzberg-dev/liter-llm/packages/go"
 )
 
 func main() {

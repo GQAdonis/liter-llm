@@ -9,7 +9,7 @@ The Go package is a pure-Go HTTP client that speaks the OpenAI-compatible wire p
 ## Installation
 
 ```bash
-go get github.com/kreuzberg-dev/liter-llm/go
+go get github.com/kreuzberg-dev/liter-llm/packages/go
 ```
 
 ## Client
@@ -17,7 +17,7 @@ go get github.com/kreuzberg-dev/liter-llm/go
 ### Constructor
 
 ```go
-import literllm "github.com/kreuzberg-dev/liter-llm/go"
+import literllm "github.com/kreuzberg-dev/liter-llm/packages/go"
 
 client := literllm.NewClient(
     literllm.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
@@ -185,7 +185,7 @@ import (
     "fmt"
     "os"
 
-    literllm "github.com/kreuzberg-dev/liter-llm/go"
+    literllm "github.com/kreuzberg-dev/liter-llm/packages/go"
 )
 
 func main() {

@@ -146,7 +146,7 @@ import (
  "fmt"
  "log"
 
- literllm "github.com/kreuzberg-dev/liter-llm/go"
+ literllm "github.com/kreuzberg-dev/liter-llm/packages/go"
 )
 
 func main() {

@@ -140,7 +140,7 @@ Switch providers by changing the model string -- no other code changes needed:
 === "TypeScript"
 
     ```typescript
-    import { LlmClient } from "liter-llm";
+    import { LlmClient } from "@kreuzberg/liter-llm";
 
     const messages = [{ role: "user", content: "What is the capital of France?" }];
 

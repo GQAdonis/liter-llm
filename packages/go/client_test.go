@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	literllm "github.com/kreuzberg-dev/liter-llm/go"
+	literllm "github.com/kreuzberg-dev/liter-llm/packages/go"
 )
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

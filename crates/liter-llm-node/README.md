@@ -106,7 +106,7 @@ Pre-built binaries available for:
 Send a message to any provider using the `provider/model` prefix:
 
 ```typescript
-import { LlmClient } from "liter-llm";
+import { LlmClient } from "@kreuzberg/liter-llm";
 
 const client = new LlmClient({ apiKey: process.env.OPENAI_API_KEY! });
 const response = await client.chat({
@@ -123,7 +123,7 @@ console.log(response.choices[0].message.content);
 Stream tokens in real time:
 
 ```typescript
-import { LlmClient } from "liter-llm";
+import { LlmClient } from "@kreuzberg/liter-llm";
 
 const client = new LlmClient({ apiKey: process.env.OPENAI_API_KEY! });
 const chunks = await client.chatStream({
@@ -142,7 +142,7 @@ console.log();
 Define and invoke tools:
 
 ```typescript
-import { LlmClient } from "liter-llm";
+import { LlmClient } from "@kreuzberg/liter-llm";
 
 const client = new LlmClient({ apiKey: process.env.OPENAI_API_KEY! });
 
