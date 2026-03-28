@@ -562,6 +562,141 @@ mod serde_tests {
         let parsed: Message = serde_json::from_str(&json).unwrap();
         assert_eq!(msg, parsed);
     }
+
+    // -- Search type serialization tests --
+
+    #[test]
+    fn search_request_round_trip() {
+        use crate::types::search::SearchRequest;
+        let req = SearchRequest {
+            model: "brave/web-search".into(),
+            query: "What is Rust?".into(),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let parsed: SearchRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.model, "brave/web-search");
+        assert_eq!(parsed.query, "What is Rust?");
+    }
+
+    #[test]
+    fn search_request_rejects_unknown_fields() {
+        use crate::types::search::SearchRequest;
+        let json = r#"{"model":"test","query":"q","unknown_field":true}"#;
+        assert!(
+            serde_json::from_str::<SearchRequest>(json).is_err(),
+            "SearchRequest with deny_unknown_fields should reject unknown keys"
+        );
+    }
+
+    #[test]
+    fn search_request_with_optional_fields() {
+        use crate::types::search::SearchRequest;
+        let req = SearchRequest {
+            model: "tavily/search".into(),
+            query: "Rust language".into(),
+            max_results: Some(5),
+            search_domain_filter: Some(vec!["rust-lang.org".into()]),
+            country: Some("US".into()),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("max_results"));
+        assert!(json.contains("rust-lang.org"));
+        let parsed: SearchRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.max_results, Some(5));
+        assert_eq!(parsed.country, Some("US".into()));
+    }
+
+    #[test]
+    fn search_response_deserialize() {
+        use crate::types::search::SearchResponse;
+        let json = r#"{
+            "results": [
+                {"title": "Rust", "url": "https://www.rust-lang.org", "snippet": "A language empowering everyone."}
+            ],
+            "model": "brave/web-search"
+        }"#;
+        let resp: SearchResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.results.len(), 1);
+        assert_eq!(resp.model, "brave/web-search");
+        assert_eq!(resp.results[0].title, "Rust");
+    }
+
+    // -- OCR type serialization tests --
+
+    #[test]
+    fn ocr_request_url_variant() {
+        use crate::types::ocr::{OcrDocument, OcrRequest};
+        let req = OcrRequest {
+            model: "mistral/mistral-ocr-latest".into(),
+            document: OcrDocument::Url {
+                url: "https://example.com/doc.pdf".into(),
+            },
+            pages: None,
+            include_image_base64: None,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let parsed: OcrRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.model, "mistral/mistral-ocr-latest");
+    }
+
+    #[test]
+    fn ocr_document_url_serializes_with_tag() {
+        use crate::types::ocr::OcrDocument;
+        let doc = OcrDocument::Url {
+            url: "https://example.com".into(),
+        };
+        let json = serde_json::to_string(&doc).unwrap();
+        assert!(
+            json.contains("document_url"),
+            "expected 'document_url' tag in serialized output, got: {json}"
+        );
+    }
+
+    #[test]
+    fn ocr_document_base64_serializes_with_tag() {
+        use crate::types::ocr::OcrDocument;
+        let doc = OcrDocument::Base64 {
+            data: "dGVzdA==".into(),
+            media_type: "application/pdf".into(),
+        };
+        let json = serde_json::to_string(&doc).unwrap();
+        assert!(
+            json.contains("\"type\":\"base64\""),
+            "expected 'base64' tag in serialized output, got: {json}"
+        );
+        let parsed: OcrDocument = serde_json::from_str(&json).unwrap();
+        if let OcrDocument::Base64 { data, media_type } = parsed {
+            assert_eq!(data, "dGVzdA==");
+            assert_eq!(media_type, "application/pdf");
+        } else {
+            panic!("expected OcrDocument::Base64 variant");
+        }
+    }
+
+    #[test]
+    fn ocr_request_rejects_unknown_fields() {
+        use crate::types::ocr::OcrRequest;
+        let json = r#"{"model":"m","document":{"type":"document_url","url":"u"},"bogus":1}"#;
+        assert!(
+            serde_json::from_str::<OcrRequest>(json).is_err(),
+            "OcrRequest with deny_unknown_fields should reject unknown keys"
+        );
+    }
+
+    #[test]
+    fn ocr_response_deserialize() {
+        use crate::types::ocr::OcrResponse;
+        let json = r##"{
+            "pages": [{"index": 0, "markdown": "# Title"}],
+            "model": "mistral/mistral-ocr-latest"
+        }"##;
+        let resp: OcrResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.pages.len(), 1);
+        assert_eq!(resp.pages[0].index, 0);
+        assert!(resp.pages[0].markdown.contains("Title"));
+        assert_eq!(resp.model, "mistral/mistral-ocr-latest");
+    }
 }
 
 #[cfg(test)]

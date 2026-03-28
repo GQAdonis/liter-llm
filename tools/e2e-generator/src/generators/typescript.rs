@@ -1141,9 +1141,7 @@ pub fn snake_keys_to_camel(value: &serde_json::Value) -> serde_json::Value {
                 .collect();
             serde_json::Value::Object(converted)
         }
-        serde_json::Value::Array(arr) => {
-            serde_json::Value::Array(arr.iter().map(snake_keys_to_camel).collect())
-        }
+        serde_json::Value::Array(arr) => serde_json::Value::Array(arr.iter().map(snake_keys_to_camel).collect()),
         other => other.clone(),
     }
 }

@@ -3,7 +3,6 @@ package literllm
 import (
 	"errors"
 	"fmt"
-	"net/http"
 )
 
 // ─── Sentinel errors ──────────────────────────────────────────────────────────
@@ -55,35 +54,6 @@ func (e *APIError) Error() string {
 // Unwrap makes errors.Is and errors.As traverse the sentinel chain.
 func (e *APIError) Unwrap() error {
 	return e.sentinel
-}
-
-// newAPIError constructs an *APIError and selects the appropriate sentinel
-// based on the HTTP status code.
-func newAPIError(statusCode int, message string) *APIError {
-	sentinel := classifySentinel(statusCode)
-	if message == "" {
-		message = http.StatusText(statusCode)
-	}
-	return &APIError{StatusCode: statusCode, Message: message, sentinel: sentinel}
-}
-
-// classifySentinel maps HTTP status codes to sentinel errors.
-func classifySentinel(statusCode int) error {
-	switch statusCode {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return ErrAuthentication
-	case http.StatusTooManyRequests:
-		return ErrRateLimit
-	case http.StatusNotFound:
-		return ErrNotFound
-	case http.StatusBadRequest, http.StatusUnprocessableEntity:
-		return ErrInvalidRequest
-	default:
-		if statusCode >= 500 {
-			return ErrProviderError
-		}
-		return ErrInvalidRequest
-	}
 }
 
 // StreamError wraps a streaming parse error, implementing errors.Is against

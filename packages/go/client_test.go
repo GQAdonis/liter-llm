@@ -16,11 +16,16 @@ import (
 
 // newTestClient creates a Client pointed at the given test server URL with a
 // dummy API key.
-func newTestClient(serverURL string) *literllm.Client {
-	return literllm.NewClient(
+func newTestClient(t *testing.T, serverURL string) *literllm.Client {
+	t.Helper()
+	client, err := literllm.NewClient(
 		literllm.WithAPIKey("test-key"),
 		literllm.WithBaseURL(serverURL),
 	)
+	if err != nil {
+		t.Fatalf("newTestClient: %v", err)
+	}
+	return client
 }
 
 // ptr is a generic helper that returns a pointer to v.
@@ -153,7 +158,7 @@ func TestAPIErrorIs(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(tc.statusCode)
 		}))
-		client := newTestClient(server.URL)
+		client := newTestClient(t, server.URL)
 		req := &literllm.ChatCompletionRequest{
 			Model:    "gpt-4o",
 			Messages: []literllm.Message{literllm.NewTextMessage(literllm.RoleUser, "hi")},
@@ -179,7 +184,7 @@ func TestStreamErrorIs(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	req := &literllm.ChatCompletionRequest{
 		Model:    "gpt-4o",
 		Messages: []literllm.Message{literllm.NewTextMessage(literllm.RoleUser, "hi")},
@@ -197,7 +202,7 @@ func TestStreamErrorIs(t *testing.T) {
 
 func TestChat_NilRequest(t *testing.T) {
 	t.Parallel()
-	client := literllm.NewClient(literllm.WithAPIKey("k"))
+	client, _ := literllm.NewClient(literllm.WithAPIKey("k"))
 	_, err := client.Chat(context.Background(), nil)
 	if !errors.Is(err, literllm.ErrInvalidRequest) {
 		t.Errorf("expected ErrInvalidRequest, got %v", err)
@@ -206,7 +211,7 @@ func TestChat_NilRequest(t *testing.T) {
 
 func TestChat_EmptyModel(t *testing.T) {
 	t.Parallel()
-	client := literllm.NewClient(literllm.WithAPIKey("k"))
+	client, _ := literllm.NewClient(literllm.WithAPIKey("k"))
 	_, err := client.Chat(context.Background(), &literllm.ChatCompletionRequest{
 		Messages: []literllm.Message{literllm.NewTextMessage(literllm.RoleUser, "hi")},
 	})
@@ -217,7 +222,7 @@ func TestChat_EmptyModel(t *testing.T) {
 
 func TestChat_EmptyMessages(t *testing.T) {
 	t.Parallel()
-	client := literllm.NewClient(literllm.WithAPIKey("k"))
+	client, _ := literllm.NewClient(literllm.WithAPIKey("k"))
 	_, err := client.Chat(context.Background(), &literllm.ChatCompletionRequest{
 		Model: "gpt-4o",
 	})
@@ -228,7 +233,7 @@ func TestChat_EmptyMessages(t *testing.T) {
 
 func TestEmbed_NilRequest(t *testing.T) {
 	t.Parallel()
-	client := literllm.NewClient(literllm.WithAPIKey("k"))
+	client, _ := literllm.NewClient(literllm.WithAPIKey("k"))
 	_, err := client.Embed(context.Background(), nil)
 	if !errors.Is(err, literllm.ErrInvalidRequest) {
 		t.Errorf("expected ErrInvalidRequest, got %v", err)
@@ -237,7 +242,7 @@ func TestEmbed_NilRequest(t *testing.T) {
 
 func TestEmbed_EmptyModel(t *testing.T) {
 	t.Parallel()
-	client := literllm.NewClient(literllm.WithAPIKey("k"))
+	client, _ := literllm.NewClient(literllm.WithAPIKey("k"))
 	_, err := client.Embed(context.Background(), &literllm.EmbeddingRequest{
 		Input: literllm.NewEmbeddingInputSingle("text"),
 	})
@@ -248,7 +253,7 @@ func TestEmbed_EmptyModel(t *testing.T) {
 
 func TestChatStream_NilHandler(t *testing.T) {
 	t.Parallel()
-	client := literllm.NewClient(literllm.WithAPIKey("k"))
+	client, _ := literllm.NewClient(literllm.WithAPIKey("k"))
 	err := client.ChatStream(context.Background(), &literllm.ChatCompletionRequest{
 		Model:    "gpt-4o",
 		Messages: []literllm.Message{literllm.NewTextMessage(literllm.RoleUser, "hi")},
@@ -289,7 +294,7 @@ func TestChat_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	resp, err := client.Chat(context.Background(), &literllm.ChatCompletionRequest{
 		Model:    "gpt-4o",
 		Messages: []literllm.Message{literllm.NewTextMessage(literllm.RoleUser, "hi")},
@@ -323,7 +328,7 @@ func TestChatStream_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	var chunks []*literllm.ChatCompletionChunk
 	err := client.ChatStream(context.Background(), &literllm.ChatCompletionRequest{
 		Model:    "gpt-4o",
@@ -358,7 +363,7 @@ func TestChatStream_HandlerError(t *testing.T) {
 	defer server.Close()
 
 	sentinel := errors.New("handler abort")
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	err := client.ChatStream(context.Background(), &literllm.ChatCompletionRequest{
 		Model:    "gpt-4o",
 		Messages: []literllm.Message{literllm.NewTextMessage(literllm.RoleUser, "hi")},
@@ -387,7 +392,7 @@ func TestEmbed_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	resp, err := client.Embed(context.Background(), &literllm.EmbeddingRequest{
 		Model: "text-embedding-3-small",
 		Input: literllm.NewEmbeddingInputSingle("hello"),
@@ -424,7 +429,7 @@ func TestListModels_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	resp, err := client.ListModels(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -445,7 +450,7 @@ func TestListModels_ProviderError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	_, err := client.ListModels(context.Background())
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -466,8 +471,11 @@ func TestListModels_ProviderError(t *testing.T) {
 
 func TestNewClient_DefaultBaseURL(t *testing.T) {
 	t.Parallel()
-	// Constructing without a base URL should not panic.
-	client := literllm.NewClient(literllm.WithAPIKey("k"))
+	// Constructing without a base URL should not panic or error.
+	client, err := literllm.NewClient(literllm.WithAPIKey("k"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}
@@ -486,10 +494,13 @@ func TestWithBaseURL_TrailingSlashStripped(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := literllm.NewClient(
+	client, err := literllm.NewClient(
 		literllm.WithAPIKey("k"),
 		literllm.WithBaseURL(server.URL+"/"),
 	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	client.ListModels(context.Background()) //nolint:errcheck
 
 	if strings.Contains(gotPath, "//") {
@@ -543,7 +554,7 @@ func TestChat_WithToolCalling(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	toolChoice := literllm.NewSpecificToolChoice("get_weather")
 	tool := literllm.ChatCompletionTool{
 		Type: literllm.ToolTypeFunction,
@@ -579,7 +590,7 @@ func TestChatStream_ChunkOrder(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	var chunks []*literllm.ChatCompletionChunk
 	err := client.ChatStream(context.Background(), &literllm.ChatCompletionRequest{
 		Model:    "gpt-4o",
@@ -630,7 +641,7 @@ func TestEmbed_BatchInput(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	resp, err := client.Embed(context.Background(), &literllm.EmbeddingRequest{
 		Model: "text-embedding-3-small",
 		Input: literllm.NewEmbeddingInputMultiple([]string{"first", "second", "third"}),
@@ -664,7 +675,7 @@ func TestAPIErrorClassification(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := newTestClient(server.URL)
+			client := newTestClient(t, server.URL)
 			_, err := client.Chat(context.Background(), &literllm.ChatCompletionRequest{
 				Model:    "gpt-4o",
 				Messages: []literllm.Message{literllm.NewTextMessage(literllm.RoleUser, "hi")},
@@ -689,7 +700,7 @@ func TestStreamError_Wrapping(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server.URL)
+	client := newTestClient(t, server.URL)
 	count := 0
 	err := client.ChatStream(context.Background(), &literllm.ChatCompletionRequest{
 		Model:    "gpt-4o",
