@@ -258,6 +258,12 @@ impl DefaultClient {
     /// construction-time default, the detected provider is returned.  Otherwise
     /// the construction-time provider is reused (zero allocation).
     fn resolve_provider_for_model(&self, model: &str) -> Arc<dyn Provider> {
+        // When a base_url override is set, always use the construction-time
+        // provider — the user explicitly pointed the client at a specific
+        // endpoint (e.g. a mock server or custom proxy).
+        if self.config.base_url.is_some() {
+            return Arc::clone(&self.provider);
+        }
         // If the construction-time provider already matches this model, keep it.
         if self.provider.matches_model(model) {
             return Arc::clone(&self.provider);
