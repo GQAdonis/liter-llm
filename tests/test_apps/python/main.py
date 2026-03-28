@@ -34,6 +34,8 @@ class SmokeTest:
 
     def run(self, name: str, coro: object) -> None:
         """Run a single async test case."""
+        sys.stdout.write(f"  {name}... ")
+        sys.stdout.flush()
         try:
             loop = asyncio.new_event_loop()
             try:
@@ -41,15 +43,21 @@ class SmokeTest:
             finally:
                 loop.close()
             if result is None:
+                sys.stdout.write("SKIP\n")
                 self.skipped += 1
             else:
+                sys.stdout.write("PASS\n")
                 self.passed += 1
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            sys.stdout.write(f"FAIL: {exc}\n")
             self.failed += 1
 
     def summary(self) -> int:
         """Print summary and return exit code."""
-        self.passed + self.failed + self.skipped
+        total = self.passed + self.failed + self.skipped
+        sys.stdout.write(f"\n{'=' * 60}\n")
+        sys.stdout.write(f"Results: {self.passed} passed, {self.failed} failed, {self.skipped} skipped ({total} total)\n")
+        sys.stdout.flush()
         return 1 if self.failed > 0 else 0
 
 
@@ -187,8 +195,13 @@ async def test_cache_memory() -> str | None:
 
 def main() -> int:
     """Run all smoke tests and return exit code."""
+    sys.stdout.write("liter-llm Smoke Tests\n")
+    sys.stdout.write("=" * 60 + "\n\n")
+    sys.stdout.flush()
+
     suite = SmokeTest()
 
+    sys.stdout.write("Chat Completions:\n")
     suite.run("OpenAI gpt-4o-mini", test_chat_openai())
     suite.run("Anthropic claude-3-5-haiku", test_chat_anthropic())
     suite.run("Google gemini-2.0-flash", test_chat_gemini())
