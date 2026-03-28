@@ -32,7 +32,14 @@
 				"chat",
 				"embed",
 				"list-models",
-				"providers"
+				"providers",
+				"cache",
+				"budget",
+				"hooks",
+				"custom_provider",
+				"parity",
+				"search",
+				"ocr"
 			],
 			"description": "Category grouping for the fixture"
 		},
@@ -69,7 +76,9 @@
 						"cancel_batch",
 						"create_response",
 						"retrieve_response",
-						"cancel_response"
+						"cancel_response",
+						"search",
+						"ocr"
 					],
 					"description": "The API method being tested"
 				},

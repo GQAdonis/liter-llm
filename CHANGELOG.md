@@ -11,25 +11,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **OpenDAL cache backend** (`opendal-cache` feature): pluggable `CacheStore` implementation supporting 40+ storage backends (S3, Redis, GCS, local filesystem, Memcached, etc.) via Apache OpenDAL. Configure with `cache: { backend: "redis", backend_config: { connection_string: "..." } }`
+- **`search()` endpoint**: web/document search across 12 providers (Brave, Tavily, Google PSE, etc.) with `SearchRequest`/`SearchResponse` types
+- **`ocr()` endpoint**: document OCR across 4 providers (Mistral, Azure Doc Intelligence, etc.) with `OcrRequest`/`OcrResponse` types
+- **Full Tower middleware wiring** in `ManagedClient`: all 8 layers now configurable via `ClientConfig`:
+  - `cooldown_duration` — circuit breaker after transient errors
+  - `rate_limit_config` — per-model RPM/TPM rate limiting
+  - `health_check_interval` — background health probing
+  - `enable_cost_tracking` — per-request cost calculation
+  - `enable_tracing` — OpenTelemetry GenAI semantic convention spans
+  - (previously only cache, budget, hooks were wired)
 - `#[serde(deny_unknown_fields)]` on all request/config types for strict input validation
 - `param_mappings` wired into `ConfigDrivenProvider` — 8 providers now apply field renaming (e.g. `max_completion_tokens` → `max_tokens`)
-- 5 param_mappings tests including real provider integration test
+- Post-generation formatting in e2e-generator: runs language-native formatters (cargo fmt, ruff, biome, gofmt, rubocop, etc.) after code generation
+- Go/Java/C# bindings rewritten as FFI wrappers around `libliter_llm_ffi` (replacing pure HTTP reimplementations)
+- Go bindings use cgo with build tags matching kreuzberg pattern (`liter_llm_dev` for monorepo, `go:generate` for production)
 
 ### Fixed
 
 - Python/PHP hook serialization: Debug format replaced with proper JSON via `serde_json`
 - PHP hook registry memory leak: cleanup on drop
 - `managed.rs` expect() replaced with proper error propagation
-- Version sync script now updates all binding crate Cargo.toml dep versions
+- Version sync script: regex updated to match `liter-llm-bindings-core` deps, all binding Cargo.toml files added to sync targets
 - FFI Cargo.toml: added missing `version` on `liter-llm-bindings-core` dep (crates.io publish fix)
+- All path deps now include `version` field for crates.io publishing
 - PHP e2e composer.json: added `minimum-stability: dev` for RC versions
-- Java javadoc: fixed heading level error (`<h2>` → `<h3>`)
-- Node pnpm lockfile updated for RC version dependencies
-- e2e-generator PHP output: cargo fmt applied
+- Java javadoc: fixed heading level error
+- Node pnpm lockfile updated
+- Stale WASM doc comment removed (networking is complete)
 
 ### Changed
 
-- Documentation overhaul: simple nav (Installation → Usage → API Reference), 150 snippets across 10 languages, all API docs expanded to full parity, comprehensive llms.txt
+- Documentation overhaul: simple nav (Installation → Usage → API Reference), 150 snippets across 10 languages, all 11 API docs expanded to full parity, comprehensive llms.txt (218 lines)
+- `CacheConfig` extended with `CacheBackend` enum (`Memory` | `OpenDal`)
+- `ClientConfig` extended with 5 new middleware fields
+- Removed unused workspace dependencies (`tokio-stream`, `url`)
+
+### Removed
+
+- Pure HTTP reimplementations in Go (3,419 LOC), Java (3,027 LOC), C# (2,881 LOC) — replaced with thin FFI wrappers
 
 ## [1.0.0-rc.4] - 2026-03-28
 

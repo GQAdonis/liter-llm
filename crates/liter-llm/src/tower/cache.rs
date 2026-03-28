@@ -269,7 +269,7 @@ impl CacheStore for InMemoryStore {
 
     fn remove(&self, key: u64) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
         if let Ok(mut cache) = self.inner.write() {
-            cache.remove_expired(key);
+            cache.map.remove(&key);
         }
         Box::pin(std::future::ready(()))
     }

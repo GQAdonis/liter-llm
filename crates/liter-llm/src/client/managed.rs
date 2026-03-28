@@ -581,4 +581,42 @@ mod tests {
         assert!(client.has_middleware());
         assert!(client.budget_state().is_some());
     }
+
+    /// Verify that cooldown configuration activates middleware.
+    #[test]
+    fn middleware_active_with_cooldown() {
+        use std::time::Duration;
+        let config = ClientConfigBuilder::new("test-key")
+            .cooldown(Duration::from_secs(30))
+            .build();
+        let client = ManagedClient::new(config, None).expect("should build");
+        assert!(client.has_middleware());
+    }
+
+    /// Verify that tracing configuration activates middleware.
+    #[test]
+    fn middleware_active_with_tracing() {
+        let config = ClientConfigBuilder::new("test-key").tracing(true).build();
+        let client = ManagedClient::new(config, None).expect("should build");
+        assert!(client.has_middleware());
+    }
+
+    /// Verify that cost tracking configuration activates middleware.
+    #[test]
+    fn middleware_active_with_cost_tracking() {
+        let config = ClientConfigBuilder::new("test-key").cost_tracking(true).build();
+        let client = ManagedClient::new(config, None).expect("should build");
+        assert!(client.has_middleware());
+    }
+
+    /// Verify that tracing=false alone does not activate middleware.
+    #[test]
+    fn no_middleware_when_tracing_false() {
+        let config = ClientConfigBuilder::new("test-key")
+            .tracing(false)
+            .cost_tracking(false)
+            .build();
+        let client = ManagedClient::new(config, None).expect("should build");
+        assert!(!client.has_middleware());
+    }
 }

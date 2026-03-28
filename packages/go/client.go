@@ -1,247 +1,113 @@
 package literllm
 
+/*
+#include "internal/ffi/liter_llm.h"
+#include <stdlib.h>
+
+// goStreamCallback is exported from Go via //export; declare it here so
+// the static C helper below can reference it.
+extern void goStreamCallback(char *chunk_json, void *user_data);
+
+// stream_callback_wrapper casts the Go-exported callback to match the
+// const char* signature expected by literllm_chat_stream.
+static void stream_callback_wrapper(const char *chunk_json, void *user_data) {
+    goStreamCallback((char *)chunk_json, user_data);
+}
+
+// call_chat_stream wraps literllm_chat_stream with the Go-exported callback
+// so that Go code never needs to take the address of goStreamCallback via
+// C.goStreamCallback (which cgo cannot resolve directly).
+static int call_chat_stream(const LiterLlmClient *client,
+                            const char *request_json,
+                            void *user_data) {
+    return literllm_chat_stream(client, request_json, stream_callback_wrapper, user_data);
+}
+*/
+import "C"
+
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
+	"runtime"
 	"sync"
-	"time"
+	"sync/atomic"
+	"unsafe"
 )
 
-// ─── In-Memory LRU Cache ──────────────────────────────────────────────────────
+// ─── Stream callback registry ────────────────────────────────────────────────
 
-// cacheEntry holds a cached JSON response with its creation timestamp.
-type cacheEntry struct {
-	response json.RawMessage
-	created  time.Time
-}
-
-// lruCache is a simple thread-safe LRU cache for response data.
-type lruCache struct {
-	mu      sync.Mutex
-	entries map[string]*cacheEntry
-	order   []string // oldest first
-	config  CacheConfig
-}
-
-// newLRUCache creates a new cache with the given configuration.
-func newLRUCache(cfg CacheConfig) *lruCache {
-	return &lruCache{
-		entries: make(map[string]*cacheEntry, cfg.MaxEntries),
-		order:   make([]string, 0, cfg.MaxEntries),
-		config:  cfg,
-	}
-}
-
-// get returns the cached response for the given key, or nil if not found or expired.
-func (c *lruCache) get(key string) json.RawMessage {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	entry, ok := c.entries[key]
-	if !ok {
-		return nil
-	}
-
-	ttl := time.Duration(c.config.TTLSeconds) * time.Second
-	if time.Since(entry.created) > ttl {
-		// Expired — remove it.
-		c.removeLocked(key)
-		return nil
-	}
-
-	// Move to end (most recently used).
-	c.moveToEndLocked(key)
-	return entry.response
-}
-
-// put stores a response in the cache, evicting the oldest entry if at capacity.
-func (c *lruCache) put(key string, response json.RawMessage) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// If the key already exists, update it.
-	if _, ok := c.entries[key]; ok {
-		c.entries[key] = &cacheEntry{response: response, created: time.Now()}
-		c.moveToEndLocked(key)
-		return
-	}
-
-	// Evict oldest entries if at capacity.
-	for len(c.order) >= c.config.MaxEntries && len(c.order) > 0 {
-		oldest := c.order[0]
-		c.removeLocked(oldest)
-	}
-
-	c.entries[key] = &cacheEntry{response: response, created: time.Now()}
-	c.order = append(c.order, key)
-}
-
-func (c *lruCache) removeLocked(key string) {
-	delete(c.entries, key)
-	for i, k := range c.order {
-		if k == key {
-			c.order = append(c.order[:i], c.order[i+1:]...)
-			break
-		}
-	}
-}
-
-func (c *lruCache) moveToEndLocked(key string) {
-	for i, k := range c.order {
-		if k == key {
-			c.order = append(c.order[:i], c.order[i+1:]...)
-			c.order = append(c.order, key)
-			break
-		}
-	}
-}
-
-// cacheKey hashes the request JSON to produce a deterministic cache key.
-func cacheKey(requestJSON []byte) string {
-	h := sha256.Sum256(requestJSON)
-	return hex.EncodeToString(h[:])
-}
-
-// ─── Budget State ─────────────────────────────────────────────────────────────
-
-// budgetState tracks cumulative spend for budget enforcement.
-type budgetState struct {
-	mu          sync.Mutex
-	globalSpend float64
-	modelSpend  map[string]float64
-}
-
-// newBudgetState creates a new budget tracker.
-func newBudgetState() *budgetState {
-	return &budgetState{
-		modelSpend: make(map[string]float64),
-	}
-}
-
-// checkBudget validates that the given model has not exceeded its budget.
-// Returns ErrBudgetExceeded if the budget is exceeded in strict mode.
-func (b *budgetState) checkBudget(model string, cfg *BudgetConfig) error {
-	if cfg == nil {
-		return nil
-	}
-	if cfg.Enforcement != "strict" {
-		return nil
-	}
-
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	if cfg.GlobalLimit != nil && b.globalSpend >= *cfg.GlobalLimit {
-		return fmt.Errorf("%w: global spend %.6f >= limit %.6f", ErrBudgetExceeded, b.globalSpend, *cfg.GlobalLimit)
-	}
-
-	if limit, ok := cfg.ModelLimits[model]; ok {
-		if b.modelSpend[model] >= limit {
-			return fmt.Errorf("%w: model %q spend %.6f >= limit %.6f", ErrBudgetExceeded, model, b.modelSpend[model], limit)
-		}
-	}
-
-	return nil
-}
-
-// recordCost adds the cost of the given usage to the budget tracker.
-func (b *budgetState) recordCost(model string, usage *Usage) {
-	if usage == nil {
-		return
-	}
-	cost := estimateCost(model, usage)
-	if cost <= 0 {
-		return
-	}
-
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.globalSpend += cost
-	b.modelSpend[model] += cost
-}
-
-// modelPricing holds per-million-token pricing for known models.
-type modelPricing struct {
-	promptPerMillion     float64
-	completionPerMillion float64
-}
-
-// defaultPricing provides approximate pricing for common models.
-// Prices are in USD per million tokens.
-var defaultPricing = map[string]modelPricing{
-	"gpt-4o":          {promptPerMillion: 2.50, completionPerMillion: 10.00},
-	"gpt-4o-mini":     {promptPerMillion: 0.15, completionPerMillion: 0.60},
-	"gpt-4-turbo":     {promptPerMillion: 10.00, completionPerMillion: 30.00},
-	"gpt-4":           {promptPerMillion: 30.00, completionPerMillion: 60.00},
-	"gpt-3.5-turbo":   {promptPerMillion: 0.50, completionPerMillion: 1.50},
-	"claude-3-opus":   {promptPerMillion: 15.00, completionPerMillion: 75.00},
-	"claude-3-sonnet": {promptPerMillion: 3.00, completionPerMillion: 15.00},
-	"claude-3-haiku":  {promptPerMillion: 0.25, completionPerMillion: 1.25},
-}
-
-// estimateCost calculates the estimated cost for the given model and usage.
-func estimateCost(model string, usage *Usage) float64 {
-	if usage == nil {
-		return 0
-	}
-
-	// Try exact match first, then prefix match.
-	pricing, ok := defaultPricing[model]
-	if !ok {
-		// Strip provider prefix (e.g. "openai/gpt-4o" -> "gpt-4o").
-		if idx := strings.Index(model, "/"); idx >= 0 {
-			pricing, ok = defaultPricing[model[idx+1:]]
-		}
-	}
-	if !ok {
-		// Try prefix matching for versioned models.
-		for prefix, p := range defaultPricing {
-			if strings.HasPrefix(model, prefix) || strings.HasPrefix(stripProvider(model), prefix) {
-				pricing = p
-				ok = true
-				break
-			}
-		}
-	}
-	if !ok {
-		// Fallback: use a generic pricing as an approximation.
-		pricing = modelPricing{promptPerMillion: 1.00, completionPerMillion: 2.00}
-	}
-
-	promptCost := float64(usage.PromptTokens) * pricing.promptPerMillion / 1_000_000
-	completionCost := float64(usage.CompletionTokens) * pricing.completionPerMillion / 1_000_000
-	return promptCost + completionCost
-}
-
-// stripProvider removes the provider prefix from a model name.
-func stripProvider(model string) string {
-	if idx := strings.Index(model, "/"); idx >= 0 {
-		return model[idx+1:]
-	}
-	return model
-}
-
-const (
-	defaultBaseURL         = "https://api.openai.com/v1"
-	defaultTimeout         = 120 * time.Second
-	headerAuthorization    = "Authorization"
-	headerContentType      = "Content-Type"
-	headerAccept           = "Accept"
-	contentTypeJSON        = "application/json"
-	contentTypeEventStream = "text/event-stream"
+// streamCallbackRegistry maps unique IDs to Go stream handler functions.
+// This is necessary because cgo cannot pass Go function pointers directly
+// to C; instead we pass an opaque integer ID as user_data and look up the
+// handler in this registry.
+var (
+	streamCallbackMu   sync.Mutex
+	streamCallbackMap  = make(map[uintptr]streamCallbackEntry)
+	streamCallbackNext uintptr
 )
 
-// ─── Interface ────────────────────────────────────────────────────────────────
+type streamCallbackEntry struct {
+	handler func(*ChatCompletionChunk) error
+	err     error
+}
+
+func registerStreamCallback(handler func(*ChatCompletionChunk) error) uintptr {
+	streamCallbackMu.Lock()
+	defer streamCallbackMu.Unlock()
+	streamCallbackNext++
+	id := streamCallbackNext
+	streamCallbackMap[id] = streamCallbackEntry{handler: handler}
+	return id
+}
+
+func unregisterStreamCallback(id uintptr) error {
+	streamCallbackMu.Lock()
+	defer streamCallbackMu.Unlock()
+	entry := streamCallbackMap[id]
+	delete(streamCallbackMap, id)
+	return entry.err
+}
+
+//export goStreamCallback
+func goStreamCallback(chunkJSON *C.char, userData unsafe.Pointer) {
+	id := uintptr(userData)
+	streamCallbackMu.Lock()
+	entry, ok := streamCallbackMap[id]
+	streamCallbackMu.Unlock()
+	if !ok {
+		return
+	}
+
+	// If a previous callback already errored, skip processing.
+	if entry.err != nil {
+		return
+	}
+
+	var chunk ChatCompletionChunk
+	if err := json.Unmarshal([]byte(C.GoString(chunkJSON)), &chunk); err != nil {
+		streamCallbackMu.Lock()
+		streamCallbackMap[id] = streamCallbackEntry{handler: entry.handler, err: newStreamError("failed to parse chunk JSON", err)}
+		streamCallbackMu.Unlock()
+		return
+	}
+
+	if err := entry.handler(&chunk); err != nil {
+		streamCallbackMu.Lock()
+		streamCallbackMap[id] = streamCallbackEntry{handler: entry.handler, err: err}
+		streamCallbackMu.Unlock()
+	}
+}
+
+// ─── Interface ───────────────────────────────────────────────────────────────
 
 // LlmClient is the contract that all liter-llm client implementations satisfy.
+//
+// Note: context.Context parameters are accepted for interface compatibility and
+// to follow Go conventions, but they are NOT propagated to the FFI layer.
+// The underlying Rust library does not support context-based cancellation;
+// once an FFI call begins it will run to completion.
 type LlmClient interface {
 	// Chat sends a non-streaming chat completion request.
 	Chat(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error)
@@ -316,29 +182,28 @@ type LlmClient interface {
 	Ocr(ctx context.Context, req *OcrRequest) (*OcrResponse, error)
 }
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+// ─── Config ──────────────────────────────────────────────────────────────────
 
-// RateLimitConfig configures rate limiting behavior for the client.
-type RateLimitConfig struct {
-	// RequestsPerMinute is the maximum number of requests allowed per minute.
-	RequestsPerMinute int `json:"requests_per_minute"`
-	// TokensPerMinute is the maximum number of tokens allowed per minute.
-	TokensPerMinute int `json:"tokens_per_minute,omitempty"`
+// ffiConfig is the JSON schema accepted by literllm_client_new_with_config.
+type ffiConfig struct {
+	APIKey       string            `json:"api_key"`
+	BaseURL      string            `json:"base_url,omitempty"`
+	ModelHint    string            `json:"model_hint,omitempty"`
+	MaxRetries   *int              `json:"max_retries,omitempty"`
+	TimeoutSecs  *int              `json:"timeout_secs,omitempty"`
+	ExtraHeaders map[string]string `json:"extra_headers,omitempty"`
+	Cache        *CacheConfig      `json:"cache,omitempty"`
+	Budget       *BudgetConfig     `json:"budget,omitempty"`
 }
 
 // ClientConfig holds all options for constructing a [Client].
-// Use [NewConfig] or individual With* option functions.
+// Use individual With* option functions.
 type ClientConfig struct {
-	apiKey       string
-	baseURL      string
-	httpClient   *http.Client
-	cache        *CacheConfig
-	budget       *BudgetConfig
-	cooldown     time.Duration
-	rateLimit    *RateLimitConfig
-	healthCheck  time.Duration
-	costTracking bool
-	tracing      bool
+	apiKey    string
+	baseURL   string
+	modelHint string
+	cache     *CacheConfig
+	budget    *BudgetConfig
 }
 
 // Option is a functional option for [NewClient].
@@ -352,30 +217,19 @@ func WithAPIKey(key string) Option {
 }
 
 // WithBaseURL overrides the base URL used for all requests.
-// The URL must not have a trailing slash.
 //
 // Example: "https://api.groq.com/openai/v1"
 func WithBaseURL(url string) Option {
 	return func(c *ClientConfig) {
-		c.baseURL = strings.TrimRight(url, "/")
+		c.baseURL = url
 	}
 }
 
-// WithHTTPClient replaces the default [http.Client].  Use this to configure
-// custom TLS, proxies, or transport behavior.
-func WithHTTPClient(hc *http.Client) Option {
+// WithModelHint sets a model name hint for provider auto-detection
+// (e.g. "groq/llama3-70b").  Used only when BaseURL is not set.
+func WithModelHint(hint string) Option {
 	return func(c *ClientConfig) {
-		c.httpClient = hc
-	}
-}
-
-// WithTimeout sets the timeout on the default HTTP client.  This option is
-// ignored when [WithHTTPClient] is also provided.
-func WithTimeout(d time.Duration) Option {
-	return func(c *ClientConfig) {
-		if c.httpClient != nil {
-			c.httpClient.Timeout = d
-		}
+		c.modelHint = hint
 	}
 }
 
@@ -393,58 +247,18 @@ func WithBudget(cfg BudgetConfig) Option {
 	}
 }
 
-// WithCooldown sets the cooldown duration between consecutive requests.
-// When set to a positive duration, the client will pause between requests
-// to avoid overwhelming the provider.
-func WithCooldown(d time.Duration) Option {
-	return func(c *ClientConfig) {
-		c.cooldown = d
-	}
-}
+// ─── Client ──────────────────────────────────────────────────────────────────
 
-// WithRateLimit enables rate limiting with the given configuration.
-func WithRateLimit(cfg RateLimitConfig) Option {
-	return func(c *ClientConfig) {
-		c.rateLimit = &cfg
-	}
-}
-
-// WithHealthCheck enables periodic health checking at the given interval.
-// The client will ping the provider endpoint to verify connectivity.
-func WithHealthCheck(interval time.Duration) Option {
-	return func(c *ClientConfig) {
-		c.healthCheck = interval
-	}
-}
-
-// WithCostTracking enables or disables detailed cost tracking for all requests.
-// When enabled, the client records estimated costs per model and globally.
-func WithCostTracking(enabled bool) Option {
-	return func(c *ClientConfig) {
-		c.costTracking = enabled
-	}
-}
-
-// WithTracing enables or disables request/response tracing for debugging.
-// When enabled, the client emits structured trace events for each request.
-func WithTracing(enabled bool) Option {
-	return func(c *ClientConfig) {
-		c.tracing = enabled
-	}
-}
-
-// ─── Client ───────────────────────────────────────────────────────────────────
-
-// Client is the default implementation of [LlmClient].  It calls the
-// OpenAI-compatible HTTP API directly; no CGO or shared library is required.
+// Client wraps an opaque FFI handle to the Rust liter-llm core library.
+// All HTTP, caching, budget tracking, and provider routing is handled by
+// the Rust core.
 //
 // Construct one with [NewClient].  Client is safe for concurrent use.
+// Call [Client.Close] when done to free the underlying Rust resources.
 type Client struct {
-	config    ClientConfig
-	hooks     []Hook
-	providers []ProviderConfig
-	cache     *lruCache
-	budget    *budgetState
+	handle *C.LiterLlmClient
+	closed atomic.Bool
+	mu     sync.Mutex
 }
 
 // NewClient constructs a Client with the supplied options.
@@ -452,1291 +266,865 @@ type Client struct {
 // At minimum, provide [WithAPIKey] (or set the OPENAI_API_KEY environment
 // variable yourself and pass an empty key if the provider does not need it).
 //
-//	client := literllm.NewClient(
+//	client, err := literllm.NewClient(
 //	    literllm.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
 //	)
-func NewClient(opts ...Option) *Client {
-	cfg := ClientConfig{
-		baseURL: defaultBaseURL,
-		httpClient: &http.Client{
-			Timeout: defaultTimeout,
-		},
-	}
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer client.Close()
+func NewClient(opts ...Option) (*Client, error) {
+	cfg := ClientConfig{}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	c := &Client{config: cfg}
-	if cfg.cache != nil {
-		c.cache = newLRUCache(*cfg.cache)
+
+	fCfg := ffiConfig{
+		APIKey:  cfg.apiKey,
+		BaseURL: cfg.baseURL,
+		Cache:   cfg.cache,
+		Budget:  cfg.budget,
 	}
-	if cfg.budget != nil {
-		c.budget = newBudgetState()
+	if cfg.modelHint != "" {
+		fCfg.ModelHint = cfg.modelHint
 	}
-	return c
+
+	configJSON, err := json.Marshal(fCfg)
+	if err != nil {
+		// Fall back to simple constructor if marshal fails (should not happen).
+		return newClientSimple(cfg)
+	}
+
+	cConfig := C.CString(string(configJSON))
+	defer C.free(unsafe.Pointer(cConfig))
+
+	runtime.LockOSThread()
+	handle := C.literllm_client_new_with_config(cConfig)
+	if handle == nil {
+		// Fall back to simple constructor.
+		runtime.UnlockOSThread()
+		return newClientSimple(cfg)
+	}
+	runtime.UnlockOSThread()
+
+	return &Client{handle: handle}, nil
 }
 
-// ─── Hooks & Custom Providers ─────────────────────────────────────────────
+// newClientSimple creates a client using the basic literllm_client_new API.
+func newClientSimple(cfg ClientConfig) (*Client, error) {
+	cKey := C.CString(cfg.apiKey)
+	defer C.free(unsafe.Pointer(cKey))
 
-// AddHook registers a lifecycle hook.  Hooks are invoked in registration order
-// before each request, after each successful response, and after each error.
-func (c *Client) AddHook(hook Hook) {
-	c.hooks = append(c.hooks, hook)
+	var cBase *C.char
+	if cfg.baseURL != "" {
+		cBase = C.CString(cfg.baseURL)
+		defer C.free(unsafe.Pointer(cBase))
+	}
+
+	var cHint *C.char
+	if cfg.modelHint != "" {
+		cHint = C.CString(cfg.modelHint)
+		defer C.free(unsafe.Pointer(cHint))
+	}
+
+	runtime.LockOSThread()
+	handle := C.literllm_client_new(cKey, cBase, cHint)
+	if handle == nil {
+		err := lastError()
+		runtime.UnlockOSThread()
+		return nil, fmt.Errorf("literllm: failed to create client: %w", err)
+	}
+	runtime.UnlockOSThread()
+
+	return &Client{handle: handle}, nil
 }
 
-// RegisterProvider adds a custom provider configuration.  Requests whose model
-// name starts with one of the provider's prefixes are routed to its base URL.
-func (c *Client) RegisterProvider(cfg ProviderConfig) {
-	c.providers = append(c.providers, cfg)
-}
-
-// runOnRequest invokes OnRequest on every registered hook.  The first non-nil
-// error aborts and is returned wrapped with ErrHookRejected.
-func (c *Client) runOnRequest(ctx context.Context, req interface{}) error {
-	for _, h := range c.hooks {
-		if err := h.OnRequest(ctx, req); err != nil {
-			return fmt.Errorf("%w: %v", ErrHookRejected, err)
+// Close frees the underlying Rust client resources.  After Close returns,
+// all other methods will return errors.  Close is idempotent.
+func (c *Client) Close() {
+	if c.closed.CompareAndSwap(false, true) {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if c.handle != nil {
+			C.literllm_client_free(c.handle)
+			c.handle = nil
 		}
+	}
+}
+
+// ─── Error helpers ───────────────────────────────────────────────────────────
+
+// lastError retrieves the last error message from the FFI layer.
+func lastError() error {
+	errPtr := C.literllm_last_error()
+	if errPtr == nil {
+		return fmt.Errorf("literllm: unknown error")
+	}
+	return fmt.Errorf("literllm: %s", C.GoString(errPtr))
+}
+
+// checkHandle returns an error if the client handle is nil or closed.
+func (c *Client) checkHandle() error {
+	if c.closed.Load() {
+		return fmt.Errorf("%w: client is closed", ErrInvalidRequest)
+	}
+	if c.handle == nil {
+		return fmt.Errorf("%w: client handle is nil", ErrInvalidRequest)
 	}
 	return nil
 }
 
-// runOnResponse invokes OnResponse on every registered hook.
-func (c *Client) runOnResponse(ctx context.Context, req, resp interface{}) {
-	for _, h := range c.hooks {
-		h.OnResponse(ctx, req, resp)
+// ─── Generic JSON call helper ────────────────────────────────────────────────
+
+// callJSON marshals a request to JSON, calls the given FFI function, and
+// returns the raw JSON response bytes.
+func (c *Client) callJSON(reqJSON []byte, ffiFunc func(*C.LiterLlmClient, *C.char) *C.char) ([]byte, error) {
+	if err := c.checkHandle(); err != nil {
+		return nil, err
 	}
+
+	cReq := C.CString(string(reqJSON))
+	defer C.free(unsafe.Pointer(cReq))
+
+	runtime.LockOSThread()
+	c.mu.Lock()
+	cResp := ffiFunc(c.handle, cReq)
+	c.mu.Unlock()
+	if cResp == nil {
+		err := lastError()
+		runtime.UnlockOSThread()
+		return nil, err
+	}
+	runtime.UnlockOSThread()
+	defer C.literllm_free_string(cResp)
+	return []byte(C.GoString(cResp)), nil
 }
 
-// runOnError invokes OnError on every registered hook.
-func (c *Client) runOnError(ctx context.Context, req interface{}, err error) {
-	for _, h := range c.hooks {
-		h.OnError(ctx, req, err)
+// callNoBody calls an FFI function that takes only the client handle
+// (no request body) and returns a JSON response.
+func (c *Client) callNoBody(ffiFunc func(*C.LiterLlmClient) *C.char) ([]byte, error) {
+	if err := c.checkHandle(); err != nil {
+		return nil, err
 	}
+
+	runtime.LockOSThread()
+	c.mu.Lock()
+	cResp := ffiFunc(c.handle)
+	c.mu.Unlock()
+	if cResp == nil {
+		err := lastError()
+		runtime.UnlockOSThread()
+		return nil, err
+	}
+	runtime.UnlockOSThread()
+	defer C.literllm_free_string(cResp)
+	return []byte(C.GoString(cResp)), nil
 }
 
-// ─── HTTP helpers ─────────────────────────────────────────────────────────────
+// callByID calls an FFI function that takes a string ID parameter and
+// returns a JSON response.
+func (c *Client) callByID(id string, ffiFunc func(*C.LiterLlmClient, *C.char) *C.char) ([]byte, error) {
+	if err := c.checkHandle(); err != nil {
+		return nil, err
+	}
 
-// buildRequest creates an HTTP request with the common headers set.
-func (c *Client) buildRequest(ctx context.Context, method, path string, body io.Reader, stream bool) (*http.Request, error) {
-	url := c.config.baseURL + path
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
-	if err != nil {
-		return nil, fmt.Errorf("literllm: build request: %w", err)
+	cID := C.CString(id)
+	defer C.free(unsafe.Pointer(cID))
+
+	runtime.LockOSThread()
+	c.mu.Lock()
+	cResp := ffiFunc(c.handle, cID)
+	c.mu.Unlock()
+	if cResp == nil {
+		err := lastError()
+		runtime.UnlockOSThread()
+		return nil, err
 	}
-	if c.config.apiKey != "" {
-		req.Header.Set(headerAuthorization, "Bearer "+c.config.apiKey)
-	}
-	if body != nil {
-		req.Header.Set(headerContentType, contentTypeJSON)
-	}
-	if stream {
-		req.Header.Set(headerAccept, contentTypeEventStream)
-	} else {
-		req.Header.Set(headerAccept, contentTypeJSON)
-	}
-	return req, nil
+	runtime.UnlockOSThread()
+	defer C.literllm_free_string(cResp)
+	return []byte(C.GoString(cResp)), nil
 }
 
-// do executes an HTTP request and returns the response body, or an *APIError
-// for non-2xx responses.  The caller is responsible for closing the body.
-func (c *Client) do(req *http.Request) (*http.Response, error) {
-	resp, err := c.config.httpClient.Do(req) //nolint:gosec // URL is from trusted config, not user input
-	if err != nil {
-		return nil, fmt.Errorf("literllm: HTTP request failed: %w", err)
-	}
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		defer resp.Body.Close()
-		msg := extractErrorMessage(resp)
-		return nil, newAPIError(resp.StatusCode, msg)
-	}
-	return resp, nil
-}
-
-// extractErrorMessage reads a JSON error body and returns the message string.
-// Falls back to the HTTP status text on any parse failure.
-func extractErrorMessage(resp *http.Response) string {
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 8192))
-	if err != nil || len(body) == 0 {
-		return http.StatusText(resp.StatusCode)
-	}
-
-	// Try OpenAI-style {"error": {"message": "..."}}
-	var envelope struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if json.Unmarshal(body, &envelope) == nil && envelope.Error.Message != "" {
-		return envelope.Error.Message
-	}
-
-	// Try flat {"message": "..."}
-	var flat struct {
-		Message string `json:"message"`
-	}
-	if json.Unmarshal(body, &flat) == nil && flat.Message != "" {
-		return flat.Message
-	}
-
-	return string(body)
-}
-
-// marshalBody JSON-encodes v and returns an io.Reader.
-func marshalBody(v any) (io.Reader, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return nil, fmt.Errorf("literllm: marshal request body: %w", err)
-	}
-	return bytes.NewReader(data), nil
-}
-
-// ─── Chat ─────────────────────────────────────────────────────────────────────
+// ─── Chat ────────────────────────────────────────────────────────────────────
 
 // Chat sends a non-streaming chat completion request and returns the full
 // response.
-//
-// The req.Stream field is forced to false; use [Client.ChatStream] for
-// streaming.
-func (c *Client) Chat(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error) {
+func (c *Client) Chat(_ context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
-	if req.Model == "" {
-		return nil, fmt.Errorf("%w: model is required", ErrInvalidRequest)
-	}
-	if len(req.Messages) == 0 {
-		return nil, fmt.Errorf("%w: messages must not be empty", ErrInvalidRequest)
+
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	// Budget check before request.
-	if c.budget != nil {
-		if err := c.budget.checkBudget(req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	// Run pre-request hooks.
-	if err := c.runOnRequest(ctx, req); err != nil {
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_chat(h, r)
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	// Ensure stream is off for this path.
-	streamFalse := false
-	reqCopy := *req
-	reqCopy.Stream = &streamFalse
-
-	bodyBytes, err := json.Marshal(&reqCopy)
-	if err != nil {
-		marshalErr := fmt.Errorf("literllm: marshal request body: %w", err)
-		c.runOnError(ctx, req, marshalErr)
-		return nil, marshalErr
+	var resp ChatCompletionResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal chat response: %w", err)
 	}
-
-	// Check cache before HTTP call.
-	if c.cache != nil {
-		key := cacheKey(bodyBytes)
-		if cached := c.cache.get(key); cached != nil {
-			var result ChatCompletionResponse
-			if err := json.Unmarshal(cached, &result); err == nil {
-				c.runOnResponse(ctx, req, &result)
-				return &result, nil
-			}
-		}
-	}
-
-	body := bytes.NewReader(bodyBytes)
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/chat/completions", body, false)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
-	}
-
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		readErr := fmt.Errorf("literllm: read chat response: %w", err)
-		c.runOnError(ctx, req, readErr)
-		return nil, readErr
-	}
-
-	var result ChatCompletionResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode chat response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	// Store in cache after successful HTTP call.
-	if c.cache != nil {
-		c.cache.put(cacheKey(bodyBytes), json.RawMessage(respBody))
-	}
-
-	// Record cost for budget tracking.
-	if c.budget != nil {
-		c.budget.recordCost(req.Model, result.Usage)
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // ChatStream sends a streaming chat completion request.
 //
 // The handler is invoked once for each server-sent event chunk.  If handler
 // returns a non-nil error the stream is aborted and that error is returned by
-// ChatStream.  Canceling ctx also aborts the stream.
-//
-// The req.Stream field is forced to true.
-func (c *Client) ChatStream(ctx context.Context, req *ChatCompletionRequest, handler func(*ChatCompletionChunk) error) error {
+// ChatStream.
+func (c *Client) ChatStream(_ context.Context, req *ChatCompletionRequest, handler func(*ChatCompletionChunk) error) error {
 	if req == nil {
 		return fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
-	}
-	if req.Model == "" {
-		return fmt.Errorf("%w: model is required", ErrInvalidRequest)
-	}
-	if len(req.Messages) == 0 {
-		return fmt.Errorf("%w: messages must not be empty", ErrInvalidRequest)
 	}
 	if handler == nil {
 		return fmt.Errorf("%w: handler must not be nil", ErrInvalidRequest)
 	}
-
-	// Budget check before request (stream calls bypass cache).
-	if c.budget != nil {
-		if err := c.budget.checkBudget(req.Model, c.config.budget); err != nil {
-			return err
-		}
-	}
-
-	// Run pre-request hooks.
-	if err := c.runOnRequest(ctx, req); err != nil {
+	if err := c.checkHandle(); err != nil {
 		return err
 	}
 
+	// Force stream to true for the FFI call.
 	streamTrue := true
-	copy := *req
-	copy.Stream = &streamTrue
+	reqCopy := *req
+	reqCopy.Stream = &streamTrue
 
-	body, err := marshalBody(&copy)
+	reqJSON, err := json.Marshal(&reqCopy)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return err
+		return fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/chat/completions", body, true)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return err
+	cReq := C.CString(string(reqJSON))
+	defer C.free(unsafe.Pointer(cReq))
+
+	// Register the Go handler in our callback map and pass the ID as user_data.
+	callbackID := registerStreamCallback(handler)
+
+	runtime.LockOSThread()
+	c.mu.Lock()
+	result := C.call_chat_stream(
+		c.handle,
+		cReq,
+		unsafe.Pointer(callbackID), //nolint:govet // integer smuggled through void* (not a real pointer)
+	)
+	c.mu.Unlock()
+
+	// Retrieve and clean up the callback entry, capturing any handler error.
+	handlerErr := unregisterStreamCallback(callbackID)
+
+	if handlerErr != nil {
+		runtime.UnlockOSThread()
+		return handlerErr
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
+	if result != 0 {
+		err := lastError()
+		runtime.UnlockOSThread()
 		return err
 	}
-	defer resp.Body.Close()
-
-	if err := parseSSEStream(resp.Body, handler); err != nil {
-		c.runOnError(ctx, req, err)
-		return err
-	}
-
-	c.runOnResponse(ctx, req, nil)
+	runtime.UnlockOSThread()
 	return nil
 }
 
-// parseSSEStream reads an SSE response body, parses each data line as a
-// ChatCompletionChunk, and invokes handler for each chunk.
-func parseSSEStream(body io.Reader, handler func(*ChatCompletionChunk) error) error {
-	scanner := bufio.NewScanner(body)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// SSE lines that do not start with "data:" are comments or blank —
-		// skip them.
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-
-		payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-
-		// "[DONE]" signals the end of the stream.
-		if payload == "[DONE]" {
-			break
-		}
-
-		var chunk ChatCompletionChunk
-		if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
-			return newStreamError("failed to parse chunk JSON", err)
-		}
-
-		if err := handler(&chunk); err != nil {
-			return err
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return newStreamError("error reading stream", err)
-	}
-	return nil
-}
-
-// ─── Embed ────────────────────────────────────────────────────────────────────
+// ─── Embed ───────────────────────────────────────────────────────────────────
 
 // Embed sends an embedding request and returns the response.
-func (c *Client) Embed(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error) {
+func (c *Client) Embed(_ context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
-	if req.Model == "" {
-		return nil, fmt.Errorf("%w: model is required", ErrInvalidRequest)
+
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	// Budget check before request.
-	if c.budget != nil {
-		if err := c.budget.checkBudget(req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := c.runOnRequest(ctx, req); err != nil {
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_embed(h, r)
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	bodyBytes, err := json.Marshal(req)
-	if err != nil {
-		marshalErr := fmt.Errorf("literllm: marshal request body: %w", err)
-		c.runOnError(ctx, req, marshalErr)
-		return nil, marshalErr
+	var resp EmbeddingResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal embedding response: %w", err)
 	}
-
-	// Check cache before HTTP call.
-	if c.cache != nil {
-		key := cacheKey(bodyBytes)
-		if cached := c.cache.get(key); cached != nil {
-			var result EmbeddingResponse
-			if err := json.Unmarshal(cached, &result); err == nil {
-				c.runOnResponse(ctx, req, &result)
-				return &result, nil
-			}
-		}
-	}
-
-	body := bytes.NewReader(bodyBytes)
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/embeddings", body, false)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
-	}
-
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		readErr := fmt.Errorf("literllm: read embedding response: %w", err)
-		c.runOnError(ctx, req, readErr)
-		return nil, readErr
-	}
-
-	var result EmbeddingResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode embedding response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	// Store in cache after successful HTTP call.
-	if c.cache != nil {
-		c.cache.put(cacheKey(bodyBytes), json.RawMessage(respBody))
-	}
-
-	// Record cost for budget tracking.
-	if c.budget != nil {
-		c.budget.recordCost(req.Model, &result.Usage)
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
-// ─── List Models ──────────────────────────────────────────────────────────────
+// ─── List Models ─────────────────────────────────────────────────────────────
 
 // ListModels retrieves the list of models from the configured provider endpoint.
-func (c *Client) ListModels(ctx context.Context) (*ModelsListResponse, error) {
-	// ListModels has no request body; use nil as the hook request sentinel.
-	if err := c.runOnRequest(ctx, nil); err != nil {
-		return nil, err
-	}
-
-	httpReq, err := c.buildRequest(ctx, http.MethodGet, "/models", nil, false)
+func (c *Client) ListModels(_ context.Context) (*ModelsListResponse, error) {
+	respJSON, err := c.callNoBody(func(h *C.LiterLlmClient) *C.char {
+		return C.literllm_list_models(h)
+	})
 	if err != nil {
-		c.runOnError(ctx, nil, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, nil, err)
-		return nil, err
+	var resp ModelsListResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal models response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result ModelsListResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode models response: %w", err)
-		c.runOnError(ctx, nil, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, nil, &result)
-	return &result, nil
+	return &resp, nil
 }
 
-// ─── Image Generate ───────────────────────────────────────────────────────────
+// ─── Image Generate ──────────────────────────────────────────────────────────
 
 // ImageGenerate sends an image generation request and returns the response.
-func (c *Client) ImageGenerate(ctx context.Context, req *CreateImageRequest) (*ImagesResponse, error) {
+func (c *Client) ImageGenerate(_ context.Context, req *CreateImageRequest) (*ImagesResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
-	if req.Prompt == "" {
-		return nil, fmt.Errorf("%w: prompt is required", ErrInvalidRequest)
-	}
 
-	// Budget check before request.
-	if c.budget != nil && req.Model != nil {
-		if err := c.budget.checkBudget(*req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := c.runOnRequest(ctx, req); err != nil {
-		return nil, err
-	}
-
-	body, err := marshalBody(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/images/generations", body, false)
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_image_generate(h, r)
+	})
 	if err != nil {
-		c.runOnError(ctx, req, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+	var resp ImagesResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal image response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result ImagesResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode image response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
-// ─── Speech ───────────────────────────────────────────────────────────────────
+// ─── Speech ──────────────────────────────────────────────────────────────────
 
 // Speech generates audio from text and returns raw audio bytes.
-func (c *Client) Speech(ctx context.Context, req *CreateSpeechRequest) ([]byte, error) {
+// The FFI layer returns a base64-encoded string which is decoded here.
+func (c *Client) Speech(_ context.Context, req *CreateSpeechRequest) ([]byte, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
-	if req.Model == "" {
-		return nil, fmt.Errorf("%w: model is required", ErrInvalidRequest)
-	}
-	if req.Input == "" {
-		return nil, fmt.Errorf("%w: input is required", ErrInvalidRequest)
-	}
-	if req.Voice == "" {
-		return nil, fmt.Errorf("%w: voice is required", ErrInvalidRequest)
+
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	// Budget check before request.
-	if c.budget != nil {
-		if err := c.budget.checkBudget(req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := c.runOnRequest(ctx, req); err != nil {
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_speech(h, r)
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	body, err := marshalBody(req)
+	// The FFI returns base64-encoded audio bytes.
+	data, err := base64.StdEncoding.DecodeString(string(respJSON))
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: decode speech audio: %w", err)
 	}
-
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/audio/speech", body, false)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
-	}
-
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		readErr := fmt.Errorf("literllm: read speech response: %w", err)
-		c.runOnError(ctx, req, readErr)
-		return nil, readErr
-	}
-
-	c.runOnResponse(ctx, req, data)
 	return data, nil
 }
 
-// ─── Transcribe ───────────────────────────────────────────────────────────────
+// ─── Transcribe ──────────────────────────────────────────────────────────────
 
 // Transcribe sends a transcription request and returns the response.
-func (c *Client) Transcribe(ctx context.Context, req *CreateTranscriptionRequest) (*TranscriptionResponse, error) {
+func (c *Client) Transcribe(_ context.Context, req *CreateTranscriptionRequest) (*TranscriptionResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
-	if req.Model == "" {
-		return nil, fmt.Errorf("%w: model is required", ErrInvalidRequest)
-	}
 
-	// Budget check before request.
-	if c.budget != nil {
-		if err := c.budget.checkBudget(req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := c.runOnRequest(ctx, req); err != nil {
-		return nil, err
-	}
-
-	body, err := marshalBody(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/audio/transcriptions", body, false)
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_transcribe(h, r)
+	})
 	if err != nil {
-		c.runOnError(ctx, req, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+	var resp TranscriptionResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal transcription response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result TranscriptionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode transcription response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
-// ─── Moderate ─────────────────────────────────────────────────────────────────
+// ─── Moderate ────────────────────────────────────────────────────────────────
 
 // Moderate checks content against moderation policies.
-func (c *Client) Moderate(ctx context.Context, req *ModerationRequest) (*ModerationResponse, error) {
+func (c *Client) Moderate(_ context.Context, req *ModerationRequest) (*ModerationResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
 
-	// Budget check before request.
-	if c.budget != nil && req.Model != nil {
-		if err := c.budget.checkBudget(*req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := c.runOnRequest(ctx, req); err != nil {
-		return nil, err
-	}
-
-	body, err := marshalBody(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/moderations", body, false)
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_moderate(h, r)
+	})
 	if err != nil {
-		c.runOnError(ctx, req, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+	var resp ModerationResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal moderation response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result ModerationResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode moderation response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
-// ─── Rerank ───────────────────────────────────────────────────────────────────
+// ─── Rerank ──────────────────────────────────────────────────────────────────
 
 // Rerank reranks documents by relevance to a query.
-func (c *Client) Rerank(ctx context.Context, req *RerankRequest) (*RerankResponse, error) {
+func (c *Client) Rerank(_ context.Context, req *RerankRequest) (*RerankResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
-	if req.Model == "" {
-		return nil, fmt.Errorf("%w: model is required", ErrInvalidRequest)
-	}
-	if req.Query == "" {
-		return nil, fmt.Errorf("%w: query is required", ErrInvalidRequest)
-	}
 
-	// Budget check before request.
-	if c.budget != nil {
-		if err := c.budget.checkBudget(req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := c.runOnRequest(ctx, req); err != nil {
-		return nil, err
-	}
-
-	body, err := marshalBody(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/rerank", body, false)
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_rerank(h, r)
+	})
 	if err != nil {
-		c.runOnError(ctx, req, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+	var resp RerankResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal rerank response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result RerankResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode rerank response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
-// ─── File Management ──────────────────────────────────────────────────────────
+// ─── File Management ─────────────────────────────────────────────────────────
 
 // CreateFile uploads a file.
-func (c *Client) CreateFile(ctx context.Context, req *CreateFileRequest) (*FileObject, error) {
+func (c *Client) CreateFile(_ context.Context, req *CreateFileRequest) (*FileObject, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
 
-	if err := c.runOnRequest(ctx, req); err != nil {
-		return nil, err
-	}
-
-	body, err := marshalBody(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/files", body, false)
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_create_file(h, r)
+	})
 	if err != nil {
-		c.runOnError(ctx, req, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+	var resp FileObject
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal file response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result FileObject
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode file response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // RetrieveFile retrieves metadata for a file by ID.
-func (c *Client) RetrieveFile(ctx context.Context, fileID string) (*FileObject, error) {
+func (c *Client) RetrieveFile(_ context.Context, fileID string) (*FileObject, error) {
 	if fileID == "" {
 		return nil, fmt.Errorf("%w: file_id is required", ErrInvalidRequest)
 	}
 
-	if err := c.runOnRequest(ctx, fileID); err != nil {
-		return nil, err
-	}
-
-	httpReq, err := c.buildRequest(ctx, http.MethodGet, "/files/"+fileID, nil, false)
+	respJSON, err := c.callByID(fileID, func(h *C.LiterLlmClient, id *C.char) *C.char {
+		return C.literllm_retrieve_file(h, id)
+	})
 	if err != nil {
-		c.runOnError(ctx, fileID, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, fileID, err)
-		return nil, err
+	var resp FileObject
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal file response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result FileObject
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode file response: %w", err)
-		c.runOnError(ctx, fileID, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, fileID, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // DeleteFile deletes a file by ID.
-func (c *Client) DeleteFile(ctx context.Context, fileID string) (*DeleteResponse, error) {
+func (c *Client) DeleteFile(_ context.Context, fileID string) (*DeleteResponse, error) {
 	if fileID == "" {
 		return nil, fmt.Errorf("%w: file_id is required", ErrInvalidRequest)
 	}
 
-	if err := c.runOnRequest(ctx, fileID); err != nil {
-		return nil, err
-	}
-
-	httpReq, err := c.buildRequest(ctx, http.MethodDelete, "/files/"+fileID, nil, false)
+	respJSON, err := c.callByID(fileID, func(h *C.LiterLlmClient, id *C.char) *C.char {
+		return C.literllm_delete_file(h, id)
+	})
 	if err != nil {
-		c.runOnError(ctx, fileID, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, fileID, err)
-		return nil, err
+	var resp DeleteResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal delete response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result DeleteResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode delete response: %w", err)
-		c.runOnError(ctx, fileID, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, fileID, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // ListFiles lists files, optionally filtered by query parameters.
-func (c *Client) ListFiles(ctx context.Context, query *FileListQuery) (*FileListResponse, error) {
-	if err := c.runOnRequest(ctx, query); err != nil {
-		return nil, err
-	}
-
-	path := "/files"
+func (c *Client) ListFiles(_ context.Context, query *FileListQuery) (*FileListResponse, error) {
+	var queryJSON []byte
+	var err error
 	if query != nil {
-		var params []string
-		if query.Purpose != nil {
-			params = append(params, "purpose="+*query.Purpose)
-		}
-		if query.Limit != nil {
-			params = append(params, fmt.Sprintf("limit=%d", *query.Limit))
-		}
-		if query.After != nil {
-			params = append(params, "after="+*query.After)
-		}
-		if len(params) > 0 {
-			path += "?" + strings.Join(params, "&")
+		queryJSON, err = json.Marshal(query)
+		if err != nil {
+			return nil, fmt.Errorf("literllm: marshal query: %w", err)
 		}
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodGet, path, nil, false)
-	if err != nil {
-		c.runOnError(ctx, query, err)
+	if err := c.checkHandle(); err != nil {
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, query, err)
+	var cQuery *C.char
+	if queryJSON != nil {
+		cQuery = C.CString(string(queryJSON))
+		defer C.free(unsafe.Pointer(cQuery))
+	}
+
+	runtime.LockOSThread()
+	c.mu.Lock()
+	cResp := C.literllm_list_files(c.handle, cQuery)
+	c.mu.Unlock()
+	if cResp == nil {
+		err := lastError()
+		runtime.UnlockOSThread()
 		return nil, err
 	}
-	defer resp.Body.Close()
+	runtime.UnlockOSThread()
+	defer C.literllm_free_string(cResp)
 
-	var result FileListResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode file list response: %w", err)
-		c.runOnError(ctx, query, decodeErr)
-		return nil, decodeErr
+	var resp FileListResponse
+	if err := json.Unmarshal([]byte(C.GoString(cResp)), &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal file list response: %w", err)
 	}
-
-	c.runOnResponse(ctx, query, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // FileContent retrieves the raw content of a file.
-func (c *Client) FileContent(ctx context.Context, fileID string) ([]byte, error) {
+// The FFI layer returns base64-encoded content which is decoded here.
+func (c *Client) FileContent(_ context.Context, fileID string) ([]byte, error) {
 	if fileID == "" {
 		return nil, fmt.Errorf("%w: file_id is required", ErrInvalidRequest)
 	}
 
-	if err := c.runOnRequest(ctx, fileID); err != nil {
+	respB64, err := c.callByID(fileID, func(h *C.LiterLlmClient, id *C.char) *C.char {
+		return C.literllm_file_content(h, id)
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodGet, "/files/"+fileID+"/content", nil, false)
+	data, err := base64.StdEncoding.DecodeString(string(respB64))
 	if err != nil {
-		c.runOnError(ctx, fileID, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: decode file content: %w", err)
 	}
-
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, fileID, err)
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		readErr := fmt.Errorf("literllm: read file content: %w", err)
-		c.runOnError(ctx, fileID, readErr)
-		return nil, readErr
-	}
-
-	c.runOnResponse(ctx, fileID, data)
 	return data, nil
 }
 
-// ─── Batch Management ─────────────────────────────────────────────────────────
+// ─── Batch Management ────────────────────────────────────────────────────────
 
 // CreateBatch creates a new batch job.
-func (c *Client) CreateBatch(ctx context.Context, req *CreateBatchRequest) (*BatchObject, error) {
+func (c *Client) CreateBatch(_ context.Context, req *CreateBatchRequest) (*BatchObject, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
 
-	if err := c.runOnRequest(ctx, req); err != nil {
-		return nil, err
-	}
-
-	body, err := marshalBody(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/batches", body, false)
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_create_batch(h, r)
+	})
 	if err != nil {
-		c.runOnError(ctx, req, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+	var resp BatchObject
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal batch response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result BatchObject
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode batch response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // RetrieveBatch retrieves a batch by ID.
-func (c *Client) RetrieveBatch(ctx context.Context, batchID string) (*BatchObject, error) {
+func (c *Client) RetrieveBatch(_ context.Context, batchID string) (*BatchObject, error) {
 	if batchID == "" {
 		return nil, fmt.Errorf("%w: batch_id is required", ErrInvalidRequest)
 	}
 
-	if err := c.runOnRequest(ctx, batchID); err != nil {
-		return nil, err
-	}
-
-	httpReq, err := c.buildRequest(ctx, http.MethodGet, "/batches/"+batchID, nil, false)
+	respJSON, err := c.callByID(batchID, func(h *C.LiterLlmClient, id *C.char) *C.char {
+		return C.literllm_retrieve_batch(h, id)
+	})
 	if err != nil {
-		c.runOnError(ctx, batchID, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, batchID, err)
-		return nil, err
+	var resp BatchObject
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal batch response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result BatchObject
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode batch response: %w", err)
-		c.runOnError(ctx, batchID, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, batchID, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // ListBatches lists batches, optionally filtered by query parameters.
-func (c *Client) ListBatches(ctx context.Context, query *BatchListQuery) (*BatchListResponse, error) {
-	if err := c.runOnRequest(ctx, query); err != nil {
-		return nil, err
-	}
-
-	path := "/batches"
+func (c *Client) ListBatches(_ context.Context, query *BatchListQuery) (*BatchListResponse, error) {
+	var queryJSON []byte
+	var err error
 	if query != nil {
-		var params []string
-		if query.Limit != nil {
-			params = append(params, fmt.Sprintf("limit=%d", *query.Limit))
-		}
-		if query.After != nil {
-			params = append(params, "after="+*query.After)
-		}
-		if len(params) > 0 {
-			path += "?" + strings.Join(params, "&")
+		queryJSON, err = json.Marshal(query)
+		if err != nil {
+			return nil, fmt.Errorf("literllm: marshal query: %w", err)
 		}
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodGet, path, nil, false)
-	if err != nil {
-		c.runOnError(ctx, query, err)
+	if err := c.checkHandle(); err != nil {
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, query, err)
+	var cQuery *C.char
+	if queryJSON != nil {
+		cQuery = C.CString(string(queryJSON))
+		defer C.free(unsafe.Pointer(cQuery))
+	}
+
+	runtime.LockOSThread()
+	c.mu.Lock()
+	cResp := C.literllm_list_batches(c.handle, cQuery)
+	c.mu.Unlock()
+	if cResp == nil {
+		err := lastError()
+		runtime.UnlockOSThread()
 		return nil, err
 	}
-	defer resp.Body.Close()
+	runtime.UnlockOSThread()
+	defer C.literllm_free_string(cResp)
 
-	var result BatchListResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode batch list response: %w", err)
-		c.runOnError(ctx, query, decodeErr)
-		return nil, decodeErr
+	var resp BatchListResponse
+	if err := json.Unmarshal([]byte(C.GoString(cResp)), &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal batch list response: %w", err)
 	}
-
-	c.runOnResponse(ctx, query, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // CancelBatch cancels an in-progress batch.
-func (c *Client) CancelBatch(ctx context.Context, batchID string) (*BatchObject, error) {
+func (c *Client) CancelBatch(_ context.Context, batchID string) (*BatchObject, error) {
 	if batchID == "" {
 		return nil, fmt.Errorf("%w: batch_id is required", ErrInvalidRequest)
 	}
 
-	if err := c.runOnRequest(ctx, batchID); err != nil {
-		return nil, err
-	}
-
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/batches/"+batchID+"/cancel", nil, false)
+	respJSON, err := c.callByID(batchID, func(h *C.LiterLlmClient, id *C.char) *C.char {
+		return C.literllm_cancel_batch(h, id)
+	})
 	if err != nil {
-		c.runOnError(ctx, batchID, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, batchID, err)
-		return nil, err
+	var resp BatchObject
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal batch response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result BatchObject
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode batch response: %w", err)
-		c.runOnError(ctx, batchID, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, batchID, &result)
-	return &result, nil
+	return &resp, nil
 }
 
-// ─── Responses API ────────────────────────────────────────────────────────────
+// ─── Responses API ───────────────────────────────────────────────────────────
 
 // CreateResponse creates a new response via the Responses API.
-func (c *Client) CreateResponse(ctx context.Context, req *CreateResponseRequest) (*ResponseObject, error) {
+func (c *Client) CreateResponse(_ context.Context, req *CreateResponseRequest) (*ResponseObject, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
-	if req.Model == "" {
-		return nil, fmt.Errorf("%w: model is required", ErrInvalidRequest)
-	}
 
-	// Budget check before request.
-	if c.budget != nil {
-		if err := c.budget.checkBudget(req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := c.runOnRequest(ctx, req); err != nil {
-		return nil, err
-	}
-
-	body, err := marshalBody(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/responses", body, false)
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_create_response(h, r)
+	})
 	if err != nil {
-		c.runOnError(ctx, req, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+	var resp ResponseObject
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result ResponseObject
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // RetrieveResponse retrieves a response by ID.
-func (c *Client) RetrieveResponse(ctx context.Context, responseID string) (*ResponseObject, error) {
+func (c *Client) RetrieveResponse(_ context.Context, responseID string) (*ResponseObject, error) {
 	if responseID == "" {
 		return nil, fmt.Errorf("%w: response_id is required", ErrInvalidRequest)
 	}
 
-	if err := c.runOnRequest(ctx, responseID); err != nil {
-		return nil, err
-	}
-
-	httpReq, err := c.buildRequest(ctx, http.MethodGet, "/responses/"+responseID, nil, false)
+	respJSON, err := c.callByID(responseID, func(h *C.LiterLlmClient, id *C.char) *C.char {
+		return C.literllm_retrieve_response(h, id)
+	})
 	if err != nil {
-		c.runOnError(ctx, responseID, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, responseID, err)
-		return nil, err
+	var resp ResponseObject
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result ResponseObject
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode response: %w", err)
-		c.runOnError(ctx, responseID, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, responseID, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // CancelResponse cancels an in-progress response.
-func (c *Client) CancelResponse(ctx context.Context, responseID string) (*ResponseObject, error) {
+func (c *Client) CancelResponse(_ context.Context, responseID string) (*ResponseObject, error) {
 	if responseID == "" {
 		return nil, fmt.Errorf("%w: response_id is required", ErrInvalidRequest)
 	}
 
-	if err := c.runOnRequest(ctx, responseID); err != nil {
-		return nil, err
-	}
-
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/responses/"+responseID+"/cancel", nil, false)
+	respJSON, err := c.callByID(responseID, func(h *C.LiterLlmClient, id *C.char) *C.char {
+		return C.literllm_cancel_response(h, id)
+	})
 	if err != nil {
-		c.runOnError(ctx, responseID, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, responseID, err)
-		return nil, err
+	var resp ResponseObject
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result ResponseObject
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode response: %w", err)
-		c.runOnError(ctx, responseID, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, responseID, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // ─── Search & OCR ────────────────────────────────────────────────────────────
 
 // Search performs a web search using the configured provider.
-func (c *Client) Search(ctx context.Context, req *SearchRequest) (*SearchResponse, error) {
+func (c *Client) Search(_ context.Context, req *SearchRequest) (*SearchResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
-	if req.Model == "" {
-		return nil, fmt.Errorf("%w: model is required", ErrInvalidRequest)
-	}
-	if req.Query == "" {
-		return nil, fmt.Errorf("%w: query is required", ErrInvalidRequest)
-	}
 
-	// Budget check before request.
-	if c.budget != nil {
-		if err := c.budget.checkBudget(req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := c.runOnRequest(ctx, req); err != nil {
-		return nil, err
-	}
-
-	body, err := marshalBody(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/search", body, false)
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_search(h, r)
+	})
 	if err != nil {
-		c.runOnError(ctx, req, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
-	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+	var resp SearchResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal search response: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var result SearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode search response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
-	}
-
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	return &resp, nil
 }
 
 // Ocr performs optical character recognition on images.
-func (c *Client) Ocr(ctx context.Context, req *OcrRequest) (*OcrResponse, error) {
+func (c *Client) Ocr(_ context.Context, req *OcrRequest) (*OcrResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("%w: request must not be nil", ErrInvalidRequest)
 	}
-	if req.Model == "" {
-		return nil, fmt.Errorf("%w: model is required", ErrInvalidRequest)
-	}
 
-	// Budget check before request.
-	if c.budget != nil {
-		if err := c.budget.checkBudget(req.Model, c.config.budget); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := c.runOnRequest(ctx, req); err != nil {
-		return nil, err
-	}
-
-	body, err := marshalBody(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
+		return nil, fmt.Errorf("literllm: marshal request: %w", err)
 	}
 
-	httpReq, err := c.buildRequest(ctx, http.MethodPost, "/ocr", body, false)
+	respJSON, err := c.callJSON(reqJSON, func(h *C.LiterLlmClient, r *C.char) *C.char {
+		return C.literllm_ocr(h, r)
+	})
 	if err != nil {
-		c.runOnError(ctx, req, err)
 		return nil, err
 	}
 
-	resp, err := c.do(httpReq)
+	var resp OcrResponse
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, fmt.Errorf("literllm: unmarshal ocr response: %w", err)
+	}
+	return &resp, nil
+}
+
+// ─── Budget ──────────────────────────────────────────────────────────────────
+
+// BudgetUsed returns the cumulative global spend tracked by the Rust budget
+// layer.  Returns 0.0 if no budget is configured.
+func (c *Client) BudgetUsed() float64 {
+	if err := c.checkHandle(); err != nil {
+		return 0.0
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return float64(C.literllm_budget_usage(c.handle))
+}
+
+// ─── Provider Registration ───────────────────────────────────────────────────
+
+// RegisterProvider registers a custom LLM provider at runtime.
+// This is a global operation — the provider becomes available to all clients.
+func RegisterProvider(config ProviderConfig) error {
+	configJSON, err := json.Marshal(config)
 	if err != nil {
-		c.runOnError(ctx, req, err)
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result OcrResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		decodeErr := fmt.Errorf("literllm: decode ocr response: %w", err)
-		c.runOnError(ctx, req, decodeErr)
-		return nil, decodeErr
+		return fmt.Errorf("literllm: marshal provider config: %w", err)
 	}
 
-	c.runOnResponse(ctx, req, &result)
-	return &result, nil
+	cConfig := C.CString(string(configJSON))
+	defer C.free(unsafe.Pointer(cConfig))
+
+	runtime.LockOSThread()
+	if C.literllm_register_provider(cConfig) != 0 {
+		err := lastError()
+		runtime.UnlockOSThread()
+		return err
+	}
+	runtime.UnlockOSThread()
+	return nil
+}
+
+// UnregisterProvider removes a previously registered custom provider by name.
+// Returns nil if the provider was found and removed.
+func UnregisterProvider(name string) error {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	runtime.LockOSThread()
+	result := C.literllm_unregister_provider(cName)
+	if result == -1 {
+		err := lastError()
+		runtime.UnlockOSThread()
+		return err
+	}
+	runtime.UnlockOSThread()
+	return nil
+}
+
+// ─── Version ─────────────────────────────────────────────────────────────────
+
+// Version returns the version string of the liter-llm Rust core library.
+func Version() string {
+	return C.GoString(C.literllm_version())
 }
 
 // compile-time assertion: *Client must implement LlmClient.

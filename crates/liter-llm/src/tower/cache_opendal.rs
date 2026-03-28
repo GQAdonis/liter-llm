@@ -58,11 +58,15 @@ impl OpenDalCacheStore {
         config: HashMap<String, String>,
         prefix: impl Into<String>,
         ttl: Duration,
-    ) -> Result<Self, String> {
+    ) -> crate::error::Result<Self> {
         let parsed_scheme =
-            opendal::Scheme::from_str(scheme).map_err(|e| format!("unknown OpenDAL scheme '{scheme}': {e}"))?;
-        let operator = Operator::via_iter(parsed_scheme, config)
-            .map_err(|e| format!("failed to build OpenDAL operator for '{scheme}': {e}"))?;
+            opendal::Scheme::from_str(scheme).map_err(|e| crate::error::LiterLlmError::InternalError {
+                message: format!("unknown OpenDAL scheme '{scheme}': {e}"),
+            })?;
+        let operator =
+            Operator::via_iter(parsed_scheme, config).map_err(|e| crate::error::LiterLlmError::InternalError {
+                message: format!("failed to build OpenDAL operator for '{scheme}': {e}"),
+            })?;
         Ok(Self::new(operator, prefix, ttl))
     }
 
@@ -138,5 +142,129 @@ impl CacheStore for OpenDalCacheStore {
                 tracing::warn!("OpenDAL cache: failed to delete {path}: {e}");
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tower::cache::{CacheStore, CachedResponse};
+    use crate::types::{AssistantMessage, ChatCompletionResponse, Choice, FinishReason};
+
+    fn memory_store(ttl_secs: u64) -> OpenDalCacheStore {
+        let op = Operator::via_iter(opendal::Scheme::Memory, std::iter::empty::<(String, String)>())
+            .expect("memory backend should always build");
+        OpenDalCacheStore::new(op, "test/", Duration::from_secs(ttl_secs))
+    }
+
+    fn dummy_response() -> CachedResponse {
+        CachedResponse::Chat(ChatCompletionResponse {
+            id: "test-resp-001".into(),
+            object: "chat.completion".into(),
+            created: 1_700_000_000,
+            model: "gpt-4".into(),
+            choices: vec![Choice {
+                index: 0,
+                message: AssistantMessage {
+                    content: Some("Hello!".into()),
+                    name: None,
+                    tool_calls: None,
+                    refusal: None,
+                    function_call: None,
+                },
+                finish_reason: Some(FinishReason::Stop),
+            }],
+            usage: None,
+            system_fingerprint: None,
+            service_tier: None,
+        })
+    }
+
+    #[tokio::test]
+    async fn put_and_get_round_trip() {
+        let store = memory_store(300);
+        store.put(42, "request-body-a".into(), dummy_response()).await;
+        let cached = store.get(42, "request-body-a").await;
+        assert!(cached.is_some(), "expected a cached response after put");
+        match cached.unwrap() {
+            CachedResponse::Chat(resp) => {
+                assert_eq!(resp.id, "test-resp-001");
+                assert_eq!(resp.model, "gpt-4");
+            }
+            _ => panic!("expected CachedResponse::Chat variant"),
+        }
+    }
+
+    #[tokio::test]
+    async fn get_returns_none_for_missing_key() {
+        let store = memory_store(300);
+        let result = store.get(999, "any-body").await;
+        assert!(result.is_none(), "expected None for a key that was never stored");
+    }
+
+    #[tokio::test]
+    async fn get_returns_none_for_wrong_request_body() {
+        let store = memory_store(300);
+        store.put(1, "body-alpha".into(), dummy_response()).await;
+        // Same key but different request body should miss (collision guard).
+        let result = store.get(1, "body-beta").await;
+        assert!(result.is_none(), "expected None when request body does not match");
+    }
+
+    #[tokio::test]
+    async fn expired_entry_returns_none() {
+        let store = memory_store(0); // 0-second TTL = immediate expiry
+        store.put(1, "req".into(), dummy_response()).await;
+        // TTL is stored in whole seconds, so we must wait at least 1 full
+        // second for the wall-clock to advance past the `expires_at` timestamp.
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+        let result = store.get(1, "req").await;
+        assert!(result.is_none(), "expected None for expired entry");
+    }
+
+    #[tokio::test]
+    async fn remove_deletes_entry() {
+        let store = memory_store(300);
+        store.put(7, "req".into(), dummy_response()).await;
+        // Confirm it exists first.
+        assert!(store.get(7, "req").await.is_some());
+        // Remove and verify it is gone.
+        store.remove(7).await;
+        assert!(store.get(7, "req").await.is_none(), "expected None after remove");
+    }
+
+    #[tokio::test]
+    async fn overwrite_replaces_previous_entry() {
+        let store = memory_store(300);
+        store.put(1, "req".into(), dummy_response()).await;
+
+        // Overwrite with a different response.
+        let replacement = CachedResponse::Chat(ChatCompletionResponse {
+            id: "test-resp-002".into(),
+            object: "chat.completion".into(),
+            created: 1_700_000_001,
+            model: "gpt-4o".into(),
+            choices: vec![],
+            usage: None,
+            system_fingerprint: None,
+            service_tier: None,
+        });
+        store.put(1, "req".into(), replacement).await;
+
+        match store.get(1, "req").await {
+            Some(CachedResponse::Chat(resp)) => assert_eq!(resp.id, "test-resp-002"),
+            _ => panic!("expected updated CachedResponse::Chat variant"),
+        }
+    }
+
+    #[test]
+    fn from_config_rejects_unknown_scheme() {
+        let result = OpenDalCacheStore::from_config(
+            "nonexistent_backend_xyz",
+            std::collections::HashMap::new(),
+            "prefix/",
+            Duration::from_secs(60),
+        );
+        assert!(result.is_err(), "expected error for unknown scheme");
     }
 }

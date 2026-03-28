@@ -5,31 +5,25 @@ import static dev.kreuzberg.literllm.Types.*;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.lang.foreign.Arena;
+import java.lang.foreign.Linker;
+import java.lang.foreign.MemorySegment;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * HTTP client for the liter-llm unified LLM API.
+ * Native FFI client for the liter-llm unified LLM API.
  *
  * <p>
- * Speaks the OpenAI-compatible wire protocol directly — no FFI, no native
- * libraries. The model-name prefix selects the provider and endpoint (e.g.
- * {@code "groq/llama3-70b"} routes to Groq). Implements {@link AutoCloseable};
- * close after use to release the underlying {@link HttpClient} executor.
+ * Delegates all API calls to the Rust {@code libliter_llm_ffi} shared library
+ * via Java's Panama Foreign Function &amp; Memory API. The model-name prefix
+ * selects the provider and endpoint (e.g. {@code "groq/llama3-70b"} routes to
+ * Groq). Implements {@link AutoCloseable}; close after use to free the native
+ * client handle.
  *
  * <p>
  * <b>Example:</b>
@@ -44,106 +38,48 @@ import java.util.function.Consumer;
  * }
  * }</pre>
  */
+@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.EmptyCatchBlock"})
 public final class LlmClient implements AutoCloseable {
 
 	static final String DEFAULT_BASE_URL = "https://api.openai.com/v1";
 	static final int DEFAULT_MAX_RETRIES = 2;
 	static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
 
-	private static final int HTTP_OK_MIN = 200;
-	private static final int HTTP_OK_MAX = 300;
-	private static final int HTTP_BAD_REQUEST = 400;
-	private static final int HTTP_UNAUTHORIZED = 401;
-	private static final int HTTP_FORBIDDEN = 403;
-	private static final int HTTP_NOT_FOUND = 404;
-	private static final int HTTP_UNPROCESSABLE = 422;
-	private static final int HTTP_RATE_LIMIT = 429;
-	private static final int HTTP_SERVER_ERROR_MIN = 500;
-	private static final int ERROR_BODY_MAX_LENGTH = 200;
+	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+			.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
 
-	private final String apiKey;
-	private final String baseUrl;
-	private final int maxRetries;
-	private final HttpClient httpClient;
-	private final ObjectMapper objectMapper;
-	private final CacheConfig cacheConfig;
-	private final BudgetConfig budgetConfig;
-	private final java.util.List<LlmHook> hooks = new java.util.concurrent.CopyOnWriteArrayList<>();
-	private final java.util.List<ProviderConfig> customProviders = new java.util.concurrent.CopyOnWriteArrayList<>();
+	private final MemorySegment handle;
+	private final Arena arena;
+	private final AtomicBoolean closed = new AtomicBoolean(false);
 
-	// ─── Cache State ──────────────────────────────────────────────────────────
-
-	private static final class CacheEntry {
-
-		final String response;
-		final Instant created;
-
-		CacheEntry(String response) {
-			this.response = response;
-			this.created = Instant.now();
-		}
-
-		boolean isExpired(int ttlSeconds) {
-			return Instant.now().isAfter(created.plusSeconds(ttlSeconds));
-		}
+	/**
+	 * Creates a client with just an API key, using default configuration.
+	 *
+	 * @param apiKey
+	 *            the API key for authentication
+	 */
+	public LlmClient(String apiKey) {
+		this(builder().apiKey(apiKey));
 	}
 
-	/** LRU cache backed by insertion-ordered LinkedHashMap. */
-	private final Map<String, CacheEntry> responseCache;
-
-	// ─── Budget State ─────────────────────────────────────────────────────────
-
-	/**
-	 * Global spend tracked in microcents (1 USD = 100_000_000 microcents) for
-	 * precision.
-	 */
-	private final AtomicLong globalSpendMicrocents = new AtomicLong();
-
-	/** Per-model spend in microcents. */
-	private final Map<String, AtomicLong> modelSpendMicrocents = new ConcurrentHashMap<>();
-
-	/**
-	 * Approximate pricing in USD per million tokens: [promptPer1M,
-	 * completionPer1M].
-	 */
-	private static final Map<String, double[]> MODEL_PRICING = Map.ofEntries(
-			Map.entry("gpt-4o", new double[]{2.50, 10.00}), Map.entry("gpt-4o-mini", new double[]{0.15, 0.60}),
-			Map.entry("gpt-4-turbo", new double[]{10.00, 30.00}), Map.entry("gpt-4", new double[]{30.00, 60.00}),
-			Map.entry("gpt-3.5-turbo", new double[]{0.50, 1.50}),
-			Map.entry("claude-3-opus", new double[]{15.00, 75.00}),
-			Map.entry("claude-3-sonnet", new double[]{3.00, 15.00}),
-			Map.entry("claude-3-haiku", new double[]{0.25, 1.25}));
-
-	private static final double[] FALLBACK_PRICING = {1.00, 2.00};
-
-	/** Microcents per USD. */
-	private static final long MICROCENTS_PER_USD = 100_000_000L;
-	private static final float LRU_LOAD_FACTOR = 0.75f;
-	private static final double TOKENS_PER_MILLION = 1_000_000.0;
-
 	private LlmClient(Builder builder) {
-		this.apiKey = builder.apiKey;
-		this.baseUrl = builder.baseUrl.endsWith("/")
-				? builder.baseUrl.substring(0, builder.baseUrl.length() - 1)
-				: builder.baseUrl;
-		this.maxRetries = builder.maxRetries;
-		this.httpClient = HttpClient.newBuilder().connectTimeout(builder.timeout).build();
-		this.objectMapper = createObjectMapper();
-		this.cacheConfig = builder.cacheConfig;
-		this.budgetConfig = builder.budgetConfig;
-
-		// Initialize LRU cache if caching is enabled.
-		if (cacheConfig != null) {
-			final int maxEntries = cacheConfig.maxEntries();
-			this.responseCache = java.util.Collections
-					.synchronizedMap(new LinkedHashMap<>(maxEntries, LRU_LOAD_FACTOR, true) {
-						@Override
-						protected boolean removeEldestEntry(Map.Entry<String, CacheEntry> eldest) {
-							return size() > maxEntries;
-						}
-					});
-		} else {
-			this.responseCache = null;
+		this.arena = Arena.ofShared();
+		try {
+			var configJson = OBJECT_MAPPER.writeValueAsString(builder.toConfigMap());
+			var cConfig = arena.allocateFrom(configJson);
+			this.handle = (MemorySegment) NativeMethods.CLIENT_NEW_WITH_CONFIG.invokeExact(cConfig);
+		} catch (LlmException e) {
+			arena.close();
+			throw new RuntimeException("Failed to create LlmClient: " + e.getMessage(), e);
+		} catch (Throwable t) {
+			arena.close();
+			throw new RuntimeException("failed to create native client", t);
+		}
+		if (handle.equals(MemorySegment.NULL)) {
+			String err = lastErrorMessage();
+			arena.close();
+			throw new RuntimeException(new LlmException(LlmException.CODE_UNKNOWN, "liter-llm: " + err));
 		}
 	}
 
@@ -159,36 +95,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public ChatCompletionResponse chat(ChatCompletionRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-
-			// Check cache before HTTP call.
-			String cached = checkCache(body);
-			if (cached != null) {
-				ChatCompletionResponse response = deserialize(cached, ChatCompletionResponse.class);
-				runOnResponse(request, response);
-				return response;
-			}
-
-			String responseBody = post("/chat/completions", body);
-			ChatCompletionResponse response = deserialize(responseBody, ChatCompletionResponse.class);
-
-			// Store in cache.
-			storeInCache(body, responseBody);
-
-			// Record cost for budget tracking.
-			if (response.usage() != null) {
-				recordCost(request.model(), response.usage());
-			}
-
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.CHAT, serialize(request));
+		return deserialize(json, ChatCompletionResponse.class);
 	}
 
 	/**
@@ -196,24 +104,7 @@ public final class LlmClient implements AutoCloseable {
 	 * chunk received via server-sent events (SSE).
 	 *
 	 * <p>
-	 * The {@code stream} field on the request is forced to {@code true}. Streaming
-	 * bypasses the response cache.
-	 *
-	 * <p>
-	 * <b>Example:</b>
-	 * </p>
-	 *
-	 * <pre>{@code
-	 * var request = ChatCompletionRequest.builder("gpt-4o-mini", List.of(new Types.UserMessage("Hello!"))).maxTokens(256L)
-	 * 		.build();
-	 * client.chatStream(request, chunk -> {
-	 * 	for (var choice : chunk.choices()) {
-	 * 		if (choice.delta().content() != null) {
-	 * 			System.out.print(choice.delta().content());
-	 * 		}
-	 * 	}
-	 * });
-	 * }</pre>
+	 * The {@code stream} field on the request is forced to {@code true}.
 	 *
 	 * @param request
 	 *            the chat completion request
@@ -229,21 +120,34 @@ public final class LlmClient implements AutoCloseable {
 		if (onChunk == null) {
 			throw new IllegalArgumentException("onChunk callback must not be null");
 		}
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			// Force stream=true by creating a copy with the stream flag set.
-			ChatCompletionRequest streamRequest = new ChatCompletionRequest(request.model(), request.messages(),
-					request.temperature(), request.topP(), request.n(), Boolean.TRUE, request.stop(),
-					request.maxTokens(), request.presencePenalty(), request.frequencyPenalty(), request.logitBias(),
-					request.user(), request.tools(), request.toolChoice(), request.parallelToolCalls(),
-					request.responseFormat(), request.streamOptions(), request.seed());
-			String body = serialize(streamRequest);
-			postStream("/chat/completions", body, onChunk);
-			runOnResponse(request, null);
+		// Force stream=true by creating a copy with the stream flag set.
+		ChatCompletionRequest streamRequest = new ChatCompletionRequest(request.model(), request.messages(),
+				request.temperature(), request.topP(), request.n(), Boolean.TRUE, request.stop(), request.maxTokens(),
+				request.presencePenalty(), request.frequencyPenalty(), request.logitBias(), request.user(),
+				request.tools(), request.toolChoice(), request.parallelToolCalls(), request.responseFormat(),
+				request.streamOptions(), request.seed());
+		String requestJson = serialize(streamRequest);
+
+		try (var callArena = Arena.ofConfined()) {
+			var cReq = callArena.allocateFrom(requestJson);
+
+			// Create an upcall stub for the stream callback.
+			var upcallStub = Linker.nativeLinker()
+					.upcallStub(
+							java.lang.invoke.MethodHandles.lookup()
+									.bind(new StreamCallbackTarget(onChunk, OBJECT_MAPPER), "accept",
+											java.lang.invoke.MethodType.methodType(void.class, MemorySegment.class,
+													MemorySegment.class)),
+							NativeMethods.STREAM_CALLBACK_DESCRIPTOR, callArena);
+
+			int result = (int) NativeMethods.CHAT_STREAM.invokeExact(handle, cReq, upcallStub, MemorySegment.NULL);
+			if (result != 0) {
+				throw new LlmException.StreamException(lastErrorMessage());
+			}
 		} catch (LlmException e) {
-			runOnError(request, e);
 			throw e;
+		} catch (Throwable t) {
+			throw new RuntimeException("FFI stream call failed", t);
 		}
 	}
 
@@ -257,36 +161,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public EmbeddingResponse embed(EmbeddingRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-
-			// Check cache before HTTP call.
-			String cached = checkCache(body);
-			if (cached != null) {
-				EmbeddingResponse response = deserialize(cached, EmbeddingResponse.class);
-				runOnResponse(request, response);
-				return response;
-			}
-
-			String responseBody = post("/embeddings", body);
-			EmbeddingResponse response = deserialize(responseBody, EmbeddingResponse.class);
-
-			// Store in cache.
-			storeInCache(body, responseBody);
-
-			// Record cost for budget tracking.
-			if (response.usage() != null) {
-				recordCost(request.model(), response.usage());
-			}
-
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.EMBED, serialize(request));
+		return deserialize(json, EmbeddingResponse.class);
 	}
 
 	/**
@@ -297,17 +173,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public ModelsListResponse listModels() throws LlmException {
-		checkBudget(null);
-		runOnRequest(null);
-		try {
-			String responseBody = get("/models");
-			ModelsListResponse response = deserialize(responseBody, ModelsListResponse.class);
-			runOnResponse(null, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(null, e);
-			throw e;
-		}
+		String json = callJsonNoArg(NativeMethods.LIST_MODELS);
+		return deserialize(json, ModelsListResponse.class);
 	}
 
 	// ─── Inference API ────────────────────────────────────────────────────────
@@ -322,22 +189,16 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public ImagesResponse imageGenerate(CreateImageRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			String responseBody = post("/images/generations", body);
-			ImagesResponse response = deserialize(responseBody, ImagesResponse.class);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.IMAGE_GENERATE, serialize(request));
+		return deserialize(json, ImagesResponse.class);
 	}
 
 	/**
 	 * Generates audio speech from text, returning raw audio bytes.
+	 *
+	 * <p>
+	 * The FFI layer returns the audio as a base64-encoded string; this method
+	 * decodes it to raw bytes.
 	 *
 	 * @param request
 	 *            the speech request
@@ -346,17 +207,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public byte[] speech(CreateSpeechRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			byte[] response = postForBytes("/audio/speech", body);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String base64 = callJson(NativeMethods.SPEECH, serialize(request));
+		return Base64.getDecoder().decode(base64);
 	}
 
 	/**
@@ -369,18 +221,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public TranscriptionResponse transcribe(CreateTranscriptionRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			String responseBody = post("/audio/transcriptions", body);
-			TranscriptionResponse response = deserialize(responseBody, TranscriptionResponse.class);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.TRANSCRIBE, serialize(request));
+		return deserialize(json, TranscriptionResponse.class);
 	}
 
 	/**
@@ -393,18 +235,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public ModerationResponse moderate(ModerationRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			String responseBody = post("/moderations", body);
-			ModerationResponse response = deserialize(responseBody, ModerationResponse.class);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.MODERATE, serialize(request));
+		return deserialize(json, ModerationResponse.class);
 	}
 
 	/**
@@ -417,18 +249,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public RerankResponse rerank(RerankRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			String responseBody = post("/rerank", body);
-			RerankResponse response = deserialize(responseBody, RerankResponse.class);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.RERANK, serialize(request));
+		return deserialize(json, RerankResponse.class);
 	}
 
 	// ─── Search & OCR ────────────────────────────────────────────────────────
@@ -443,18 +265,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public SearchResponse search(SearchRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			String responseBody = post("/search", body);
-			SearchResponse response = deserialize(responseBody, SearchResponse.class);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.SEARCH, serialize(request));
+		return deserialize(json, SearchResponse.class);
 	}
 
 	/**
@@ -467,18 +279,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public OcrResponse ocr(OcrRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			String responseBody = post("/ocr", body);
-			OcrResponse response = deserialize(responseBody, OcrResponse.class);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.OCR, serialize(request));
+		return deserialize(json, OcrResponse.class);
 	}
 
 	// ─── File Management ──────────────────────────────────────────────────────
@@ -493,18 +295,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public FileObject createFile(CreateFileRequest request) throws LlmException {
-		checkBudget(null);
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			String responseBody = post("/files", body);
-			FileObject response = deserialize(responseBody, FileObject.class);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.CREATE_FILE, serialize(request));
+		return deserialize(json, FileObject.class);
 	}
 
 	/**
@@ -517,17 +309,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public FileObject retrieveFile(String fileId) throws LlmException {
-		checkBudget(null);
-		runOnRequest(fileId);
-		try {
-			String responseBody = get("/files/" + fileId);
-			FileObject response = deserialize(responseBody, FileObject.class);
-			runOnResponse(fileId, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(fileId, e);
-			throw e;
-		}
+		String json = callJsonStringArg(NativeMethods.RETRIEVE_FILE, fileId);
+		return deserialize(json, FileObject.class);
 	}
 
 	/**
@@ -540,17 +323,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public DeleteResponse deleteFile(String fileId) throws LlmException {
-		checkBudget(null);
-		runOnRequest(fileId);
-		try {
-			String responseBody = delete("/files/" + fileId);
-			DeleteResponse response = deserialize(responseBody, DeleteResponse.class);
-			runOnResponse(fileId, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(fileId, e);
-			throw e;
-		}
+		String json = callJsonStringArg(NativeMethods.DELETE_FILE, fileId);
+		return deserialize(json, DeleteResponse.class);
 	}
 
 	/**
@@ -563,37 +337,17 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public FileListResponse listFiles(FileListQuery query) throws LlmException {
-		checkBudget(null);
-		runOnRequest(query);
-		try {
-			String path = "/files";
-			if (query != null) {
-				var params = new java.util.ArrayList<String>();
-				if (query.purpose() != null) {
-					params.add("purpose=" + query.purpose());
-				}
-				if (query.limit() != null) {
-					params.add("limit=" + query.limit());
-				}
-				if (query.after() != null) {
-					params.add("after=" + query.after());
-				}
-				if (!params.isEmpty()) {
-					path += "?" + String.join("&", params);
-				}
-			}
-			String responseBody = get(path);
-			FileListResponse response = deserialize(responseBody, FileListResponse.class);
-			runOnResponse(query, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(query, e);
-			throw e;
-		}
+		String queryJson = query != null ? serialize(query) : null;
+		String json = callJsonNullable(NativeMethods.LIST_FILES, queryJson);
+		return deserialize(json, FileListResponse.class);
 	}
 
 	/**
 	 * Retrieves the raw content of a file.
+	 *
+	 * <p>
+	 * The FFI layer returns the content as a base64-encoded string; this method
+	 * decodes it to raw bytes.
 	 *
 	 * @param fileId
 	 *            the file identifier
@@ -602,16 +356,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public byte[] fileContent(String fileId) throws LlmException {
-		checkBudget(null);
-		runOnRequest(fileId);
-		try {
-			byte[] response = getForBytes("/files/" + fileId + "/content");
-			runOnResponse(fileId, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(fileId, e);
-			throw e;
-		}
+		String base64 = callJsonStringArg(NativeMethods.FILE_CONTENT, fileId);
+		return Base64.getDecoder().decode(base64);
 	}
 
 	// ─── Batch Management ─────────────────────────────────────────────────────
@@ -626,18 +372,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public BatchObject createBatch(CreateBatchRequest request) throws LlmException {
-		checkBudget(null);
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			String responseBody = post("/batches", body);
-			BatchObject response = deserialize(responseBody, BatchObject.class);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.CREATE_BATCH, serialize(request));
+		return deserialize(json, BatchObject.class);
 	}
 
 	/**
@@ -650,17 +386,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public BatchObject retrieveBatch(String batchId) throws LlmException {
-		checkBudget(null);
-		runOnRequest(batchId);
-		try {
-			String responseBody = get("/batches/" + batchId);
-			BatchObject response = deserialize(responseBody, BatchObject.class);
-			runOnResponse(batchId, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(batchId, e);
-			throw e;
-		}
+		String json = callJsonStringArg(NativeMethods.RETRIEVE_BATCH, batchId);
+		return deserialize(json, BatchObject.class);
 	}
 
 	/**
@@ -673,30 +400,9 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public BatchListResponse listBatches(BatchListQuery query) throws LlmException {
-		checkBudget(null);
-		runOnRequest(query);
-		try {
-			String path = "/batches";
-			if (query != null) {
-				var params = new java.util.ArrayList<String>();
-				if (query.limit() != null) {
-					params.add("limit=" + query.limit());
-				}
-				if (query.after() != null) {
-					params.add("after=" + query.after());
-				}
-				if (!params.isEmpty()) {
-					path += "?" + String.join("&", params);
-				}
-			}
-			String responseBody = get(path);
-			BatchListResponse response = deserialize(responseBody, BatchListResponse.class);
-			runOnResponse(query, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(query, e);
-			throw e;
-		}
+		String queryJson = query != null ? serialize(query) : null;
+		String json = callJsonNullable(NativeMethods.LIST_BATCHES, queryJson);
+		return deserialize(json, BatchListResponse.class);
 	}
 
 	/**
@@ -709,17 +415,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public BatchObject cancelBatch(String batchId) throws LlmException {
-		checkBudget(null);
-		runOnRequest(batchId);
-		try {
-			String responseBody = post("/batches/" + batchId + "/cancel", "");
-			BatchObject response = deserialize(responseBody, BatchObject.class);
-			runOnResponse(batchId, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(batchId, e);
-			throw e;
-		}
+		String json = callJsonStringArg(NativeMethods.CANCEL_BATCH, batchId);
+		return deserialize(json, BatchObject.class);
 	}
 
 	// ─── Responses API ────────────────────────────────────────────────────────
@@ -734,18 +431,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public ResponseObject createResponse(CreateResponseRequest request) throws LlmException {
-		checkBudget(request.model());
-		runOnRequest(request);
-		try {
-			String body = serialize(request);
-			String responseBody = post("/responses", body);
-			ResponseObject response = deserialize(responseBody, ResponseObject.class);
-			runOnResponse(request, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(request, e);
-			throw e;
-		}
+		String json = callJson(NativeMethods.CREATE_RESPONSE, serialize(request));
+		return deserialize(json, ResponseObject.class);
 	}
 
 	/**
@@ -758,17 +445,8 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public ResponseObject retrieveResponse(String responseId) throws LlmException {
-		checkBudget(null);
-		runOnRequest(responseId);
-		try {
-			String responseBody = get("/responses/" + responseId);
-			ResponseObject response = deserialize(responseBody, ResponseObject.class);
-			runOnResponse(responseId, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(responseId, e);
-			throw e;
-		}
+		String json = callJsonStringArg(NativeMethods.RETRIEVE_RESPONSE, responseId);
+		return deserialize(json, ResponseObject.class);
 	}
 
 	/**
@@ -781,400 +459,261 @@ public final class LlmClient implements AutoCloseable {
 	 *             if the request fails for any reason
 	 */
 	public ResponseObject cancelResponse(String responseId) throws LlmException {
-		checkBudget(null);
-		runOnRequest(responseId);
-		try {
-			String responseBody = post("/responses/" + responseId + "/cancel", "");
-			ResponseObject response = deserialize(responseBody, ResponseObject.class);
-			runOnResponse(responseId, response);
-			return response;
-		} catch (LlmException e) {
-			runOnError(responseId, e);
-			throw e;
-		}
+		String json = callJsonStringArg(NativeMethods.CANCEL_RESPONSE, responseId);
+		return deserialize(json, ResponseObject.class);
 	}
 
 	// ─── Hooks & Custom Providers ─────────────────────────────────────────────
 
 	/**
-	 * Registers a lifecycle hook. Hooks are invoked in registration order.
-	 *
-	 * @param hook
-	 *            the hook to register
-	 */
-	public void addHook(LlmHook hook) {
-		hooks.add(hook);
-	}
-
-	/**
-	 * Registers a custom provider configuration. Requests whose model name starts
-	 * with one of the provider's prefixes are routed to its base URL.
+	 * Registers a custom provider configuration at runtime. The provider is
+	 * registered globally in the Rust core.
 	 *
 	 * @param config
 	 *            the provider configuration to register
+	 * @throws LlmException
+	 *             if registration fails
 	 */
-	public void registerProvider(ProviderConfig config) {
-		customProviders.add(config);
+	public void registerProvider(ProviderConfig config) throws LlmException {
+		try (var callArena = Arena.ofConfined()) {
+			String configJson = serialize(config);
+			var cJson = callArena.allocateFrom(configJson);
+			int result = (int) NativeMethods.REGISTER_PROVIDER.invokeExact(cJson);
+			if (result != 0) {
+				throw new LlmException(LlmException.CODE_INVALID_REQUEST, "liter-llm: " + lastErrorMessage());
+			}
+		} catch (LlmException e) {
+			throw e;
+		} catch (Throwable t) {
+			throw new RuntimeException("FFI register_provider call failed", t);
+		}
 	}
 
 	/**
-	 * Returns the configured cache settings, or {@code null} if caching is
-	 * disabled.
+	 * Unregisters a previously registered custom provider by name.
 	 *
-	 * @return the cache configuration
+	 * @param name
+	 *            the provider name to unregister
+	 * @return {@code true} if a provider with that name was found and removed,
+	 *         {@code false} if no provider with that name existed
+	 * @throws LlmException
+	 *             if the operation fails
 	 */
-	public CacheConfig getCacheConfig() {
-		return cacheConfig;
+	public boolean unregisterProvider(String name) throws LlmException {
+		try (var callArena = Arena.ofConfined()) {
+			var cName = callArena.allocateFrom(name);
+			int result = (int) NativeMethods.UNREGISTER_PROVIDER.invokeExact(cName);
+			if (result == -1) {
+				throw new LlmException(LlmException.CODE_UNKNOWN, "liter-llm: " + lastErrorMessage());
+			}
+			return result == 0;
+		} catch (LlmException e) {
+			throw e;
+		} catch (Throwable t) {
+			throw new RuntimeException("FFI unregister_provider call failed", t);
+		}
 	}
 
 	/**
-	 * Returns the configured budget settings, or {@code null} if budget enforcement
-	 * is disabled.
+	 * Returns the cumulative global spend tracked by the budget layer, in USD.
 	 *
-	 * @return the budget configuration
+	 * @return spend in USD, or {@code 0.0} if no budget is configured
 	 */
-	public BudgetConfig getBudgetConfig() {
-		return budgetConfig;
-	}
-
-	private void runOnRequest(Object request) throws HookRejectedException {
-		for (var hook : hooks) {
-			hook.onRequest(request);
-		}
-	}
-
-	private void runOnResponse(Object request, Object response) {
-		for (var hook : hooks) {
-			hook.onResponse(request, response);
-		}
-	}
-
-	private void runOnError(Object request, Exception error) {
-		for (var hook : hooks) {
-			hook.onError(request, error);
-		}
-	}
-
-	// ─── Cache Helpers ────────────────────────────────────────────────────────
-
-	/**
-	 * Returns the cached response for the given request JSON, or {@code null} if
-	 * not found or expired.
-	 */
-	private String checkCache(String requestJson) {
-		if (responseCache == null || cacheConfig == null) {
-			return null;
-		}
-		String key = sha256Hex(requestJson);
-		CacheEntry entry = responseCache.get(key);
-		if (entry == null) {
-			return null;
-		}
-		if (entry.isExpired(cacheConfig.ttlSeconds())) {
-			responseCache.remove(key);
-			return null;
-		}
-		return entry.response;
-	}
-
-	/** Stores a response in the cache keyed by the request JSON hash. */
-	private void storeInCache(String requestJson, String response) {
-		if (responseCache == null) {
-			return;
-		}
-		responseCache.put(sha256Hex(requestJson), new CacheEntry(response));
-	}
-
-	// ─── Budget Helpers ──────────────────────────────────────────────────────
-
-	/**
-	 * Checks whether the given model has exceeded its budget. Throws
-	 * {@link BudgetExceededException} in strict mode when budget is exceeded.
-	 */
-	private void checkBudget(String model) throws BudgetExceededException {
-		if (budgetConfig == null || !"strict".equals(budgetConfig.enforcement())) {
-			return;
-		}
-		if (budgetConfig.globalLimit() != null) {
-			double globalSpendUsd = globalSpendMicrocents.get() / (double) MICROCENTS_PER_USD;
-			if (globalSpendUsd >= budgetConfig.globalLimit()) {
-				throw new BudgetExceededException(
-						String.format("global spend $%.6f >= limit $%.6f", globalSpendUsd, budgetConfig.globalLimit()));
-			}
-		}
-		if (budgetConfig.modelLimits() != null && model != null) {
-			Double modelLimit = budgetConfig.modelLimits().get(model);
-			if (modelLimit != null) {
-				AtomicLong modelMicrocents = modelSpendMicrocents.get(model);
-				if (modelMicrocents != null) {
-					double modelSpendUsd = modelMicrocents.get() / (double) MICROCENTS_PER_USD;
-					if (modelSpendUsd >= modelLimit) {
-						throw new BudgetExceededException(String.format("model \"%s\" spend $%.6f >= limit $%.6f",
-								model, modelSpendUsd, modelLimit));
-					}
-				}
-			}
-		}
-	}
-
-	/** Records cost for the given model based on token usage. */
-	private void recordCost(String model, Usage usage) {
-		if (budgetConfig == null || usage == null) {
-			return;
-		}
-		double cost = estimateCost(model, usage);
-		if (cost <= 0) {
-			return;
-		}
-		long costMicrocents = Math.round(cost * MICROCENTS_PER_USD);
-		globalSpendMicrocents.addAndGet(costMicrocents);
-		if (model != null) {
-			modelSpendMicrocents.computeIfAbsent(model, k -> new AtomicLong()).addAndGet(costMicrocents);
-		}
-	}
-
-	private static double estimateCost(String model, Usage usage) {
-		double[] pricing = lookupPricing(model);
-		double promptCost = usage.promptTokens() * pricing[0] / TOKENS_PER_MILLION;
-		double completionCost = usage.completionTokens() * pricing[1] / TOKENS_PER_MILLION;
-		return promptCost + completionCost;
-	}
-
-	private static double[] lookupPricing(String model) {
-		if (model == null) {
-			return FALLBACK_PRICING;
-		}
-		// Exact match.
-		double[] pricing = MODEL_PRICING.get(model);
-		if (pricing != null) {
-			return pricing;
-		}
-		// Strip provider prefix (e.g. "openai/gpt-4o" -> "gpt-4o").
-		int slash = model.indexOf('/');
-		if (slash >= 0) {
-			pricing = MODEL_PRICING.get(model.substring(slash + 1));
-			if (pricing != null) {
-				return pricing;
-			}
-		}
-		// Prefix match for versioned models.
-		String stripped = slash >= 0 ? model.substring(slash + 1) : model;
-		for (var entry : MODEL_PRICING.entrySet()) {
-			if (stripped.startsWith(entry.getKey())) {
-				return entry.getValue();
-			}
-		}
-		return FALLBACK_PRICING;
-	}
-
-	private static String sha256Hex(String input) {
+	public double budgetUsage() {
 		try {
-			MessageDigest digest = MessageDigest.getInstance("SHA-256");
-			byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-			StringBuilder sb = new StringBuilder(hash.length * 2);
-			for (byte b : hash) {
-				sb.append(String.format("%02x", b));
-			}
-			return sb.toString();
-		} catch (NoSuchAlgorithmException e) {
-			// SHA-256 is required by the JLS; this should never happen.
-			throw new AssertionError("SHA-256 not available", e);
+			return (double) NativeMethods.BUDGET_USAGE.invokeExact(handle);
+		} catch (Throwable t) {
+			throw new RuntimeException("FFI budget_usage call failed", t);
 		}
 	}
 
 	/**
-	 * Closes the underlying HTTP client, releasing resources.
+	 * Returns the version string of the native liter-llm library.
+	 *
+	 * @return version string (e.g. "1.0.0-rc.5")
+	 */
+	public static String version() {
+		try {
+			var cVersion = (MemorySegment) NativeMethods.VERSION.invokeExact();
+			if (cVersion.equals(MemorySegment.NULL)) {
+				return "unknown";
+			}
+			// Version string is static; do not free.
+			return cVersion.reinterpret(Long.MAX_VALUE).getString(0);
+		} catch (Throwable t) {
+			throw new RuntimeException("FFI version call failed", t);
+		}
+	}
+
+	/**
+	 * Closes the native client handle and releases all associated memory.
 	 *
 	 * <p>
 	 * After this method returns, the client must not be used.
 	 */
 	@Override
 	public void close() {
-		httpClient.close();
+		if (!closed.compareAndSet(false, true)) {
+			return;
+		}
+		try {
+			NativeMethods.CLIENT_FREE.invokeExact(handle);
+		} catch (Throwable t) {
+			// literllm_client_free is best-effort; errors during cleanup are ignored.
+		}
+		arena.close();
 	}
 
-	// ─── HTTP Internals ───────────────────────────────────────────────────────
-
-	private String post(String path, String body) throws LlmException {
-		var request = HttpRequest.newBuilder().uri(URI.create(baseUrl + path))
-				.header("Authorization", "Bearer " + apiKey).header("Content-Type", "application/json")
-				.header("Accept", "application/json").POST(HttpRequest.BodyPublishers.ofString(body)).build();
-		return executeWithRetry(request);
-	}
-
-	private String get(String path) throws LlmException {
-		var request = HttpRequest.newBuilder().uri(URI.create(baseUrl + path))
-				.header("Authorization", "Bearer " + apiKey).header("Accept", "application/json").GET().build();
-		return executeWithRetry(request);
-	}
-
-	private String delete(String path) throws LlmException {
-		var request = HttpRequest.newBuilder().uri(URI.create(baseUrl + path))
-				.header("Authorization", "Bearer " + apiKey).header("Accept", "application/json").DELETE().build();
-		return executeWithRetry(request);
-	}
-
-	private byte[] postForBytes(String path, String body) throws LlmException {
-		var request = HttpRequest.newBuilder().uri(URI.create(baseUrl + path))
-				.header("Authorization", "Bearer " + apiKey).header("Content-Type", "application/json")
-				.POST(HttpRequest.BodyPublishers.ofString(body)).build();
-		return executeWithRetryBytes(request);
-	}
-
-	private byte[] getForBytes(String path) throws LlmException {
-		var request = HttpRequest.newBuilder().uri(URI.create(baseUrl + path))
-				.header("Authorization", "Bearer " + apiKey).GET().build();
-		return executeWithRetryBytes(request);
-	}
+	// ─── FFI Call Helpers ─────────────────────────────────────────────────────
 
 	/**
-	 * Sends a POST request and processes the response as an SSE stream, parsing
-	 * each {@code data:} line as a {@link ChatCompletionChunk} and forwarding it to
-	 * the callback.
+	 * Invokes a two-argument FFI function: {@code char* fn(client, request_json)}.
+	 * Frees the returned string after reading it.
 	 */
-	private void postStream(String path, String body, Consumer<ChatCompletionChunk> onChunk) throws LlmException {
-		var request = HttpRequest.newBuilder().uri(URI.create(baseUrl + path))
-				.header("Authorization", "Bearer " + apiKey).header("Content-Type", "application/json")
-				.header("Accept", "text/event-stream").POST(HttpRequest.BodyPublishers.ofString(body)).build();
-
-		try {
-			var response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-			int status = response.statusCode();
-			if (status < HTTP_OK_MIN || status >= HTTP_OK_MAX) {
-				String errorBody = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
-				throw classifyHttpError(status, errorBody);
+	private String callJson(java.lang.invoke.MethodHandle mh, String requestJson) throws LlmException {
+		try (var callArena = Arena.ofConfined()) {
+			var cReq = callArena.allocateFrom(requestJson);
+			var cResp = (MemorySegment) mh.invokeExact(handle, cReq);
+			if (cResp.equals(MemorySegment.NULL)) {
+				throw new LlmException(LlmException.CODE_PROVIDER_ERROR, "liter-llm: " + lastErrorMessage());
 			}
-			try (var reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
-				String line;
-				while ((line = reader.readLine()) != null) {
-					if (!line.startsWith("data:")) {
-						continue;
-					}
-					String payload = line.substring("data:".length()).trim();
-					if ("[DONE]".equals(payload)) {
-						break;
-					}
-					ChatCompletionChunk chunk = deserialize(payload, ChatCompletionChunk.class);
-					onChunk.accept(chunk);
-				}
-			}
+			String result = cResp.reinterpret(Long.MAX_VALUE).getString(0);
+			NativeMethods.FREE_STRING.invokeExact(cResp);
+			return result;
 		} catch (LlmException e) {
 			throw e;
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new LlmException.StreamException("stream interrupted", e);
-		} catch (java.io.IOException e) {
-			throw new LlmException.StreamException("stream I/O error: " + e.getMessage(), e);
+		} catch (Throwable t) {
+			throw new RuntimeException("FFI call failed", t);
 		}
-	}
-
-	private byte[] executeWithRetryBytes(HttpRequest request) throws LlmException {
-		return executeWithRetry(request, HttpResponse.BodyHandlers.ofByteArray(),
-				body -> new String(body, StandardCharsets.UTF_8));
-	}
-
-	private String executeWithRetry(HttpRequest request) throws LlmException {
-		return executeWithRetry(request, HttpResponse.BodyHandlers.ofString(), body -> body);
 	}
 
 	/**
-	 * Generic retry loop for HTTP requests. Retries on 429 (rate limit) and 5xx
-	 * (server error) status codes; all other errors are thrown immediately.
-	 *
-	 * @param <T>
-	 *            the response body type
-	 * @param request
-	 *            the HTTP request to execute
-	 * @param handler
-	 *            the body handler that determines response type
-	 * @param bodyToString
-	 *            converts the typed body to a String for error messages
-	 * @return the response body on success
-	 * @throws LlmException
-	 *             on non-retryable errors or when retries are exhausted
+	 * Invokes a one-argument FFI function: {@code char* fn(client)}. Used for
+	 * {@code literllm_list_models}.
 	 */
-	private <T> T executeWithRetry(HttpRequest request, HttpResponse.BodyHandler<T> handler,
-			java.util.function.Function<T, String> bodyToString) throws LlmException {
-		LlmException lastException = null;
-		for (int attempt = 0; attempt <= maxRetries; attempt++) {
-			try {
-				var response = httpClient.send(request, handler);
-				int status = response.statusCode();
-				if (status >= HTTP_OK_MIN && status < HTTP_OK_MAX) {
-					return response.body();
-				}
-				lastException = classifyHttpError(status, bodyToString.apply(response.body()));
-				// Only retry on 429 and 5xx
-				if (status != HTTP_RATE_LIMIT && status < HTTP_SERVER_ERROR_MIN) {
-					throw lastException;
-				}
-			} catch (LlmException e) {
-				throw e;
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				lastException = new LlmException(LlmException.CODE_PROVIDER_ERROR,
-						"liter-llm: HTTP request failed: " + e.getMessage(), e);
-			} catch (java.io.IOException e) {
-				lastException = new LlmException(LlmException.CODE_PROVIDER_ERROR,
-						"liter-llm: HTTP request failed: " + e.getMessage(), e);
-			}
-		}
-		throw lastException != null
-				? lastException
-				: new LlmException(LlmException.CODE_UNKNOWN, "liter-llm: unknown error");
-	}
-
-	private static LlmException classifyHttpError(int status, String body) {
-		String message = extractErrorMessage(body);
-		return switch (status) {
-			case HTTP_BAD_REQUEST, HTTP_UNPROCESSABLE -> new LlmException.InvalidRequestException(message);
-			case HTTP_UNAUTHORIZED, HTTP_FORBIDDEN -> new LlmException.AuthenticationException(message);
-			case HTTP_NOT_FOUND -> new LlmException.NotFoundException(message);
-			case HTTP_RATE_LIMIT -> new LlmException.RateLimitException(message);
-			default -> new LlmException.ProviderException(status, message);
-		};
-	}
-
-	private static String extractErrorMessage(String body) {
-		if (body == null || body.isBlank()) {
-			return "empty response body";
-		}
-		// Best-effort: extract {"error":{"message":"..."}} without full parse
-		int msgIdx = body.indexOf("\"message\"");
-		if (msgIdx >= 0) {
-			int colon = body.indexOf(':', msgIdx);
-			int quote1 = body.indexOf('"', colon + 1);
-			int quote2 = body.indexOf('"', quote1 + 1);
-			if (quote1 >= 0 && quote2 > quote1) {
-				return body.substring(quote1 + 1, quote2);
-			}
-		}
-		// Truncate long bodies for readability
-		return body.length() > ERROR_BODY_MAX_LENGTH ? body.substring(0, ERROR_BODY_MAX_LENGTH) + "…" : body;
-	}
-
-	// ─── Serialization helpers ────────────────────────────────────────────────
-
-	private String serialize(Object value) throws LlmException {
+	private String callJsonNoArg(java.lang.invoke.MethodHandle mh) throws LlmException {
 		try {
-			return objectMapper.writeValueAsString(value);
+			var cResp = (MemorySegment) mh.invokeExact(handle);
+			if (cResp.equals(MemorySegment.NULL)) {
+				throw new LlmException(LlmException.CODE_PROVIDER_ERROR, "liter-llm: " + lastErrorMessage());
+			}
+			String result = cResp.reinterpret(Long.MAX_VALUE).getString(0);
+			NativeMethods.FREE_STRING.invokeExact(cResp);
+			return result;
+		} catch (LlmException e) {
+			throw e;
+		} catch (Throwable t) {
+			throw new RuntimeException("FFI call failed", t);
+		}
+	}
+
+	/**
+	 * Invokes a two-argument FFI function where the second argument is a plain
+	 * string (not JSON request body): {@code char* fn(client, id_string)}.
+	 */
+	private String callJsonStringArg(java.lang.invoke.MethodHandle mh, String arg) throws LlmException {
+		try (var callArena = Arena.ofConfined()) {
+			var cArg = callArena.allocateFrom(arg);
+			var cResp = (MemorySegment) mh.invokeExact(handle, cArg);
+			if (cResp.equals(MemorySegment.NULL)) {
+				throw new LlmException(LlmException.CODE_PROVIDER_ERROR, "liter-llm: " + lastErrorMessage());
+			}
+			String result = cResp.reinterpret(Long.MAX_VALUE).getString(0);
+			NativeMethods.FREE_STRING.invokeExact(cResp);
+			return result;
+		} catch (LlmException e) {
+			throw e;
+		} catch (Throwable t) {
+			throw new RuntimeException("FFI call failed", t);
+		}
+	}
+
+	/**
+	 * Invokes a two-argument FFI function where the second argument may be
+	 * {@code null}: {@code char* fn(client, nullable_json)}. Passes
+	 * {@link MemorySegment#NULL} when the argument is {@code null}.
+	 */
+	private String callJsonNullable(java.lang.invoke.MethodHandle mh, String jsonOrNull) throws LlmException {
+		try (var callArena = Arena.ofConfined()) {
+			MemorySegment cArg = jsonOrNull != null ? callArena.allocateFrom(jsonOrNull) : MemorySegment.NULL;
+			var cResp = (MemorySegment) mh.invokeExact(handle, cArg);
+			if (cResp.equals(MemorySegment.NULL)) {
+				throw new LlmException(LlmException.CODE_PROVIDER_ERROR, "liter-llm: " + lastErrorMessage());
+			}
+			String result = cResp.reinterpret(Long.MAX_VALUE).getString(0);
+			NativeMethods.FREE_STRING.invokeExact(cResp);
+			return result;
+		} catch (LlmException e) {
+			throw e;
+		} catch (Throwable t) {
+			throw new RuntimeException("FFI call failed", t);
+		}
+	}
+
+	/**
+	 * Reads the last error message from the native library's thread-local storage.
+	 * The returned pointer must not be freed.
+	 */
+	private static String lastErrorMessage() {
+		try {
+			var cErr = (MemorySegment) NativeMethods.LAST_ERROR.invokeExact();
+			if (cErr.equals(MemorySegment.NULL)) {
+				return "unknown error";
+			}
+			return cErr.reinterpret(Long.MAX_VALUE).getString(0);
+		} catch (Throwable t) {
+			return "unknown error (failed to read native error: " + t.getMessage() + ")";
+		}
+	}
+
+	// ─── Serialization Helpers ────────────────────────────────────────────────
+
+	private static String serialize(Object value) throws LlmException {
+		try {
+			return OBJECT_MAPPER.writeValueAsString(value);
 		} catch (com.fasterxml.jackson.core.JsonProcessingException e) {
 			throw new LlmException.SerializationException("failed to serialize request", e);
 		}
 	}
 
-	private <T> T deserialize(String json, Class<T> type) throws LlmException {
+	private static <T> T deserialize(String json, Class<T> type) throws LlmException {
 		try {
-			return objectMapper.readValue(json, type);
+			return OBJECT_MAPPER.readValue(json, type);
 		} catch (com.fasterxml.jackson.core.JsonProcessingException e) {
 			throw new LlmException.SerializationException("failed to deserialize " + type.getSimpleName() + " response",
 					e);
 		}
 	}
 
-	private static ObjectMapper createObjectMapper() {
-		return new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-				.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+	// ─── Stream Callback Target ──────────────────────────────────────────────
+
+	/**
+	 * Bound target for the native stream callback upcall. Each invocation
+	 * deserializes the chunk JSON and forwards it to the user's {@link Consumer}.
+	 */
+	private static final class StreamCallbackTarget {
+
+		private final Consumer<ChatCompletionChunk> onChunk;
+		private final ObjectMapper mapper;
+
+		StreamCallbackTarget(Consumer<ChatCompletionChunk> onChunk, ObjectMapper mapper) {
+			this.onChunk = onChunk;
+			this.mapper = mapper;
+		}
+
+		/** Called by the native upcall stub for each SSE chunk. */
+		@SuppressWarnings("unused")
+		public void accept(MemorySegment chunkJson, MemorySegment userData) {
+			try {
+				String json = chunkJson.reinterpret(Long.MAX_VALUE).getString(0);
+				ChatCompletionChunk chunk = mapper.readValue(json, ChatCompletionChunk.class);
+				onChunk.accept(chunk);
+			} catch (Exception e) {
+				// Stream callbacks cannot propagate exceptions to the Rust side.
+				// Log and continue to avoid crashing the native runtime.
+				System.err.println("liter-llm: stream callback error: " + e.getMessage());
+			}
+		}
 	}
 
 	// ─── Builder ──────────────────────────────────────────────────────────────
@@ -1192,20 +731,19 @@ public final class LlmClient implements AutoCloseable {
 	public static final class Builder {
 
 		private String apiKey = "";
-		private String baseUrl = DEFAULT_BASE_URL;
+		private String baseUrl;
+		private String modelHint;
 		private int maxRetries = DEFAULT_MAX_RETRIES;
 		private Duration timeout = DEFAULT_TIMEOUT;
 		private CacheConfig cacheConfig;
 		private BudgetConfig budgetConfig;
+		private Map<String, String> extraHeaders;
 
 		private Builder() {
 		}
 
 		/**
-		 * Sets the API key sent as {@code Authorization: Bearer <key>}.
-		 *
-		 * <p>
-		 * Reads from the environment when not explicitly set. Never log or serialize
+		 * Sets the API key sent for provider authentication. Never log or serialize
 		 * this value.
 		 *
 		 * @param apiKey
@@ -1218,11 +756,8 @@ public final class LlmClient implements AutoCloseable {
 		}
 
 		/**
-		 * Sets the base URL for the API endpoint.
-		 *
-		 * <p>
-		 * Defaults to {@value LlmClient#DEFAULT_BASE_URL}. Override to target a
-		 * different provider or a local proxy.
+		 * Sets the base URL for the API endpoint. Override to target a different
+		 * provider or a local proxy.
 		 *
 		 * @param baseUrl
 		 *            base URL without trailing slash
@@ -1234,10 +769,20 @@ public final class LlmClient implements AutoCloseable {
 		}
 
 		/**
-		 * Sets the maximum number of retries for retryable errors (429, 5xx).
+		 * Sets a model hint for automatic provider detection (e.g.
+		 * {@code "groq/llama3-70b"}).
 		 *
-		 * <p>
-		 * Defaults to {@value LlmClient#DEFAULT_MAX_RETRIES}.
+		 * @param modelHint
+		 *            the model name hint
+		 * @return this builder
+		 */
+		public Builder modelHint(String modelHint) {
+			this.modelHint = modelHint;
+			return this;
+		}
+
+		/**
+		 * Sets the maximum number of retries for retryable errors.
 		 *
 		 * @param maxRetries
 		 *            non-negative retry count
@@ -1252,10 +797,7 @@ public final class LlmClient implements AutoCloseable {
 		}
 
 		/**
-		 * Sets the connection timeout.
-		 *
-		 * <p>
-		 * Defaults to 60 seconds.
+		 * Sets the request timeout.
 		 *
 		 * @param timeout
 		 *            positive duration
@@ -1291,62 +833,14 @@ public final class LlmClient implements AutoCloseable {
 		}
 
 		/**
-		 * Sets the cooldown duration between consecutive requests.
+		 * Sets extra HTTP headers to include in every request.
 		 *
-		 * @param cooldown
-		 *            cooldown duration
+		 * @param extraHeaders
+		 *            header name-value pairs
 		 * @return this builder
 		 */
-		public Builder cooldown(Duration cooldown) {
-			this.cooldown = cooldown;
-			return this;
-		}
-
-		/**
-		 * Enables rate limiting with the given requests-per-minute limit.
-		 *
-		 * @param requestsPerMinute
-		 *            maximum requests per minute
-		 * @return this builder
-		 */
-		public Builder rateLimit(int requestsPerMinute) {
-			this.rateLimitRequestsPerMinute = requestsPerMinute;
-			return this;
-		}
-
-		/**
-		 * Enables periodic health checking at the given interval.
-		 *
-		 * @param interval
-		 *            health check interval
-		 * @return this builder
-		 */
-		public Builder healthCheck(Duration interval) {
-			this.healthCheckInterval = interval;
-			return this;
-		}
-
-		/**
-		 * Enables or disables detailed cost tracking for all requests.
-		 *
-		 * @param enabled
-		 *            whether to enable cost tracking
-		 * @return this builder
-		 */
-		public Builder costTracking(boolean enabled) {
-			this.costTracking = enabled;
-			return this;
-		}
-
-		/**
-		 * Enables or disables request/response tracing for debugging.
-		 *
-		 * @param enabled
-		 *            whether to enable tracing
-		 * @return this builder
-		 */
-		public Builder tracing(boolean enabled) {
-			this.tracing = enabled;
+		public Builder extraHeaders(Map<String, String> extraHeaders) {
+			this.extraHeaders = extraHeaders;
 			return this;
 		}
 
@@ -1357,6 +851,46 @@ public final class LlmClient implements AutoCloseable {
 		 */
 		public LlmClient build() {
 			return new LlmClient(this);
+		}
+
+		/**
+		 * Converts builder state to the JSON configuration map expected by the FFI
+		 * {@code literllm_client_new_with_config} function.
+		 */
+		Map<String, Object> toConfigMap() {
+			var config = new LinkedHashMap<String, Object>();
+			config.put("api_key", apiKey);
+			if (baseUrl != null) {
+				config.put("base_url", baseUrl);
+			}
+			if (modelHint != null) {
+				config.put("model_hint", modelHint);
+			}
+			config.put("max_retries", maxRetries);
+			config.put("timeout_secs", timeout.toSeconds());
+			if (extraHeaders != null && !extraHeaders.isEmpty()) {
+				config.put("extra_headers", extraHeaders);
+			}
+			if (cacheConfig != null) {
+				var cache = new LinkedHashMap<String, Object>();
+				cache.put("max_entries", cacheConfig.maxEntries());
+				cache.put("ttl_secs", cacheConfig.ttlSeconds());
+				config.put("cache", cache);
+			}
+			if (budgetConfig != null) {
+				var budget = new LinkedHashMap<String, Object>();
+				if (budgetConfig.globalLimit() != null) {
+					budget.put("global_limit", budgetConfig.globalLimit());
+				}
+				if (budgetConfig.modelLimits() != null && !budgetConfig.modelLimits().isEmpty()) {
+					budget.put("model_limits", budgetConfig.modelLimits());
+				}
+				if (budgetConfig.enforcement() != null) {
+					budget.put("enforcement", budgetConfig.enforcement());
+				}
+				config.put("budget", budget);
+			}
+			return config;
 		}
 	}
 }

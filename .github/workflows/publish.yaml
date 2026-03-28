@@ -400,6 +400,7 @@ jobs:
         with:
           package-dir: packages/python
           cibw-build: "cp310-* cp311-* cp312-* cp313-*"
+          cibw-skip: "*-musllinux* *-win32 *-manylinux_i686 *-macosx_x86_64"
           artifact-name: python-wheel-${{ matrix.label }}
 
   build-python-sdist:
@@ -1121,6 +1122,12 @@ jobs:
           pattern: python-*
           path: dist
           merge-multiple: true
+      - name: List packages to publish
+        if: needs.prepare.outputs.dry_run != 'true' && (steps.recheck.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')
+        run: |
+          echo "Packages in dist:"
+          ls -lh dist/ 2>/dev/null || echo "No packages found"
+        shell: bash
       - name: Publish to PyPI
         if: needs.prepare.outputs.dry_run != 'true' && (steps.recheck.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')
         uses: pypa/gh-action-pypi-publish@release/v1

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::common::Usage;
 
 /// An OCR request.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OcrRequest {
     /// The model/provider to use (e.g. `"mistral/mistral-ocr-latest"`).
@@ -38,12 +38,6 @@ pub enum OcrDocument {
         /// MIME type (e.g. `"application/pdf"`, `"image/png"`).
         media_type: String,
     },
-}
-
-impl Default for OcrDocument {
-    fn default() -> Self {
-        Self::Url { url: String::new() }
-    }
 }
 
 /// An OCR response.
