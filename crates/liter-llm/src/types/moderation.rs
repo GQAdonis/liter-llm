@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Request to classify content for policy violations.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ModerationRequest {
     pub input: ModerationInput,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -694,9 +694,7 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
         "budget" => {
             // Parse budget fixture config to extract constructor arguments.
             let budget_cfg = fixture.client_config.budget.as_ref();
-            let global_limit = budget_cfg
-                .and_then(|v| v.get("global_limit"))
-                .and_then(|v| v.as_f64());
+            let global_limit = budget_cfg.and_then(|v| v.get("global_limit")).and_then(|v| v.as_f64());
             let enforcement = budget_cfg
                 .and_then(|v| v.get("enforcement"))
                 .and_then(|v| v.as_str())
@@ -766,10 +764,26 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
                 )
                 .unwrap();
                 writeln!(out, "            private bool $called;").unwrap();
-                writeln!(out, "            public function __construct(bool &$called) {{ $this->called = &$called; }}").unwrap();
-                writeln!(out, "            public function onRequest(mixed $request): void {{ $this->called = true; }}").unwrap();
-                writeln!(out, "            public function onResponse(mixed $request, mixed $response): void {{}}").unwrap();
-                writeln!(out, "            public function onError(mixed $request, \\Throwable $error): void {{}}").unwrap();
+                writeln!(
+                    out,
+                    "            public function __construct(bool &$called) {{ $this->called = &$called; }}"
+                )
+                .unwrap();
+                writeln!(
+                    out,
+                    "            public function onRequest(mixed $request): void {{ $this->called = true; }}"
+                )
+                .unwrap();
+                writeln!(
+                    out,
+                    "            public function onResponse(mixed $request, mixed $response): void {{}}"
+                )
+                .unwrap();
+                writeln!(
+                    out,
+                    "            public function onError(mixed $request, \\Throwable $error): void {{}}"
+                )
+                .unwrap();
                 writeln!(out, "        }});").unwrap();
                 writeln!(out).unwrap();
                 writeln!(out, "        $client->chat('{req_php}');").unwrap();
@@ -786,10 +800,18 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
                 )
                 .unwrap();
                 writeln!(out, "            private bool $called;").unwrap();
-                writeln!(out, "            public function __construct(bool &$called) {{ $this->called = &$called; }}").unwrap();
+                writeln!(
+                    out,
+                    "            public function __construct(bool &$called) {{ $this->called = &$called; }}"
+                )
+                .unwrap();
                 writeln!(out, "            public function onRequest(mixed $request): void {{}}").unwrap();
                 writeln!(out, "            public function onResponse(mixed $request, mixed $response): void {{ $this->called = true; }}").unwrap();
-                writeln!(out, "            public function onError(mixed $request, \\Throwable $error): void {{}}").unwrap();
+                writeln!(
+                    out,
+                    "            public function onError(mixed $request, \\Throwable $error): void {{}}"
+                )
+                .unwrap();
                 writeln!(out, "        }});").unwrap();
                 writeln!(out).unwrap();
                 writeln!(out, "        $client->chat('{req_php}');").unwrap();
@@ -806,9 +828,17 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
                 )
                 .unwrap();
                 writeln!(out, "            private bool $called;").unwrap();
-                writeln!(out, "            public function __construct(bool &$called) {{ $this->called = &$called; }}").unwrap();
+                writeln!(
+                    out,
+                    "            public function __construct(bool &$called) {{ $this->called = &$called; }}"
+                )
+                .unwrap();
                 writeln!(out, "            public function onRequest(mixed $request): void {{}}").unwrap();
-                writeln!(out, "            public function onResponse(mixed $request, mixed $response): void {{}}").unwrap();
+                writeln!(
+                    out,
+                    "            public function onResponse(mixed $request, mixed $response): void {{}}"
+                )
+                .unwrap();
                 writeln!(out, "            public function onError(mixed $request, \\Throwable $error): void {{ $this->called = true; }}").unwrap();
                 writeln!(out, "        }});").unwrap();
                 writeln!(out).unwrap();
@@ -829,8 +859,16 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
                 )
                 .unwrap();
                 writeln!(out, "            public function onRequest(mixed $request): void {{ throw new \\LiterLlm\\HookRejectedException('Blocked by guardrail'); }}").unwrap();
-                writeln!(out, "            public function onResponse(mixed $request, mixed $response): void {{}}").unwrap();
-                writeln!(out, "            public function onError(mixed $request, \\Throwable $error): void {{}}").unwrap();
+                writeln!(
+                    out,
+                    "            public function onResponse(mixed $request, mixed $response): void {{}}"
+                )
+                .unwrap();
+                writeln!(
+                    out,
+                    "            public function onError(mixed $request, \\Throwable $error): void {{}}"
+                )
+                .unwrap();
                 writeln!(out, "        }});").unwrap();
                 writeln!(out).unwrap();
                 writeln!(out, "        $threw = false;").unwrap();
@@ -879,11 +917,7 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
                 )
                 .unwrap();
                 writeln!(out).unwrap();
-                writeln!(
-                    out,
-                    "        $provider = new \\LiterLlm\\ProviderConfig("
-                )
-                .unwrap();
+                writeln!(out, "        $provider = new \\LiterLlm\\ProviderConfig(").unwrap();
                 writeln!(out, "            name: '{name_php}',").unwrap();
                 writeln!(out, "            baseUrl: $mockUrl,").unwrap();
                 writeln!(out, "            authHeader: '{auth_php}',").unwrap();

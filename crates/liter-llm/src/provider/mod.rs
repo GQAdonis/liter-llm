@@ -77,10 +77,11 @@ pub struct ProviderConfig {
     pub auth: Option<AuthConfig>,
     pub endpoints: Option<Vec<String>>,
     pub model_prefixes: Option<Vec<String>>,
-    /// Internal parameter mapping overrides for this provider.
-    /// Not part of the public API; use provider-specific transform_request instead.
-    /// Reserved for future use: loaded from providers.json but not yet consumed.
-    #[allow(dead_code)]
+    /// Parameter key renaming for this provider.
+    ///
+    /// Each entry maps an OpenAI-spec field name (e.g. `"max_completion_tokens"`)
+    /// to the name this provider expects (e.g. `"max_tokens"`).  Applied
+    /// automatically by [`ConfigDrivenProvider::transform_request`].
     pub(crate) param_mappings: Option<HashMap<String, String>>,
 }
 
@@ -435,6 +436,19 @@ impl Provider for ConfigDrivenProvider {
         // Return an empty string when unconfigured; `transform_request` or the
         // HTTP layer will surface a useful error before any network call goes out.
         self.config.base_url.as_deref().unwrap_or("")
+    }
+
+    fn transform_request(&self, body: &mut serde_json::Value) -> Result<()> {
+        if let Some(mappings) = &self.config.param_mappings
+            && let Some(obj) = body.as_object_mut()
+        {
+            for (from, to) in mappings {
+                if let Some(val) = obj.remove(from.as_str()) {
+                    obj.insert(to.clone(), val);
+                }
+            }
+        }
+        Ok(())
     }
 
     fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {

@@ -10,6 +10,7 @@ pub enum FilePurpose {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CreateFileRequest {
     /// Base64-encoded file data.
     pub file: String,
@@ -39,6 +40,7 @@ pub struct FileListResponse {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FileListQuery {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purpose: Option<String>,

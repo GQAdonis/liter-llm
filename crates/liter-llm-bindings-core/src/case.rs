@@ -64,7 +64,7 @@ pub fn camel_to_snake(s: &str) -> String {
             // Handle acronym boundaries: "parseJSON" → before a lowercase char
             // after consecutive uppercase, insert underscore before the last upper.
             if prev_upper && !result.is_empty() && ch.is_lowercase() {
-                let last = result.pop().unwrap();
+                let last = result.pop().expect("checked non-empty above");
                 if !result.is_empty() && !result.ends_with('_') {
                     result.push('_');
                 }

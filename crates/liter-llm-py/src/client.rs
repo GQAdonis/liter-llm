@@ -140,19 +140,33 @@ impl PyHookBridge {
     }
 }
 
+/// Serialize the inner request of an [`LlmRequest`] to JSON.
+fn request_to_json(req: &LlmRequest) -> String {
+    match req {
+        LlmRequest::Chat(r) | LlmRequest::ChatStream(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Embed(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::ImageGenerate(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Speech(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Transcribe(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Moderate(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Rerank(r) => serde_json::to_string(r).unwrap_or_default(),
+        _ => format!("{req:?}"),
+    }
+}
+
 impl LlmHook for PyHookBridge {
     fn on_request(&self, req: &LlmRequest) -> Pin<Box<dyn Future<Output = liter_llm::Result<()>> + Send + '_>> {
-        let req_json = format!("{req:?}");
+        let req_json = request_to_json(req);
         self.call_method_checked("on_request", vec![req_json])
     }
 
     fn on_response(&self, req: &LlmRequest, _resp: &LlmResponse) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        let req_json = format!("{req:?}");
+        let req_json = request_to_json(req);
         self.call_method_fire_and_forget("on_response", vec![req_json, "response".to_owned()])
     }
 
     fn on_error(&self, req: &LlmRequest, err: &LiterLlmError) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        let req_json = format!("{req:?}");
+        let req_json = request_to_json(req);
         let err_msg = err.to_string();
         self.call_method_fire_and_forget("on_error", vec![req_json, err_msg])
     }

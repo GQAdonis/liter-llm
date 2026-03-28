@@ -566,6 +566,8 @@ mod serde_tests {
 
 #[cfg(test)]
 mod provider_tests {
+    use std::collections::HashMap;
+
     use crate::provider::{
         AuthConfig, AuthType, ConfigDrivenProvider, OpenAiProvider, Provider, ProviderConfig, detect_provider,
     };
@@ -923,6 +925,109 @@ mod provider_tests {
         // In CI without real AWS credentials, headers will be empty either way.
         // The important invariant: it must not panic.
         let _ = headers;
+    }
+
+    fn make_provider_with_mappings(mappings: HashMap<String, String>) -> ConfigDrivenProvider {
+        let cfg: &'static ProviderConfig = Box::leak(Box::new(ProviderConfig {
+            name: "test-mapped".into(),
+            display_name: None,
+            base_url: Some("https://api.example.com/v1".into()),
+            auth: Some(AuthConfig {
+                auth_type: AuthType::Bearer,
+                env_var: Some("TEST_API_KEY".into()),
+            }),
+            endpoints: None,
+            model_prefixes: None,
+            param_mappings: Some(mappings),
+        }));
+        ConfigDrivenProvider::new(cfg)
+    }
+
+    #[test]
+    fn param_mappings_renames_field() {
+        let mut mappings = HashMap::new();
+        mappings.insert("max_completion_tokens".into(), "max_tokens".into());
+
+        let provider = make_provider_with_mappings(mappings);
+        let mut body = serde_json::json!({
+            "model": "test/model",
+            "messages": [],
+            "max_completion_tokens": 512
+        });
+
+        provider.transform_request(&mut body).unwrap();
+
+        assert_eq!(body["max_tokens"], 512);
+        assert!(body.get("max_completion_tokens").is_none());
+    }
+
+    #[test]
+    fn param_mappings_skips_absent_field() {
+        let mut mappings = HashMap::new();
+        mappings.insert("max_completion_tokens".into(), "max_tokens".into());
+
+        let provider = make_provider_with_mappings(mappings);
+        let mut body = serde_json::json!({
+            "model": "test/model",
+            "messages": []
+        });
+
+        provider.transform_request(&mut body).unwrap();
+
+        assert!(body.get("max_tokens").is_none());
+        assert!(body.get("max_completion_tokens").is_none());
+    }
+
+    #[test]
+    fn param_mappings_none_is_noop() {
+        let provider = make_provider(AuthType::Bearer);
+        let mut body = serde_json::json!({
+            "model": "test/model",
+            "messages": [],
+            "max_completion_tokens": 512
+        });
+
+        provider.transform_request(&mut body).unwrap();
+
+        // Field untouched when no mappings configured
+        assert_eq!(body["max_completion_tokens"], 512);
+    }
+
+    #[test]
+    fn param_mappings_multiple_fields() {
+        let mut mappings = HashMap::new();
+        mappings.insert("max_completion_tokens".into(), "max_tokens".into());
+        mappings.insert("frequency_penalty".into(), "repetition_penalty".into());
+
+        let provider = make_provider_with_mappings(mappings);
+        let mut body = serde_json::json!({
+            "model": "test/model",
+            "messages": [],
+            "max_completion_tokens": 512,
+            "frequency_penalty": 0.5
+        });
+
+        provider.transform_request(&mut body).unwrap();
+
+        assert_eq!(body["max_tokens"], 512);
+        assert_eq!(body["repetition_penalty"], 0.5);
+        assert!(body.get("max_completion_tokens").is_none());
+        assert!(body.get("frequency_penalty").is_none());
+    }
+
+    #[test]
+    fn real_provider_apertis_has_param_mappings() {
+        let p = detect_provider("apertis/some-model").unwrap();
+        let mut body = serde_json::json!({
+            "model": "some-model",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_completion_tokens": 256
+        });
+
+        p.transform_request(&mut body).unwrap();
+
+        assert_eq!(body["max_tokens"], 256);
+        assert!(body.get("max_completion_tokens").is_none());
     }
 }
 
