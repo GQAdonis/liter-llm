@@ -56,6 +56,7 @@ pub enum ContentPart {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ImageUrl {
     pub url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -71,6 +72,7 @@ pub enum ImageDetail {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DocumentContent {
     /// Base64-encoded document data or URL.
     pub data: String,
@@ -79,6 +81,7 @@ pub struct DocumentContent {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AudioContent {
     /// Base64-encoded audio data.
     pub data: String,
@@ -136,6 +139,7 @@ pub enum ToolType {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ChatCompletionTool {
     #[serde(rename = "type")]
     pub tool_type: ToolType,
@@ -143,6 +147,7 @@ pub struct ChatCompletionTool {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FunctionDefinition {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -210,6 +215,7 @@ pub enum ResponseFormat {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct JsonSchemaFormat {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

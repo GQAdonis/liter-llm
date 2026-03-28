@@ -151,11 +151,16 @@ impl ManagedClient {
     /// Clone the Tower service and call it with `req`, returning the raw
     /// [`LlmResponse`].
     fn call_service(&self, req: LlmRequest) -> BoxFuture<'static, LlmResponse> {
-        let mut svc = self
-            .service
-            .as_ref()
-            .expect("call_service called without middleware")
-            .clone_service();
+        let mut svc = match self.service.as_ref() {
+            Some(s) => s.clone_service(),
+            None => {
+                return Box::pin(async {
+                    Err(LiterLlmError::InternalError {
+                        message: "call_service called without middleware stack".into(),
+                    })
+                });
+            }
+        };
         Box::pin(async move { svc.call(req).await })
     }
 }

@@ -1968,6 +1968,7 @@ pub unsafe extern "C" fn literllm_client_new_with_config(config_json: *const c_c
 
 /// Deserialized JSON config for `literllm_client_new_with_config`.
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FfiClientConfig {
     api_key: String,
     #[serde(default)]
@@ -1987,12 +1988,14 @@ struct FfiClientConfig {
 }
 
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FfiCacheConfig {
     max_entries: Option<usize>,
     ttl_secs: Option<u64>,
 }
 
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FfiBudgetConfig {
     global_limit: Option<f64>,
     model_limits: Option<std::collections::HashMap<String, f64>>,

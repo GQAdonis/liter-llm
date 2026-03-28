@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Request to rerank documents by relevance to a query.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RerankRequest {
     pub model: String,
     pub query: String,

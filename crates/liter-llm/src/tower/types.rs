@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::client::BoxStream;
 use crate::types::audio::{CreateSpeechRequest, CreateTranscriptionRequest, TranscriptionResponse};
 use crate::types::image::{CreateImageRequest, ImagesResponse};
@@ -11,7 +13,7 @@ use crate::types::{
 /// The request variant passed through the tower `Service` stack.
 ///
 /// Each variant corresponds to one method on [`crate::client::LlmClient`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum LlmRequest {
     /// Non-streaming chat completion.
     Chat(ChatCompletionRequest),

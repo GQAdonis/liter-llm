@@ -80,13 +80,30 @@ thread_local! {
 }
 
 /// Register a PHP hook `Zval` in thread-local storage and return its index.
+///
+/// Reuses the first available `None` slot to avoid unbounded growth.
 fn register_hook_zval(zval: &Zval) -> usize {
     HOOK_REGISTRY.with(|registry| {
         let mut registry = registry.borrow_mut();
+        // Reuse a freed slot if one exists.
+        if let Some(idx) = registry.iter().position(Option::is_none) {
+            registry[idx] = Some(zval.shallow_clone());
+            return idx;
+        }
         let idx = registry.len();
         registry.push(Some(zval.shallow_clone()));
         idx
     })
+}
+
+/// Remove a hook from thread-local storage, freeing the slot for reuse.
+fn unregister_hook_zval(idx: usize) {
+    HOOK_REGISTRY.with(|registry| {
+        let mut registry = registry.borrow_mut();
+        if let Some(slot) = registry.get_mut(idx) {
+            *slot = None;
+        }
+    });
 }
 
 /// A bridge that implements `LlmHook` by calling back into PHP objects stored
@@ -111,6 +128,12 @@ struct PhpHookBridge {
 // trait bounds; the bridge never actually crosses thread boundaries.
 unsafe impl Send for PhpHookBridge {}
 unsafe impl Sync for PhpHookBridge {}
+
+impl Drop for PhpHookBridge {
+    fn drop(&mut self) {
+        unregister_hook_zval(self.hook_idx);
+    }
+}
 
 impl PhpHookBridge {
     fn new(zval: &Zval) -> Self {
@@ -164,21 +187,35 @@ impl PhpHookBridge {
     }
 }
 
+/// Serialize the inner request of an [`LlmRequest`] to JSON.
+fn request_to_json(req: &LlmRequest) -> String {
+    match req {
+        LlmRequest::Chat(r) | LlmRequest::ChatStream(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Embed(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::ImageGenerate(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Speech(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Transcribe(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Moderate(r) => serde_json::to_string(r).unwrap_or_default(),
+        LlmRequest::Rerank(r) => serde_json::to_string(r).unwrap_or_default(),
+        _ => format!("{req:?}"),
+    }
+}
+
 impl LlmHook for PhpHookBridge {
     fn on_request(&self, req: &LlmRequest) -> Pin<Box<dyn Future<Output = liter_llm::Result<()>> + Send + '_>> {
-        let req_json = format!("{req:?}");
+        let req_json = request_to_json(req);
         let result = self.call_method_checked("onRequest", vec![req_json]);
         Box::pin(async move { result })
     }
 
     fn on_response(&self, req: &LlmRequest, _resp: &LlmResponse) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        let req_json = format!("{req:?}");
+        let req_json = request_to_json(req);
         self.call_method_fire_and_forget("onResponse", vec![req_json, "response".to_owned()]);
         Box::pin(async {})
     }
 
     fn on_error(&self, req: &LlmRequest, err: &LiterLlmError) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        let req_json = format!("{req:?}");
+        let req_json = request_to_json(req);
         let err_msg = err.to_string();
         self.call_method_fire_and_forget("onError", vec![req_json, err_msg]);
         Box::pin(async {})

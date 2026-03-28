@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CreateBatchRequest {
     pub input_file_id: String,
     pub endpoint: String,
@@ -67,6 +68,7 @@ pub struct BatchListResponse {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BatchListQuery {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,

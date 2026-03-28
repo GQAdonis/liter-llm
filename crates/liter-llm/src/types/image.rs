@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Request to create images from a text prompt.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CreateImageRequest {
     pub prompt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

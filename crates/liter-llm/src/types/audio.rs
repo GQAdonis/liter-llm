@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Request to generate speech audio from text.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CreateSpeechRequest {
     pub model: String,
     pub input: String,
@@ -14,6 +15,7 @@ pub struct CreateSpeechRequest {
 
 /// Request to transcribe audio into text.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CreateTranscriptionRequest {
     pub model: String,
     /// Base64-encoded audio file data.
