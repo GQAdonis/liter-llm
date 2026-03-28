@@ -1179,7 +1179,10 @@ mod tests {
     // ── build_stream_url ──────────────────────────────────────────────────────
 
     #[test]
+    #[serial]
     fn build_stream_url_chat_completions() {
+        // SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("BEDROCK_CROSS_REGION") };
         let p = provider();
         let url = p.build_stream_url("/chat/completions", "anthropic.claude-3-sonnet-20240229-v1:0");
         assert_eq!(
