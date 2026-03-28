@@ -804,20 +804,25 @@ jobs:
           TARGET: ${{ matrix.target }}
           RID: ${{ matrix.rid }}
         run: |
-          # Find the built library
-          if [[ "$TARGET" == *"windows"* ]]; then
-            LIB_PATH="target/${TARGET}/release/liter_llm_ffi.dll"
-          elif [[ "$TARGET" == *"apple"* ]]; then
-            LIB_PATH="target/${TARGET}/release/libliter_llm_ffi.dylib"
-          else
-            LIB_PATH="target/${TARGET}/release/libliter_llm_ffi.so"
-          fi
+          # Find and stage the built libraries (dynamic + static)
           mkdir -p "ffi-staging/${RID}"
-          cp "$LIB_PATH" "ffi-staging/${RID}/"
+          if [[ "$TARGET" == *"windows"* ]]; then
+            cp "target/${TARGET}/release/liter_llm_ffi.dll" "ffi-staging/${RID}/"
+            cp "target/${TARGET}/release/liter_llm_ffi.dll.lib" "ffi-staging/${RID}/" 2>/dev/null || true
+          elif [[ "$TARGET" == *"apple"* ]]; then
+            cp "target/${TARGET}/release/libliter_llm_ffi.dylib" "ffi-staging/${RID}/"
+            cp "target/${TARGET}/release/libliter_llm_ffi.a" "ffi-staging/${RID}/" 2>/dev/null || true
+          else
+            cp "target/${TARGET}/release/libliter_llm_ffi.so" "ffi-staging/${RID}/"
+            cp "target/${TARGET}/release/libliter_llm_ffi.a" "ffi-staging/${RID}/" 2>/dev/null || true
+          fi
           # Copy cbindgen-generated header if present
           if [ -f crates/liter-llm-ffi/include/liter_llm_ffi.h ]; then
             mkdir -p ffi-staging/include
             cp crates/liter-llm-ffi/include/liter_llm_ffi.h ffi-staging/include/
+          elif [ -f crates/liter-llm-ffi/liter_llm.h ]; then
+            mkdir -p ffi-staging/include
+            cp crates/liter-llm-ffi/liter_llm.h ffi-staging/include/
           fi
         shell: bash
       - uses: actions/upload-artifact@v7
@@ -858,6 +863,9 @@ jobs:
         with:
           java-version: '25'
           distribution: temurin
+          cache: maven
+      - name: Setup Maven 3.9.11
+        uses: kreuzberg-dev/actions/setup-maven@v1
       - name: Build Maven package
         run: mvn clean package -DskipTests -q
         working-directory: packages/java
@@ -898,7 +906,7 @@ jobs:
         shell: bash
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "8.x"
+          dotnet-version: "10.0.x"
       - name: Pack NuGet package
         run: dotnet pack packages/csharp/LiterLlm/LiterLlm.csproj -c Release -o nuget-output
         shell: bash
