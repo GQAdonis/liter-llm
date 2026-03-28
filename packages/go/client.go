@@ -240,7 +240,7 @@ func WithAPIKey(key string) Option {
 // Example: "https://api.groq.com/openai/v1"
 func WithBaseURL(url string) Option {
 	return func(c *ClientConfig) {
-		c.baseURL = url
+		c.baseURL = strings.TrimRight(url, "/")
 	}
 }
 
@@ -434,8 +434,12 @@ var ffiLabelMapping = map[string]struct {
 	"NotFound":           {ErrNotFound, http.StatusNotFound, "not found: "},
 	"ServerError":        {ErrProviderError, http.StatusInternalServerError, "server error: "},
 	"ServiceUnavailable": {ErrProviderError, http.StatusServiceUnavailable, "service unavailable: "},
+	"Streaming":          {ErrStream, 0, "streaming error: "},
+	"Serialization":      {ErrInvalidRequest, http.StatusBadRequest, "serialization error: "},
 	"BudgetExceeded":     {ErrBudgetExceeded, 0, "budget exceeded: "},
 	"HookRejected":       {ErrHookRejected, 0, "hook rejected: "},
+	"Timeout":            {ErrProviderError, http.StatusGatewayTimeout, ""},
+	"Network":            {ErrProviderError, 0, ""},
 }
 
 // parseFFIError inspects the raw FFI error string for a [Label] prefix and
@@ -444,32 +448,39 @@ var ffiLabelMapping = map[string]struct {
 func parseFFIError(raw string) error {
 	// Find the [Label] block anywhere in the string.
 	start := strings.Index(raw, "[")
-	if start == -1 {
-		return fmt.Errorf("literllm: %s", raw)
-	}
-	end := strings.Index(raw[start:], "]")
-	if end == -1 {
-		return fmt.Errorf("literllm: %s", raw)
-	}
-	label := raw[start+1 : start+end]
+	if start != -1 {
+		end := strings.Index(raw[start:], "]")
+		if end != -1 {
+			label := raw[start+1 : start+end]
 
-	mapping, ok := ffiLabelMapping[label]
-	if !ok {
-		return fmt.Errorf("literllm: %s", raw)
+			if mapping, ok := ffiLabelMapping[label]; ok {
+				// Everything after "[Label] " is the Rust Display output of the error.
+				msg := raw[start+end+1:]
+				msg = strings.TrimPrefix(msg, " ")
+
+				// Strip the thiserror Display prefix to recover the raw provider message.
+				msg = strings.TrimPrefix(msg, mapping.displayPrefix)
+
+				return &APIError{
+					StatusCode: mapping.statusCode,
+					Message:    msg,
+					sentinel:   mapping.sentinel,
+				}
+			}
+		}
 	}
 
-	// Everything after "[Label] " is the Rust Display output of the error.
-	msg := raw[start+end+1:]
-	msg = strings.TrimPrefix(msg, " ")
-
-	// Strip the thiserror Display prefix to recover the raw provider message.
-	msg = strings.TrimPrefix(msg, mapping.displayPrefix)
-
-	return &APIError{
-		StatusCode: mapping.statusCode,
-		Message:    msg,
-		sentinel:   mapping.sentinel,
+	// Fallback: classify by known keyword patterns in the raw message when no
+	// [Label] bracket was found (e.g. FFI function-name-prefixed errors).
+	lower := strings.ToLower(raw)
+	switch {
+	case strings.Contains(lower, "stream"):
+		return &APIError{Message: raw, sentinel: ErrStream}
+	case strings.Contains(lower, "failed to parse") || strings.Contains(lower, "serialization") || strings.Contains(lower, "invalid type"):
+		return &APIError{Message: raw, sentinel: ErrInvalidRequest}
 	}
+
+	return fmt.Errorf("literllm: %s", raw)
 }
 
 // lastError retrieves the last error message from the FFI layer.

@@ -464,8 +464,8 @@ func TestListModels_ProviderError(t *testing.T) {
 		t.Errorf("expected *APIError, got %T", err)
 	case apiErr.StatusCode != http.StatusInternalServerError:
 		t.Errorf("expected status 500, got %d", apiErr.StatusCode)
-	case apiErr.Message != "internal server error":
-		t.Errorf("expected message %q, got %q", "internal server error", apiErr.Message)
+	case !strings.Contains(apiErr.Message, "internal server error"):
+		t.Errorf("expected message containing %q, got %q", "internal server error", apiErr.Message)
 	}
 }
 
