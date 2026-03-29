@@ -29,7 +29,7 @@ keywords = ["llm", "openai", "api-client", "ai", "kreuzberg"]
 [workspace.dependencies]
 anyhow = "1"
 axum = { version = "0.8", features = ["macros"] }
-axum-extra = { version = "0.10", features = ["typed-header"] }
+axum-extra = { version = "0.12", features = ["typed-header"] }
 base64 = "0.22"
 bytes = "1"
 

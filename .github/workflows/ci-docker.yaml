@@ -1,24 +1,47 @@
-name: CI Docker
+name: CI Docker Build & Test
 
 on:
   push:
     branches: [main]
     paths:
+      - '.github/workflows/ci-docker.yaml'
+      - 'crates/liter-llm/**'
       - 'crates/liter-llm-proxy/**'
       - 'crates/liter-llm-cli/**'
       - 'docker/**'
+      - '.dockerignore'
       - 'Cargo.toml'
       - 'Cargo.lock'
   pull_request:
+    branches: [main]
     paths:
+      - '.github/workflows/ci-docker.yaml'
+      - 'crates/liter-llm/**'
       - 'crates/liter-llm-proxy/**'
       - 'crates/liter-llm-cli/**'
       - 'docker/**'
+      - '.dockerignore'
       - 'Cargo.toml'
       - 'Cargo.lock'
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip API contract tests (build only)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  test-docker:
+    name: Build and Test Docker Image
+    if: github.repository == 'kreuzberg-dev/liter-llm' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -35,7 +58,13 @@ jobs:
           load: true
           tags: liter-llm:test
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,scope=ci-docker
+
+      - name: Verify CLI version
+        run: |
+          version=$(docker run --rm liter-llm:test --version)
+          echo "CLI version: $version"
+          [[ "$version" == liter-llm* ]] || { echo "Unexpected version output"; exit 1; }
 
       - name: Test health endpoints
         run: |
@@ -56,6 +85,7 @@ jobs:
           docker stop "$container_id"
 
       - name: Schemathesis API contract tests
+        if: ${{ !inputs.skip_tests }}
         run: |
           pip3 install schemathesis
 
@@ -73,3 +103,24 @@ jobs:
 
           docker stop "$container_id"
           exit $FAILED
+
+      - name: Check image size
+        run: |
+          size_mb=$(docker inspect liter-llm:test --format='{{.Size}}' | awk '{print int($1/1024/1024)}')
+          echo "Image size: ${size_mb}MB"
+          if [ "$size_mb" -gt 100 ]; then
+            echo "::warning::Docker image is larger than 100MB (${size_mb}MB)"
+          fi
+
+      - name: Save image artifact
+        if: failure()
+        run: |
+          docker save liter-llm:test | gzip > liter-llm-test.tar.gz
+
+      - name: Upload image artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-test
+          path: liter-llm-test.tar.gz
+          retention-days: 3
