@@ -661,7 +661,7 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
         "cache" => {
             writeln!(
                 out,
-                "        $client = new \\LiterLlm\\LlmClient('test-key', $mockUrl, null, null, null, '{{\"max_entries\":10,\"ttl_seconds\":60}}');"
+                "        $client = new \\LiterLlm\\LlmClient('test-key', $mockUrl, null, 0, null, '{{\"max_entries\":10,\"ttl_seconds\":60}}');"
             )
             .unwrap();
             writeln!(out).unwrap();
@@ -696,7 +696,7 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
 
             writeln!(
                 out,
-                "        $client = new \\LiterLlm\\LlmClient('test-key', $mockUrl, null, null, null, null, '{budget_php}');"
+                "        $client = new \\LiterLlm\\LlmClient('test-key', $mockUrl, null, 0, null, null, '{budget_php}');"
             )
             .unwrap();
             writeln!(out).unwrap();
@@ -728,7 +728,7 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
         "hooks" => {
             writeln!(
                 out,
-                "        $client = new \\LiterLlm\\LlmClient('test-key', $mockUrl);"
+                "        $client = new \\LiterLlm\\LlmClient('test-key', $mockUrl, null, 0);"
             )
             .unwrap();
             writeln!(out).unwrap();
@@ -896,7 +896,7 @@ fn write_new_category_test_method(out: &mut String, fixture: &Fixture, category:
 
                 writeln!(
                     out,
-                    "        $client = new \\LiterLlm\\LlmClient('test-key', $mockUrl);"
+                    "        $client = new \\LiterLlm\\LlmClient('test-key', $mockUrl, null, 0);"
                 )
                 .unwrap();
                 writeln!(out).unwrap();

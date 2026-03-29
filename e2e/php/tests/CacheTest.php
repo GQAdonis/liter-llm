@@ -28,7 +28,7 @@ final class CacheTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, null, null, '{"max_entries":10,"ttl_seconds":60}');
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0, null, '{"max_entries":10,"ttl_seconds":60}');
 
         $resp1 = $client->chat('{"messages":[{"content":"Hello","role":"user"}],"model":"gpt-4"}');
         $resp2 = $client->chat('{"messages":[{"content":"Hello","role":"user"}],"model":"gpt-4"}');
@@ -52,7 +52,7 @@ final class CacheTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, null, null, '{"max_entries":10,"ttl_seconds":60}');
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0, null, '{"max_entries":10,"ttl_seconds":60}');
 
         $resp1 = $client->chat('{"messages":[{"content":"Hello","role":"user"}],"model":"gpt-4"}');
         $resp2 = $client->chat('{"messages":[{"content":"Hello","role":"user"}],"model":"gpt-4"}');
@@ -77,7 +77,7 @@ final class CacheTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, null, null, '{"max_entries":10,"ttl_seconds":60}');
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0, null, '{"max_entries":10,"ttl_seconds":60}');
 
         $resp1 = $client->chat('{"messages":[{"content":"Hello","role":"user"}],"model":"openai/gpt-4o"}');
         $resp2 = $client->chat('{"messages":[{"content":"Hello","role":"user"}],"model":"openai/gpt-4o"}');
@@ -101,7 +101,7 @@ final class CacheTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, null, null, '{"max_entries":10,"ttl_seconds":60}');
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0, null, '{"max_entries":10,"ttl_seconds":60}');
 
         $chunks = $client->chatStream('{"messages":[{"content":"Hello","role":"user"}],"model":"gpt-4"}');
         $this->assertNotEmpty($chunks, 'Expected stream chunks');

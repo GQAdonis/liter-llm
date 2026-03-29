@@ -28,7 +28,7 @@ final class CustomProviderTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl);
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0);
 
         $client->registerProvider(json_encode(['name' => 'my-auth-provider', 'base_url' => $mockUrl, 'auth_header' => 'api-key:X-Custom-Key', 'model_prefixes' => ['my-auth-']]));
 
@@ -53,7 +53,7 @@ final class CustomProviderTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl);
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0);
 
         $client->registerProvider(json_encode(['name' => 'my-provider', 'base_url' => $mockUrl, 'auth_header' => 'Bearer', 'model_prefixes' => ['my-']]));
 

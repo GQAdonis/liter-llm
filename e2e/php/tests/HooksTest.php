@@ -28,7 +28,7 @@ final class HooksTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl);
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0);
 
         $client->addHook(new class () implements \LiterLlm\LlmHook {
             public function onRequest(mixed $request): void
@@ -69,7 +69,7 @@ final class HooksTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl);
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0);
 
         $hookState = new \stdClass();
         $hookState->called = false;
@@ -115,7 +115,7 @@ final class HooksTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl);
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0);
 
         $hookState = new \stdClass();
         $hookState->called = false;
@@ -158,7 +158,7 @@ final class HooksTest extends TestCase
         $server = new MockServer($routes);
         $mockUrl = $server->url;
 
-        $client = new \LiterLlm\LlmClient('test-key', $mockUrl);
+        $client = new \LiterLlm\LlmClient('test-key', $mockUrl, null, 0);
 
         $hookState = new \stdClass();
         $hookState->called = false;
