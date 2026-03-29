@@ -57,6 +57,7 @@ pub async fn create_batch(
     ),
     responses(
         (status = 200, description = "List of batch objects"),
+        (status = 400, description = "Bad request", body = crate::openapi::ProxyErrorBody),
         (status = 401, description = "Unauthorized", body = crate::openapi::ProxyErrorBody),
         (status = 500, description = "Internal server error", body = crate::openapi::ProxyErrorBody),
         (status = 415, description = "Unsupported media type", body = crate::openapi::ProxyErrorBody),
