@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- PHP `onError` hook now passes a proper `\Exception` object instead of a plain string (PHP strict types requires `\Throwable`)
+- README templates fixed for rumdl compliance (MD040 code fence language, MD031 blank lines, MD032 list spacing, MD020 closed headings)
+- Added 404 to all POST endpoint OpenAPI specs (model not found on default model names)
+- Homebrew badge added to all READMEs
+
 ## [1.1.1] - 2026-03-29
 
 ### Fixed
