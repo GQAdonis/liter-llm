@@ -113,6 +113,21 @@ Part of the kreuzberg.dev ecosystem:
 | WebAssembly | npmjs.com/package/@kreuzberg/liter-llm-wasm | `pnpm add @kreuzberg/liter-llm-wasm` |
 | C / FFI | Build from source | `cargo build --release -p liter-llm-ffi` |
 
+## Proxy Server
+
+OpenAI-compatible API gateway with 22 endpoints. Drop-in replacement for litellm proxy.
+
+Docker quickstart:
+  docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-key ghcr.io/kreuzberg-dev/liter-llm
+
+CLI:
+  liter-llm api --config liter-llm-proxy.toml
+  liter-llm mcp --transport stdio
+
+Features: model routing (142+ providers), virtual API keys, rate limiting (RPM/TPM), cost tracking, budget enforcement, response caching, SSE streaming, OpenAPI 3.1 at /openapi.json, MCP server with 22 tools.
+
+Config format: TOML with ${ENV_VAR} interpolation. Auto-discovers liter-llm-proxy.toml.
+
 ## Supported Providers (142+)
 
 OpenAI, Anthropic, Google Gemini, Google Vertex AI, AWS Bedrock, Azure OpenAI,

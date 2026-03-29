@@ -36,6 +36,9 @@
   <a href="https://github.com/kreuzberg-dev/liter-llm/tree/main/crates/liter-llm-ffi">
     <img src="https://img.shields.io/badge/C-FFI-007ec6" alt="C FFI">
   </a>
+  <a href="https://github.com/kreuzberg-dev/liter-llm/pkgs/container/liter-llm">
+    <img src="https://img.shields.io/badge/Docker-ghcr.io-007ec6?logo=docker&logoColor=white" alt="Docker">
+  </a>
 
   <!-- Project Info -->
   <a href="https://github.com/kreuzberg-dev/liter-llm/blob/main/LICENSE">
@@ -81,13 +84,13 @@ An honest look at where things stand. We're newer and leaner -- litellm has brea
 | **Observability** | Built-in OpenTelemetry (GenAI semconv) | 40+ callback integrations |
 | **API key safety** | `secrecy::SecretString` (zeroed, redacted) | Plain strings |
 | **Middleware** | Composable Tower stack | Built-in callback system |
-| **Proxy / Gateway** | -- | Yes |
+| **Proxy / Gateway** | Yes (22 OpenAI-compatible endpoints, 35MB Docker) | Yes |
 | **Guardrails** | -- | 10+ integrations, 4 execution modes (advanced: enterprise) |
 | **Semantic caching** | -- | Redis + Qdrant backends |
-| **Virtual key mgmt** | -- | Yes (key rotation: enterprise) |
-| **Management API** | -- | Multi-tenant (teams, budgets, keys; tiers + reporting: enterprise) |
+| **Virtual key mgmt** | Yes (per-key model restrictions, RPM/TPM, budgets) | Yes (key rotation: enterprise) |
+| **Management API** | Config-driven (REST admin API planned) | Multi-tenant (teams, budgets, keys; tiers + reporting: enterprise) |
 | **Fine-tuning API** | -- | Enterprise only |
-| **Load balancer** | Fallback middleware | Full router with strategies |
+| **Load balancer** | Fallback + round-robin via Tower router | Full router with strategies |
 | **Cost tracking** | Embedded pricing + OTEL spans | Per-key/team/model budgets |
 | **Rate limiting** | Per-model RPM/TPM (Tower layer) | Per-key/user/team/model |
 | **Caching** | In-memory LRU + 40+ backends via OpenDAL (S3, Redis, GCS, DynamoDB, disk, ...) | 7 backends (Redis, S3, GCS, disk, Qdrant) |
@@ -116,6 +119,52 @@ An honest look at where things stand. We're newer and leaner -- litellm has brea
 - **Embeddings** -- Dimension selection, base64 format, multi-provider support
 - **Per-request routing** -- Automatic provider detection from model name prefix, custom provider registration at runtime
 - **Schema-driven** -- Provider registry and API types compiled from JSON schemas, no runtime lookups
+
+## Proxy Server & Docker
+
+Drop-in replacement for litellm's proxy -- 22 OpenAI-compatible endpoints in a 35MB Docker image:
+
+```bash
+# Start the proxy
+docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-your-key ghcr.io/kreuzberg-dev/liter-llm
+
+# Use it like OpenAI
+curl http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-key" \
+  -d '{"model": "openai/gpt-4o", "messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+Or with a TOML config file:
+
+```toml
+# liter-llm-proxy.toml
+[general]
+master_key = "${LITER_LLM_MASTER_KEY}"
+
+[[models]]
+name = "gpt-4o"
+provider_model = "openai/gpt-4o"
+api_key = "${OPENAI_API_KEY}"
+
+[[models]]
+name = "claude-sonnet"
+provider_model = "anthropic/claude-sonnet-4-20250514"
+api_key = "${ANTHROPIC_API_KEY}"
+
+[[keys]]
+key = "sk-team-a"
+models = ["gpt-4o"]
+rpm = 100
+```
+
+**CLI:**
+
+```bash
+liter-llm api --config liter-llm-proxy.toml    # Start proxy server
+liter-llm mcp --transport stdio                 # Start MCP tool server
+```
+
+**Features:** Model routing, virtual API keys, per-key rate limiting (RPM/TPM), cost tracking, budget enforcement, response caching, SSE streaming, OpenAPI 3.1 spec at `/openapi.json`, MCP server with 22 tools, graceful shutdown.
 
 ## Architecture
 
