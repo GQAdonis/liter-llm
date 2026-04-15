@@ -31,7 +31,7 @@ repos:
 
   # TOML formatting
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: "v2.21.0"
+    rev: "v2.21.1"
     hooks:
       - id: pyproject-fmt
 
@@ -49,14 +49,14 @@ repos:
 
   # Python: ruff (linting + formatting) + mypy (type checking)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.9
+    rev: v0.15.10
     hooks:
       - id: ruff
         args: ["--fix", "--unsafe-fixes"]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.20.0
+    rev: v1.20.1
     hooks:
       - id: mypy
         exclude: "e2e/|scripts/|tests/|crates/"
@@ -90,14 +90,14 @@ repos:
       - id: cargo-machete
 
   - repo: https://github.com/EmbarkStudios/cargo-deny
-    rev: 0.19.0
+    rev: 0.19.2
     hooks:
       - id: cargo-deny
         args: ["check"]
 
   # Shell scripts: formatting and linting
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.13.0-1
+    rev: v3.13.1-1
     hooks:
       - id: shfmt
         args: ["-w", "-i", "2"]
@@ -118,7 +118,7 @@ repos:
 
   # Markdown
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: "v0.1.67"
+    rev: "v0.1.72"
     hooks:
       - id: rumdl-fmt
 
@@ -138,19 +138,19 @@ repos:
 
   # AI Rules
   - repo: https://github.com/Goldziher/ai-rulez
-    rev: v3.11.3
+    rev: v3.11.4
     hooks:
       - id: ai-rulez-generate
 
   # JavaScript/TypeScript/JSON: biome (formatting + linting)
   - repo: https://github.com/biomejs/pre-commit
-    rev: v2.4.10
+    rev: v2.4.12
     hooks:
       - id: biome-format
       - id: biome-lint
 
   - repo: https://github.com/oxc-project/mirrors-oxlint
-    rev: v1.59.0
+    rev: v1.60.0
     hooks:
       - id: oxlint
         args: ["--fix"]
