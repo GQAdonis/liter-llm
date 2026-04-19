@@ -4,6 +4,7 @@ package dev.kreuzberg.literllm;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "role", visible = false)
 @JsonSubTypes({
@@ -16,16 +17,16 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 })
 public sealed interface Message {
 
-    record System(@JsonProperty("0") SystemMessage 0) implements Message { }
+    record System(@JsonUnwrapped SystemMessage value) implements Message { }
 
-    record User(@JsonProperty("0") UserMessage 0) implements Message { }
+    record User(@JsonUnwrapped UserMessage value) implements Message { }
 
-    record Assistant(@JsonProperty("0") AssistantMessage 0) implements Message { }
+    record Assistant(@JsonUnwrapped AssistantMessage value) implements Message { }
 
-    record Tool(@JsonProperty("0") ToolMessage 0) implements Message { }
+    record Tool(@JsonUnwrapped ToolMessage value) implements Message { }
 
-    record Developer(@JsonProperty("0") DeveloperMessage 0) implements Message { }
+    record Developer(@JsonUnwrapped DeveloperMessage value) implements Message { }
 
-    record Function(@JsonProperty("0") FunctionMessage 0) implements Message { }
+    record Function(@JsonUnwrapped FunctionMessage value) implements Message { }
 
 }
