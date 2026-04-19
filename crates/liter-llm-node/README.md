@@ -51,13 +51,11 @@
   </a>
 </div>
 
-
 <div align="center" style="margin: 20px 0;">
   <picture>
     <img width="100%" alt="kreuzberg.dev" src="https://github.com/user-attachments/assets/1b6c6ad7-3b6d-4171-b1c9-f2026cc9deb8" />
   </picture>
 </div>
-
 
 <div align="center" style="margin-bottom: 20px;">
   <a href="https://discord.gg/xt9WY3GnKR">
@@ -65,9 +63,7 @@
   </a>
 </div>
 
-
-Universal LLM API client for TypeScript and Node.js. Access 143+ LLM providers through a single interface with native NAPI-RS bindings, async/await support, streaming, tool calling, and full TypeScript type definitions.
-
+Universal LLM API client for TypeScript and Node.js. Access 143+ LLM providers through a single interface with native NAPI-RS bindings, async/await, streaming, tool calling, and full TypeScript type definitions.
 
 ## Installation
 
@@ -122,7 +118,6 @@ Pre-built binaries available for:
 
 
 
-
 ## Quick Start
 
 ### Basic Chat
@@ -139,7 +134,6 @@ const response = await client.chat({
 });
 console.log(response.choices[0].message.content);
 ```
-
 
 ### Common Use Cases
 
@@ -162,7 +156,6 @@ for (const chunk of chunks) {
 }
 console.log();
 ```
-
 
 
 
@@ -205,12 +198,10 @@ for (const call of response.choices[0]?.message?.toolCalls ?? []) {
 
 
 
-
 ### Next Steps
 
 - **[Provider Registry](https://github.com/kreuzberg-dev/liter-llm/blob/main/schemas/providers.json)** - Full list of supported providers
 - **[GitHub Repository](https://github.com/kreuzberg-dev/liter-llm)** - Source, issues, and discussions
-
 
 
 ## NAPI-RS Implementation Details
@@ -235,7 +226,6 @@ This binding uses NAPI-RS to provide native Node.js bindings with:
 - API keys are wrapped in `secrecy::SecretString` and never logged
 - Streaming buffers are released as soon as each chunk is consumed
 - Provider registry is compiled into the binary — no runtime disk access
-
 
 
 ## Features
@@ -284,7 +274,6 @@ Built on a compiled Rust core for speed and safety:
 - **API keys** wrapped in secure memory, zeroed on drop
 
 
-
 ## Provider Routing
 
 Route to 143+ providers using the `provider/model` prefix convention:
@@ -309,7 +298,6 @@ docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-your-key ghcr.io/kreuzberg-de
 ```
 
 See the [proxy server documentation](https://docs.liter-llm.kreuzberg.dev/server/proxy/) for configuration, CLI usage, and MCP integration.
-
 
 ## Documentation
 

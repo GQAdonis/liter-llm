@@ -201,73 +201,252 @@ authors = ["Na'aman Hirschfeld"]
 keywords = ["llm", "api-client", "openai", "anthropic"]
 
 [readme]
+template_dir = "templates/readme"
 snippets_dir = "docs/snippets"
 output_pattern = "packages/{language}/README.md"
 discord_url = "https://discord.gg/pXxagNK2zN"
+
+[readme.languages.rust]
+template = "language_package.md"
+output_path = "crates/liter-llm/README.md"
+name = "Rust"
+package_name = "liter-llm"
+badge_url = "https://img.shields.io/crates/v/liter-llm?label=Rust&color=007ec6"
+docs_url = "https://docs.liter-llm.kreuzberg.dev"
+description = "Universal LLM API client for Rust. Access 143+ LLM providers through a single unified interface. Async/await with Tokio, streaming via BoxStream, composable Tower middleware stack, and compile-time type safety."
+package_manager = ["cargo"]
+optional_sections = ["async_support", "streaming_support", "tool_calling", "middleware_stack"]
+
+[readme.languages.rust.features]
+streaming = true
+async = true
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.rust.snippets]
+basic_chat = "getting-started/basic_chat.md"
+streaming = "getting-started/streaming.md"
 
 [readme.languages.python]
 template = "language_package.md"
 name = "Python"
 package_name = "liter-llm"
-description = "Python bindings for liter-llm — a universal LLM API client with 142+ providers. Rust-powered, fast, and type-safe."
+badge_url = "https://img.shields.io/pypi/v/liter-llm?label=Python&color=007ec6"
+docs_url = "https://github.com/kreuzberg-dev/liter-llm"
+description = "Universal LLM API client for Python. Access 143+ LLM providers through a single unified interface. Native async/await support, streaming responses, tool calling, and type-safe API."
 package_manager = ["pip"]
+optional_sections = ["async_support", "streaming_support", "tool_calling"]
+
+[readme.languages.python.features]
+streaming = true
+async = true
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.python.snippets]
+basic_chat = "getting-started/basic_chat.md"
+streaming = "getting-started/streaming.md"
+tool_calling = "getting-started/tool_calling.md"
 
 [readme.languages.typescript]
 template = "language_package.md"
-output_path = "packages/typescript/README.md"
+output_path = "crates/liter-llm-node/README.md"
 name = "TypeScript (Node.js)"
 package_name = "@kreuzberg/liter-llm"
-description = "Node.js/TypeScript bindings for liter-llm — a universal LLM API client with 142+ providers. Powered by NAPI-RS."
-package_manager = ["npm", "pnpm"]
+badge_url = "https://img.shields.io/npm/v/@kreuzberg/liter-llm?label=TypeScript&color=007ec6"
+docs_url = "https://github.com/kreuzberg-dev/liter-llm"
+description = "Universal LLM API client for TypeScript and Node.js. Access 143+ LLM providers through a single interface with native NAPI-RS bindings, async/await, streaming, tool calling, and full TypeScript type definitions."
+package_manager = ["npm", "pnpm", "yarn"]
+optional_sections = ["async_support", "streaming_support", "tool_calling"]
 
-[readme.languages.ruby]
-template = "language_package.md"
-name = "Ruby"
-package_name = "liter_llm"
-description = "Ruby bindings for liter-llm — a universal LLM API client with 142+ providers. Powered by Magnus."
-package_manager = ["gem"]
+[readme.languages.typescript.features]
+streaming = true
+async = true
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.typescript.snippets]
+basic_chat = "getting-started/basic_chat.md"
+streaming = "getting-started/streaming.md"
+tool_calling = "getting-started/tool_calling.md"
 
 [readme.languages.go]
-template = "language_package.md"
+template = "go.md"
+output_path = "packages/go/README.md"
 name = "Go"
 package_name = "github.com/kreuzberg-dev/liter-llm/packages/go"
-description = "Go bindings for liter-llm — a universal LLM API client with 142+ providers. Uses cgo with C FFI."
-package_manager = ["go"]
+badge_url = "https://img.shields.io/github/v/tag/kreuzberg-dev/liter-llm?label=Go&color=007ec6"
+docs_url = "https://github.com/kreuzberg-dev/liter-llm"
+description = "Universal LLM API client for Go. Access 143+ LLM providers through a single interface with idiomatic Go API, context-aware async support, and CGO-based native performance."
+package_manager = ["go get"]
+optional_sections = ["ffi_build_instructions"]
+
+[readme.languages.go.features]
+streaming = true
+async = true
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.go.snippets]
+basic_chat = "getting-started/basic_chat.md"
+streaming = "getting-started/streaming.md"
 
 [readme.languages.java]
 template = "language_package.md"
 name = "Java"
 package_name = "dev.kreuzberg:liter-llm"
-description = "Java bindings for liter-llm — a universal LLM API client with 142+ providers. Uses Panama FFM API."
-package_manager = ["maven"]
+badge_url = "https://img.shields.io/maven-central/v/dev.kreuzberg/liter-llm?label=Java&color=007ec6"
+docs_url = "https://github.com/kreuzberg-dev/liter-llm"
+description = "Universal LLM API client for Java. Access 143+ LLM providers through a single type-safe interface with Foreign Function & Memory API integration, async support, and native performance."
+package_manager = ["maven", "gradle"]
+optional_sections = ["maven_gradle_setup", "async_support"]
 
-[readme.languages.csharp]
-template = "language_package.md"
-name = "C# / .NET"
-package_name = "LiterLlm"
-description = "C# bindings for liter-llm — a universal LLM API client with 142+ providers. Uses P/Invoke."
-package_manager = ["nuget"]
+[readme.languages.java.features]
+streaming = true
+async = true
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.java.snippets]
+basic_chat = "getting-started/basic_chat.md"
+streaming = "getting-started/streaming.md"
 
 [readme.languages.php]
 template = "language_package.md"
 name = "PHP"
-package_name = "kreuzberg-dev/liter-llm"
-description = "PHP bindings for liter-llm — a universal LLM API client with 142+ providers. Native PHP extension."
+package_name = "kreuzberg/liter-llm"
+badge_url = "https://img.shields.io/packagist/v/kreuzberg/liter-llm?label=PHP&color=007ec6"
+docs_url = "https://github.com/kreuzberg-dev/liter-llm"
+description = "Universal LLM API client for PHP. Access 143+ LLM providers through a single interface with modern PHP 8.2+ support and a type-safe API."
 package_manager = ["composer"]
+
+[readme.languages.php.features]
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.php.snippets]
+basic_chat = "getting-started/basic_chat.md"
+
+[readme.languages.ruby]
+template = "language_package.md"
+name = "Ruby"
+package_name = "liter_llm"
+badge_url = "https://img.shields.io/gem/v/liter_llm?label=Ruby&color=007ec6"
+docs_url = "https://github.com/kreuzberg-dev/liter-llm"
+description = "Universal LLM API client for Ruby. Access 143+ LLM providers through a single interface with idiomatic Ruby API and native performance."
+package_manager = ["rubygems", "bundler"]
+optional_sections = ["async_support", "streaming_support"]
+
+[readme.languages.ruby.features]
+streaming = true
+async = true
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.ruby.snippets]
+basic_chat = "getting-started/basic_chat.md"
+streaming = "getting-started/streaming.md"
+
+[readme.languages.csharp]
+template = "language_package.md"
+name = "C#"
+package_name = "LiterLlm"
+badge_url = "https://img.shields.io/nuget/v/LiterLlm?label=C%23&color=007ec6"
+docs_url = "https://github.com/kreuzberg-dev/liter-llm"
+description = "Universal LLM API client for .NET. Access 143+ LLM providers through a single type-safe interface with full async/await support and .NET 8.0+ compatibility."
+package_manager = ["nuget"]
+optional_sections = ["async_support", "streaming_support"]
+
+[readme.languages.csharp.features]
+streaming = true
+async = true
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.csharp.snippets]
+basic_chat = "getting-started/basic_chat.md"
+streaming = "getting-started/streaming.md"
 
 [readme.languages.elixir]
 template = "language_package.md"
 name = "Elixir"
 package_name = "liter_llm"
-description = "Elixir bindings for liter-llm — a universal LLM API client with 142+ providers. Uses Rustler NIFs."
-package_manager = ["hex"]
+badge_url = "https://img.shields.io/hexpm/v/liter_llm?label=Elixir&color=007ec6"
+docs_url = "https://github.com/kreuzberg-dev/liter-llm"
+description = "Universal LLM API client for Elixir. Access 143+ LLM providers through a single interface with native BEAM concurrency, OTP integration, and idiomatic Elixir API."
+package_manager = ["mix"]
+optional_sections = ["async_support", "streaming_support"]
+
+[readme.languages.elixir.features]
+streaming = true
+async = true
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.elixir.snippets]
+basic_chat = "getting-started/basic_chat.md"
+streaming = "getting-started/streaming.md"
 
 [readme.languages.wasm]
 template = "language_package.md"
+output_path = "crates/liter-llm-wasm/README.md"
 name = "WebAssembly"
-package_name = "liter-llm-wasm"
-description = "WebAssembly bindings for liter-llm — a universal LLM API client with 142+ providers."
-package_manager = ["npm"]
+package_name = "@kreuzberg/liter-llm-wasm"
+badge_url = "https://img.shields.io/npm/v/@kreuzberg/liter-llm-wasm?label=WASM&color=007ec6"
+docs_url = "https://github.com/kreuzberg-dev/liter-llm"
+description = "Universal LLM API client for browsers and WebAssembly runtimes. Access 143+ LLM providers with portable deployment across browsers, Deno, and Cloudflare Workers."
+package_manager = ["npm", "pnpm", "yarn"]
+optional_sections = ["async_support", "streaming_support"]
+
+[readme.languages.wasm.features]
+streaming = true
+async = true
+tool_calling = true
+provider_routing = true
+cost_tracking = true
+search = true
+ocr = true
+caching = true
+
+[readme.languages.wasm.snippets]
+basic_chat = "getting-started/basic_chat.md"
+streaming = "getting-started/streaming.md"
 
 [e2e]
 fixtures = "fixtures"

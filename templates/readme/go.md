@@ -1,71 +1,12 @@
 # liter-llm — Go
 
-<div align="center" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0;">
-  <!-- Language Bindings -->
-  <a href="https://crates.io/crates/liter-llm">
-    <img src="https://img.shields.io/crates/v/liter-llm?label=Rust&color=007ec6" alt="Rust">
-  </a>
-  <a href="https://pypi.org/project/liter-llm/">
-    <img src="https://img.shields.io/pypi/v/liter-llm?label=Python&color=007ec6" alt="Python">
-  </a>
-  <a href="https://www.npmjs.com/package/@kreuzberg/liter-llm">
-    <img src="https://img.shields.io/npm/v/@kreuzberg/liter-llm?label=Node.js&color=007ec6" alt="Node.js">
-  </a>
-  <a href="https://www.npmjs.com/package/@kreuzberg/liter-llm-wasm">
-    <img src="https://img.shields.io/npm/v/@kreuzberg/liter-llm-wasm?label=WASM&color=007ec6" alt="WASM">
-  </a>
-  <a href="https://central.sonatype.com/artifact/dev.kreuzberg/liter-llm">
-    <img src="https://img.shields.io/maven-central/v/dev.kreuzberg/liter-llm?label=Java&color=007ec6" alt="Java">
-  </a>
-  <a href="https://github.com/kreuzberg-dev/liter-llm/tree/main/packages/go">
-    <img src="https://img.shields.io/github/v/tag/kreuzberg-dev/liter-llm?label=Go&color=007ec6" alt="Go">
-  </a>
-  <a href="https://www.nuget.org/packages/LiterLlm">
-    <img src="https://img.shields.io/nuget/v/LiterLlm?label=C%23&color=007ec6" alt="C#">
-  </a>
-  <a href="https://packagist.org/packages/kreuzberg/liter-llm">
-    <img src="https://img.shields.io/packagist/v/kreuzberg/liter-llm?label=PHP&color=007ec6" alt="PHP">
-  </a>
-  <a href="https://rubygems.org/gems/liter_llm">
-    <img src="https://img.shields.io/gem/v/liter_llm?label=Ruby&color=007ec6" alt="Ruby">
-  </a>
-  <a href="https://hex.pm/packages/liter_llm">
-    <img src="https://img.shields.io/hexpm/v/liter_llm?label=Elixir&color=007ec6" alt="Elixir">
-  </a>
-  <a href="https://github.com/kreuzberg-dev/liter-llm/pkgs/container/liter-llm">
-    <img src="https://img.shields.io/badge/Docker-007ec6?logo=docker&logoColor=white" alt="Docker">
-  </a>
-  <a href="https://github.com/kreuzberg-dev/homebrew-tap/blob/main/Formula/liter-llm.rb">
-    <img src="https://img.shields.io/badge/Homebrew-007ec6?logo=homebrew&logoColor=white" alt="Homebrew">
-  </a>
-  <a href="https://github.com/kreuzberg-dev/liter-llm/tree/main/crates/liter-llm-ffi">
-    <img src="https://img.shields.io/badge/C-FFI-007ec6" alt="C FFI">
-  </a>
-
-  <!-- Project Info -->
-  <a href="https://github.com/kreuzberg-dev/liter-llm/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-007ec6" alt="License">
-  </a>
-  <a href="https://docs.liter-llm.kreuzberg.dev">
-    <img src="https://img.shields.io/badge/docs-kreuzberg.dev-007ec6" alt="Docs">
-  </a>
-</div>
-
-<div align="center" style="margin: 20px 0;">
-  <picture>
-    <img width="100%" alt="kreuzberg.dev" src="https://github.com/user-attachments/assets/1b6c6ad7-3b6d-4171-b1c9-f2026cc9deb8" />
-  </picture>
-</div>
-
-<div align="center" style="margin-bottom: 20px;">
-  <a href="https://discord.gg/xt9WY3GnKR">
-    <img height="22" src="https://img.shields.io/badge/Discord-Join%20our%20community-7289da?logo=discord&logoColor=white" alt="Discord">
-  </a>
-</div>
+{% include 'partials/badges.html' %}
+{% include 'partials/banner.html' %}
+{% include 'partials/discord.html' %}
 
 Universal LLM API client for Go. Access 143+ LLM providers through a single interface backed by the Rust core.
 
-> **Version 1.2.2**
+> **Version {{ version }}**
 > Report issues at [github.com/kreuzberg-dev/liter-llm](https://github.com/kreuzberg-dev/liter-llm/issues).
 
 ## Install
@@ -73,7 +14,7 @@ Universal LLM API client for Go. Access 143+ LLM providers through a single inte
 ### Using Go Modules
 
 ```bash
-go get github.com/kreuzberg-dev/liter-llm/packages/go@latest
+go get {{ package_name }}@latest
 ```
 
 You'll need the native FFI library at build time. See [Building with Static Libraries](#building-with-static-libraries) below.
@@ -101,7 +42,7 @@ Download from [GitHub Releases](https://github.com/kreuzberg-dev/liter-llm/relea
 
 ```bash
 # Example: Linux x86_64
-curl -LO https://github.com/kreuzberg-dev/liter-llm/releases/download/v1.2.2/go-ffi-linux-x86_64.tar.gz
+curl -LO https://github.com/kreuzberg-dev/liter-llm/releases/download/v{{ version }}/go-ffi-linux-x86_64.tar.gz
 tar -xzf go-ffi-linux-x86_64.tar.gz
 
 mkdir -p ~/liter-llm/lib
@@ -141,7 +82,7 @@ CGO_LDFLAGS="-L$HOME/liter-llm/lib -lliter_llm_ffi" go build
 
 ## Quickstart
 
-
+{% raw %}
 ```go
 package main
 
@@ -169,7 +110,7 @@ func main() {
 	fmt.Println(resp.Content)
 }
 ```
-
+{% endraw %}
 
 Build and run:
 
@@ -182,7 +123,7 @@ CGO_LDFLAGS="-L$HOME/liter-llm/lib -lliter_llm_ffi" go build
 
 ### Streaming Responses
 
-
+{% raw %}
 ```go
 stream, err := client.ChatStream(ctx, literllm.ChatRequest{
 	Model:    "openai/gpt-4o",
@@ -197,11 +138,11 @@ for chunk := range stream.Chunks() {
 	fmt.Print(chunk.Delta)
 }
 ```
-
+{% endraw %}
 
 ### Multiple Providers
 
-
+{% raw %}
 ```go
 // OpenAI
 resp, _ := client.Chat(ctx, literllm.ChatRequest{Model: "openai/gpt-4o", Messages: msgs})
@@ -212,11 +153,11 @@ resp, _ = client.Chat(ctx, literllm.ChatRequest{Model: "anthropic/claude-3-5-son
 // Groq
 resp, _ = client.Chat(ctx, literllm.ChatRequest{Model: "groq/llama-3.1-70b-versatile", Messages: msgs})
 ```
-
+{% endraw %}
 
 ### Context-Aware Requests
 
-
+{% raw %}
 ```go
 ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 defer cancel()
@@ -230,22 +171,14 @@ if err != nil {
 }
 fmt.Println(resp.Content)
 ```
+{% endraw %}
 
-
-## Proxy Server
-
-liter-llm also ships as an OpenAI-compatible proxy server with Docker support:
-
-```bash
-docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-your-key ghcr.io/kreuzberg-dev/liter-llm
-```
-
-See the [proxy server documentation](https://docs.liter-llm.kreuzberg.dev/server/proxy/) for configuration, CLI usage, and MCP integration.
+{% include 'partials/proxy_server.md' %}
 
 ## API Reference
 
 - **[Documentation](https://docs.liter-llm.kreuzberg.dev)** -- Full docs and API reference
-- **GoDoc**: [pkg.go.dev/github.com/kreuzberg-dev/liter-llm/packages/go](https://pkg.go.dev/github.com/kreuzberg-dev/liter-llm/packages/go)
+- **GoDoc**: [pkg.go.dev/{{ package_name }}](https://pkg.go.dev/{{ package_name }})
 - **Provider Registry**: [schemas/providers.json](https://github.com/kreuzberg-dev/liter-llm/blob/main/schemas/providers.json)
 - **GitHub Repository**: [github.com/kreuzberg-dev/liter-llm](https://github.com/kreuzberg-dev/liter-llm)
 
