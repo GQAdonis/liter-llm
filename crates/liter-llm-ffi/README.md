@@ -1,19 +1,22 @@
-# liter-llm - Python Bindings
+# liter-llm - FFI (C/C++) Bindings
 
 Universal LLM API client — 142+ providers, streaming, tool calling. Rust-powered with polyglot bindings.
 
 ## Installation
 
-```bash
-pip install liter-llm
-```
+Link against `libliter-llm_ffi` and include `liter_llm.h`.
+
+See the build instructions in the main repository.
 
 ## Quick Start
 
-```python
-import internal_bindings
+```c
+#include "liter_llm.h"
 
-# TODO: add usage example
+int main(void) {
+    // TODO: add usage example
+    return 0;
+}
 ```
 
 ## Documentation

@@ -200,6 +200,75 @@ repository = "https://github.com/kreuzberg-dev/liter-llm"
 authors = ["Na'aman Hirschfeld"]
 keywords = ["llm", "api-client", "openai", "anthropic"]
 
+[readme]
+snippets_dir = "docs/snippets"
+output_pattern = "packages/{language}/README.md"
+discord_url = "https://discord.gg/pXxagNK2zN"
+
+[readme.languages.python]
+template = "language_package.md"
+name = "Python"
+package_name = "liter-llm"
+description = "Python bindings for liter-llm — a universal LLM API client with 142+ providers. Rust-powered, fast, and type-safe."
+package_manager = ["pip"]
+
+[readme.languages.typescript]
+template = "language_package.md"
+output_path = "packages/typescript/README.md"
+name = "TypeScript (Node.js)"
+package_name = "@kreuzberg/liter-llm"
+description = "Node.js/TypeScript bindings for liter-llm — a universal LLM API client with 142+ providers. Powered by NAPI-RS."
+package_manager = ["npm", "pnpm"]
+
+[readme.languages.ruby]
+template = "language_package.md"
+name = "Ruby"
+package_name = "liter_llm"
+description = "Ruby bindings for liter-llm — a universal LLM API client with 142+ providers. Powered by Magnus."
+package_manager = ["gem"]
+
+[readme.languages.go]
+template = "language_package.md"
+name = "Go"
+package_name = "github.com/kreuzberg-dev/liter-llm/packages/go"
+description = "Go bindings for liter-llm — a universal LLM API client with 142+ providers. Uses cgo with C FFI."
+package_manager = ["go"]
+
+[readme.languages.java]
+template = "language_package.md"
+name = "Java"
+package_name = "dev.kreuzberg:liter-llm"
+description = "Java bindings for liter-llm — a universal LLM API client with 142+ providers. Uses Panama FFM API."
+package_manager = ["maven"]
+
+[readme.languages.csharp]
+template = "language_package.md"
+name = "C# / .NET"
+package_name = "LiterLlm"
+description = "C# bindings for liter-llm — a universal LLM API client with 142+ providers. Uses P/Invoke."
+package_manager = ["nuget"]
+
+[readme.languages.php]
+template = "language_package.md"
+name = "PHP"
+package_name = "kreuzberg-dev/liter-llm"
+description = "PHP bindings for liter-llm — a universal LLM API client with 142+ providers. Native PHP extension."
+package_manager = ["composer"]
+
+[readme.languages.elixir]
+template = "language_package.md"
+name = "Elixir"
+package_name = "liter_llm"
+description = "Elixir bindings for liter-llm — a universal LLM API client with 142+ providers. Uses Rustler NIFs."
+package_manager = ["hex"]
+
+[readme.languages.wasm]
+template = "language_package.md"
+name = "WebAssembly"
+package_name = "liter-llm-wasm"
+description = "WebAssembly bindings for liter-llm — a universal LLM API client with 142+ providers."
+package_manager = ["npm"]
+
 [e2e]
 fixtures = "fixtures"
 output = "e2e"
