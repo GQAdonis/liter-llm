@@ -24,6 +24,7 @@ on:
       - .pre-commit-config.yaml
       - .task/**
       - Taskfile.yml
+      - alef.toml
       - .github/workflows/ci-validate.yaml
   pull_request:
     branches: [main]
@@ -47,6 +48,7 @@ on:
       - .pre-commit-config.yaml
       - .task/**
       - Taskfile.yml
+      - alef.toml
       - .github/workflows/ci-validate.yaml
 
 permissions:
@@ -202,14 +204,18 @@ jobs:
         run: task csharp:format:check
         shell: bash
 
+      - name: Install alef
+        run: cargo install --git https://github.com/kreuzberg-dev/alef alef-cli
+        shell: bash
+
+      - name: Verify alef-generated code is up-to-date
+        run: alef verify --exit-code
+        shell: bash
+
       - name: Run Pre-commit Hooks
         uses: j178/prek-action@v2
         with:
           extra-args: --all-files
-
-      - name: Validate READMEs
-        run: task generate:readme:check
-        shell: bash
 
       - name: Validate Providers Doc
         run: task generate:providers-doc:check

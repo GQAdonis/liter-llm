@@ -299,3 +299,10 @@ repos:
     hooks:
       - id: typos
         args: [--force-exclude]
+
+  # Alef binding generation
+  - repo: https://github.com/kreuzberg-dev/alef
+    rev: v0.4.0
+    hooks:
+      - id: alef-verify
+      - id: alef-sync-versions
