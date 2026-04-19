@@ -1928,14 +1928,14 @@ func CreateClient(api_key string, base_url *string, timeout_secs *uint64, max_re
 		defer C.free(unsafe.Pointer(cBaseUrl))
 	}
 
-	var cTimeoutSecs uint64 = ^uint64(0)
+	var cTimeoutSecs C.uint64_t = C.uint64_t(^uint64(0))
 	if timeout_secs != nil {
-		cTimeoutSecs = uint64(*timeout_secs)
+		cTimeoutSecs = C.uint64_t(uint64(*timeout_secs))
 	}
 
-	var cMaxRetries uint32 = ^uint32(0)
+	var cMaxRetries C.uint32_t = C.uint32_t(^uint32(0))
 	if max_retries != nil {
-		cMaxRetries = uint32(*max_retries)
+		cMaxRetries = C.uint32_t(uint32(*max_retries))
 	}
 
 	var cModelHint *C.char
@@ -2020,150 +2020,283 @@ func UnregisterCustomProvider(name string) (*bool, error) {
 
 // Chat is a method.
 func (r *DefaultClient) Chat(req ChatCompletionRequest) (*ChatCompletionResponse, error) {
-	resultCh := make(chan *ChatCompletionResponse, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.chatSync(req)
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	jsonBytescReq, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	tmpStrcReq := C.CString(string(jsonBytescReq))
+	cReq := C.literllm_chat_completion_request_from_json(tmpStrcReq)
+	C.free(unsafe.Pointer(tmpStrcReq))
+	defer C.literllm_chat_completion_request_free(cReq)
+
+	ptr := C.literllm_default_client_chat((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)), cReq)
+	if err := lastError(); err != nil {
+		return nil, err
+	}
+	defer C.literllm_chat_completion_response_free(ptr)
+	return func() *ChatCompletionResponse {
+		jsonPtr := C.literllm_chat_completion_response_to_json(ptr)
+		if jsonPtr == nil {
+			return nil
 		}
-	}()
-	return resultCh, errCh
+		defer C.literllm_free_string(jsonPtr)
+		var result ChatCompletionResponse
+		if err := json.Unmarshal([]byte(C.GoString(jsonPtr)), &result); err != nil {
+			return nil
+		}
+		return &result
+	}(), nil
 }
 
 // ChatStream is a method.
 func (r *DefaultClient) ChatStream(req ChatCompletionRequest) (*string, error) {
-	resultCh := make(chan *string, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.chat_streamSync(req)
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	jsonBytescReq, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	tmpStrcReq := C.CString(string(jsonBytescReq))
+	cReq := C.literllm_chat_completion_request_from_json(tmpStrcReq)
+	C.free(unsafe.Pointer(tmpStrcReq))
+	defer C.literllm_chat_completion_request_free(cReq)
+
+	ptr := C.literllm_default_client_chat_stream((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)), cReq)
+	if err := lastError(); err != nil {
+		if ptr != nil {
+			C.literllm_free_string(ptr)
 		}
-	}()
-	return resultCh, errCh
+		return nil, err
+	}
+	defer C.literllm_free_string(ptr)
+	return func() *string { v := C.GoString(ptr); return &v }(), nil
 }
 
 // Embed is a method.
 func (r *DefaultClient) Embed(req EmbeddingRequest) (*EmbeddingResponse, error) {
-	resultCh := make(chan *EmbeddingResponse, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.embedSync(req)
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	jsonBytescReq, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	tmpStrcReq := C.CString(string(jsonBytescReq))
+	cReq := C.literllm_embedding_request_from_json(tmpStrcReq)
+	C.free(unsafe.Pointer(tmpStrcReq))
+	defer C.literllm_embedding_request_free(cReq)
+
+	ptr := C.literllm_default_client_embed((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)), cReq)
+	if err := lastError(); err != nil {
+		return nil, err
+	}
+	defer C.literllm_embedding_response_free(ptr)
+	return func() *EmbeddingResponse {
+		jsonPtr := C.literllm_embedding_response_to_json(ptr)
+		if jsonPtr == nil {
+			return nil
 		}
-	}()
-	return resultCh, errCh
+		defer C.literllm_free_string(jsonPtr)
+		var result EmbeddingResponse
+		if err := json.Unmarshal([]byte(C.GoString(jsonPtr)), &result); err != nil {
+			return nil
+		}
+		return &result
+	}(), nil
 }
 
 // ListModels is a method.
 func (r *DefaultClient) ListModels() (*ModelsListResponse, error) {
-	resultCh := make(chan *ModelsListResponse, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.list_modelsSync()
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	ptr := C.literllm_default_client_list_models((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)))
+	if err := lastError(); err != nil {
+		return nil, err
+	}
+	defer C.literllm_models_list_response_free(ptr)
+	return func() *ModelsListResponse {
+		jsonPtr := C.literllm_models_list_response_to_json(ptr)
+		if jsonPtr == nil {
+			return nil
 		}
-	}()
-	return resultCh, errCh
+		defer C.literllm_free_string(jsonPtr)
+		var result ModelsListResponse
+		if err := json.Unmarshal([]byte(C.GoString(jsonPtr)), &result); err != nil {
+			return nil
+		}
+		return &result
+	}(), nil
 }
 
 // ImageGenerate is a method.
 func (r *DefaultClient) ImageGenerate(req CreateImageRequest) (*ImagesResponse, error) {
-	resultCh := make(chan *ImagesResponse, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.image_generateSync(req)
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	jsonBytescReq, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	tmpStrcReq := C.CString(string(jsonBytescReq))
+	cReq := C.literllm_create_image_request_from_json(tmpStrcReq)
+	C.free(unsafe.Pointer(tmpStrcReq))
+	defer C.literllm_create_image_request_free(cReq)
+
+	ptr := C.literllm_default_client_image_generate((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)), cReq)
+	if err := lastError(); err != nil {
+		return nil, err
+	}
+	defer C.literllm_images_response_free(ptr)
+	return func() *ImagesResponse {
+		jsonPtr := C.literllm_images_response_to_json(ptr)
+		if jsonPtr == nil {
+			return nil
 		}
-	}()
-	return resultCh, errCh
+		defer C.literllm_free_string(jsonPtr)
+		var result ImagesResponse
+		if err := json.Unmarshal([]byte(C.GoString(jsonPtr)), &result); err != nil {
+			return nil
+		}
+		return &result
+	}(), nil
 }
 
 // Transcribe is a method.
 func (r *DefaultClient) Transcribe(req CreateTranscriptionRequest) (*TranscriptionResponse, error) {
-	resultCh := make(chan *TranscriptionResponse, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.transcribeSync(req)
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	jsonBytescReq, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	tmpStrcReq := C.CString(string(jsonBytescReq))
+	cReq := C.literllm_create_transcription_request_from_json(tmpStrcReq)
+	C.free(unsafe.Pointer(tmpStrcReq))
+	defer C.literllm_create_transcription_request_free(cReq)
+
+	ptr := C.literllm_default_client_transcribe((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)), cReq)
+	if err := lastError(); err != nil {
+		return nil, err
+	}
+	defer C.literllm_transcription_response_free(ptr)
+	return func() *TranscriptionResponse {
+		jsonPtr := C.literllm_transcription_response_to_json(ptr)
+		if jsonPtr == nil {
+			return nil
 		}
-	}()
-	return resultCh, errCh
+		defer C.literllm_free_string(jsonPtr)
+		var result TranscriptionResponse
+		if err := json.Unmarshal([]byte(C.GoString(jsonPtr)), &result); err != nil {
+			return nil
+		}
+		return &result
+	}(), nil
 }
 
 // Moderate is a method.
 func (r *DefaultClient) Moderate(req ModerationRequest) (*ModerationResponse, error) {
-	resultCh := make(chan *ModerationResponse, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.moderateSync(req)
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	jsonBytescReq, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	tmpStrcReq := C.CString(string(jsonBytescReq))
+	cReq := C.literllm_moderation_request_from_json(tmpStrcReq)
+	C.free(unsafe.Pointer(tmpStrcReq))
+	defer C.literllm_moderation_request_free(cReq)
+
+	ptr := C.literllm_default_client_moderate((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)), cReq)
+	if err := lastError(); err != nil {
+		return nil, err
+	}
+	defer C.literllm_moderation_response_free(ptr)
+	return func() *ModerationResponse {
+		jsonPtr := C.literllm_moderation_response_to_json(ptr)
+		if jsonPtr == nil {
+			return nil
 		}
-	}()
-	return resultCh, errCh
+		defer C.literllm_free_string(jsonPtr)
+		var result ModerationResponse
+		if err := json.Unmarshal([]byte(C.GoString(jsonPtr)), &result); err != nil {
+			return nil
+		}
+		return &result
+	}(), nil
 }
 
 // Rerank is a method.
 func (r *DefaultClient) Rerank(req RerankRequest) (*RerankResponse, error) {
-	resultCh := make(chan *RerankResponse, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.rerankSync(req)
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	jsonBytescReq, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	tmpStrcReq := C.CString(string(jsonBytescReq))
+	cReq := C.literllm_rerank_request_from_json(tmpStrcReq)
+	C.free(unsafe.Pointer(tmpStrcReq))
+	defer C.literllm_rerank_request_free(cReq)
+
+	ptr := C.literllm_default_client_rerank((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)), cReq)
+	if err := lastError(); err != nil {
+		return nil, err
+	}
+	defer C.literllm_rerank_response_free(ptr)
+	return func() *RerankResponse {
+		jsonPtr := C.literllm_rerank_response_to_json(ptr)
+		if jsonPtr == nil {
+			return nil
 		}
-	}()
-	return resultCh, errCh
+		defer C.literllm_free_string(jsonPtr)
+		var result RerankResponse
+		if err := json.Unmarshal([]byte(C.GoString(jsonPtr)), &result); err != nil {
+			return nil
+		}
+		return &result
+	}(), nil
 }
 
 // Search is a method.
 func (r *DefaultClient) Search(req SearchRequest) (*SearchResponse, error) {
-	resultCh := make(chan *SearchResponse, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.searchSync(req)
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	jsonBytescReq, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	tmpStrcReq := C.CString(string(jsonBytescReq))
+	cReq := C.literllm_search_request_from_json(tmpStrcReq)
+	C.free(unsafe.Pointer(tmpStrcReq))
+	defer C.literllm_search_request_free(cReq)
+
+	ptr := C.literllm_default_client_search((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)), cReq)
+	if err := lastError(); err != nil {
+		return nil, err
+	}
+	defer C.literllm_search_response_free(ptr)
+	return func() *SearchResponse {
+		jsonPtr := C.literllm_search_response_to_json(ptr)
+		if jsonPtr == nil {
+			return nil
 		}
-	}()
-	return resultCh, errCh
+		defer C.literllm_free_string(jsonPtr)
+		var result SearchResponse
+		if err := json.Unmarshal([]byte(C.GoString(jsonPtr)), &result); err != nil {
+			return nil
+		}
+		return &result
+	}(), nil
 }
 
 // Ocr is a method.
 func (r *DefaultClient) Ocr(req OcrRequest) (*OcrResponse, error) {
-	resultCh := make(chan *OcrResponse, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		result, err := r.ocrSync(req)
-		if err != nil {
-			errCh <- err
-		} else {
-			resultCh <- result
+	jsonBytescReq, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	tmpStrcReq := C.CString(string(jsonBytescReq))
+	cReq := C.literllm_ocr_request_from_json(tmpStrcReq)
+	C.free(unsafe.Pointer(tmpStrcReq))
+	defer C.literllm_ocr_request_free(cReq)
+
+	ptr := C.literllm_default_client_ocr((*C.LITERLLMDefaultClient)(unsafe.Pointer(r.ptr)), cReq)
+	if err := lastError(); err != nil {
+		return nil, err
+	}
+	defer C.literllm_ocr_response_free(ptr)
+	return func() *OcrResponse {
+		jsonPtr := C.literllm_ocr_response_to_json(ptr)
+		if jsonPtr == nil {
+			return nil
 		}
-	}()
-	return resultCh, errCh
+		defer C.literllm_free_string(jsonPtr)
+		var result OcrResponse
+		if err := json.Unmarshal([]byte(C.GoString(jsonPtr)), &result); err != nil {
+			return nil
+		}
+		return &result
+	}(), nil
 }

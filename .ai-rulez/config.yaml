@@ -2,32 +2,29 @@ $schema: https://raw.githubusercontent.com/Goldziher/ai-rulez/main/schema/ai-rul
 description: Universal LM API client with polyglot bindings — unified access to 142+ LLM providers with native bindings for Rust, Python, TypeScript, Go, Java, Ruby, PHP, C#, Elixir, and WebAssembly.
 gitignore: true
 name: Liter-LM
-
 header:
   style: minimal
-
 includes:
   - name: kreuzberg-core
     source: https://github.com/kreuzberg-dev/ai-rulez.git
-    local_override: ../ai-rulez
     path: modules/core
     merge_strategy: local-override
+    local_override: ../ai-rulez
   - name: kreuzberg-languages
     source: https://github.com/kreuzberg-dev/ai-rulez.git
-    local_override: ../ai-rulez
     path: modules/languages
     merge_strategy: local-override
+    local_override: ../ai-rulez
   - name: kreuzberg-cicd
     source: https://github.com/kreuzberg-dev/ai-rulez.git
-    local_override: ../ai-rulez
     path: modules/cicd
     merge_strategy: local-override
+    local_override: ../ai-rulez
   - name: kreuzberg-e2e-generator
     source: https://github.com/kreuzberg-dev/ai-rulez.git
-    local_override: ../ai-rulez
     path: modules/e2e-generator
     merge_strategy: local-override
-
+    local_override: ../ai-rulez
 builtins:
   - rust
   - python
@@ -44,12 +41,12 @@ builtins:
   - testing
   - token-efficiency
   - default-commands
-
 presets:
   - claude
   - gemini
   - codex
-
-compression:
-  level: moderate
 version: "3.0"
+installed_skills:
+  - name: alef
+    source: ../alef
+    description: Generate fully-typed polyglot language bindings for Rust libraries using Alef

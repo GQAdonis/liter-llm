@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import internal_bindings._internal_bindings as _rust
+import liter_llm._internal_bindings as _rust
 
 if TYPE_CHECKING:
-    from .options import CustomProviderConfig
+    from ._internal_bindings import CustomProviderConfig
 
 
 def create_client(

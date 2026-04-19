@@ -9,39 +9,39 @@ class LiterLlmError(Exception):
 
 
 class AuthenticationError(LiterLlmError):
-    pass
+    """Authentication error."""
 
 
 class RateLimitedError(LiterLlmError):
-    pass
+    """Rate limited error."""
 
 
 class BadRequestError(LiterLlmError):
-    pass
+    """Bad request error."""
 
 
 class ContextWindowExceededError(LiterLlmError):
-    pass
+    """Context window exceeded error."""
 
 
 class ContentPolicyError(LiterLlmError):
-    pass
+    """Content policy error."""
 
 
 class NotFoundError(LiterLlmError):
-    pass
+    """Not found error."""
 
 
 class ServerError(LiterLlmError):
-    pass
+    """Server error."""
 
 
 class ServiceUnavailableError(LiterLlmError):
-    pass
+    """Service unavailable error."""
 
 
 class LiterLlmTimeoutError(LiterLlmError):
-    pass
+    """Liter llm timeout error."""
 
 
 class StreamingError(LiterLlmError):
@@ -49,23 +49,23 @@ class StreamingError(LiterLlmError):
 
 
 class EndpointNotSupportedError(LiterLlmError):
-    pass
+    """Endpoint not supported error."""
 
 
 class InvalidHeaderError(LiterLlmError):
-    pass
+    """Invalid header error."""
 
 
 class SerializationError(LiterLlmError):
-    pass
+    """Serialization error."""
 
 
 class BudgetExceededError(LiterLlmError):
-    pass
+    """Budget exceeded error."""
 
 
 class HookRejectedError(LiterLlmError):
-    pass
+    """Hook rejected error."""
 
 
 class InternalError(LiterLlmError):
