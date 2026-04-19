@@ -172,3 +172,4 @@ bin/
 obj/
 *.nupkg
 pkg/
+packages/php/var/

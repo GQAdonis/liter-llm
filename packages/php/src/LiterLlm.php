@@ -67,7 +67,7 @@ final class LiterLlm
      */
     public static function registerCustomProvider(CustomProviderConfig $config): void
     {
-        return \Liter\Llm\LiterLlmApi::registerCustomProvider($config); // delegate to native extension class
+        \Liter\Llm\LiterLlmApi::registerCustomProvider($config); // delegate to native extension class
     }
 
     /**

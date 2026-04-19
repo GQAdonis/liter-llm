@@ -103,9 +103,6 @@ lint.per-file-ignores."scripts/**/*.*" = [
 lint.isort.known-first-party = [ "scripts" ]
 lint.pydocstyle.convention = "google"
 
-[tool.codespell]
-ignore-words-list = "afterall,crate,fo,inout,ist,ser,wast,wit"
-
 [tool.pyproject-fmt]
 keep_full_version = true
 max_supported_python = "3.14"

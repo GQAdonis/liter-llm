@@ -294,10 +294,8 @@ repos:
         require_serial: true
 
   # Spelling
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.45.1
     hooks:
-      - id: codespell
-        exclude: ^tests|^parsers|^vendors|^target|^e2e|^\.ai-rulez|pnpm-lock\.yaml|docs/css/|docs/assets/|sources
-        additional_dependencies:
-          - tomli
+      - id: typos
+        args: [--force-exclude]

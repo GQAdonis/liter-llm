@@ -1,0 +1,23 @@
+[files]
+extend-exclude = [
+    "fixtures/",
+    "e2e/",
+    "schemas/",
+    "*.lock",
+    "vendor/",
+    "node_modules/",
+    "target/",
+    ".alef/",
+    ".lycheecache",
+    "docs/assets/",
+    "*.svg",
+]
+
+[default.extend-words]
+# German text in test fixtures
+ist = "ist"
+ein = "ein"
+# Hyphenated words
+mis = "mis"
+# Request IDs
+ded = "ded"
