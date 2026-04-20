@@ -12,5 +12,5 @@ void test_api_surface_parity(void) {
     /* Canonical API surface definition for cross-binding parity verification */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

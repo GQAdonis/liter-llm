@@ -87,6 +87,6 @@ tasks:
     cmds:
       - pnpm -r --filter="./packages/typescript/**" run build
       - cmd: |
-          cd e2e/typescript
+          cd e2e/node
           pnpm install
           npx vitest run

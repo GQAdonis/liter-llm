@@ -12,25 +12,25 @@ void test_edge_file_empty_list(void) {
     /* List files when no files have been uploaded */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 0 && "expected 0 elements");
     }
     literllm_free_string(data);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_edge_file_large_upload(void) {
     /* Upload a large file successfully */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
+    char* id = literllm_chat_completion_response_id(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     literllm_free_string(id);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_error_file_auth_401(void) {
@@ -55,56 +55,56 @@ void test_smoke_create_file(void) {
     /* Upload a file for use with the API */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
+    char* id = literllm_chat_completion_response_id(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     literllm_free_string(id);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_delete_file(void) {
     /* Delete an uploaded file */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* deleted = literllm_conversion_result_deleted(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* deleted = literllm_chat_completion_response_deleted(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(strcmp(deleted, 1) == 0 && "equals assertion failed");
     literllm_free_string(id);
     literllm_free_string(deleted);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_file_content(void) {
     /* Retrieve the content of an uploaded file */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* content = literllm_conversion_result_content(result);
+    char* content = literllm_chat_completion_response_content(result);
     assert(strlen(content) > 0 && "expected non-empty value");
     literllm_free_string(content);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_list_files(void) {
     /* List all uploaded files */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 2 && "expected 2 elements");
     }
     literllm_free_string(data);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_retrieve_file(void) {
     /* Retrieve metadata for an uploaded file */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
+    char* id = literllm_chat_completion_response_id(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     literllm_free_string(id);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

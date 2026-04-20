@@ -13,22 +13,22 @@ void test_edge_response_empty_output(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
-    char* output = literllm_conversion_result_output(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
+    char* output = literllm_chat_completion_response_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
     {
         /* count_equals: count elements in array */
         assert(output != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(output);
+        int elem_count = alef_json_array_count(output);
         assert(elem_count == 0 && "expected 0 elements");
     }
     literllm_free_string(id);
     literllm_free_string(status);
     literllm_free_string(output);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_edge_response_large_input(void) {
@@ -36,22 +36,22 @@ void test_edge_response_large_input(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Summarize the following long text: Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. \"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
-    char* output = literllm_conversion_result_output(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
+    char* output = literllm_chat_completion_response_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
     {
         /* count_equals: count elements in array */
         assert(output != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(output);
+        int elem_count = alef_json_array_count(output);
         assert(elem_count == 1 && "expected 1 elements");
     }
     literllm_free_string(id);
     literllm_free_string(status);
     literllm_free_string(output);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_error_response_auth_401(void) {
@@ -80,21 +80,21 @@ void test_smoke_cancel_response(void) {
     /* Cancel an in-progress response */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
-    char* output = literllm_conversion_result_output(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
+    char* output = literllm_chat_completion_response_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "cancelled") == 0 && "equals assertion failed");
     {
         /* count_equals: count elements in array */
         assert(output != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(output);
+        int elem_count = alef_json_array_count(output);
         assert(elem_count == 0 && "expected 0 elements");
     }
     literllm_free_string(id);
     literllm_free_string(status);
     literllm_free_string(output);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_create_response(void) {
@@ -102,22 +102,22 @@ void test_smoke_create_response(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Explain quantum computing in one sentence.\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
-    char* output = literllm_conversion_result_output(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
+    char* output = literllm_chat_completion_response_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
     {
         /* count_equals: count elements in array */
         assert(output != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(output);
+        int elem_count = alef_json_array_count(output);
         assert(elem_count == 1 && "expected 1 elements");
     }
     literllm_free_string(id);
     literllm_free_string(status);
     literllm_free_string(output);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_response_with_tools(void) {
@@ -125,18 +125,18 @@ void test_smoke_response_with_tools(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"What is the weather in San Francisco?\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
-    char* output = literllm_conversion_result_output(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
+    char* output = literllm_chat_completion_response_output(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
+    char* choices_0_message_tool_calls = alef_json_get_string(choices_json, "0");
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
     {
         /* count_equals: count elements in array */
         assert(output != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(output);
+        int elem_count = alef_json_array_count(output);
         assert(elem_count == 2 && "expected 2 elements");
     }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
@@ -146,18 +146,18 @@ void test_smoke_response_with_tools(void) {
     free(choices_0_message_tool_calls);
     literllm_free_string(choices_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_retrieve_response(void) {
     /* Retrieve a previously created response */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
     literllm_free_string(id);
     literllm_free_string(status);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

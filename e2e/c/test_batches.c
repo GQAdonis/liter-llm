@@ -18,15 +18,15 @@ void test_edge_batch_empty_list(void) {
     /* List batches when no batches exist */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 0 && "expected 0 elements");
     }
     literllm_free_string(data);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_error_batch_auth_401(void) {
@@ -51,65 +51,65 @@ void test_smoke_batch_completed(void) {
     /* Retrieve a completed batch job with output file */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
     literllm_free_string(id);
     literllm_free_string(status);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_cancel_batch(void) {
     /* Cancel a running batch job */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "cancelling") == 0 && "equals assertion failed");
     literllm_free_string(id);
     literllm_free_string(status);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_create_batch(void) {
     /* Create a new batch processing job */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "validating") == 0 && "equals assertion failed");
     literllm_free_string(id);
     literllm_free_string(status);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_list_batches(void) {
     /* List all batch jobs */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 2 && "expected 2 elements");
     }
     literllm_free_string(data);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_retrieve_batch(void) {
     /* Retrieve the status of a batch job */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = literllm_conversion_result_id(result);
-    char* status = literllm_conversion_result_status(result);
+    char* id = literllm_chat_completion_response_id(result);
+    char* status = literllm_chat_completion_response_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "in_progress") == 0 && "equals assertion failed");
     literllm_free_string(id);
     literllm_free_string(status);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

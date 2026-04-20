@@ -12,36 +12,36 @@ void test_edge_rerank_empty_query(void) {
     /* Reranking with an empty query string */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 2 && "expected 2 elements");
     }
     literllm_free_string(results);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_edge_rerank_single_doc(void) {
     /* Reranking with only a single document */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
-    char* results_json = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
+    char* results_json = literllm_chat_completion_response_results(result);
     assert(results_json != NULL);
-    char* results_0_relevance_score = htm_json_get_string(results_json, "0");
+    char* results_0_relevance_score = alef_json_get_string(results_json, "0");
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
     literllm_free_string(results);
     free(results_0_relevance_score);
     literllm_free_string(results_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_error_rerank_auth_401(void) {
@@ -60,36 +60,36 @@ void test_smoke_rerank_basic(void) {
     /* Basic reranking of documents against a query */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
-    char* results_json = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
+    char* results_json = literllm_chat_completion_response_results(result);
     assert(results_json != NULL);
-    char* results_0_relevance_score = htm_json_get_string(results_json, "0");
+    char* results_0_relevance_score = alef_json_get_string(results_json, "0");
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 3 && "expected 3 elements");
     }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
     literllm_free_string(results);
     free(results_0_relevance_score);
     literllm_free_string(results_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_rerank_return_docs(void) {
     /* Reranking with return_documents flag to include document text */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
-    char* results_json = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
+    char* results_json = literllm_chat_completion_response_results(result);
     assert(results_json != NULL);
-    char* results_0_document = htm_json_get_string(results_json, "0");
-    char* results_0_relevance_score = htm_json_get_string(results_json, "0");
+    char* results_0_document = alef_json_get_string(results_json, "0");
+    char* results_0_relevance_score = alef_json_get_string(results_json, "0");
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 2 && "expected 2 elements");
     }
     assert(strlen(results_0_document) > 0 && "expected non-empty value");
@@ -98,26 +98,26 @@ void test_smoke_rerank_return_docs(void) {
     free(results_0_document);
     free(results_0_relevance_score);
     literllm_free_string(results_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_rerank_with_top_n(void) {
     /* Reranking with top_n parameter to limit results */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
-    char* results_json = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
+    char* results_json = literllm_chat_completion_response_results(result);
     assert(results_json != NULL);
-    char* results_0_relevance_score = htm_json_get_string(results_json, "0");
+    char* results_0_relevance_score = alef_json_get_string(results_json, "0");
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 2 && "expected 2 elements");
     }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
     literllm_free_string(results);
     free(results_0_relevance_score);
     literllm_free_string(results_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

@@ -12,12 +12,12 @@ void test_provider_auth(void) {
     /* Tests custom provider with custom auth header */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_register_provider(void) {
     /* Tests that a custom provider can be registered and routes requests */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

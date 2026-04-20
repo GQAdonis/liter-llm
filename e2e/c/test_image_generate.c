@@ -12,21 +12,21 @@ void test_edge_image_b64_response(void) {
     /* Image generation returning base64-encoded data instead of URL */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_b64_json = htm_json_get_string(data_json, "0");
+    char* data_0_b64_json = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strlen(data_0_b64_json) > 0 && "expected non-empty value");
     literllm_free_string(data);
     free(data_0_b64_json);
     literllm_free_string(data_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_edge_image_empty_prompt(void) {
@@ -57,61 +57,61 @@ void test_smoke_image_basic(void) {
     /* Basic image generation with a text prompt */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_url = htm_json_get_string(data_json, "0");
+    char* data_0_url = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
     literllm_free_string(data);
     free(data_0_url);
     literllm_free_string(data_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_image_multiple(void) {
     /* Image generation requesting multiple images */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_url = htm_json_get_string(data_json, "0");
+    char* data_0_url = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 3 && "expected 3 elements");
     }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
     literllm_free_string(data);
     free(data_0_url);
     literllm_free_string(data_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_image_with_size(void) {
     /* Image generation with explicit size parameter */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_url = htm_json_get_string(data_json, "0");
+    char* data_0_url = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
     literllm_free_string(data);
     free(data_0_url);
     literllm_free_string(data_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

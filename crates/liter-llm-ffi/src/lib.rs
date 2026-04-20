@@ -7518,7 +7518,7 @@ pub unsafe extern "C" fn literllm_default_client_chat(
     let req_rs = unsafe { &*req }.clone();
     let result = get_ffi_runtime().block_on(async { obj.chat(req_rs).await });
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -7561,7 +7561,7 @@ pub unsafe extern "C" fn literllm_default_client_embed(
     let req_rs = unsafe { &*req }.clone();
     let result = get_ffi_runtime().block_on(async { obj.embed(req_rs).await });
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -7585,7 +7585,7 @@ pub unsafe extern "C" fn literllm_default_client_list_models(
     let obj = unsafe { &*this };
     let result = get_ffi_runtime().block_on(async { obj.list_models().await });
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -7615,7 +7615,7 @@ pub unsafe extern "C" fn literllm_default_client_image_generate(
     let req_rs = unsafe { &*req }.clone();
     let result = get_ffi_runtime().block_on(async { obj.image_generate(req_rs).await });
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -7645,7 +7645,7 @@ pub unsafe extern "C" fn literllm_default_client_transcribe(
     let req_rs = unsafe { &*req }.clone();
     let result = get_ffi_runtime().block_on(async { obj.transcribe(req_rs).await });
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -7675,7 +7675,7 @@ pub unsafe extern "C" fn literllm_default_client_moderate(
     let req_rs = unsafe { &*req }.clone();
     let result = get_ffi_runtime().block_on(async { obj.moderate(req_rs).await });
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -7705,7 +7705,7 @@ pub unsafe extern "C" fn literllm_default_client_rerank(
     let req_rs = unsafe { &*req }.clone();
     let result = get_ffi_runtime().block_on(async { obj.rerank(req_rs).await });
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -7735,7 +7735,7 @@ pub unsafe extern "C" fn literllm_default_client_search(
     let req_rs = unsafe { &*req }.clone();
     let result = get_ffi_runtime().block_on(async { obj.search(req_rs).await });
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -7765,7 +7765,7 @@ pub unsafe extern "C" fn literllm_default_client_ocr(
     let req_rs = unsafe { &*req }.clone();
     let result = get_ffi_runtime().block_on(async { obj.ocr(req_rs).await });
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -8729,7 +8729,7 @@ pub unsafe extern "C" fn literllm_create_client(
     let result =
         liter_llm::bindings::create_client(api_key_rs, base_url_rs, timeout_secs_rs, max_retries_rs, model_hint_rs);
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -8766,7 +8766,7 @@ pub unsafe extern "C" fn literllm_create_client_from_json(
     };
     let result = liter_llm::bindings::create_client_from_json(&json_rs);
     match result {
-        Ok(val) => Box::into_raw(Box::new(val.clone())),
+        Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
             set_last_error(2, &e.to_string());
             std::ptr::null_mut()
@@ -8833,7 +8833,13 @@ pub unsafe extern "C" fn literllm_unregister_custom_provider(name: *const std::f
     };
     let result = liter_llm::provider::custom::unregister_custom_provider(&name_rs);
     match result {
-        Ok(val) => val as i32,
+        Ok(val) => {
+            if val {
+                1
+            } else {
+                0
+            }
+        }
         Err(e) => {
             set_last_error(2, &e.to_string());
             0

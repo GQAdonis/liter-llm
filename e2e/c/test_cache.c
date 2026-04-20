@@ -12,38 +12,38 @@ void test_cache_hit(void) {
     /* Tests that identical chat requests return cached response */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* cache_hit = literllm_conversion_result_cache_hit(result);
+    char* cache_hit = literllm_chat_completion_response_cache_hit(result);
     assert(cache_hit);
     literllm_free_string(cache_hit);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_cache_miss_ttl(void) {
     /* Tests that cache expires after TTL */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* cache_hit = literllm_conversion_result_cache_hit(result);
+    char* cache_hit = literllm_chat_completion_response_cache_hit(result);
     assert(cache_hit);
     literllm_free_string(cache_hit);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_cache_opendal_memory(void) {
     /* Cache hit with OpenDAL memory backend returns cached response on repeat request */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* cache_hit = literllm_conversion_result_cache_hit(result);
+    char* cache_hit = literllm_chat_completion_response_cache_hit(result);
     assert(cache_hit);
     literllm_free_string(cache_hit);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_cache_stream_bypass(void) {
     /* Tests that streaming requests bypass cache entirely */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* cache_bypassed = literllm_conversion_result_cache_bypassed(result);
+    char* cache_bypassed = literllm_chat_completion_response_cache_bypassed(result);
     assert(cache_bypassed);
     literllm_free_string(cache_bypassed);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

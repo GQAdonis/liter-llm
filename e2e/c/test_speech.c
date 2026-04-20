@@ -13,11 +13,11 @@ void test_edge_speech_long_input(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. End of input.\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* audio = literllm_conversion_result_audio(result);
+    char* audio = literllm_chat_completion_response_audio(result);
     assert(strlen(audio) > 0 && "expected non-empty value");
     literllm_free_string(audio);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_error_speech_auth_401(void) {
@@ -41,11 +41,11 @@ void test_smoke_speech_basic(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello, world!\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* audio = literllm_conversion_result_audio(result);
+    char* audio = literllm_chat_completion_response_audio(result);
     assert(strlen(audio) > 0 && "expected non-empty value");
     literllm_free_string(audio);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_speech_mp3_format(void) {
@@ -53,9 +53,9 @@ void test_smoke_speech_mp3_format(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"The quick brown fox jumps over the lazy dog.\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* audio = literllm_conversion_result_audio(result);
+    char* audio = literllm_chat_completion_response_audio(result);
     assert(strlen(audio) > 0 && "expected non-empty value");
     literllm_free_string(audio);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

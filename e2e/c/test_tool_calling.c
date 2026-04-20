@@ -12,16 +12,16 @@ void test_anthropic_tool_calling(void) {
     /* Chat request to Anthropic provider with a tool definition; assistant responds with a tool call */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
-    char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
+    char* choices_0_message_tool_calls = alef_json_get_string(choices_json, "0");
+    char* choices_0_message_tool_calls_0_function_name = alef_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
@@ -32,23 +32,23 @@ void test_anthropic_tool_calling(void) {
     free(choices_0_message_tool_calls_0_function_name);
     free(choices_0_finish_reason);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_single_tool_call(void) {
     /* Chat request with a tool definition; assistant responds with a tool call */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
-    char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
+    char* choices_0_message_tool_calls = alef_json_get_string(choices_json, "0");
+    char* choices_0_message_tool_calls_0_function_name = alef_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
@@ -59,5 +59,5 @@ void test_single_tool_call(void) {
     free(choices_0_message_tool_calls_0_function_name);
     free(choices_0_finish_reason);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

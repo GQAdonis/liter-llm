@@ -16,6 +16,15 @@ importers:
 
   crates/liter-llm-wasm: {}
 
+  e2e/node:
+    devDependencies:
+      '@kreuzberg/liter-llm':
+        specifier: workspace:*
+        version: link:../../packages/typescript
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@25.6.0)
+
   e2e/wasm:
     devDependencies:
       liter_llm:

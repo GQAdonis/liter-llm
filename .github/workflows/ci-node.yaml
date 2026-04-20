@@ -97,6 +97,11 @@ jobs:
         run: task node:test
         shell: bash
 
+      - name: Build Mock Server
+        if: matrix.runtime == 'node'
+        run: cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release
+        shell: bash
+
       - name: Run E2E Tests (Node.js)
         if: matrix.runtime == 'node'
         run: task node:e2e:test

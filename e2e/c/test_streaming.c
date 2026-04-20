@@ -12,13 +12,13 @@ void test_anthropic_stream(void) {
     /* Streaming chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) yielding multiple SSE chunks */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
-    char* stream_content = literllm_conversion_result_stream_content(result);
-    char* stream_complete = literllm_conversion_result_stream_complete(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
+    char* stream_content = literllm_chat_completion_response_stream_content(result);
+    char* stream_complete = literllm_chat_completion_response_stream_complete(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 3 && "expected at least 3 elements");
     }
     assert(str_trim_eq(stream_content, "One Two Three") == 0 && "equals assertion failed");
@@ -26,20 +26,20 @@ void test_anthropic_stream(void) {
     literllm_free_string(chunks);
     literllm_free_string(stream_content);
     literllm_free_string(stream_complete);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_azure_stream(void) {
     /* Streaming chat completion via Azure OpenAI — verifies the azure/ prefix routes correctly and SSE chunks are delivered in the standard OpenAI chat.completion.chunk shape */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
-    char* stream_content = literllm_conversion_result_stream_content(result);
-    char* stream_complete = literllm_conversion_result_stream_complete(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
+    char* stream_content = literllm_chat_completion_response_stream_content(result);
+    char* stream_complete = literllm_chat_completion_response_stream_complete(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 3 && "expected at least 3 elements");
     }
     assert(str_trim_eq(stream_content, "1 2 3") == 0 && "equals assertion failed");
@@ -47,38 +47,38 @@ void test_azure_stream(void) {
     literllm_free_string(chunks);
     literllm_free_string(stream_content);
     literllm_free_string(stream_complete);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_basic_stream(void) {
     /* Streaming chat completion that produces content across multiple SSE chunks */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
-    char* stream_content = literllm_conversion_result_stream_content(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
+    char* stream_content = literllm_chat_completion_response_stream_content(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 3 && "expected at least 3 elements");
     }
     assert(str_trim_eq(stream_content, "1 2 3") == 0 && "equals assertion failed");
     literllm_free_string(chunks);
     literllm_free_string(stream_content);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_bedrock_stream(void) {
     /* Streaming chat completion via the AWS Bedrock provider using the bedrock/ prefix — verifies SSE chunks are yielded and assembled correctly from the Converse streaming API */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
-    char* stream_content = literllm_conversion_result_stream_content(result);
-    char* stream_complete = literllm_conversion_result_stream_complete(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
+    char* stream_content = literllm_chat_completion_response_stream_content(result);
+    char* stream_complete = literllm_chat_completion_response_stream_complete(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 2 && "expected at least 2 elements");
     }
     assert(str_trim_eq(stream_content, "One Two Three") == 0 && "equals assertion failed");
@@ -86,38 +86,38 @@ void test_bedrock_stream(void) {
     literllm_free_string(chunks);
     literllm_free_string(stream_content);
     literllm_free_string(stream_complete);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_empty_stream(void) {
     /* Streaming chat completion that produces no content chunks before the DONE signal */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
-    char* stream_content = literllm_conversion_result_stream_content(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
+    char* stream_content = literllm_chat_completion_response_stream_content(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 0 && "expected at least 0 elements");
     }
     assert(str_trim_eq(stream_content, "") == 0 && "equals assertion failed");
     literllm_free_string(chunks);
     literllm_free_string(stream_content);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_local_stream_ollama(void) {
     /* Streaming chat completion via Ollama local provider with SSE chunks */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
-    char* stream_content = literllm_conversion_result_stream_content(result);
-    char* stream_complete = literllm_conversion_result_stream_complete(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
+    char* stream_content = literllm_chat_completion_response_stream_content(result);
+    char* stream_complete = literllm_chat_completion_response_stream_complete(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 3 && "expected at least 3 elements");
     }
     assert(str_trim_eq(stream_content, "1 2 3") == 0 && "equals assertion failed");
@@ -125,23 +125,23 @@ void test_local_stream_ollama(void) {
     literllm_free_string(chunks);
     literllm_free_string(stream_content);
     literllm_free_string(stream_complete);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_stream_done_signal(void) {
     /* Verify that the [DONE] sentinel signal properly terminates the stream */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* stream_complete = literllm_conversion_result_stream_complete(result);
-    char* stream_content = literllm_conversion_result_stream_content(result);
-    char* no_chunks_after_done = literllm_conversion_result_no_chunks_after_done(result);
+    char* stream_complete = literllm_chat_completion_response_stream_complete(result);
+    char* stream_content = literllm_chat_completion_response_stream_content(result);
+    char* no_chunks_after_done = literllm_chat_completion_response_no_chunks_after_done(result);
     assert(stream_complete);
     assert(str_trim_eq(stream_content, "Done") == 0 && "equals assertion failed");
     assert(no_chunks_after_done);
     literllm_free_string(stream_complete);
     literllm_free_string(stream_content);
     literllm_free_string(no_chunks_after_done);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_stream_error_401(void) {
@@ -154,16 +154,16 @@ void test_stream_with_tool_calls(void) {
     /* Streaming chat completion where the assistant responds with a tool call across multiple chunks */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
-    char* finish_reason = literllm_conversion_result_finish_reason(result);
-    char* tool_calls = literllm_conversion_result_tool_calls(result);
-    char* tool_calls_json = literllm_conversion_result_tool_calls(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
+    char* finish_reason = literllm_chat_completion_response_finish_reason(result);
+    char* tool_calls = literllm_chat_completion_response_tool_calls(result);
+    char* tool_calls_json = literllm_chat_completion_response_tool_calls(result);
     assert(tool_calls_json != NULL);
-    char* tool_calls_0_function_name = htm_json_get_string(tool_calls_json, "0");
+    char* tool_calls_0_function_name = alef_json_get_string(tool_calls_json, "0");
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 4 && "expected at least 4 elements");
     }
     assert(str_trim_eq(finish_reason, "tool_calls") == 0 && "equals assertion failed");
@@ -174,22 +174,22 @@ void test_stream_with_tool_calls(void) {
     literllm_free_string(tool_calls);
     free(tool_calls_0_function_name);
     literllm_free_string(tool_calls_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_stream_with_usage(void) {
     /* Streaming chat completion that includes a usage summary in the final chunk */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
-    char* stream_content = literllm_conversion_result_stream_content(result);
-    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
+    char* stream_content = literllm_chat_completion_response_stream_content(result);
+    LITERLLMUsage* usage_handle = literllm_chat_completion_response_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 3 && "expected at least 3 elements");
     }
     assert(str_trim_eq(stream_content, "Hi there!") == 0 && "equals assertion failed");
@@ -198,20 +198,20 @@ void test_stream_with_usage(void) {
     literllm_free_string(stream_content);
     literllm_free_string(usage_total_tokens);
     literllm_usage_free(usage_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_vertex_stream(void) {
     /* Streaming chat completion via the Google Vertex AI provider using the vertex_ai/ prefix — verifies SSE chunks from the Gemini streaming endpoint are yielded and assembled correctly */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
-    char* stream_content = literllm_conversion_result_stream_content(result);
-    char* stream_complete = literllm_conversion_result_stream_complete(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
+    char* stream_content = literllm_chat_completion_response_stream_content(result);
+    char* stream_complete = literllm_chat_completion_response_stream_complete(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 2 && "expected at least 2 elements");
     }
     assert(str_trim_eq(stream_content, "One Two Three") == 0 && "equals assertion failed");
@@ -219,5 +219,5 @@ void test_vertex_stream(void) {
     literllm_free_string(chunks);
     literllm_free_string(stream_content);
     literllm_free_string(stream_complete);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

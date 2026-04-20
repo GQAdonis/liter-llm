@@ -13,14 +13,14 @@ void test_edge_moderate_all_categories(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Extremely harmful content targeting multiple categories\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
-    char* results_json = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
+    char* results_json = literllm_chat_completion_response_results(result);
     assert(results_json != NULL);
-    char* results_0_flagged = htm_json_get_string(results_json, "0");
+    char* results_0_flagged = alef_json_get_string(results_json, "0");
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strcmp(results_0_flagged, 1) == 0 && "equals assertion failed");
@@ -28,7 +28,7 @@ void test_edge_moderate_all_categories(void) {
     free(results_0_flagged);
     literllm_free_string(results_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_edge_moderate_empty_input(void) {
@@ -36,14 +36,14 @@ void test_edge_moderate_empty_input(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
-    char* results_json = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
+    char* results_json = literllm_chat_completion_response_results(result);
     assert(results_json != NULL);
-    char* results_0_flagged = htm_json_get_string(results_json, "0");
+    char* results_0_flagged = alef_json_get_string(results_json, "0");
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
@@ -51,7 +51,7 @@ void test_edge_moderate_empty_input(void) {
     free(results_0_flagged);
     literllm_free_string(results_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_error_moderate_auth_401(void) {
@@ -75,14 +75,14 @@ void test_smoke_moderate_batch(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("[\"Hello world\",\"Nice weather today\"]");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
-    char* results_json = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
+    char* results_json = literllm_chat_completion_response_results(result);
     assert(results_json != NULL);
-    char* results_0_flagged = htm_json_get_string(results_json, "0");
+    char* results_0_flagged = alef_json_get_string(results_json, "0");
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 2 && "expected 2 elements");
     }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
@@ -90,7 +90,7 @@ void test_smoke_moderate_batch(void) {
     free(results_0_flagged);
     literllm_free_string(results_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_moderate_flagged(void) {
@@ -98,14 +98,14 @@ void test_smoke_moderate_flagged(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"I want to hurt someone very badly\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
-    char* results_json = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
+    char* results_json = literllm_chat_completion_response_results(result);
     assert(results_json != NULL);
-    char* results_0_flagged = htm_json_get_string(results_json, "0");
+    char* results_0_flagged = alef_json_get_string(results_json, "0");
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strcmp(results_0_flagged, 1) == 0 && "equals assertion failed");
@@ -113,7 +113,7 @@ void test_smoke_moderate_flagged(void) {
     free(results_0_flagged);
     literllm_free_string(results_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_moderate_single(void) {
@@ -121,14 +121,14 @@ void test_smoke_moderate_single(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"The weather is nice today.\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = literllm_conversion_result_results(result);
-    char* results_json = literllm_conversion_result_results(result);
+    char* results = literllm_chat_completion_response_results(result);
+    char* results_json = literllm_chat_completion_response_results(result);
     assert(results_json != NULL);
-    char* results_0_flagged = htm_json_get_string(results_json, "0");
+    char* results_0_flagged = alef_json_get_string(results_json, "0");
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(results);
+        int elem_count = alef_json_array_count(results);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
@@ -136,5 +136,5 @@ void test_smoke_moderate_single(void) {
     free(results_0_flagged);
     literllm_free_string(results_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

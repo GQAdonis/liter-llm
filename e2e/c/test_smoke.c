@@ -12,19 +12,19 @@ void test_anthropic_chat(void) {
     /* Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_content = htm_json_get_string(choices_json, "0");
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = literllm_conversion_result_model(result);
-    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
+    char* choices_0_message_content = alef_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
+    char* model = literllm_chat_completion_response_model(result);
+    LITERLLMUsage* usage_handle = literllm_chat_completion_response_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
@@ -38,26 +38,26 @@ void test_anthropic_chat(void) {
     literllm_free_string(usage_total_tokens);
     literllm_usage_free(usage_handle);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_azure_chat(void) {
     /* Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_content = htm_json_get_string(choices_json, "0");
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = literllm_conversion_result_model(result);
-    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
+    char* choices_0_message_content = alef_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
+    char* model = literllm_chat_completion_response_model(result);
+    LITERLLMUsage* usage_handle = literllm_chat_completion_response_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
@@ -71,7 +71,7 @@ void test_azure_chat(void) {
     literllm_free_string(usage_total_tokens);
     literllm_usage_free(usage_handle);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_azure_embed(void) {
@@ -79,46 +79,46 @@ void test_azure_embed(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello world\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_embedding = htm_json_get_string(data_json, "0");
+    char* data_0_embedding = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
     {
         /* count_equals: count elements in array */
         assert(data_0_embedding != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data_0_embedding);
+        int elem_count = alef_json_array_count(data_0_embedding);
         assert(elem_count == 1536 && "expected 1536 elements");
     }
     literllm_free_string(data);
     free(data_0_embedding);
     literllm_free_string(data_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_basic_chat(void) {
     /* Basic chat completion with a single user message */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_content = htm_json_get_string(choices_json, "0");
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
+    char* choices_0_message_content = alef_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
+    LITERLLMUsage* usage_handle = literllm_chat_completion_response_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
-    char* model = literllm_conversion_result_model(result);
+    char* model = literllm_chat_completion_response_model(result);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
@@ -132,7 +132,7 @@ void test_basic_chat(void) {
     literllm_free_string(model);
     literllm_usage_free(usage_handle);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_basic_embed(void) {
@@ -140,61 +140,61 @@ void test_basic_embed(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello world\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_embedding = htm_json_get_string(data_json, "0");
+    char* data_0_embedding = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
     {
         /* count_equals: count elements in array */
         assert(data_0_embedding != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data_0_embedding);
+        int elem_count = alef_json_array_count(data_0_embedding);
         assert(elem_count == 5 && "expected 5 elements");
     }
     literllm_free_string(data);
     free(data_0_embedding);
     literllm_free_string(data_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_basic_list_models(void) {
     /* List available models from the API */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
     literllm_free_string(data);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_bedrock_chat(void) {
     /* Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_content = htm_json_get_string(choices_json, "0");
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = literllm_conversion_result_model(result);
-    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
+    char* choices_0_message_content = alef_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
+    char* model = literllm_chat_completion_response_model(result);
+    LITERLLMUsage* usage_handle = literllm_chat_completion_response_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
@@ -208,26 +208,26 @@ void test_bedrock_chat(void) {
     literllm_free_string(usage_total_tokens);
     literllm_usage_free(usage_handle);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_github_copilot_chat(void) {
     /* Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_content = htm_json_get_string(choices_json, "0");
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = literllm_conversion_result_model(result);
-    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
+    char* choices_0_message_content = alef_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
+    char* model = literllm_chat_completion_response_model(result);
+    LITERLLMUsage* usage_handle = literllm_chat_completion_response_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
@@ -241,81 +241,81 @@ void test_github_copilot_chat(void) {
     literllm_free_string(usage_total_tokens);
     literllm_usage_free(usage_handle);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_local_chat_ollama(void) {
     /* Chat completion against local Ollama with qwen2:0.5b model */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
     literllm_free_string(choices);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_local_list_models_ollama(void) {
     /* List models from local Ollama instance */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
     literllm_free_string(data);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_cache_memory(void) {
     /* Test in-memory caching by sending identical requests twice */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
     literllm_free_string(choices);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_chat_anthropic(void) {
     /* Basic chat completion against real Anthropic API */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* usage = literllm_conversion_result_usage(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* usage = literllm_chat_completion_response_usage(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
     assert(strlen(usage) > 0 && "expected non-empty value");
     literllm_free_string(choices);
     literllm_free_string(usage);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_chat_gemini(void) {
     /* Basic chat completion against real Google Gemini API */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* usage = literllm_conversion_result_usage(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* usage = literllm_chat_completion_response_usage(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
     assert(strlen(usage) > 0 && "expected non-empty value");
     literllm_free_string(choices);
     literllm_free_string(usage);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_chat_openai(void) {
     /* Basic chat completion against real OpenAI API */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* usage = literllm_conversion_result_usage(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* usage = literllm_chat_completion_response_usage(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
     assert(strlen(usage) > 0 && "expected non-empty value");
     literllm_free_string(choices);
     literllm_free_string(usage);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_embed_openai(void) {
@@ -323,70 +323,70 @@ void test_smoke_embed_openai(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("[\"Hello world\"]");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
     assert(strlen(data) > 0 && "expected non-empty value");
     literllm_free_string(data);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_list_models_openai(void) {
     /* List models against real OpenAI API */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
     literllm_free_string(data);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_provider_routing(void) {
     /* Test provider routing by sending requests to OpenAI and Anthropic */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
     literllm_free_string(choices);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_smoke_streaming_openai(void) {
     /* Chat streaming against real OpenAI API, verifies chunks received */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = literllm_conversion_result_chunks(result);
+    char* chunks = literllm_chat_completion_response_chunks(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(chunks);
+        int elem_count = alef_json_array_count(chunks);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
     literllm_free_string(chunks);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_vertex_chat(void) {
     /* Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_content = htm_json_get_string(choices_json, "0");
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = literllm_conversion_result_model(result);
-    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
+    char* choices_0_message_content = alef_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
+    char* model = literllm_chat_completion_response_model(result);
+    LITERLLMUsage* usage_handle = literllm_chat_completion_response_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
@@ -400,7 +400,7 @@ void test_vertex_chat(void) {
     literllm_free_string(usage_total_tokens);
     literllm_usage_free(usage_handle);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_vertex_embed(void) {
@@ -408,25 +408,25 @@ void test_vertex_embed(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_embedding = htm_json_get_string(data_json, "0");
+    char* data_0_embedding = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
     {
         /* count_equals: count elements in array */
         assert(data_0_embedding != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data_0_embedding);
+        int elem_count = alef_json_array_count(data_0_embedding);
         assert(elem_count == 160 && "expected 160 elements");
     }
     literllm_free_string(data);
     free(data_0_embedding);
     literllm_free_string(data_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

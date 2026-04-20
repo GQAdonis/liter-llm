@@ -23,7 +23,7 @@ static inline int str_trim_eq(const char *actual, const char *expected) {
  * Returns a heap-allocated copy of the value, or NULL if not found.
  * Caller must free() the returned string.
  */
-static inline char *htm_json_get_string(const char *json, const char *key) {
+static inline char *alef_json_get_string(const char *json, const char *key) {
     if (json == NULL || key == NULL) return NULL;
     /* Build search pattern: "key":  */
     size_t key_len = strlen(key);
@@ -58,7 +58,7 @@ static inline char *htm_json_get_string(const char *json, const char *key) {
  * Count top-level elements in a JSON array string.
  * Returns 0 for empty arrays ("[]") or NULL input.
  */
-static inline int htm_json_array_count(const char *json) {
+static inline int alef_json_array_count(const char *json) {
     if (json == NULL) return 0;
     /* Skip leading whitespace */
     while (*json == ' ' || *json == '\t' || *json == '\n') json++;

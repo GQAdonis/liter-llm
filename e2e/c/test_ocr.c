@@ -12,5 +12,5 @@ void test_ocr_url_document(void) {
     /* OCR request with a document URL input */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

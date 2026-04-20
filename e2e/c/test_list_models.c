@@ -12,21 +12,21 @@ void test_empty_model_list(void) {
     /* List models response returns an empty data array when no models are available */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count >= 0 && "expected at least 0 elements");
     }
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 0 && "expected 0 elements");
     }
     literllm_free_string(data);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_list_models_error_401(void) {

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import liter_llm._internal_bindings as _rust
 
 if TYPE_CHECKING:
-    from ._internal_bindings import CustomProviderConfig
+    from ._internal_bindings import CustomProviderConfig, DefaultClient
 
 
 def create_client(
@@ -17,12 +17,12 @@ def create_client(
     timeout_secs: int | None = None,
     max_retries: int | None = None,
     model_hint: str | None = None,
-) -> _rust.DefaultClient:
+) -> DefaultClient:
     """Create a new LLM client with simple scalar configuration."""
     return _rust.create_client(api_key, base_url, timeout_secs, max_retries, model_hint)
 
 
-def create_client_from_json(json: str) -> _rust.DefaultClient:
+def create_client_from_json(json: str) -> DefaultClient:
     """Create a new LLM client from a JSON string."""
     return _rust.create_client_from_json(json)
 

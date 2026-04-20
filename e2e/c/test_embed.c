@@ -13,27 +13,27 @@ void test_batch_embed(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("[\"Hello\",\"World\"]");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_embedding = htm_json_get_string(data_json, "0");
+    char* data_0_embedding = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 2 && "expected 2 elements");
     }
     {
         /* count_equals: count elements in array */
         assert(data_0_embedding != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data_0_embedding);
+        int elem_count = alef_json_array_count(data_0_embedding);
         assert(elem_count == 5 && "expected 5 elements");
     }
     literllm_free_string(data);
     free(data_0_embedding);
     literllm_free_string(data_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_embed_encoding_format(void) {
@@ -41,27 +41,27 @@ void test_embed_encoding_format(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Test input\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_embedding = htm_json_get_string(data_json, "0");
+    char* data_0_embedding = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
     {
         /* count_equals: count elements in array */
         assert(data_0_embedding != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data_0_embedding);
+        int elem_count = alef_json_array_count(data_0_embedding);
         assert(elem_count == 5 && "expected 5 elements");
     }
     literllm_free_string(data);
     free(data_0_embedding);
     literllm_free_string(data_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_embed_error_401(void) {
@@ -77,27 +77,27 @@ void test_embed_with_dimensions(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello world\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_embedding = htm_json_get_string(data_json, "0");
+    char* data_0_embedding = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
     {
         /* count_equals: count elements in array */
         assert(data_0_embedding != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data_0_embedding);
+        int elem_count = alef_json_array_count(data_0_embedding);
         assert(elem_count == 8 && "expected 8 elements");
     }
     literllm_free_string(data);
     free(data_0_embedding);
     literllm_free_string(data_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_local_embed_ollama(void) {
@@ -105,25 +105,25 @@ void test_local_embed_ollama(void) {
     LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"The quick brown fox jumps over the lazy dog\"");
     LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = literllm_conversion_result_data(result);
-    char* data_json = literllm_conversion_result_data(result);
+    char* data = literllm_chat_completion_response_data(result);
+    char* data_json = literllm_chat_completion_response_data(result);
     assert(data_json != NULL);
-    char* data_0_embedding = htm_json_get_string(data_json, "0");
+    char* data_0_embedding = alef_json_get_string(data_json, "0");
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data);
+        int elem_count = alef_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
     {
         /* count_equals: count elements in array */
         assert(data_0_embedding != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(data_0_embedding);
+        int elem_count = alef_json_array_count(data_0_embedding);
         assert(elem_count == 32 && "expected 32 elements");
     }
     literllm_free_string(data);
     free(data_0_embedding);
     literllm_free_string(data_json);
     literllm_conversion_options_free(options_handle);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

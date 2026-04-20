@@ -460,6 +460,9 @@ name = "request"
 field = "input"
 type = "json_object"
 
+[e2e.call.overrides.node]
+client_factory = "createClient"
+
 [e2e.call.overrides.php]
 php_client_factory = "createClient"
 

@@ -12,40 +12,40 @@ void test_all_message_types(void) {
     /* Request with all message role types (system, user, assistant, tool) to verify round-trip serialization */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     literllm_free_string(choices);
     free(choices_0_finish_reason);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_multimodal_content(void) {
     /* User message with mixed text and image_url content parts to verify multimodal serialization */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     literllm_free_string(choices);
     free(choices_0_finish_reason);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

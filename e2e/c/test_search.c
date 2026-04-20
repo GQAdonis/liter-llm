@@ -12,5 +12,5 @@ void test_search_basic(void) {
     /* Basic web search request with a simple query */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }

@@ -12,19 +12,19 @@ void test_binding_api_parity(void) {
     /* Verify all bindings expose the full API surface — constructor accepts all config options and every method exists */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = literllm_conversion_result_choices(result);
-    char* choices_json = literllm_conversion_result_choices(result);
+    char* choices = literllm_chat_completion_response_choices(result);
+    char* choices_json = literllm_chat_completion_response_choices(result);
     assert(choices_json != NULL);
-    char* choices_0_message_content = htm_json_get_string(choices_json, "0");
-    char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
+    char* choices_0_message_content = alef_json_get_string(choices_json, "0");
+    char* choices_0_finish_reason = alef_json_get_string(choices_json, "0");
+    LITERLLMUsage* usage_handle = literllm_chat_completion_response_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
-    char* model = literllm_conversion_result_model(result);
+    char* model = literllm_chat_completion_response_model(result);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
-        int elem_count = htm_json_array_count(choices);
+        int elem_count = alef_json_array_count(choices);
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_message_content, "OK") == 0 && "equals assertion failed");
@@ -38,19 +38,19 @@ void test_binding_api_parity(void) {
     literllm_free_string(model);
     literllm_usage_free(usage_handle);
     literllm_free_string(choices_json);
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_contract_ocr(void) {
     /* Verify ocr() method exists in all bindings */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
 
 void test_contract_search(void) {
     /* Verify search() method exists in all bindings */
     LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    literllm_conversion_result_free(result);
+    literllm_chat_completion_response_free(result);
 }
