@@ -15,7 +15,7 @@ public abstract record ContentPart
 
     public sealed record ImageUrl : ContentPart
     {
-        public required ImageUrl Value { get; init; }
+        public required global::LiterLlm.ImageUrl Value { get; init; }
     }
 
     public sealed record Document(

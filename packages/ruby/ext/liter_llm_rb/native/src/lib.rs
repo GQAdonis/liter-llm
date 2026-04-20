@@ -5201,7 +5201,7 @@ impl From<StopSequence> for liter_llm::types::StopSequence {
     fn from(val: StopSequence) -> Self {
         match val {
             StopSequence::Single { _0 } => Self::Single(_0),
-            StopSequence::Multiple { _0 } => Self::Multiple(_0),
+            StopSequence::Multiple { _0 } => Self::Multiple(serde_json::from_str(&_0).unwrap_or_default()),
         }
     }
 }
@@ -5210,7 +5210,9 @@ impl From<liter_llm::types::StopSequence> for StopSequence {
     fn from(val: liter_llm::types::StopSequence) -> Self {
         match val {
             liter_llm::types::StopSequence::Single(_0) => Self::Single { _0 },
-            liter_llm::types::StopSequence::Multiple(_0) => Self::Multiple { _0 },
+            liter_llm::types::StopSequence::Multiple(_0) => Self::Multiple {
+                _0: serde_json::to_string(&_0).unwrap_or_default(),
+            },
         }
     }
 }
@@ -5283,7 +5285,7 @@ impl From<EmbeddingInput> for liter_llm::types::EmbeddingInput {
     fn from(val: EmbeddingInput) -> Self {
         match val {
             EmbeddingInput::Single { _0 } => Self::Single(_0),
-            EmbeddingInput::Multiple { _0 } => Self::Multiple(_0),
+            EmbeddingInput::Multiple { _0 } => Self::Multiple(serde_json::from_str(&_0).unwrap_or_default()),
         }
     }
 }
@@ -5292,7 +5294,9 @@ impl From<liter_llm::types::EmbeddingInput> for EmbeddingInput {
     fn from(val: liter_llm::types::EmbeddingInput) -> Self {
         match val {
             liter_llm::types::EmbeddingInput::Single(_0) => Self::Single { _0 },
-            liter_llm::types::EmbeddingInput::Multiple(_0) => Self::Multiple { _0 },
+            liter_llm::types::EmbeddingInput::Multiple(_0) => Self::Multiple {
+                _0: serde_json::to_string(&_0).unwrap_or_default(),
+            },
         }
     }
 }
@@ -5301,7 +5305,7 @@ impl From<ModerationInput> for liter_llm::types::ModerationInput {
     fn from(val: ModerationInput) -> Self {
         match val {
             ModerationInput::Single { _0 } => Self::Single(_0),
-            ModerationInput::Multiple { _0 } => Self::Multiple(_0),
+            ModerationInput::Multiple { _0 } => Self::Multiple(serde_json::from_str(&_0).unwrap_or_default()),
         }
     }
 }
@@ -5310,7 +5314,9 @@ impl From<liter_llm::types::ModerationInput> for ModerationInput {
     fn from(val: liter_llm::types::ModerationInput) -> Self {
         match val {
             liter_llm::types::ModerationInput::Single(_0) => Self::Single { _0 },
-            liter_llm::types::ModerationInput::Multiple(_0) => Self::Multiple { _0 },
+            liter_llm::types::ModerationInput::Multiple(_0) => Self::Multiple {
+                _0: serde_json::to_string(&_0).unwrap_or_default(),
+            },
         }
     }
 }

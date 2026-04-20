@@ -39,8 +39,8 @@ public static class LiterLlmLib
         var result = NativeMethods.CreateClient(
             apiKey,
             baseUrl!,
-            timeoutSecs!,
-            maxRetries!,
+            timeoutSecs.Value,
+            maxRetries.Value,
             modelHint!
         );
         if (result == IntPtr.Zero) { var err = GetLastError(); if (err.Code != 0) throw err; }
