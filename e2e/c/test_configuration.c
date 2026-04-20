@@ -10,14 +10,14 @@
 
 void test_custom_base_url(void) {
     /* Client configured with a custom base URL routes all requests to that endpoint */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = _conversion_result_model(result);
+    char* model = literllm_conversion_result_model(result);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -27,20 +27,20 @@ void test_custom_base_url(void) {
     assert(str_trim_eq(choices_0_message_content, "Hi there!") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "local-model") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(model);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(model);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_extra_headers(void) {
     /* Client configured with extra custom headers successfully completes a chat request */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
     {
@@ -50,22 +50,22 @@ void test_extra_headers(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_local_provider_llamacpp(void) {
     /* llamacpp local provider routes requests via llamacpp/ model prefix with no auth */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = _conversion_result_model(result);
+    char* model = literllm_conversion_result_model(result);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -75,24 +75,24 @@ void test_local_provider_llamacpp(void) {
     assert(str_trim_eq(choices_0_message_content, "Hi there! I'm running locally.") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "my-model") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(model);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(model);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_local_provider_ollama(void) {
     /* Ollama local provider routes requests via ollama/ model prefix with no auth */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = _conversion_result_model(result);
+    char* model = literllm_conversion_result_model(result);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -102,24 +102,24 @@ void test_local_provider_ollama(void) {
     assert(str_trim_eq(choices_0_message_content, "Hello! How can I help you today?") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "qwen2:0.5b") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(model);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(model);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_local_provider_vllm(void) {
     /* vLLM local provider routes requests via vllm/ model prefix with no auth */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = _conversion_result_model(result);
+    char* model = literllm_conversion_result_model(result);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -129,10 +129,10 @@ void test_local_provider_vllm(void) {
     assert(str_trim_eq(choices_0_message_content, "Hello! How may I assist you?") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "meta-llama/Llama-3.2-1B") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(model);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(model);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }

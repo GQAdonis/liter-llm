@@ -10,9 +10,9 @@
 
 void test_empty_model_list(void) {
     /* List models response returns an empty data array when no models are available */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
@@ -25,12 +25,12 @@ void test_empty_model_list(void) {
         int elem_count = htm_json_array_count(data);
         assert(elem_count == 0 && "expected 0 elements");
     }
-    _free_string(data);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_result_free(result);
 }
 
 void test_list_models_error_401(void) {
     /* 401 Unauthorized error on list models request when API key is invalid */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }

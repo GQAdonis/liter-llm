@@ -10,40 +10,40 @@
 
 void test_cache_hit(void) {
     /* Tests that identical chat requests return cached response */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* cache_hit = _conversion_result_cache_hit(result);
+    char* cache_hit = literllm_conversion_result_cache_hit(result);
     assert(cache_hit);
-    _free_string(cache_hit);
-    _conversion_result_free(result);
+    literllm_free_string(cache_hit);
+    literllm_conversion_result_free(result);
 }
 
 void test_cache_miss_ttl(void) {
     /* Tests that cache expires after TTL */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* cache_hit = _conversion_result_cache_hit(result);
+    char* cache_hit = literllm_conversion_result_cache_hit(result);
     assert(cache_hit);
-    _free_string(cache_hit);
-    _conversion_result_free(result);
+    literllm_free_string(cache_hit);
+    literllm_conversion_result_free(result);
 }
 
 void test_cache_opendal_memory(void) {
     /* Cache hit with OpenDAL memory backend returns cached response on repeat request */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* cache_hit = _conversion_result_cache_hit(result);
+    char* cache_hit = literllm_conversion_result_cache_hit(result);
     assert(cache_hit);
-    _free_string(cache_hit);
-    _conversion_result_free(result);
+    literllm_free_string(cache_hit);
+    literllm_conversion_result_free(result);
 }
 
 void test_cache_stream_bypass(void) {
     /* Tests that streaming requests bypass cache entirely */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* cache_bypassed = _conversion_result_cache_bypassed(result);
+    char* cache_bypassed = literllm_conversion_result_cache_bypassed(result);
     assert(cache_bypassed);
-    _free_string(cache_bypassed);
-    _conversion_result_free(result);
+    literllm_free_string(cache_bypassed);
+    literllm_conversion_result_free(result);
 }

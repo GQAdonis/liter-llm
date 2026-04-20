@@ -10,10 +10,10 @@
 
 void test_edge_image_b64_response(void) {
     /* Image generation returning base64-encoded data instead of URL */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_b64_json = htm_json_get_string(data_json, "0");
     {
@@ -23,42 +23,42 @@ void test_edge_image_b64_response(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strlen(data_0_b64_json) > 0 && "expected non-empty value");
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_b64_json);
-    _free_string(data_json);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_edge_image_empty_prompt(void) {
     /* Image generation with an empty prompt returns 400 */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_image_auth_401(void) {
     /* 401 Unauthorized when generating images with invalid API key */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_image_bad_request(void) {
     /* 400 Bad Request when image generation parameters are invalid */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_image_rate_limit(void) {
     /* 429 Rate limit exceeded for image generation */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_smoke_image_basic(void) {
     /* Basic image generation with a text prompt */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_url = htm_json_get_string(data_json, "0");
     {
@@ -68,18 +68,18 @@ void test_smoke_image_basic(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_url);
-    _free_string(data_json);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_image_multiple(void) {
     /* Image generation requesting multiple images */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_url = htm_json_get_string(data_json, "0");
     {
@@ -89,18 +89,18 @@ void test_smoke_image_multiple(void) {
         assert(elem_count == 3 && "expected 3 elements");
     }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_url);
-    _free_string(data_json);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_image_with_size(void) {
     /* Image generation with explicit size parameter */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_url = htm_json_get_string(data_json, "0");
     {
@@ -110,8 +110,8 @@ void test_smoke_image_with_size(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_url);
-    _free_string(data_json);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_result_free(result);
 }

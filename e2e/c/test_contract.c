@@ -10,17 +10,17 @@
 
 void test_binding_api_parity(void) {
     /* Verify all bindings expose the full API surface — constructor accepts all config options and every method exists */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    Usage* usage_handle = _conversion_result_usage(result);
+    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
     assert(usage_handle != NULL);
-    char* usage_total_tokens = _usage_total_tokens(usage_handle);
-    char* model = _conversion_result_model(result);
+    char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
+    char* model = literllm_conversion_result_model(result);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -31,26 +31,26 @@ void test_binding_api_parity(void) {
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(strcmp(usage_total_tokens, 6) == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "gpt-4o") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(usage_total_tokens);
-    _free_string(model);
-    _usage_free(usage_handle);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(usage_total_tokens);
+    literllm_free_string(model);
+    literllm_usage_free(usage_handle);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_contract_ocr(void) {
     /* Verify ocr() method exists in all bindings */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    _conversion_result_free(result);
+    literllm_conversion_result_free(result);
 }
 
 void test_contract_search(void) {
     /* Verify search() method exists in all bindings */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    _conversion_result_free(result);
+    literllm_conversion_result_free(result);
 }

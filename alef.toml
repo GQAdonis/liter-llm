@@ -468,6 +468,9 @@ client_factory = "createClient"
 options_type = "WasmChatCompletionRequest"
 bigint_fields = ["maxTokens", "seed", "promptTokens", "completionTokens", "totalTokens", "n"]
 
+[e2e.call.overrides.c]
+result_type = "ChatCompletionResponse"
+
 # Named call configs for each API method
 [e2e.calls.chat]
 function = "chat"
@@ -478,6 +481,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.chat.overrides.c]
+result_type = "ChatCompletionResponse"
 
 [e2e.calls.chat_stream]
 function = "chat_stream"
@@ -488,6 +493,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.chat_stream.overrides.c]
+result_type = "ChatCompletionChunk"
 
 [e2e.calls.embed]
 function = "embed"
@@ -498,12 +505,16 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.embed.overrides.c]
+result_type = "EmbeddingResponse"
 
 [e2e.calls.list_models]
 function = "list_models"
 path = "/v1/models"
 module = "liter_llm"
 async = true
+[e2e.calls.list_models.overrides.c]
+result_type = "ListModelsResponse"
 
 [e2e.calls.image_generate]
 function = "image_generate"
@@ -514,6 +525,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.image_generate.overrides.c]
+result_type = "ImageResponse"
 
 [e2e.calls.speech]
 function = "speech"
@@ -524,6 +537,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.speech.overrides.c]
+result_type = "SpeechResponse"
 
 [e2e.calls.transcribe]
 function = "transcribe"
@@ -534,6 +549,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.transcribe.overrides.c]
+result_type = "TranscriptionResponse"
 
 [e2e.calls.moderate]
 function = "moderate"
@@ -544,6 +561,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.moderate.overrides.c]
+result_type = "ModerationResponse"
 
 [e2e.calls.rerank]
 function = "rerank"
@@ -554,6 +573,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.rerank.overrides.c]
+result_type = "RerankResponse"
 
 [e2e.calls.search]
 function = "search"
@@ -564,6 +585,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.search.overrides.c]
+result_type = "SearchResponse"
 
 [e2e.calls.ocr]
 function = "ocr"
@@ -574,6 +597,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.ocr.overrides.c]
+result_type = "OcrResponse"
 
 [e2e.calls.create_file]
 function = "create_file"
@@ -584,6 +609,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.create_file.overrides.c]
+result_type = "FileResponse"
 
 [e2e.calls.retrieve_file]
 function = "retrieve_file"
@@ -594,6 +621,8 @@ async = true
 name = "file_id"
 field = "input.file_id"
 type = "string"
+[e2e.calls.retrieve_file.overrides.c]
+result_type = "FileResponse"
 
 [e2e.calls.delete_file]
 function = "delete_file"
@@ -604,12 +633,16 @@ async = true
 name = "file_id"
 field = "input.file_id"
 type = "string"
+[e2e.calls.delete_file.overrides.c]
+result_type = "DeleteFileResponse"
 
 [e2e.calls.list_files]
 function = "list_files"
 path = "/v1/files"
 module = "liter_llm"
 async = true
+[e2e.calls.list_files.overrides.c]
+result_type = "ListFilesResponse"
 
 [e2e.calls.file_content]
 function = "file_content"
@@ -620,6 +653,8 @@ async = true
 name = "file_id"
 field = "input.file_id"
 type = "string"
+[e2e.calls.file_content.overrides.c]
+result_type = "FileContentResponse"
 
 [e2e.calls.create_batch]
 function = "create_batch"
@@ -630,6 +665,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.create_batch.overrides.c]
+result_type = "BatchResponse"
 
 [e2e.calls.retrieve_batch]
 function = "retrieve_batch"
@@ -640,12 +677,16 @@ async = true
 name = "batch_id"
 field = "input.batch_id"
 type = "string"
+[e2e.calls.retrieve_batch.overrides.c]
+result_type = "BatchResponse"
 
 [e2e.calls.list_batches]
 function = "list_batches"
 path = "/v1/batches"
 module = "liter_llm"
 async = true
+[e2e.calls.list_batches.overrides.c]
+result_type = "ListBatchesResponse"
 
 [e2e.calls.cancel_batch]
 function = "cancel_batch"
@@ -656,6 +697,8 @@ async = true
 name = "batch_id"
 field = "input.batch_id"
 type = "string"
+[e2e.calls.cancel_batch.overrides.c]
+result_type = "BatchResponse"
 
 [e2e.calls.create_response]
 function = "create_response"
@@ -666,6 +709,8 @@ async = true
 name = "request"
 field = "input"
 type = "json_object"
+[e2e.calls.create_response.overrides.c]
+result_type = "ResponseResponse"
 
 [e2e.calls.retrieve_response]
 function = "retrieve_response"
@@ -676,6 +721,8 @@ async = true
 name = "id"
 field = "input.id"
 type = "string"
+[e2e.calls.retrieve_response.overrides.c]
+result_type = "ResponseResponse"
 
 [e2e.calls.cancel_response]
 function = "cancel_response"
@@ -686,6 +733,11 @@ async = true
 name = "id"
 field = "input.id"
 type = "string"
+[e2e.calls.cancel_response.overrides.c]
+result_type = "ResponseResponse"
+
+[e2e.packages.node]
+name = "@kreuzberg/liter-llm"
 
 [e2e.registry]
 output = "test_apps"

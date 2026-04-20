@@ -10,10 +10,10 @@
 
 void test_developer_message(void) {
     /* Chat request that includes a developer role message alongside user messages */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
@@ -25,19 +25,19 @@ void test_developer_message(void) {
     }
     assert(str_trim_eq(choices_0_message_content, "s[::-1]") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_finish_reason_content_filter(void) {
     /* Chat response stopped by content filter with finish_reason of content_filter and null content */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
@@ -48,19 +48,19 @@ void test_finish_reason_content_filter(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_finish_reason, "content_filter") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_finish_reason);
     free(choices_0_message_content);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_finish_reason_length(void) {
     /* Chat response truncated due to max_tokens limit with finish_reason of length */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
     {
@@ -70,18 +70,18 @@ void test_finish_reason_length(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_finish_reason, "length") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_multi_turn_conversation(void) {
     /* Multi-turn conversation with system, user, assistant, and follow-up user messages */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
@@ -93,19 +93,19 @@ void test_multi_turn_conversation(void) {
     }
     assert(str_trim_eq(choices_0_message_content, "4 + 4 equals 8.") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_parallel_tool_calls(void) {
     /* Chat request that results in parallel tool calls in the response */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
@@ -123,19 +123,19 @@ void test_parallel_tool_calls(void) {
         assert(elem_count == 2 && "expected 2 elements");
     }
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_tool_calls);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_response_format_json_object(void) {
     /* Chat request with response_format json_object that returns valid JSON content */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
@@ -147,19 +147,19 @@ void test_response_format_json_object(void) {
     }
     assert(strlen(choices_0_message_content) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_response_format_json_schema(void) {
     /* Chat request with response_format json_schema that validates the output structure */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
@@ -171,22 +171,22 @@ void test_response_format_json_schema(void) {
     }
     assert(strlen(choices_0_message_content) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_seed_parameter(void) {
     /* Chat request with seed parameter for deterministic output; response includes system_fingerprint */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* system_fingerprint = _conversion_result_system_fingerprint(result);
+    char* system_fingerprint = literllm_conversion_result_system_fingerprint(result);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -195,19 +195,19 @@ void test_seed_parameter(void) {
     }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(strlen(system_fingerprint) > 0 && "expected non-empty value");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_finish_reason);
-    _free_string(system_fingerprint);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(system_fingerprint);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_stop_sequences(void) {
     /* Chat request with custom stop sequences that terminates generation at a stop token */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
     {
@@ -217,18 +217,18 @@ void test_stop_sequences(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_tool_choice_required(void) {
     /* Chat request with tool_choice set to required forces the model to call a tool */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
@@ -242,20 +242,20 @@ void test_tool_choice_required(void) {
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_message_tool_calls_0_function_name, "get_weather") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_tool_calls);
     free(choices_0_message_tool_calls_0_function_name);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_tool_choice_specific(void) {
     /* Chat request with tool_choice specifying a particular function to call */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
@@ -269,10 +269,10 @@ void test_tool_choice_specific(void) {
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_message_tool_calls_0_function_name, "get_weather") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_tool_calls);
     free(choices_0_message_tool_calls_0_function_name);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }

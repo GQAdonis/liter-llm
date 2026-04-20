@@ -10,7 +10,7 @@
 
 void test_search_basic(void) {
     /* Basic web search request with a simple query */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    _conversion_result_free(result);
+    literllm_conversion_result_free(result);
 }

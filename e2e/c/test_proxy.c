@@ -10,22 +10,22 @@
 
 void test_proxy_auth_invalid(void) {
     /* 401 Unauthorized when an invalid API key is provided through the proxy */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_proxy_auth_missing(void) {
     /* 401 Unauthorized when no API key is provided through the proxy */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_proxy_chat_basic(void) {
     /* Basic chat completion request routed through the proxy */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
@@ -37,20 +37,20 @@ void test_proxy_chat_basic(void) {
     }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_proxy_chat_streaming(void) {
     /* Streaming chat completion routed through the proxy */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = _conversion_result_chunks(result);
-    char* stream_content = _conversion_result_stream_content(result);
-    char* stream_complete = _conversion_result_stream_complete(result);
+    char* chunks = literllm_conversion_result_chunks(result);
+    char* stream_content = literllm_conversion_result_stream_content(result);
+    char* stream_complete = literllm_conversion_result_stream_complete(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
@@ -59,50 +59,50 @@ void test_proxy_chat_streaming(void) {
     }
     assert(str_trim_eq(stream_content, "1 2 3") == 0 && "equals assertion failed");
     assert(stream_complete);
-    _free_string(chunks);
-    _free_string(stream_content);
-    _free_string(stream_complete);
-    _conversion_result_free(result);
+    literllm_free_string(chunks);
+    literllm_free_string(stream_content);
+    literllm_free_string(stream_complete);
+    literllm_conversion_result_free(result);
 }
 
 void test_proxy_embeddings(void) {
     /* Embedding request routed through the proxy */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello world\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello world\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(data);
         assert(elem_count == 1 && "expected 1 elements");
     }
-    _free_string(data);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_proxy_health(void) {
     /* Health check verifying proxy connectivity via list models */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(data);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
-    _free_string(data);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_result_free(result);
 }
 
 void test_proxy_image_generate(void) {
     /* Image generation request routed through the proxy */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_url = htm_json_get_string(data_json, "0");
     {
@@ -112,34 +112,34 @@ void test_proxy_image_generate(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_url);
-    _free_string(data_json);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_proxy_models_list(void) {
     /* List models request routed through the proxy */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(data);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
-    _free_string(data);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_result_free(result);
 }
 
 void test_proxy_moderation(void) {
     /* Content moderation request routed through the proxy */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"The weather is nice today.\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"The weather is nice today.\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
     {
@@ -149,19 +149,19 @@ void test_proxy_moderation(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_flagged);
-    _free_string(results_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_proxy_rerank(void) {
     /* Document reranking request routed through the proxy */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
     {
@@ -171,20 +171,20 @@ void test_proxy_rerank(void) {
         assert(elem_count == 2 && "expected 2 elements");
     }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_relevance_score);
-    _free_string(results_json);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_proxy_upstream_429(void) {
     /* 429 Too Many Requests from upstream provider through the proxy */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_proxy_upstream_500(void) {
     /* 500 Internal Server Error from upstream provider through the proxy */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }

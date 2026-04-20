@@ -10,52 +10,52 @@
 
 void test_edge_speech_long_input(void) {
     /* Speech generation with a very long input text */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. End of input.\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. End of input.\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* audio = _conversion_result_audio(result);
+    char* audio = literllm_conversion_result_audio(result);
     assert(strlen(audio) > 0 && "expected non-empty value");
-    _free_string(audio);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(audio);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_error_speech_auth_401(void) {
     /* 401 Unauthorized for speech generation with invalid API key */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello\"");
-    HTMConversionResult* result = chat(options_handle);
-    _conversion_options_free(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
+    literllm_conversion_options_free(options_handle);
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_speech_bad_model(void) {
     /* 400 Bad Request for speech with unsupported model */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello\"");
-    HTMConversionResult* result = chat(options_handle);
-    _conversion_options_free(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
+    literllm_conversion_options_free(options_handle);
     assert(result == NULL && "expected call to fail");
 }
 
 void test_smoke_speech_basic(void) {
     /* Basic text-to-speech generation */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello, world!\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello, world!\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* audio = _conversion_result_audio(result);
+    char* audio = literllm_conversion_result_audio(result);
     assert(strlen(audio) > 0 && "expected non-empty value");
-    _free_string(audio);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(audio);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_speech_mp3_format(void) {
     /* Text-to-speech with explicit MP3 response format */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"The quick brown fox jumps over the lazy dog.\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"The quick brown fox jumps over the lazy dog.\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* audio = _conversion_result_audio(result);
+    char* audio = literllm_conversion_result_audio(result);
     assert(strlen(audio) > 0 && "expected non-empty value");
-    _free_string(audio);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(audio);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }

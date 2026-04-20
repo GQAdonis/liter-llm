@@ -10,42 +10,42 @@
 
 void test_edge_transcribe_empty_audio(void) {
     /* Transcription of a silent or empty audio file returns empty text */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* text = _conversion_result_text(result);
+    char* text = literllm_conversion_result_text(result);
     assert(strstr(text, "") != NULL && "expected to contain substring");
-    _free_string(text);
-    _conversion_result_free(result);
+    literllm_free_string(text);
+    literllm_conversion_result_free(result);
 }
 
 void test_error_transcribe_auth_401(void) {
     /* 401 Unauthorized for transcription with invalid API key */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_transcribe_bad_format(void) {
     /* 400 Bad Request when audio format is unsupported */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_smoke_transcribe_basic(void) {
     /* Basic audio transcription */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* text = _conversion_result_text(result);
+    char* text = literllm_conversion_result_text(result);
     assert(strstr(text, "Hello, this is a test transcription.") != NULL && "expected to contain substring");
-    _free_string(text);
-    _conversion_result_free(result);
+    literllm_free_string(text);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_transcribe_with_language(void) {
     /* Audio transcription with explicit language hint */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* text = _conversion_result_text(result);
+    char* text = literllm_conversion_result_text(result);
     assert(strstr(text, "Hallo, dies ist ein Testtranskription.") != NULL && "expected to contain substring");
-    _free_string(text);
-    _conversion_result_free(result);
+    literllm_free_string(text);
+    literllm_conversion_result_free(result);
 }

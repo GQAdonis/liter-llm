@@ -10,17 +10,17 @@
 
 void test_anthropic_chat(void) {
     /* Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = _conversion_result_model(result);
-    Usage* usage_handle = _conversion_result_usage(result);
+    char* model = literllm_conversion_result_model(result);
+    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
     assert(usage_handle != NULL);
-    char* usage_total_tokens = _usage_total_tokens(usage_handle);
+    char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -31,29 +31,29 @@ void test_anthropic_chat(void) {
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "claude-3-5-sonnet-20241022") == 0 && "equals assertion failed");
     assert(strcmp(usage_total_tokens, 23) == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(model);
-    _free_string(usage_total_tokens);
-    _usage_free(usage_handle);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(model);
+    literllm_free_string(usage_total_tokens);
+    literllm_usage_free(usage_handle);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_azure_chat(void) {
     /* Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = _conversion_result_model(result);
-    Usage* usage_handle = _conversion_result_usage(result);
+    char* model = literllm_conversion_result_model(result);
+    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
     assert(usage_handle != NULL);
-    char* usage_total_tokens = _usage_total_tokens(usage_handle);
+    char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -64,23 +64,23 @@ void test_azure_chat(void) {
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "gpt-4") == 0 && "equals assertion failed");
     assert(strcmp(usage_total_tokens, 13) == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(model);
-    _free_string(usage_total_tokens);
-    _usage_free(usage_handle);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(model);
+    literllm_free_string(usage_total_tokens);
+    literllm_usage_free(usage_handle);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_azure_embed(void) {
     /* Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello world\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello world\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
     {
@@ -95,26 +95,26 @@ void test_azure_embed(void) {
         int elem_count = htm_json_array_count(data_0_embedding);
         assert(elem_count == 1536 && "expected 1536 elements");
     }
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_embedding);
-    _free_string(data_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_basic_chat(void) {
     /* Basic chat completion with a single user message */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    Usage* usage_handle = _conversion_result_usage(result);
+    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
     assert(usage_handle != NULL);
-    char* usage_total_tokens = _usage_total_tokens(usage_handle);
-    char* model = _conversion_result_model(result);
+    char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
+    char* model = literllm_conversion_result_model(result);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -125,23 +125,23 @@ void test_basic_chat(void) {
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(strcmp(usage_total_tokens, 15) == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "gpt-4") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(usage_total_tokens);
-    _free_string(model);
-    _usage_free(usage_handle);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(usage_total_tokens);
+    literllm_free_string(model);
+    literllm_usage_free(usage_handle);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_basic_embed(void) {
     /* Basic embedding request for a single input string */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello world\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello world\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
     {
@@ -156,41 +156,41 @@ void test_basic_embed(void) {
         int elem_count = htm_json_array_count(data_0_embedding);
         assert(elem_count == 5 && "expected 5 elements");
     }
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_embedding);
-    _free_string(data_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_basic_list_models(void) {
     /* List available models from the API */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(data);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
-    _free_string(data);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_result_free(result);
 }
 
 void test_bedrock_chat(void) {
     /* Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = _conversion_result_model(result);
-    Usage* usage_handle = _conversion_result_usage(result);
+    char* model = literllm_conversion_result_model(result);
+    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
     assert(usage_handle != NULL);
-    char* usage_total_tokens = _usage_total_tokens(usage_handle);
+    char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -201,29 +201,29 @@ void test_bedrock_chat(void) {
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "anthropic.claude-3-sonnet-20240229-v1:0") == 0 && "equals assertion failed");
     assert(strcmp(usage_total_tokens, 15) == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(model);
-    _free_string(usage_total_tokens);
-    _usage_free(usage_handle);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(model);
+    literllm_free_string(usage_total_tokens);
+    literllm_usage_free(usage_handle);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_github_copilot_chat(void) {
     /* Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = _conversion_result_model(result);
-    Usage* usage_handle = _conversion_result_usage(result);
+    char* model = literllm_conversion_result_model(result);
+    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
     assert(usage_handle != NULL);
-    char* usage_total_tokens = _usage_total_tokens(usage_handle);
+    char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -234,155 +234,155 @@ void test_github_copilot_chat(void) {
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "gpt-4o") == 0 && "equals assertion failed");
     assert(strcmp(usage_total_tokens, 14) == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(model);
-    _free_string(usage_total_tokens);
-    _usage_free(usage_handle);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(model);
+    literllm_free_string(usage_total_tokens);
+    literllm_usage_free(usage_handle);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_local_chat_ollama(void) {
     /* Chat completion against local Ollama with qwen2:0.5b model */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
-    _free_string(choices);
-    _conversion_result_free(result);
+    literllm_free_string(choices);
+    literllm_conversion_result_free(result);
 }
 
 void test_local_list_models_ollama(void) {
     /* List models from local Ollama instance */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(data);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
-    _free_string(data);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_cache_memory(void) {
     /* Test in-memory caching by sending identical requests twice */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
-    _free_string(choices);
-    _conversion_result_free(result);
+    literllm_free_string(choices);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_chat_anthropic(void) {
     /* Basic chat completion against real Anthropic API */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* usage = _conversion_result_usage(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* usage = literllm_conversion_result_usage(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
     assert(strlen(usage) > 0 && "expected non-empty value");
-    _free_string(choices);
-    _free_string(usage);
-    _conversion_result_free(result);
+    literllm_free_string(choices);
+    literllm_free_string(usage);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_chat_gemini(void) {
     /* Basic chat completion against real Google Gemini API */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* usage = _conversion_result_usage(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* usage = literllm_conversion_result_usage(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
     assert(strlen(usage) > 0 && "expected non-empty value");
-    _free_string(choices);
-    _free_string(usage);
-    _conversion_result_free(result);
+    literllm_free_string(choices);
+    literllm_free_string(usage);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_chat_openai(void) {
     /* Basic chat completion against real OpenAI API */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* usage = _conversion_result_usage(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* usage = literllm_conversion_result_usage(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
     assert(strlen(usage) > 0 && "expected non-empty value");
-    _free_string(choices);
-    _free_string(usage);
-    _conversion_result_free(result);
+    literllm_free_string(choices);
+    literllm_free_string(usage);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_embed_openai(void) {
     /* Embeddings request against real OpenAI API */
-    ConversionOptions* options_handle = _conversion_options_from_json("[\"Hello world\"]");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("[\"Hello world\"]");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     assert(strlen(data) > 0 && "expected non-empty value");
-    _free_string(data);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_list_models_openai(void) {
     /* List models against real OpenAI API */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(data != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(data);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
-    _free_string(data);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_provider_routing(void) {
     /* Test provider routing by sending requests to OpenAI and Anthropic */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
     assert(strlen(choices) > 0 && "expected non-empty value");
-    _free_string(choices);
-    _conversion_result_free(result);
+    literllm_free_string(choices);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_streaming_openai(void) {
     /* Chat streaming against real OpenAI API, verifies chunks received */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* chunks = _conversion_result_chunks(result);
+    char* chunks = literllm_conversion_result_chunks(result);
     {
         /* count_min: count top-level JSON array elements */
         assert(chunks != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(chunks);
         assert(elem_count >= 1 && "expected at least 1 elements");
     }
-    _free_string(chunks);
-    _conversion_result_free(result);
+    literllm_free_string(chunks);
+    literllm_conversion_result_free(result);
 }
 
 void test_vertex_chat(void) {
     /* Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    char* model = _conversion_result_model(result);
-    Usage* usage_handle = _conversion_result_usage(result);
+    char* model = literllm_conversion_result_model(result);
+    LITERLLMUsage* usage_handle = literllm_conversion_result_usage(result);
     assert(usage_handle != NULL);
-    char* usage_total_tokens = _usage_total_tokens(usage_handle);
+    char* usage_total_tokens = literllm_usage_total_tokens(usage_handle);
     {
         /* count_equals: count elements in array */
         assert(choices != NULL && "expected non-null collection JSON");
@@ -393,23 +393,23 @@ void test_vertex_chat(void) {
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "gemini-2.0-flash") == 0 && "equals assertion failed");
     assert(strcmp(usage_total_tokens, 13) == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_content);
     free(choices_0_finish_reason);
-    _free_string(model);
-    _free_string(usage_total_tokens);
-    _usage_free(usage_handle);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(model);
+    literllm_free_string(usage_total_tokens);
+    literllm_usage_free(usage_handle);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_vertex_embed(void) {
     /* Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
     {
@@ -424,9 +424,9 @@ void test_vertex_embed(void) {
         int elem_count = htm_json_array_count(data_0_embedding);
         assert(elem_count == 160 && "expected 160 elements");
     }
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_embedding);
-    _free_string(data_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }

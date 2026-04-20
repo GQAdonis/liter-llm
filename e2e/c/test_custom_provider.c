@@ -10,14 +10,14 @@
 
 void test_provider_auth(void) {
     /* Tests custom provider with custom auth header */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    _conversion_result_free(result);
+    literllm_conversion_result_free(result);
 }
 
 void test_register_provider(void) {
     /* Tests that a custom provider can be registered and routes requests */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    _conversion_result_free(result);
+    literllm_conversion_result_free(result);
 }

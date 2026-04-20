@@ -10,106 +10,106 @@
 
 void test_edge_batch_already_cancelled(void) {
     /* Attempt to cancel an already-cancelled batch */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_edge_batch_empty_list(void) {
     /* List batches when no batches exist */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(data);
         assert(elem_count == 0 && "expected 0 elements");
     }
-    _free_string(data);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_result_free(result);
 }
 
 void test_error_batch_auth_401(void) {
     /* 401 Unauthorized when creating a batch with invalid API key */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_batch_invalid_file(void) {
     /* 400 Bad Request when creating a batch with invalid input file */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_batch_not_found(void) {
     /* 404 Not Found when retrieving a nonexistent batch */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_smoke_batch_completed(void) {
     /* Retrieve a completed batch job with output file */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
-    _free_string(id);
-    _free_string(status);
-    _conversion_result_free(result);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_cancel_batch(void) {
     /* Cancel a running batch job */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "cancelling") == 0 && "equals assertion failed");
-    _free_string(id);
-    _free_string(status);
-    _conversion_result_free(result);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_create_batch(void) {
     /* Create a new batch processing job */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "validating") == 0 && "equals assertion failed");
-    _free_string(id);
-    _free_string(status);
-    _conversion_result_free(result);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_list_batches(void) {
     /* List all batch jobs */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
     {
         /* count_equals: count elements in array */
         assert(data != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(data);
         assert(elem_count == 2 && "expected 2 elements");
     }
-    _free_string(data);
-    _conversion_result_free(result);
+    literllm_free_string(data);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_retrieve_batch(void) {
     /* Retrieve the status of a batch job */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "in_progress") == 0 && "equals assertion failed");
-    _free_string(id);
-    _free_string(status);
-    _conversion_result_free(result);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_conversion_result_free(result);
 }

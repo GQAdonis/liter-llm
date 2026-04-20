@@ -10,12 +10,12 @@
 
 void test_edge_response_empty_output(void) {
     /* Response completes with empty output items */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
-    char* output = _conversion_result_output(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
+    char* output = literllm_conversion_result_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
     {
@@ -24,21 +24,21 @@ void test_edge_response_empty_output(void) {
         int elem_count = htm_json_array_count(output);
         assert(elem_count == 0 && "expected 0 elements");
     }
-    _free_string(id);
-    _free_string(status);
-    _free_string(output);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_free_string(output);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_edge_response_large_input(void) {
     /* Response created with a very large input text */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Summarize the following long text: Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. \"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Summarize the following long text: Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. \"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
-    char* output = _conversion_result_output(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
+    char* output = literllm_conversion_result_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
     {
@@ -47,42 +47,42 @@ void test_edge_response_large_input(void) {
         int elem_count = htm_json_array_count(output);
         assert(elem_count == 1 && "expected 1 elements");
     }
-    _free_string(id);
-    _free_string(status);
-    _free_string(output);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_free_string(output);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_error_response_auth_401(void) {
     /* 401 Unauthorized when creating a response with invalid API key */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello\"");
-    HTMConversionResult* result = chat(options_handle);
-    _conversion_options_free(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
+    literllm_conversion_options_free(options_handle);
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_response_bad_request(void) {
     /* 400 Bad Request when creating response with invalid model */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello\"");
-    HTMConversionResult* result = chat(options_handle);
-    _conversion_options_free(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
+    literllm_conversion_options_free(options_handle);
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_response_not_found(void) {
     /* 404 Not Found when retrieving a nonexistent response */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_smoke_cancel_response(void) {
     /* Cancel an in-progress response */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
-    char* output = _conversion_result_output(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
+    char* output = literllm_conversion_result_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "cancelled") == 0 && "equals assertion failed");
     {
@@ -91,20 +91,20 @@ void test_smoke_cancel_response(void) {
         int elem_count = htm_json_array_count(output);
         assert(elem_count == 0 && "expected 0 elements");
     }
-    _free_string(id);
-    _free_string(status);
-    _free_string(output);
-    _conversion_result_free(result);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_free_string(output);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_create_response(void) {
     /* Create a basic response using the Responses API */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Explain quantum computing in one sentence.\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Explain quantum computing in one sentence.\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
-    char* output = _conversion_result_output(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
+    char* output = literllm_conversion_result_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
     {
@@ -113,22 +113,22 @@ void test_smoke_create_response(void) {
         int elem_count = htm_json_array_count(output);
         assert(elem_count == 1 && "expected 1 elements");
     }
-    _free_string(id);
-    _free_string(status);
-    _free_string(output);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_free_string(output);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_response_with_tools(void) {
     /* Response that includes tool call output items */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"What is the weather in San Francisco?\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"What is the weather in San Francisco?\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
-    char* output = _conversion_result_output(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
+    char* output = literllm_conversion_result_output(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     assert(strlen(id) > 0 && "expected non-empty value");
@@ -140,24 +140,24 @@ void test_smoke_response_with_tools(void) {
         assert(elem_count == 2 && "expected 2 elements");
     }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
-    _free_string(id);
-    _free_string(status);
-    _free_string(output);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_free_string(output);
     free(choices_0_message_tool_calls);
-    _free_string(choices_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_retrieve_response(void) {
     /* Retrieve a previously created response */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* id = _conversion_result_id(result);
-    char* status = _conversion_result_status(result);
+    char* id = literllm_conversion_result_id(result);
+    char* status = literllm_conversion_result_status(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
-    _free_string(id);
-    _free_string(status);
-    _conversion_result_free(result);
+    literllm_free_string(id);
+    literllm_free_string(status);
+    literllm_conversion_result_free(result);
 }

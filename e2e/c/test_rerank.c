@@ -10,25 +10,25 @@
 
 void test_edge_rerank_empty_query(void) {
     /* Reranking with an empty query string */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
     {
         /* count_equals: count elements in array */
         assert(results != NULL && "expected non-null collection JSON");
         int elem_count = htm_json_array_count(results);
         assert(elem_count == 2 && "expected 2 elements");
     }
-    _free_string(results);
-    _conversion_result_free(result);
+    literllm_free_string(results);
+    literllm_conversion_result_free(result);
 }
 
 void test_edge_rerank_single_doc(void) {
     /* Reranking with only a single document */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
     {
@@ -38,30 +38,30 @@ void test_edge_rerank_single_doc(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_relevance_score);
-    _free_string(results_json);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_error_rerank_auth_401(void) {
     /* 401 Unauthorized for reranking with invalid API key */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_rerank_bad_request(void) {
     /* 400 Bad Request for reranking with invalid model */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result == NULL && "expected call to fail");
 }
 
 void test_smoke_rerank_basic(void) {
     /* Basic reranking of documents against a query */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
     {
@@ -71,18 +71,18 @@ void test_smoke_rerank_basic(void) {
         assert(elem_count == 3 && "expected 3 elements");
     }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_relevance_score);
-    _free_string(results_json);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_rerank_return_docs(void) {
     /* Reranking with return_documents flag to include document text */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_document = htm_json_get_string(results_json, "0");
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
@@ -94,19 +94,19 @@ void test_smoke_rerank_return_docs(void) {
     }
     assert(strlen(results_0_document) > 0 && "expected non-empty value");
     assert(results_0_relevance_score > 0.9 && "expected greater than");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_document);
     free(results_0_relevance_score);
-    _free_string(results_json);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_rerank_with_top_n(void) {
     /* Reranking with top_n parameter to limit results */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
     {
@@ -116,8 +116,8 @@ void test_smoke_rerank_with_top_n(void) {
         assert(elem_count == 2 && "expected 2 elements");
     }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_relevance_score);
-    _free_string(results_json);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_result_free(result);
 }

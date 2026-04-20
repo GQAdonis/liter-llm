@@ -10,11 +10,11 @@
 
 void test_edge_moderate_all_categories(void) {
     /* Moderation response with multiple categories flagged */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Extremely harmful content targeting multiple categories\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Extremely harmful content targeting multiple categories\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
     {
@@ -24,20 +24,20 @@ void test_edge_moderate_all_categories(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strcmp(results_0_flagged, 1) == 0 && "equals assertion failed");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_flagged);
-    _free_string(results_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_edge_moderate_empty_input(void) {
     /* Moderation with empty string input */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
     {
@@ -47,36 +47,36 @@ void test_edge_moderate_empty_input(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_flagged);
-    _free_string(results_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_error_moderate_auth_401(void) {
     /* 401 Unauthorized for moderation with invalid API key */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello\"");
-    HTMConversionResult* result = chat(options_handle);
-    _conversion_options_free(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
+    literllm_conversion_options_free(options_handle);
     assert(result == NULL && "expected call to fail");
 }
 
 void test_error_moderate_bad_request(void) {
     /* 400 Bad Request for moderation with invalid model */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello\"");
-    HTMConversionResult* result = chat(options_handle);
-    _conversion_options_free(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
+    literllm_conversion_options_free(options_handle);
     assert(result == NULL && "expected call to fail");
 }
 
 void test_smoke_moderate_batch(void) {
     /* Moderate multiple inputs in a single request */
-    ConversionOptions* options_handle = _conversion_options_from_json("[\"Hello world\",\"Nice weather today\"]");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("[\"Hello world\",\"Nice weather today\"]");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
     {
@@ -86,20 +86,20 @@ void test_smoke_moderate_batch(void) {
         assert(elem_count == 2 && "expected 2 elements");
     }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_flagged);
-    _free_string(results_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_moderate_flagged(void) {
     /* Moderation detects flagged content */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"I want to hurt someone very badly\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"I want to hurt someone very badly\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
     {
@@ -109,20 +109,20 @@ void test_smoke_moderate_flagged(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strcmp(results_0_flagged, 1) == 0 && "equals assertion failed");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_flagged);
-    _free_string(results_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_smoke_moderate_single(void) {
     /* Moderate a single non-flagged input */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"The weather is nice today.\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"The weather is nice today.\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* results = _conversion_result_results(result);
-    char* results_json = _conversion_result_results(result);
+    char* results = literllm_conversion_result_results(result);
+    char* results_json = literllm_conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
     {
@@ -132,9 +132,9 @@ void test_smoke_moderate_single(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
-    _free_string(results);
+    literllm_free_string(results);
     free(results_0_flagged);
-    _free_string(results_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(results_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }

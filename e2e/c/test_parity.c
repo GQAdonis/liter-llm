@@ -10,7 +10,7 @@
 
 void test_api_surface_parity(void) {
     /* Canonical API surface definition for cross-binding parity verification */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    _conversion_result_free(result);
+    literllm_conversion_result_free(result);
 }

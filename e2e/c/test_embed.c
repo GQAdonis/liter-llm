@@ -10,11 +10,11 @@
 
 void test_batch_embed(void) {
     /* Embedding request with multiple input strings returns one embedding object per input */
-    ConversionOptions* options_handle = _conversion_options_from_json("[\"Hello\",\"World\"]");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("[\"Hello\",\"World\"]");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
     {
@@ -29,20 +29,20 @@ void test_batch_embed(void) {
         int elem_count = htm_json_array_count(data_0_embedding);
         assert(elem_count == 5 && "expected 5 elements");
     }
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_embedding);
-    _free_string(data_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_embed_encoding_format(void) {
     /* Embedding request with explicit encoding_format of float returns float array embeddings */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Test input\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Test input\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
     {
@@ -57,28 +57,28 @@ void test_embed_encoding_format(void) {
         int elem_count = htm_json_array_count(data_0_embedding);
         assert(elem_count == 5 && "expected 5 elements");
     }
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_embedding);
-    _free_string(data_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_embed_error_401(void) {
     /* 401 Unauthorized error on embedding request when API key is invalid */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello world\"");
-    HTMConversionResult* result = chat(options_handle);
-    _conversion_options_free(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello world\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
+    literllm_conversion_options_free(options_handle);
     assert(result == NULL && "expected call to fail");
 }
 
 void test_embed_with_dimensions(void) {
     /* Embedding request with explicit dimensions parameter returns embeddings of the requested size */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"Hello world\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"Hello world\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
     {
@@ -93,20 +93,20 @@ void test_embed_with_dimensions(void) {
         int elem_count = htm_json_array_count(data_0_embedding);
         assert(elem_count == 8 && "expected 8 elements");
     }
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_embedding);
-    _free_string(data_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }
 
 void test_local_embed_ollama(void) {
     /* Embedding request via Ollama local provider with all-minilm model */
-    ConversionOptions* options_handle = _conversion_options_from_json("\"The quick brown fox jumps over the lazy dog\"");
-    HTMConversionResult* result = chat(options_handle);
+    LITERLLMConversionOptions* options_handle = literllm_conversion_options_from_json("\"The quick brown fox jumps over the lazy dog\"");
+    LITERLLMChatCompletionResponse* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
-    char* data = _conversion_result_data(result);
-    char* data_json = _conversion_result_data(result);
+    char* data = literllm_conversion_result_data(result);
+    char* data_json = literllm_conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
     {
@@ -121,9 +121,9 @@ void test_local_embed_ollama(void) {
         int elem_count = htm_json_array_count(data_0_embedding);
         assert(elem_count == 32 && "expected 32 elements");
     }
-    _free_string(data);
+    literllm_free_string(data);
     free(data_0_embedding);
-    _free_string(data_json);
-    _conversion_options_free(options_handle);
-    _conversion_result_free(result);
+    literllm_free_string(data_json);
+    literllm_conversion_options_free(options_handle);
+    literllm_conversion_result_free(result);
 }

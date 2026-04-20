@@ -10,10 +10,10 @@
 
 void test_anthropic_tool_calling(void) {
     /* Chat request to Anthropic provider with a tool definition; assistant responds with a tool call */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
@@ -27,20 +27,20 @@ void test_anthropic_tool_calling(void) {
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_message_tool_calls_0_function_name, "get_weather") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_tool_calls);
     free(choices_0_message_tool_calls_0_function_name);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_single_tool_call(void) {
     /* Chat request with a tool definition; assistant responds with a tool call */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
@@ -54,10 +54,10 @@ void test_single_tool_call(void) {
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_message_tool_calls_0_function_name, "get_weather") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_message_tool_calls);
     free(choices_0_message_tool_calls_0_function_name);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }

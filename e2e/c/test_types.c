@@ -10,10 +10,10 @@
 
 void test_all_message_types(void) {
     /* Request with all message role types (system, user, assistant, tool) to verify round-trip serialization */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
     {
@@ -23,18 +23,18 @@ void test_all_message_types(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
 
 void test_multimodal_content(void) {
     /* User message with mixed text and image_url content parts to verify multimodal serialization */
-    HTMConversionResult* result = chat();
+    LITERLLMChatCompletionResponse* result = chat();
     assert(result != NULL && "expected call to succeed");
-    char* choices = _conversion_result_choices(result);
-    char* choices_json = _conversion_result_choices(result);
+    char* choices = literllm_conversion_result_choices(result);
+    char* choices_json = literllm_conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
     {
@@ -44,8 +44,8 @@ void test_multimodal_content(void) {
         assert(elem_count == 1 && "expected 1 elements");
     }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
-    _free_string(choices);
+    literllm_free_string(choices);
     free(choices_0_finish_reason);
-    _free_string(choices_json);
-    _conversion_result_free(result);
+    literllm_free_string(choices_json);
+    literllm_conversion_result_free(result);
 }
