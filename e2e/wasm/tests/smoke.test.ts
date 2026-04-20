@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('smoke', () => {
   it('anthropic_chat: Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 16;
     options.messages = [{ content: "You are a helpful assistant.", role: "system" }, { content: "Say hello in one word.", role: "user" }];
     options.model = "anthropic/claude-3-5-sonnet-20241022";
@@ -20,7 +20,7 @@ describe('smoke', () => {
 
   it('azure_chat: Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 16;
     options.messages = [{ content: "Say hello", role: "user" }];
     options.model = "azure/gpt-4";
@@ -35,7 +35,7 @@ describe('smoke', () => {
 
   it('azure_embed: Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello world";
     options.model = "azure/text-embedding-ada-002";
     const result = await client.chat(options);
@@ -45,7 +45,7 @@ describe('smoke', () => {
 
   it('basic_chat: Basic chat completion with a single user message', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Say hello", role: "user" }];
     options.model = "gpt-4";
     options.temperature = 0;
@@ -59,7 +59,7 @@ describe('smoke', () => {
 
   it('basic_embed: Basic embedding request for a single input string', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello world";
     options.model = "text-embedding-3-small";
     const result = await client.chat(options);
@@ -69,14 +69,14 @@ describe('smoke', () => {
 
   it('basic_list_models: List available models from the API', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     const result = await client.chat(options);
     expect(result.data.length).toBeGreaterThanOrEqual(1);
   });
 
   it('bedrock_chat: Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 16;
     options.messages = [{ content: "Say hello in one word.", role: "user" }];
     options.model = "bedrock/anthropic.claude-3-sonnet-20240229-v1:0";
@@ -91,7 +91,7 @@ describe('smoke', () => {
 
   it('github_copilot_chat: Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 16;
     options.messages = [{ content: "Say hello in one word.", role: "user" }];
     options.model = "github_copilot/gpt-4o";
@@ -106,7 +106,7 @@ describe('smoke', () => {
 
   it('local_chat_ollama: Chat completion against local Ollama with qwen2:0.5b model', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 10;
     options.messages = [{ content: "Say hello in one word.", role: "user" }];
     options.model = "ollama/qwen2:0.5b";
@@ -116,7 +116,7 @@ describe('smoke', () => {
 
   it('local_list_models_ollama: List models from local Ollama instance', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "ollama/any";
     const result = await client.chat(options);
     expect(result.data.length).toBeGreaterThanOrEqual(1);
@@ -124,7 +124,7 @@ describe('smoke', () => {
 
   it('smoke_cache_memory: Test in-memory caching by sending identical requests twice', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 5;
     options.messages = [{ content: "What is 2+2? Answer with just the number.", role: "user" }];
     options.model = "openai/gpt-4o-mini";
@@ -134,7 +134,7 @@ describe('smoke', () => {
 
   it('smoke_chat_anthropic: Basic chat completion against real Anthropic API', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 10;
     options.messages = [{ content: "Say hello in exactly one word.", role: "user" }];
     options.model = "anthropic/claude-sonnet-4-20250514";
@@ -145,7 +145,7 @@ describe('smoke', () => {
 
   it('smoke_chat_gemini: Basic chat completion against real Google Gemini API', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 10;
     options.messages = [{ content: "Say hello in exactly one word.", role: "user" }];
     options.model = "gemini/gemini-2.5-flash-lite";
@@ -156,7 +156,7 @@ describe('smoke', () => {
 
   it('smoke_chat_openai: Basic chat completion against real OpenAI API', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 10;
     options.messages = [{ content: "Say hello in exactly one word.", role: "user" }];
     options.model = "openai/gpt-4o-mini";
@@ -167,7 +167,7 @@ describe('smoke', () => {
 
   it('smoke_embed_openai: Embeddings request against real OpenAI API', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = ["Hello world"];
     options.model = "openai/text-embedding-3-small";
     const result = await client.chat(options);
@@ -176,7 +176,7 @@ describe('smoke', () => {
 
   it('smoke_list_models_openai: List models against real OpenAI API', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "openai/gpt-4o-mini";
     const result = await client.chat(options);
     expect(result.data.length).toBeGreaterThanOrEqual(1);
@@ -184,7 +184,7 @@ describe('smoke', () => {
 
   it('smoke_provider_routing: Test provider routing by sending requests to OpenAI and Anthropic', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 5;
     options.messages = [{ content: "Say hi.", role: "user" }];
     options.model = "openai/gpt-4o-mini";
@@ -194,7 +194,7 @@ describe('smoke', () => {
 
   it('smoke_streaming_openai: Chat streaming against real OpenAI API, verifies chunks received', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 50;
     options.messages = [{ content: "Count from 1 to 5.", role: "user" }];
     options.model = "openai/gpt-4o-mini";
@@ -204,7 +204,7 @@ describe('smoke', () => {
 
   it('vertex_chat: Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 16;
     options.messages = [{ content: "Say hello in one word.", role: "user" }];
     options.model = "vertex_ai/gemini-2.0-flash";
@@ -219,7 +219,7 @@ describe('smoke', () => {
 
   it('vertex_embed: Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello";
     options.model = "vertex_ai/text-embedding-005";
     const result = await client.chat(options);

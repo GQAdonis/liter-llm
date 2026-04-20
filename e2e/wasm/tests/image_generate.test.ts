@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('image-generate', () => {
   it('edge_image_b64_response: Image generation returning base64-encoded data instead of URL', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "dall-e-3";
     options.n = 1;
     options.prompt = "A blue circle";
@@ -18,7 +18,7 @@ describe('image-generate', () => {
 
   it('edge_image_empty_prompt: Image generation with an empty prompt returns 400', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "dall-e-3";
     options.n = 1;
     options.prompt = "";
@@ -28,7 +28,7 @@ describe('image-generate', () => {
 
   it('error_image_auth_401: 401 Unauthorized when generating images with invalid API key', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "dall-e-3";
     options.n = 1;
     options.prompt = "A cat";
@@ -38,7 +38,7 @@ describe('image-generate', () => {
 
   it('error_image_bad_request: 400 Bad Request when image generation parameters are invalid', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "dall-e-3";
     options.n = 1;
     options.prompt = "A cat";
@@ -48,7 +48,7 @@ describe('image-generate', () => {
 
   it('error_image_rate_limit: 429 Rate limit exceeded for image generation', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "dall-e-3";
     options.n = 1;
     options.prompt = "A cat";
@@ -58,7 +58,7 @@ describe('image-generate', () => {
 
   it('smoke_image_basic: Basic image generation with a text prompt', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "dall-e-3";
     options.n = 1;
     options.prompt = "A white cat sitting on a windowsill";
@@ -70,7 +70,7 @@ describe('image-generate', () => {
 
   it('smoke_image_multiple: Image generation requesting multiple images', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "dall-e-2";
     options.n = 3;
     options.prompt = "A red bicycle";
@@ -82,7 +82,7 @@ describe('image-generate', () => {
 
   it('smoke_image_with_size: Image generation with explicit size parameter', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "dall-e-3";
     options.n = 1;
     options.prompt = "A sunset over mountains";

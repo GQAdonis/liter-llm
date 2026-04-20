@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('tool-calling', () => {
   it('anthropic_tool_calling: Chat request to Anthropic provider with a tool definition; assistant responds with a tool call', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 256;
     options.messages = [{ content: "What is the weather in London?", role: "user" }];
     options.model = "anthropic/claude-3-5-sonnet-20241022";
@@ -20,7 +20,7 @@ describe('tool-calling', () => {
 
   it('single_tool_call: Chat request with a tool definition; assistant responds with a tool call', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "What is the weather in San Francisco?", role: "user" }];
     options.model = "gpt-4";
     options.toolChoice = "auto";

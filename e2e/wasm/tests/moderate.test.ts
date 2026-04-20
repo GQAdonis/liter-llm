@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('moderate', () => {
   it('edge_moderate_all_categories: Moderation response with multiple categories flagged', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Extremely harmful content targeting multiple categories";
     options.model = "omni-moderation-latest";
     const result = await client.chat(options);
@@ -15,7 +15,7 @@ describe('moderate', () => {
 
   it('edge_moderate_empty_input: Moderation with empty string input', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "";
     options.model = "omni-moderation-latest";
     const result = await client.chat(options);
@@ -25,7 +25,7 @@ describe('moderate', () => {
 
   it('error_moderate_auth_401: 401 Unauthorized for moderation with invalid API key', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello";
     options.model = "omni-moderation-latest";
     await expect(async () => await client.chat(options)).rejects.toThrow();
@@ -33,7 +33,7 @@ describe('moderate', () => {
 
   it('error_moderate_bad_request: 400 Bad Request for moderation with invalid model', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello";
     options.model = "nonexistent-moderation";
     await expect(async () => await client.chat(options)).rejects.toThrow();
@@ -41,7 +41,7 @@ describe('moderate', () => {
 
   it('smoke_moderate_batch: Moderate multiple inputs in a single request', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = ["Hello world", "Nice weather today"];
     options.model = "omni-moderation-latest";
     const result = await client.chat(options);
@@ -51,7 +51,7 @@ describe('moderate', () => {
 
   it('smoke_moderate_flagged: Moderation detects flagged content', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "I want to hurt someone very badly";
     options.model = "omni-moderation-latest";
     const result = await client.chat(options);
@@ -61,7 +61,7 @@ describe('moderate', () => {
 
   it('smoke_moderate_single: Moderate a single non-flagged input', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "The weather is nice today.";
     options.model = "omni-moderation-latest";
     const result = await client.chat(options);

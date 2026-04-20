@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('contract', () => {
   it('binding_api_parity: Verify all bindings expose the full API surface — constructor accepts all config options and every method exists', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Contract test", role: "user" }];
     options.model = "openai/gpt-4o";
     const result = await client.chat(options);
@@ -18,7 +18,7 @@ describe('contract', () => {
 
   it('contract_ocr: Verify ocr() method exists in all bindings', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.document = { type: "document_url", url: "https://example.com/contract-test.pdf" };
     options.model = "mistral/mistral-ocr-latest";
     const result = await client.chat(options);
@@ -26,7 +26,7 @@ describe('contract', () => {
 
   it('contract_search: Verify search() method exists in all bindings', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "brave/web-search";
     options.query = "contract test query";
     const result = await client.chat(options);

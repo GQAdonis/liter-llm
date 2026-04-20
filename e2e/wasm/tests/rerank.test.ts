@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('rerank', () => {
   it('edge_rerank_empty_query: Reranking with an empty query string', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.documents = ["Some document", "Another document"];
     options.model = "rerank-v3.5";
     options.query = "";
@@ -15,7 +15,7 @@ describe('rerank', () => {
 
   it('edge_rerank_single_doc: Reranking with only a single document', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.documents = ["Artificial intelligence is the simulation of human intelligence."];
     options.model = "rerank-v3.5";
     options.query = "What is AI?";
@@ -26,7 +26,7 @@ describe('rerank', () => {
 
   it('error_rerank_auth_401: 401 Unauthorized for reranking with invalid API key', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.documents = ["doc1"];
     options.model = "rerank-v3.5";
     options.query = "test";
@@ -35,7 +35,7 @@ describe('rerank', () => {
 
   it('error_rerank_bad_request: 400 Bad Request for reranking with invalid model', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.documents = ["doc1"];
     options.model = "nonexistent-rerank";
     options.query = "test";
@@ -44,7 +44,7 @@ describe('rerank', () => {
 
   it('smoke_rerank_basic: Basic reranking of documents against a query', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.documents = ["Machine learning is a subset of AI.", "The weather is sunny today.", "Deep learning uses neural networks."];
     options.model = "rerank-v3.5";
     options.query = "What is machine learning?";
@@ -55,7 +55,7 @@ describe('rerank', () => {
 
   it('smoke_rerank_return_docs: Reranking with return_documents flag to include document text', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.documents = ["Rust is a systems programming language.", "Iron rusts when exposed to water."];
     options.model = "rerank-v3.5";
     options.query = "What is Rust?";
@@ -68,7 +68,7 @@ describe('rerank', () => {
 
   it('smoke_rerank_with_top_n: Reranking with top_n parameter to limit results', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.documents = ["Python is a programming language.", "Cats are cute animals.", "Python was created by Guido van Rossum.", "The sun is a star."];
     options.model = "rerank-v3.5";
     options.query = "What is Python?";

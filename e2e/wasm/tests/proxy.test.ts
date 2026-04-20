@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('proxy', () => {
   it('proxy_auth_invalid: 401 Unauthorized when an invalid API key is provided through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "openai/gpt-4o";
     await expect(async () => await client.chat(options)).rejects.toThrow();
@@ -13,7 +13,7 @@ describe('proxy', () => {
 
   it('proxy_auth_missing: 401 Unauthorized when no API key is provided through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "openai/gpt-4o";
     await expect(async () => await client.chat(options)).rejects.toThrow();
@@ -21,7 +21,7 @@ describe('proxy', () => {
 
   it('proxy_chat_basic: Basic chat completion request routed through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Say hello", role: "user" }];
     options.model = "openai/gpt-4o";
     const result = await client.chat(options);
@@ -32,7 +32,7 @@ describe('proxy', () => {
 
   it('proxy_chat_streaming: Streaming chat completion routed through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Count to 3", role: "user" }];
     options.model = "openai/gpt-4o";
     options.stream = true;
@@ -44,7 +44,7 @@ describe('proxy', () => {
 
   it('proxy_embeddings: Embedding request routed through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello world";
     options.model = "openai/text-embedding-3-small";
     const result = await client.chat(options);
@@ -53,14 +53,14 @@ describe('proxy', () => {
 
   it('proxy_health: Health check verifying proxy connectivity via list models', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     const result = await client.chat(options);
     expect(result.data.length).toBeGreaterThanOrEqual(1);
   });
 
   it('proxy_image_generate: Image generation request routed through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "dall-e-3";
     options.n = 1;
     options.prompt = "A sunset over the ocean";
@@ -72,14 +72,14 @@ describe('proxy', () => {
 
   it('proxy_models_list: List models request routed through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     const result = await client.chat(options);
     expect(result.data.length).toBeGreaterThanOrEqual(1);
   });
 
   it('proxy_moderation: Content moderation request routed through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "The weather is nice today.";
     options.model = "omni-moderation-latest";
     const result = await client.chat(options);
@@ -89,7 +89,7 @@ describe('proxy', () => {
 
   it('proxy_rerank: Document reranking request routed through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.documents = ["Deep learning is a subset of machine learning using neural networks.", "The stock market closed higher today."];
     options.model = "rerank-v3.5";
     options.query = "What is deep learning?";
@@ -100,7 +100,7 @@ describe('proxy', () => {
 
   it('proxy_upstream_429: 429 Too Many Requests from upstream provider through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "openai/gpt-4o";
     await expect(async () => await client.chat(options)).rejects.toThrow();
@@ -108,7 +108,7 @@ describe('proxy', () => {
 
   it('proxy_upstream_500: 500 Internal Server Error from upstream provider through the proxy', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "openai/gpt-4o";
     await expect(async () => await client.chat(options)).rejects.toThrow();

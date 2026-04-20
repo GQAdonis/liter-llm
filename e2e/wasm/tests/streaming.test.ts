@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('streaming', () => {
   it('anthropic_stream: Streaming chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) yielding multiple SSE chunks', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 32;
     options.messages = [{ content: "Count to three, one word per response.", role: "user" }];
     options.model = "anthropic/claude-3-5-sonnet-20241022";
@@ -18,7 +18,7 @@ describe('streaming', () => {
 
   it('azure_stream: Streaming chat completion via Azure OpenAI — verifies the azure/ prefix routes correctly and SSE chunks are delivered in the standard OpenAI chat.completion.chunk shape', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Count to 3", role: "user" }];
     options.model = "azure/gpt-4";
     options.stream = true;
@@ -31,7 +31,7 @@ describe('streaming', () => {
 
   it('basic_stream: Streaming chat completion that produces content across multiple SSE chunks', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Count to 3", role: "user" }];
     options.model = "gpt-4";
     options.stream = true;
@@ -42,7 +42,7 @@ describe('streaming', () => {
 
   it('bedrock_stream: Streaming chat completion via the AWS Bedrock provider using the bedrock/ prefix — verifies SSE chunks are yielded and assembled correctly from the Converse streaming API', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 32;
     options.messages = [{ content: "Count to three, one word per response.", role: "user" }];
     options.model = "bedrock/anthropic.claude-3-sonnet-20240229-v1:0";
@@ -55,7 +55,7 @@ describe('streaming', () => {
 
   it('empty_stream: Streaming chat completion that produces no content chunks before the DONE signal', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Say nothing", role: "user" }];
     options.model = "gpt-4";
     options.stream = true;
@@ -66,7 +66,7 @@ describe('streaming', () => {
 
   it('local_stream_ollama: Streaming chat completion via Ollama local provider with SSE chunks', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Count to 3", role: "user" }];
     options.model = "ollama/qwen2:0.5b";
     options.stream = true;
@@ -78,7 +78,7 @@ describe('streaming', () => {
 
   it('stream_done_signal: Verify that the [DONE] sentinel signal properly terminates the stream', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Say done", role: "user" }];
     options.model = "gpt-4";
     options.stream = true;
@@ -90,7 +90,7 @@ describe('streaming', () => {
 
   it('stream_error_401: 401 Unauthorized error on stream initiation before any chunks are received', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "gpt-4";
     options.stream = true;
@@ -99,7 +99,7 @@ describe('streaming', () => {
 
   it('stream_with_tool_calls: Streaming chat completion where the assistant responds with a tool call across multiple chunks', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "What is the weather in NYC?", role: "user" }];
     options.model = "gpt-4";
     options.stream = true;
@@ -113,7 +113,7 @@ describe('streaming', () => {
 
   it('stream_with_usage: Streaming chat completion that includes a usage summary in the final chunk', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Say hi", role: "user" }];
     options.model = "gpt-4";
     options.stream = true;
@@ -126,7 +126,7 @@ describe('streaming', () => {
 
   it('vertex_stream: Streaming chat completion via the Google Vertex AI provider using the vertex_ai/ prefix — verifies SSE chunks from the Gemini streaming endpoint are yielded and assembled correctly', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 32;
     options.messages = [{ content: "Count to three, one word per response.", role: "user" }];
     options.model = "vertex_ai/gemini-2.0-flash";

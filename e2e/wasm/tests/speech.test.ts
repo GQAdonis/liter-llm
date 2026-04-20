@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('speech', () => {
   it('edge_speech_long_input: Speech generation with a very long input text', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. This is a long input text. End of input.";
     options.model = "tts-1";
     options.voice = "echo";
@@ -15,7 +15,7 @@ describe('speech', () => {
 
   it('error_speech_auth_401: 401 Unauthorized for speech generation with invalid API key', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello";
     options.model = "tts-1";
     options.voice = "alloy";
@@ -24,7 +24,7 @@ describe('speech', () => {
 
   it('error_speech_bad_model: 400 Bad Request for speech with unsupported model', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello";
     options.model = "tts-nonexistent";
     options.voice = "alloy";
@@ -33,7 +33,7 @@ describe('speech', () => {
 
   it('smoke_speech_basic: Basic text-to-speech generation', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello, world!";
     options.model = "tts-1";
     options.voice = "alloy";
@@ -43,7 +43,7 @@ describe('speech', () => {
 
   it('smoke_speech_mp3_format: Text-to-speech with explicit MP3 response format', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "The quick brown fox jumps over the lazy dog.";
     options.model = "tts-1-hd";
     options.responseFormat = "mp3";

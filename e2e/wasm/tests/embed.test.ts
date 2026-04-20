@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('embed', () => {
   it('batch_embed: Embedding request with multiple input strings returns one embedding object per input', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = ["Hello", "World"];
     options.model = "text-embedding-3-small";
     const result = await client.chat(options);
@@ -15,7 +15,7 @@ describe('embed', () => {
 
   it('embed_encoding_format: Embedding request with explicit encoding_format of float returns float array embeddings', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.encodingFormat = "float";
     options.input = "Test input";
     options.model = "text-embedding-3-small";
@@ -26,7 +26,7 @@ describe('embed', () => {
 
   it('embed_error_401: 401 Unauthorized error on embedding request when API key is invalid', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "Hello world";
     options.model = "text-embedding-3-small";
     await expect(async () => await client.chat(options)).rejects.toThrow();
@@ -34,7 +34,7 @@ describe('embed', () => {
 
   it('embed_with_dimensions: Embedding request with explicit dimensions parameter returns embeddings of the requested size', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.dimensions = 256;
     options.input = "Hello world";
     options.model = "text-embedding-3-small";
@@ -45,7 +45,7 @@ describe('embed', () => {
 
   it('local_embed_ollama: Embedding request via Ollama local provider with all-minilm model', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.input = "The quick brown fox jumps over the lazy dog";
     options.model = "ollama/all-minilm";
     const result = await client.chat(options);

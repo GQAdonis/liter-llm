@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('list-models', () => {
   it('empty_model_list: List models response returns an empty data array when no models are available', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     const result = await client.chat(options);
     expect(result.data.length).toBeGreaterThanOrEqual(0);
     expect(result.data.length).toBe(0);
@@ -13,7 +13,7 @@ describe('list-models', () => {
 
   it('list_models_error_401: 401 Unauthorized error on list models request when API key is invalid', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     await expect(async () => await client.chat(options)).rejects.toThrow();
   });
 });

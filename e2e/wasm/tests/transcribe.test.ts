@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('transcribe', () => {
   it('edge_transcribe_empty_audio: Transcription of a silent or empty audio file returns empty text', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.file = "silence.mp3";
     options.model = "whisper-1";
     const result = await client.chat(options);
@@ -14,7 +14,7 @@ describe('transcribe', () => {
 
   it('error_transcribe_auth_401: 401 Unauthorized for transcription with invalid API key', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.file = "audio.mp3";
     options.model = "whisper-1";
     await expect(async () => await client.chat(options)).rejects.toThrow();
@@ -22,7 +22,7 @@ describe('transcribe', () => {
 
   it('error_transcribe_bad_format: 400 Bad Request when audio format is unsupported', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.file = "audio.xyz";
     options.model = "whisper-1";
     await expect(async () => await client.chat(options)).rejects.toThrow();
@@ -30,7 +30,7 @@ describe('transcribe', () => {
 
   it('smoke_transcribe_basic: Basic audio transcription', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.file = "audio.mp3";
     options.model = "whisper-1";
     const result = await client.chat(options);
@@ -39,7 +39,7 @@ describe('transcribe', () => {
 
   it('smoke_transcribe_with_language: Audio transcription with explicit language hint', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.file = "audio_de.mp3";
     options.language = "de";
     options.model = "whisper-1";

@@ -5,21 +5,21 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('batches', () => {
   it('edge_batch_already_cancelled: Attempt to cancel an already-cancelled batch', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.batchId = "batch-cancelled001";
     await expect(async () => await client.chat(options)).rejects.toThrow();
   });
 
   it('edge_batch_empty_list: List batches when no batches exist', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     const result = await client.chat(options);
     expect(result.data.length).toBe(0);
   });
 
   it('error_batch_auth_401: 401 Unauthorized when creating a batch with invalid API key', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.completionWindow = "24h";
     options.endpoint = "/v1/chat/completions";
     options.inputFileId = "file-abc123";
@@ -28,7 +28,7 @@ describe('batches', () => {
 
   it('error_batch_invalid_file: 400 Bad Request when creating a batch with invalid input file', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.completionWindow = "24h";
     options.endpoint = "/v1/chat/completions";
     options.inputFileId = "file-wrong-purpose";
@@ -37,14 +37,14 @@ describe('batches', () => {
 
   it('error_batch_not_found: 404 Not Found when retrieving a nonexistent batch', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.batchId = "batch-nonexistent";
     await expect(async () => await client.chat(options)).rejects.toThrow();
   });
 
   it('smoke_batch_completed: Retrieve a completed batch job with output file', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.batchId = "batch-ghi789";
     const result = await client.chat(options);
     expect(result.id.length).toBeGreaterThan(0);
@@ -53,7 +53,7 @@ describe('batches', () => {
 
   it('smoke_cancel_batch: Cancel a running batch job', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.batchId = "batch-def456";
     const result = await client.chat(options);
     expect(result.id.length).toBeGreaterThan(0);
@@ -62,7 +62,7 @@ describe('batches', () => {
 
   it('smoke_create_batch: Create a new batch processing job', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.completionWindow = "24h";
     options.endpoint = "/v1/chat/completions";
     options.inputFileId = "file-abc123";
@@ -73,14 +73,14 @@ describe('batches', () => {
 
   it('smoke_list_batches: List all batch jobs', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     const result = await client.chat(options);
     expect(result.data.length).toBe(2);
   });
 
   it('smoke_retrieve_batch: Retrieve the status of a batch job', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.batchId = "batch-abc123";
     const result = await client.chat(options);
     expect(result.id.length).toBeGreaterThan(0);

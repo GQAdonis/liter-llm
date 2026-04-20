@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('chat', () => {
   it('developer_message: Chat request that includes a developer role message alongside user messages', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "You are a coding assistant. Always respond with concise code examples.", role: "developer" }, { content: "How do I reverse a string in Python?", role: "user" }];
     options.model = "gpt-4";
     const result = await client.chat(options);
@@ -16,7 +16,7 @@ describe('chat', () => {
 
   it('finish_reason_content_filter: Chat response stopped by content filter with finish_reason of content_filter and null content', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Tell me something controversial", role: "user" }];
     options.model = "gpt-4";
     const result = await client.chat(options);
@@ -26,7 +26,7 @@ describe('chat', () => {
 
   it('finish_reason_length: Chat response truncated due to max_tokens limit with finish_reason of length', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.maxTokens = 5;
     options.messages = [{ content: "Tell me a long story", role: "user" }];
     options.model = "gpt-4";
@@ -37,7 +37,7 @@ describe('chat', () => {
 
   it('multi_turn_conversation: Multi-turn conversation with system, user, assistant, and follow-up user messages', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "You are a helpful assistant.", role: "system" }, { content: "What is 2 + 2?", role: "user" }, { content: "2 + 2 equals 4.", role: "assistant" }, { content: "And what is 4 + 4?", role: "user" }];
     options.model = "gpt-4";
     const result = await client.chat(options);
@@ -48,7 +48,7 @@ describe('chat', () => {
 
   it('parallel_tool_calls: Chat request that results in parallel tool calls in the response', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "What is the weather in NYC and London?", role: "user" }];
     options.model = "gpt-4";
     options.parallelToolCalls = true;
@@ -62,7 +62,7 @@ describe('chat', () => {
 
   it('response_format_json_object: Chat request with response_format json_object that returns valid JSON content', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Respond with JSON only.", role: "system" }, { content: "Give me a user object with name and age fields.", role: "user" }];
     options.model = "gpt-4";
     options.responseFormat = { type: "json_object" };
@@ -74,7 +74,7 @@ describe('chat', () => {
 
   it('response_format_json_schema: Chat request with response_format json_schema that validates the output structure', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "What is the temperature in Paris today?", role: "user" }];
     options.model = "gpt-4";
     options.responseFormat = { json_schema: { name: "weather", schema: { properties: { temp: { type: "number" } }, required: ["temp"], type: "object" } }, type: "json_schema" };
@@ -86,7 +86,7 @@ describe('chat', () => {
 
   it('seed_parameter: Chat request with seed parameter for deterministic output; response includes system_fingerprint', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Pick a random number", role: "user" }];
     options.model = "gpt-4";
     options.seed = 42;
@@ -98,7 +98,7 @@ describe('chat', () => {
 
   it('stop_sequences: Chat request with custom stop sequences that terminates generation at a stop token', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "List items until you see STOP", role: "user" }];
     options.model = "gpt-4";
     options.stop = ["STOP", "END"];
@@ -109,7 +109,7 @@ describe('chat', () => {
 
   it('tool_choice_required: Chat request with tool_choice set to required forces the model to call a tool', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "What is the weather today?", role: "user" }];
     options.model = "gpt-4";
     options.toolChoice = "required";
@@ -123,7 +123,7 @@ describe('chat', () => {
 
   it('tool_choice_specific: Chat request with tool_choice specifying a particular function to call', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "What is the weather in Paris?", role: "user" }];
     options.model = "gpt-4";
     options.toolChoice = { function: { name: "get_weather" }, type: "function" };

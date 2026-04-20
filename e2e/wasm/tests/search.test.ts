@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('search', () => {
   it('search_basic: Basic web search request with a simple query', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.model = "brave/web-search";
     options.query = "What is Rust programming language?";
     const result = await client.chat(options);

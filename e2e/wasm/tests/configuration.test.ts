@@ -5,7 +5,7 @@ import { createClient, WasmChatCompletionRequest } from 'liter_llm';
 describe('configuration', () => {
   it('custom_base_url: Client configured with a custom base URL routes all requests to that endpoint', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "local-model";
     const result = await client.chat(options);
@@ -17,7 +17,7 @@ describe('configuration', () => {
 
   it('extra_headers: Client configured with extra custom headers successfully completes a chat request', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "gpt-4";
     const result = await client.chat(options);
@@ -27,7 +27,7 @@ describe('configuration', () => {
 
   it('local_provider_llamacpp: llamacpp local provider routes requests via llamacpp/ model prefix with no auth', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "llamacpp/my-model";
     const result = await client.chat(options);
@@ -39,7 +39,7 @@ describe('configuration', () => {
 
   it('local_provider_ollama: Ollama local provider routes requests via ollama/ model prefix with no auth', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "ollama/qwen2:0.5b";
     const result = await client.chat(options);
@@ -51,7 +51,7 @@ describe('configuration', () => {
 
   it('local_provider_vllm: vLLM local provider routes requests via vllm/ model prefix with no auth', async () => {
     const client = await createClient('test-key', process.env.MOCK_SERVER_URL);
-    const options = WasmChatCompletionRequest.default();
+    const options = new WasmChatCompletionRequest();
     options.messages = [{ content: "Hello", role: "user" }];
     options.model = "vllm/meta-llama/Llama-3.2-1B";
     const result = await client.chat(options);
