@@ -7,11 +7,13 @@ on:
     paths:
       - crates/liter-llm-wasm/**
       - crates/liter-llm/**
+      - e2e/wasm/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-wasm.yaml
@@ -20,11 +22,13 @@ on:
     paths:
       - crates/liter-llm-wasm/**
       - crates/liter-llm/**
+      - e2e/wasm/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-wasm.yaml

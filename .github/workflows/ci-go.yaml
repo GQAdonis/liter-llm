@@ -8,8 +8,10 @@ on:
       - packages/go/**
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/go/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-go.yaml
@@ -19,8 +21,10 @@ on:
       - packages/go/**
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/go/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-go.yaml

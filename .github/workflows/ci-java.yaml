@@ -8,8 +8,10 @@ on:
       - packages/java/**
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/java/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-java.yaml
@@ -19,8 +21,10 @@ on:
       - packages/java/**
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/java/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-java.yaml

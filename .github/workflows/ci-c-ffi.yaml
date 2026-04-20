@@ -7,16 +7,20 @@ on:
     paths:
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/c/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .github/workflows/ci-c-ffi.yaml
   pull_request:
     branches: [main]
     paths:
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/c/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .github/workflows/ci-c-ffi.yaml
 
 permissions:

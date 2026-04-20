@@ -7,6 +7,7 @@ on:
     paths:
       - crates/**
       - packages/**
+      - e2e/**
       - pyproject.toml
       - uv.lock
       - package.json
@@ -31,6 +32,7 @@ on:
     paths:
       - crates/**
       - packages/**
+      - e2e/**
       - pyproject.toml
       - uv.lock
       - package.json

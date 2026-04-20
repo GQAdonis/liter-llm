@@ -8,8 +8,10 @@ on:
       - packages/csharp/**
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/csharp/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-csharp.yaml
@@ -19,8 +21,10 @@ on:
       - packages/csharp/**
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/csharp/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-csharp.yaml

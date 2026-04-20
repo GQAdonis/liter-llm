@@ -8,10 +8,12 @@ on:
       - packages/php/**
       - crates/liter-llm-php/**
       - crates/liter-llm/**
+      - e2e/php/**
       - composer.json
       - composer.lock
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-php.yaml
@@ -21,10 +23,12 @@ on:
       - packages/php/**
       - crates/liter-llm-php/**
       - crates/liter-llm/**
+      - e2e/php/**
       - composer.json
       - composer.lock
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-php.yaml

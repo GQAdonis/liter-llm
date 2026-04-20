@@ -8,10 +8,12 @@ on:
       - packages/ruby/**
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/ruby/**
       - Gemfile
       - Gemfile.lock
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-ruby.yaml
@@ -21,10 +23,12 @@ on:
       - packages/ruby/**
       - crates/liter-llm-ffi/**
       - crates/liter-llm/**
+      - e2e/ruby/**
       - Gemfile
       - Gemfile.lock
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-ruby.yaml

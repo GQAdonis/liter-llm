@@ -8,11 +8,13 @@ on:
       - packages/typescript/**
       - crates/liter-llm-node/**
       - crates/liter-llm/**
+      - e2e/node/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-node.yaml
@@ -22,11 +24,13 @@ on:
       - packages/typescript/**
       - crates/liter-llm-node/**
       - crates/liter-llm/**
+      - e2e/node/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-node.yaml

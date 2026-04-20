@@ -8,10 +8,12 @@ on:
       - packages/python/**
       - crates/liter-llm-py/**
       - crates/liter-llm/**
+      - e2e/python/**
       - pyproject.toml
       - uv.lock
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-python.yaml
@@ -21,10 +23,12 @@ on:
       - packages/python/**
       - crates/liter-llm-py/**
       - crates/liter-llm/**
+      - e2e/python/**
       - pyproject.toml
       - uv.lock
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-python.yaml

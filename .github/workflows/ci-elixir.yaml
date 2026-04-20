@@ -7,8 +7,10 @@ on:
     paths:
       - packages/elixir/**
       - crates/liter-llm/**
+      - e2e/elixir/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-elixir.yaml
@@ -17,8 +19,10 @@ on:
     paths:
       - packages/elixir/**
       - crates/liter-llm/**
+      - e2e/elixir/**
       - Cargo.toml
       - Cargo.lock
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-elixir.yaml

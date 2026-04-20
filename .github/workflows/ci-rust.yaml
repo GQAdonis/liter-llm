@@ -6,9 +6,11 @@ on:
     branches: [main]
     paths:
       - crates/**
+      - e2e/rust/**
       - Cargo.toml
       - Cargo.lock
       - rustfmt.toml
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-rust.yaml
@@ -16,9 +18,11 @@ on:
     branches: [main]
     paths:
       - crates/**
+      - e2e/rust/**
       - Cargo.toml
       - Cargo.lock
       - rustfmt.toml
+      - alef.toml
       - .task/**
       - Taskfile.yml
       - .github/workflows/ci-rust.yaml
