@@ -16,14 +16,14 @@ final class BatchesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        $client->chat(null);
+        $client->chat_async(null);
     }
 
     /** List batches when no batches exist */
     public function test_edge_batch_empty_list(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(0, $result->data);
     }
 
@@ -32,7 +32,7 @@ final class BatchesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        $client->chat(null);
+        $client->chat_async(null);
     }
 
     /** 400 Bad Request when creating a batch with invalid input file */
@@ -40,7 +40,7 @@ final class BatchesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        $client->chat(null);
+        $client->chat_async(null);
     }
 
     /** 404 Not Found when retrieving a nonexistent batch */
@@ -48,14 +48,14 @@ final class BatchesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        $client->chat(null);
+        $client->chat_async(null);
     }
 
     /** Retrieve a completed batch job with output file */
     public function test_smoke_batch_completed(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->id);
         $this->assertEquals("completed", $result->status);
     }
@@ -64,7 +64,7 @@ final class BatchesTest extends TestCase
     public function test_smoke_cancel_batch(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->id);
         $this->assertEquals("cancelling", $result->status);
     }
@@ -73,7 +73,7 @@ final class BatchesTest extends TestCase
     public function test_smoke_create_batch(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->id);
         $this->assertEquals("validating", $result->status);
     }
@@ -82,7 +82,7 @@ final class BatchesTest extends TestCase
     public function test_smoke_list_batches(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(2, $result->data);
     }
 
@@ -90,7 +90,7 @@ final class BatchesTest extends TestCase
     public function test_smoke_retrieve_batch(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->id);
         $this->assertEquals("in_progress", $result->status);
     }

@@ -15,7 +15,7 @@ final class ModerateTest extends TestCase
     public function test_edge_moderate_all_categories(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat("Extremely harmful content targeting multiple categories");
+        $result = $client->chat_async("Extremely harmful content targeting multiple categories");
         $this->assertCount(1, $result->results);
         $this->assertEquals(true, $result->results["0"]->flagged);
     }
@@ -24,7 +24,7 @@ final class ModerateTest extends TestCase
     public function test_edge_moderate_empty_input(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat("");
+        $result = $client->chat_async("");
         $this->assertCount(1, $result->results);
         $this->assertEquals(false, $result->results["0"]->flagged);
     }
@@ -34,7 +34,7 @@ final class ModerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        $client->chat("Hello");
+        $client->chat_async("Hello");
     }
 
     /** 400 Bad Request for moderation with invalid model */
@@ -42,14 +42,14 @@ final class ModerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        $client->chat("Hello");
+        $client->chat_async("Hello");
     }
 
     /** Moderate multiple inputs in a single request */
     public function test_smoke_moderate_batch(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(["Hello world", "Nice weather today"]);
+        $result = $client->chat_async(["Hello world", "Nice weather today"]);
         $this->assertCount(2, $result->results);
         $this->assertEquals(false, $result->results["0"]->flagged);
     }
@@ -58,7 +58,7 @@ final class ModerateTest extends TestCase
     public function test_smoke_moderate_flagged(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat("I want to hurt someone very badly");
+        $result = $client->chat_async("I want to hurt someone very badly");
         $this->assertCount(1, $result->results);
         $this->assertEquals(true, $result->results["0"]->flagged);
     }
@@ -67,7 +67,7 @@ final class ModerateTest extends TestCase
     public function test_smoke_moderate_single(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat("The weather is nice today.");
+        $result = $client->chat_async("The weather is nice today.");
         $this->assertCount(1, $result->results);
         $this->assertEquals(false, $result->results["0"]->flagged);
     }

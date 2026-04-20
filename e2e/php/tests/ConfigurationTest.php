@@ -15,7 +15,7 @@ final class ConfigurationTest extends TestCase
     public function test_custom_base_url(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hi there!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -26,7 +26,7 @@ final class ConfigurationTest extends TestCase
     public function test_extra_headers(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
@@ -35,7 +35,7 @@ final class ConfigurationTest extends TestCase
     public function test_local_provider_llamacpp(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hi there! I'm running locally.", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -46,7 +46,7 @@ final class ConfigurationTest extends TestCase
     public function test_local_provider_ollama(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello! How can I help you today?", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -57,7 +57,7 @@ final class ConfigurationTest extends TestCase
     public function test_local_provider_vllm(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello! How may I assist you?", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);

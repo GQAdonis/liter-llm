@@ -15,7 +15,7 @@ final class FilesTest extends TestCase
     public function test_edge_file_empty_list(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(0, $result->data);
     }
 
@@ -23,7 +23,7 @@ final class FilesTest extends TestCase
     public function test_edge_file_large_upload(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->id);
     }
 
@@ -32,7 +32,7 @@ final class FilesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        $client->chat(null);
+        $client->chat_async(null);
     }
 
     /** 400 Bad Request when uploading a file with invalid purpose */
@@ -40,7 +40,7 @@ final class FilesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        $client->chat(null);
+        $client->chat_async(null);
     }
 
     /** 404 Not Found when retrieving a nonexistent file */
@@ -48,14 +48,14 @@ final class FilesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        $client->chat(null);
+        $client->chat_async(null);
     }
 
     /** Upload a file for use with the API */
     public function test_smoke_create_file(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->id);
     }
 
@@ -63,7 +63,7 @@ final class FilesTest extends TestCase
     public function test_smoke_delete_file(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->id);
         $this->assertEquals(true, $result->deleted);
     }
@@ -72,7 +72,7 @@ final class FilesTest extends TestCase
     public function test_smoke_file_content(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->content);
     }
 
@@ -80,7 +80,7 @@ final class FilesTest extends TestCase
     public function test_smoke_list_files(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(2, $result->data);
     }
 
@@ -88,7 +88,7 @@ final class FilesTest extends TestCase
     public function test_smoke_retrieve_file(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->id);
     }
 }

@@ -15,7 +15,7 @@ final class SmokeTest extends TestCase
     public function test_anthropic_chat(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -27,7 +27,7 @@ final class SmokeTest extends TestCase
     public function test_azure_chat(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -39,7 +39,7 @@ final class SmokeTest extends TestCase
     public function test_azure_embed(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat("Hello world");
+        $result = $client->chat_async("Hello world");
         $this->assertCount(1, $result->data);
         $this->assertCount(1536, $result->data["0"]->embedding);
     }
@@ -48,7 +48,7 @@ final class SmokeTest extends TestCase
     public function test_basic_chat(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -60,7 +60,7 @@ final class SmokeTest extends TestCase
     public function test_basic_embed(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat("Hello world");
+        $result = $client->chat_async("Hello world");
         $this->assertCount(1, $result->data);
         $this->assertCount(5, $result->data["0"]->embedding);
     }
@@ -69,7 +69,7 @@ final class SmokeTest extends TestCase
     public function test_basic_list_models(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertGreaterThanOrEqual(1, count($result->data));
     }
 
@@ -77,7 +77,7 @@ final class SmokeTest extends TestCase
     public function test_bedrock_chat(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -89,7 +89,7 @@ final class SmokeTest extends TestCase
     public function test_github_copilot_chat(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -101,7 +101,7 @@ final class SmokeTest extends TestCase
     public function test_local_chat_ollama(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->choices);
     }
 
@@ -109,7 +109,7 @@ final class SmokeTest extends TestCase
     public function test_local_list_models_ollama(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertGreaterThanOrEqual(1, count($result->data));
     }
 
@@ -117,7 +117,7 @@ final class SmokeTest extends TestCase
     public function test_smoke_cache_memory(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->choices);
     }
 
@@ -125,7 +125,7 @@ final class SmokeTest extends TestCase
     public function test_smoke_chat_anthropic(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->choices);
         $this->assertNotEmpty($result->usage);
     }
@@ -134,7 +134,7 @@ final class SmokeTest extends TestCase
     public function test_smoke_chat_gemini(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->choices);
         $this->assertNotEmpty($result->usage);
     }
@@ -143,7 +143,7 @@ final class SmokeTest extends TestCase
     public function test_smoke_chat_openai(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->choices);
         $this->assertNotEmpty($result->usage);
     }
@@ -152,7 +152,7 @@ final class SmokeTest extends TestCase
     public function test_smoke_embed_openai(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(["Hello world"]);
+        $result = $client->chat_async(["Hello world"]);
         $this->assertNotEmpty($result->data);
     }
 
@@ -160,7 +160,7 @@ final class SmokeTest extends TestCase
     public function test_smoke_list_models_openai(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertGreaterThanOrEqual(1, count($result->data));
     }
 
@@ -168,7 +168,7 @@ final class SmokeTest extends TestCase
     public function test_smoke_provider_routing(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertNotEmpty($result->choices);
     }
 
@@ -176,7 +176,7 @@ final class SmokeTest extends TestCase
     public function test_smoke_streaming_openai(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertGreaterThanOrEqual(1, count($result->chunks));
     }
 
@@ -184,7 +184,7 @@ final class SmokeTest extends TestCase
     public function test_vertex_chat(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -196,7 +196,7 @@ final class SmokeTest extends TestCase
     public function test_vertex_embed(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat("Hello");
+        $result = $client->chat_async("Hello");
         $this->assertCount(1, $result->data);
         $this->assertCount(160, $result->data["0"]->embedding);
     }

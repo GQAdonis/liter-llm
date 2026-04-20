@@ -15,7 +15,7 @@ final class ContractTest extends TestCase
     public function test_binding_api_parity(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("OK", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -28,7 +28,7 @@ final class ContractTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectNotToPerformAssertions();
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
     }
 
     /** Verify search() method exists in all bindings */
@@ -36,6 +36,6 @@ final class ContractTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectNotToPerformAssertions();
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
     }
 }

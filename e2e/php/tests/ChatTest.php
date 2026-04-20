@@ -15,7 +15,7 @@ final class ChatTest extends TestCase
     public function test_developer_message(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("s[::-1]", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -25,7 +25,7 @@ final class ChatTest extends TestCase
     public function test_finish_reason_content_filter(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("content_filter", $result->choices["0"]->finish_reason);
     }
@@ -34,7 +34,7 @@ final class ChatTest extends TestCase
     public function test_finish_reason_length(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("length", $result->choices["0"]->finish_reason);
     }
@@ -43,7 +43,7 @@ final class ChatTest extends TestCase
     public function test_multi_turn_conversation(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("4 + 4 equals 8.", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -53,7 +53,7 @@ final class ChatTest extends TestCase
     public function test_parallel_tool_calls(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->tool_calls);
         $this->assertCount(2, $result->choices["0"]->message->tool_calls);
@@ -64,7 +64,7 @@ final class ChatTest extends TestCase
     public function test_response_format_json_object(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -74,7 +74,7 @@ final class ChatTest extends TestCase
     public function test_response_format_json_schema(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
@@ -84,7 +84,7 @@ final class ChatTest extends TestCase
     public function test_seed_parameter(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
         $this->assertNotEmpty($result->system_fingerprint);
@@ -94,7 +94,7 @@ final class ChatTest extends TestCase
     public function test_stop_sequences(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
@@ -103,7 +103,7 @@ final class ChatTest extends TestCase
     public function test_tool_choice_required(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->tool_calls);
         $this->assertEquals("get_weather", $result->choices["0"]->message->tool_calls["0"]->function->name);
@@ -114,7 +114,7 @@ final class ChatTest extends TestCase
     public function test_tool_choice_specific(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->tool_calls);
         $this->assertEquals("get_weather", $result->choices["0"]->message->tool_calls["0"]->function->name);

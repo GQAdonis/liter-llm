@@ -16,7 +16,7 @@ final class CustomProviderTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectNotToPerformAssertions();
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
     }
 
     /** Tests that a custom provider can be registered and routes requests */
@@ -24,6 +24,6 @@ final class CustomProviderTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectNotToPerformAssertions();
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
     }
 }

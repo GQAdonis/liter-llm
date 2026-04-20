@@ -15,7 +15,7 @@ final class ToolCallingTest extends TestCase
     public function test_anthropic_tool_calling(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->tool_calls);
         $this->assertEquals("get_weather", $result->choices["0"]->message->tool_calls["0"]->function->name);
@@ -26,7 +26,7 @@ final class ToolCallingTest extends TestCase
     public function test_single_tool_call(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->tool_calls);
         $this->assertEquals("get_weather", $result->choices["0"]->message->tool_calls["0"]->function->name);

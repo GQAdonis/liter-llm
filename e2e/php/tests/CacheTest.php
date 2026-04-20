@@ -15,7 +15,7 @@ final class CacheTest extends TestCase
     public function test_cache_hit(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertTrue($result->cache_hit);
     }
 
@@ -23,7 +23,7 @@ final class CacheTest extends TestCase
     public function test_cache_miss_ttl(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertTrue($result->cache_hit);
     }
 
@@ -31,7 +31,7 @@ final class CacheTest extends TestCase
     public function test_cache_opendal_memory(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertTrue($result->cache_hit);
     }
 
@@ -39,7 +39,7 @@ final class CacheTest extends TestCase
     public function test_cache_stream_bypass(): void
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
-        $result = $client->chat(null);
+        $result = $client->chat_async(null);
         $this->assertTrue($result->cache_bypassed);
     }
 }
