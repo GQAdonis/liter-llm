@@ -5,7 +5,7 @@ import { resolve } from 'path';
 let serverProcess;
 
 export async function setup() {
-  // Mock server should be pre-built by CI or `cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release`
+  // Mock server binary must be pre-built (e.g. by CI or `cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release`)
   serverProcess = spawn(
     resolve(__dirname, '../rust/target/release/mock-server'),
     [resolve(__dirname, '../../fixtures')],
