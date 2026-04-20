@@ -15,7 +15,7 @@ func Test_EdgeImageB64Response(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
 	if len(result.Data["0"].B64Json) == 0 {
 		t.Errorf("expected non-empty value")
 	}
@@ -59,7 +59,7 @@ func Test_SmokeImageBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
 	if len(result.Data["0"].Url) == 0 {
 		t.Errorf("expected non-empty value")
 	}
@@ -71,7 +71,7 @@ func Test_SmokeImageMultiple(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 3, "expected exactly 3 elements")
 	if len(result.Data["0"].Url) == 0 {
 		t.Errorf("expected non-empty value")
 	}
@@ -83,7 +83,7 @@ func Test_SmokeImageWithSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
 	if len(result.Data["0"].Url) == 0 {
 		t.Errorf("expected non-empty value")
 	}

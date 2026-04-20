@@ -7,7 +7,7 @@ require 'json'
 RSpec.describe 'image-generate' do
   it 'edge_image_b64_response: Image generation returning base64-encoded data instead of URL' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
     expect(result.data.get("0").b64_json).not_to be_empty
   end
 
@@ -29,19 +29,19 @@ RSpec.describe 'image-generate' do
 
   it 'smoke_image_basic: Basic image generation with a text prompt' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
     expect(result.data.get("0").url).not_to be_empty
   end
 
   it 'smoke_image_multiple: Image generation requesting multiple images' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(3)
     expect(result.data.get("0").url).not_to be_empty
   end
 
   it 'smoke_image_with_size: Image generation with explicit size parameter' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
     expect(result.data.get("0").url).not_to be_empty
   end
 end

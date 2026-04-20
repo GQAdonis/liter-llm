@@ -6,7 +6,7 @@ declare(strict_types=1);
 namespace Kreuzberg\E2e;
 
 use PHPUnit\Framework\TestCase;
-use LiterLlm\LiterLlm;
+use Liter\Llm\LiterLlm;
 
 /** E2e tests for category: cache. */
 final class CacheTest extends TestCase
@@ -14,28 +14,32 @@ final class CacheTest extends TestCase
     /** Tests that identical chat requests return cached response */
     public function test_cache_hit(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: is_true
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertTrue($result->cache_hit);
     }
 
     /** Tests that cache expires after TTL */
     public function test_cache_miss_ttl(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: is_true
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertTrue($result->cache_hit);
     }
 
     /** Cache hit with OpenDAL memory backend returns cached response on repeat request */
     public function test_cache_opendal_memory(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: is_true
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertTrue($result->cache_hit);
     }
 
     /** Tests that streaming requests bypass cache entirely */
     public function test_cache_stream_bypass(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: is_true
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertTrue($result->cache_bypassed);
     }
 }

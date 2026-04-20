@@ -5,21 +5,21 @@ import { chat } from 'liter_llm';
 describe('cache', () => {
   it('cache_hit: Tests that identical chat requests return cached response', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: is_true
+    expect(result.cacheHit).toBe(true);
   });
 
   it('cache_miss_ttl: Tests that cache expires after TTL', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: is_true
+    expect(result.cacheHit).toBe(true);
   });
 
   it('cache_opendal_memory: Cache hit with OpenDAL memory backend returns cached response on repeat request', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: is_true
+    expect(result.cacheHit).toBe(true);
   });
 
   it('cache_stream_bypass: Tests that streaming requests bypass cache entirely', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: is_true
+    expect(result.cacheBypassed).toBe(true);
   });
 });

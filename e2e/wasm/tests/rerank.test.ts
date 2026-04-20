@@ -5,12 +5,12 @@ import { chat } from 'liter_llm';
 describe('rerank', () => {
   it('edge_rerank_empty_query: Reranking with an empty query string', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(2);
   });
 
   it('edge_rerank_single_doc: Reranking with only a single document', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(1);
     expect(result.results.get("0").relevanceScore).toBeGreaterThan(0.9);
   });
 
@@ -24,20 +24,20 @@ describe('rerank', () => {
 
   it('smoke_rerank_basic: Basic reranking of documents against a query', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(3);
     expect(result.results.get("0").relevanceScore).toBeGreaterThan(0.9);
   });
 
   it('smoke_rerank_return_docs: Reranking with return_documents flag to include document text', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(2);
     expect(result.results.get("0").document.length).toBeGreaterThan(0);
     expect(result.results.get("0").relevanceScore).toBeGreaterThan(0.9);
   });
 
   it('smoke_rerank_with_top_n: Reranking with top_n parameter to limit results', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(2);
     expect(result.results.get("0").relevanceScore).toBeGreaterThan(0.9);
   });
 });

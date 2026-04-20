@@ -15,7 +15,7 @@ func Test_EdgeFileEmptyList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 0, "expected exactly 0 elements")
 }
 
 func Test_EdgeFileLargeUpload(t *testing.T) {
@@ -95,7 +95,7 @@ func Test_SmokeListFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 2, "expected exactly 2 elements")
 }
 
 func Test_SmokeRetrieveFile(t *testing.T) {

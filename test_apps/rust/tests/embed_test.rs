@@ -19,8 +19,8 @@ async fn test_batch_embed() {
     let request_json = serde_json::json!(["Hello", "World"]);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 2, "expected exactly 2 elements, got {}", result.data.len());
+    assert_eq!(result.data.get("0").map(|s| s.as_str()).embedding.len(), 5, "expected exactly 5 elements, got {}", result.data.get("0").map(|s| s.as_str()).embedding.len());
 }
 
 #[tokio::test]
@@ -37,8 +37,8 @@ async fn test_embed_encoding_format() {
     let request_json = serde_json::json!("Test input");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
+    assert_eq!(result.data.get("0").map(|s| s.as_str()).embedding.len(), 5, "expected exactly 5 elements, got {}", result.data.get("0").map(|s| s.as_str()).embedding.len());
 }
 
 #[tokio::test]
@@ -73,8 +73,8 @@ async fn test_embed_with_dimensions() {
     let request_json = serde_json::json!("Hello world");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
+    assert_eq!(result.data.get("0").map(|s| s.as_str()).embedding.len(), 8, "expected exactly 8 elements, got {}", result.data.get("0").map(|s| s.as_str()).embedding.len());
 }
 
 #[tokio::test]
@@ -91,6 +91,7 @@ async fn test_local_embed_ollama() {
     let request_json = serde_json::json!("The quick brown fox jumps over the lazy dog");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
+    assert_eq!(result.data.get("0").map(|s| s.as_str()).embedding.len(), 32, "expected exactly 32 elements, got {}", result.data.get("0").map(|s| s.as_str()).embedding.len());
 }
+

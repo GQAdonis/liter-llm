@@ -18,7 +18,7 @@ final class ResponsesTest extends TestCase
         $result = $client->chat("");
         $this->assertNotEmpty($result->id);
         $this->assertEquals("completed", $result->status);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(0, $result->output);
     }
 
     /** Response created with a very large input text */
@@ -28,7 +28,7 @@ final class ResponsesTest extends TestCase
         $result = $client->chat("Summarize the following long text: Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. ");
         $this->assertNotEmpty($result->id);
         $this->assertEquals("completed", $result->status);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->output);
     }
 
     /** 401 Unauthorized when creating a response with invalid API key */
@@ -62,7 +62,7 @@ final class ResponsesTest extends TestCase
         $result = $client->chat(null);
         $this->assertNotEmpty($result->id);
         $this->assertEquals("cancelled", $result->status);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(0, $result->output);
     }
 
     /** Create a basic response using the Responses API */
@@ -72,7 +72,7 @@ final class ResponsesTest extends TestCase
         $result = $client->chat("Explain quantum computing in one sentence.");
         $this->assertNotEmpty($result->id);
         $this->assertEquals("completed", $result->status);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->output);
     }
 
     /** Response that includes tool call output items */
@@ -82,7 +82,7 @@ final class ResponsesTest extends TestCase
         $result = $client->chat("What is the weather in San Francisco?");
         $this->assertNotEmpty($result->id);
         $this->assertEquals("completed", $result->status);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(2, $result->output);
         $this->assertNotEmpty($result->choices["0"]->message->tool_calls);
     }
 

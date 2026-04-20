@@ -32,7 +32,7 @@ final class ProxyTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
@@ -44,7 +44,7 @@ final class ProxyTest extends TestCase
         $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(3, count($result->chunks));
         $this->assertEquals("1 2 3", $result->stream_content);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->stream_complete);
     }
 
     /** Embedding request routed through the proxy */
@@ -52,7 +52,7 @@ final class ProxyTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
     }
 
     /** Health check verifying proxy connectivity via list models */
@@ -68,7 +68,7 @@ final class ProxyTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
         $this->assertNotEmpty($result->data["0"]->url);
     }
 
@@ -85,7 +85,7 @@ final class ProxyTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("The weather is nice today.");
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->results);
         $this->assertEquals(false, $result->results["0"]->flagged);
     }
 
@@ -94,7 +94,7 @@ final class ProxyTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(2, $result->results);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
 

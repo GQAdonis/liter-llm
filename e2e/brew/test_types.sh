@@ -8,7 +8,9 @@ test_all_message_types() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__finish_reason
     val_choices_0__finish_reason=$(echo "$output" | jq -r '.choices[0].finish_reason')
     assert_equals "$val_choices_0__finish_reason" 'stop' 'choices[0].finish_reason'
@@ -19,7 +21,9 @@ test_multimodal_content() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__finish_reason
     val_choices_0__finish_reason=$(echo "$output" | jq -r '.choices[0].finish_reason')
     assert_equals "$val_choices_0__finish_reason" 'stop' 'choices[0].finish_reason'

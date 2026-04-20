@@ -10,7 +10,7 @@ class ImageGenerateTest {
     void testEdgeImageB64Response() throws Exception {
         // Image generation returning base64-encoded data instead of URL
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
         assertFalse(result.data().get("0").b64Json().isEmpty(), "expected non-empty value");
     }
 
@@ -42,7 +42,7 @@ class ImageGenerateTest {
     void testSmokeImageBasic() throws Exception {
         // Basic image generation with a text prompt
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
         assertFalse(result.data().get("0").url().isEmpty(), "expected non-empty value");
     }
 
@@ -50,7 +50,7 @@ class ImageGenerateTest {
     void testSmokeImageMultiple() throws Exception {
         // Image generation requesting multiple images
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(3, result.data().size(), "expected exactly 3 elements");
         assertFalse(result.data().get("0").url().isEmpty(), "expected non-empty value");
     }
 
@@ -58,7 +58,7 @@ class ImageGenerateTest {
     void testSmokeImageWithSize() throws Exception {
         // Image generation with explicit size parameter
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
         assertFalse(result.data().get("0").url().isEmpty(), "expected non-empty value");
     }
 

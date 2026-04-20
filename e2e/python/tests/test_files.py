@@ -9,7 +9,7 @@ async def test_edge_file_empty_list() -> None:
     """List files when no files have been uploaded."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 0  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_edge_file_large_upload() -> None:
@@ -69,7 +69,7 @@ async def test_smoke_list_files() -> None:
     """List all uploaded files."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 2  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_smoke_retrieve_file() -> None:

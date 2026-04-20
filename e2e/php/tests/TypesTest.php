@@ -16,7 +16,7 @@ final class TypesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
 
@@ -25,7 +25,7 @@ final class TypesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
 }

@@ -7,68 +7,68 @@ require 'json'
 RSpec.describe 'chat' do
   it 'developer_message: Chat request that includes a developer role message alongside user messages' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('s[::-1]')
     expect(result.choices.get("0").finish_reason).to eq('stop')
   end
 
   it 'finish_reason_content_filter: Chat response stopped by content filter with finish_reason of content_filter and null content' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").finish_reason).to eq('content_filter')
   end
 
   it 'finish_reason_length: Chat response truncated due to max_tokens limit with finish_reason of length' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").finish_reason).to eq('length')
   end
 
   it 'multi_turn_conversation: Multi-turn conversation with system, user, assistant, and follow-up user messages' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('4 + 4 equals 8.')
     expect(result.choices.get("0").finish_reason).to eq('stop')
   end
 
   it 'parallel_tool_calls: Chat request that results in parallel tool calls in the response' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.tool_calls).not_to be_empty
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.get("0").message.tool_calls.length).to eq(2)
     expect(result.choices.get("0").finish_reason).to eq('tool_calls')
   end
 
   it 'response_format_json_object: Chat request with response_format json_object that returns valid JSON content' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).not_to be_empty
     expect(result.choices.get("0").finish_reason).to eq('stop')
   end
 
   it 'response_format_json_schema: Chat request with response_format json_schema that validates the output structure' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).not_to be_empty
     expect(result.choices.get("0").finish_reason).to eq('stop')
   end
 
   it 'seed_parameter: Chat request with seed parameter for deterministic output; response includes system_fingerprint' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.system_fingerprint).not_to be_empty
   end
 
   it 'stop_sequences: Chat request with custom stop sequences that terminates generation at a stop token' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").finish_reason).to eq('stop')
   end
 
   it 'tool_choice_required: Chat request with tool_choice set to required forces the model to call a tool' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.tool_calls).not_to be_empty
     expect(result.choices.get("0").message.tool_calls.get("0").function.name).to eq('get_weather')
     expect(result.choices.get("0").finish_reason).to eq('tool_calls')
@@ -76,7 +76,7 @@ RSpec.describe 'chat' do
 
   it 'tool_choice_specific: Chat request with tool_choice specifying a particular function to call' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.tool_calls).not_to be_empty
     expect(result.choices.get("0").message.tool_calls.get("0").function.name).to eq('get_weather')
     expect(result.choices.get("0").finish_reason).to eq('tool_calls')

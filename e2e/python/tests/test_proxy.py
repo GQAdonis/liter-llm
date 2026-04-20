@@ -25,7 +25,7 @@ async def test_proxy_chat_basic() -> None:
     """Basic chat completion request routed through the proxy."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hello!"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
@@ -36,14 +36,14 @@ async def test_proxy_chat_streaming() -> None:
     result = await chat(request=request)
     assert len(result.chunks) >= 3  # noqa: S101
     assert result.stream_content.strip() == "1 2 3"  # noqa: S101
-    # TODO: unsupported assertion type: is_true
+    assert result.stream_complete is True  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_proxy_embeddings() -> None:
     """Embedding request routed through the proxy."""
     request = "Hello world"
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_proxy_health() -> None:
@@ -57,7 +57,7 @@ async def test_proxy_image_generate() -> None:
     """Image generation request routed through the proxy."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
     assert result.data.get("0").url  # noqa: S101
 
 @pytest.mark.asyncio
@@ -72,7 +72,7 @@ async def test_proxy_moderation() -> None:
     """Content moderation request routed through the proxy."""
     request = "The weather is nice today."
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").flagged is False  # noqa: S101
 
 @pytest.mark.asyncio
@@ -80,7 +80,7 @@ async def test_proxy_rerank() -> None:
     """Document reranking request routed through the proxy."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 2  # noqa: S101
     assert result.results.get("0").relevance_score > 0.9  # noqa: S101
 
 @pytest.mark.asyncio

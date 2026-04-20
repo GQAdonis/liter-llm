@@ -5,7 +5,7 @@ import { chat } from 'liter_llm';
 describe('smoke', () => {
   it('anthropic_chat: Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices["0"].message.content.trim()).toBe("Hello!");
     expect(result.choices["0"].finishReason.trim()).toBe("stop");
     expect(result.model.trim()).toBe("claude-3-5-sonnet-20241022");
@@ -14,7 +14,7 @@ describe('smoke', () => {
 
   it('azure_chat: Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices["0"].message.content.trim()).toBe("Hello!");
     expect(result.choices["0"].finishReason.trim()).toBe("stop");
     expect(result.model.trim()).toBe("gpt-4");
@@ -23,13 +23,13 @@ describe('smoke', () => {
 
   it('azure_embed: Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged', async () => {
     const result = await chat("Hello world");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
+    expect(result.data["0"].embedding.length).toBe(1536);
   });
 
   it('basic_chat: Basic chat completion with a single user message', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices["0"].message.content.trim()).toBe("Hello!");
     expect(result.choices["0"].finishReason.trim()).toBe("stop");
     expect(result.usage.totalTokens).toBe(15);
@@ -38,8 +38,8 @@ describe('smoke', () => {
 
   it('basic_embed: Basic embedding request for a single input string', async () => {
     const result = await chat("Hello world");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
+    expect(result.data["0"].embedding.length).toBe(5);
   });
 
   it('basic_list_models: List available models from the API', async () => {
@@ -49,7 +49,7 @@ describe('smoke', () => {
 
   it('bedrock_chat: Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices["0"].message.content.trim()).toBe("Hello!");
     expect(result.choices["0"].finishReason.trim()).toBe("stop");
     expect(result.model.trim()).toBe("anthropic.claude-3-sonnet-20240229-v1:0");
@@ -58,7 +58,7 @@ describe('smoke', () => {
 
   it('github_copilot_chat: Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices["0"].message.content.trim()).toBe("Hello!");
     expect(result.choices["0"].finishReason.trim()).toBe("stop");
     expect(result.model.trim()).toBe("gpt-4o");
@@ -120,7 +120,7 @@ describe('smoke', () => {
 
   it('vertex_chat: Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices["0"].message.content.trim()).toBe("Hello!");
     expect(result.choices["0"].finishReason.trim()).toBe("stop");
     expect(result.model.trim()).toBe("gemini-2.0-flash");
@@ -129,7 +129,7 @@ describe('smoke', () => {
 
   it('vertex_embed: Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape', async () => {
     const result = await chat("Hello");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
+    expect(result.data["0"].embedding.length).toBe(160);
   });
 });

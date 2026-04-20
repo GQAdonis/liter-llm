@@ -7,7 +7,7 @@ require 'json'
 RSpec.describe 'files' do
   it 'edge_file_empty_list: List files when no files have been uploaded' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(0)
   end
 
   it 'edge_file_large_upload: Upload a large file successfully' do
@@ -45,7 +45,7 @@ RSpec.describe 'files' do
 
   it 'smoke_list_files: List all uploaded files' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(2)
   end
 
   it 'smoke_retrieve_file: Retrieve metadata for an uploaded file' do

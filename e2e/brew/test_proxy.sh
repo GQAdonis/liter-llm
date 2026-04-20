@@ -24,7 +24,9 @@ test_proxy_chat_basic() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hello!' 'choices[0].message.content'
@@ -44,7 +46,9 @@ test_proxy_chat_streaming() {
     local val_stream_content
     val_stream_content=$(echo "$output" | jq -r '.stream_content')
     assert_equals "$val_stream_content" '1 2 3' 'stream_content'
-    # TODO: unsupported assertion type: is_true
+    local val_stream_complete
+    val_stream_complete=$(echo "$output" | jq -r '.stream_complete')
+    [ "$val_stream_complete" = "true" ] || exit 1
 }
 
 test_proxy_embeddings() {
@@ -52,7 +56,9 @@ test_proxy_embeddings() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
 }
 
 test_proxy_health() {
@@ -70,7 +76,9 @@ test_proxy_image_generate() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
     local val_data_0__url
     val_data_0__url=$(echo "$output" | jq -r '.data[0].url')
     assert_not_empty "$val_data_0__url" 'data[0].url'
@@ -91,7 +99,9 @@ test_proxy_moderation() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 1 ] || exit 1
     local val_results_0__flagged
     val_results_0__flagged=$(echo "$output" | jq -r '.results[0].flagged')
     assert_equals "$val_results_0__flagged" 'false' 'results[0].flagged'
@@ -102,7 +112,9 @@ test_proxy_rerank() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 2 ] || exit 1
     local val_results_0__relevance_score
     val_results_0__relevance_score=$(echo "$output" | jq -r '.results[0].relevance_score')
     assert_greater_than "$val_results_0__relevance_score" '0.9' 'results[0].relevance_score'

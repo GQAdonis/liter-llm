@@ -19,7 +19,7 @@ async fn test_anthropic_chat() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"Hello!"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
     assert_eq!(result.model.trim(), r#"claude-3-5-sonnet-20241022"#, "equals assertion failed");
@@ -40,7 +40,7 @@ async fn test_azure_chat() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"Hello!"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
     assert_eq!(result.model.trim(), r#"gpt-4"#, "equals assertion failed");
@@ -61,8 +61,8 @@ async fn test_azure_embed() {
     let request_json = serde_json::json!("Hello world");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
+    assert_eq!(result.data.get("0").map(|s| s.as_str()).embedding.len(), 1536, "expected exactly 1536 elements, got {}", result.data.get("0").map(|s| s.as_str()).embedding.len());
 }
 
 #[tokio::test]
@@ -79,7 +79,7 @@ async fn test_basic_chat() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"Hello!"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
     assert_eq!(result.usage.total_tokens, 15, "equals assertion failed");
@@ -100,8 +100,8 @@ async fn test_basic_embed() {
     let request_json = serde_json::json!("Hello world");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
+    assert_eq!(result.data.get("0").map(|s| s.as_str()).embedding.len(), 5, "expected exactly 5 elements, got {}", result.data.get("0").map(|s| s.as_str()).embedding.len());
 }
 
 #[tokio::test]
@@ -135,7 +135,7 @@ async fn test_bedrock_chat() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"Hello!"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
     assert_eq!(result.model.trim(), r#"anthropic.claude-3-sonnet-20240229-v1:0"#, "equals assertion failed");
@@ -156,7 +156,7 @@ async fn test_github_copilot_chat() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"Hello!"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
     assert_eq!(result.model.trim(), r#"gpt-4o"#, "equals assertion failed");
@@ -270,7 +270,7 @@ async fn test_vertex_chat() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"Hello!"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
     assert_eq!(result.model.trim(), r#"gemini-2.0-flash"#, "equals assertion failed");
@@ -291,7 +291,7 @@ async fn test_vertex_embed() {
     let request_json = serde_json::json!("Hello");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
+    assert_eq!(result.data.get("0").map(|s| s.as_str()).embedding.len(), 160, "expected exactly 160 elements, got {}", result.data.get("0").map(|s| s.as_str()).embedding.len());
 }
 

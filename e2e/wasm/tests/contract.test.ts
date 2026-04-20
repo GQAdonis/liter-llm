@@ -5,7 +5,7 @@ import { chat } from 'liter_llm';
 describe('contract', () => {
   it('binding_api_parity: Verify all bindings expose the full API surface — constructor accepts all config options and every method exists', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices.get("0").message.content.trim()).toBe("OK");
     expect(result.choices.get("0").finishReason.trim()).toBe("stop");
     expect(result.usage.totalTokens).toBe(6);

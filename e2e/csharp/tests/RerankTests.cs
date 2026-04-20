@@ -17,7 +17,7 @@ public class RerankTests
     {
         // Reranking with an empty query string
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Results.Count);
     }
 
     [Fact]
@@ -25,7 +25,7 @@ public class RerankTests
     {
         // Reranking with only a single document
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Results.Count);
         Assert.True(result.Results["0"].RelevanceScore > 0.9d, "expected > 0.9d");
     }
 
@@ -48,7 +48,7 @@ public class RerankTests
     {
         // Basic reranking of documents against a query
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(3, result.Results.Count);
         Assert.True(result.Results["0"].RelevanceScore > 0.9d, "expected > 0.9d");
     }
 
@@ -57,7 +57,7 @@ public class RerankTests
     {
         // Reranking with return_documents flag to include document text
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Results.Count);
         Assert.False(string.IsNullOrEmpty(result.Results["0"].Document?.ToString()));
         Assert.True(result.Results["0"].RelevanceScore > 0.9d, "expected > 0.9d");
     }
@@ -67,7 +67,7 @@ public class RerankTests
     {
         // Reranking with top_n parameter to limit results
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Results.Count);
         Assert.True(result.Results["0"].RelevanceScore > 0.9d, "expected > 0.9d");
     }
 }

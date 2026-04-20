@@ -17,8 +17,8 @@ public class EmbedTests
     {
         // Embedding request with multiple input strings returns one embedding object per input
         var result = await LiterLlmLib.Chat(new[] { "Hello", "World" });
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Data.Count);
+        Assert.Equal(5, result.Data["0"].Embedding.Count);
     }
 
     [Fact]
@@ -26,8 +26,8 @@ public class EmbedTests
     {
         // Embedding request with explicit encoding_format of float returns float array embeddings
         var result = await LiterLlmLib.Chat("Test input");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
+        Assert.Equal(5, result.Data["0"].Embedding.Count);
     }
 
     [Fact]
@@ -42,8 +42,8 @@ public class EmbedTests
     {
         // Embedding request with explicit dimensions parameter returns embeddings of the requested size
         var result = await LiterLlmLib.Chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
+        Assert.Equal(8, result.Data["0"].Embedding.Count);
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class EmbedTests
     {
         // Embedding request via Ollama local provider with all-minilm model
         var result = await LiterLlmLib.Chat("The quick brown fox jumps over the lazy dog");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
+        Assert.Equal(32, result.Data["0"].Embedding.Count);
     }
 }

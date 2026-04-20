@@ -22,7 +22,7 @@ void test_anthropic_stream(void) {
         assert(elem_count >= 3 && "expected at least 3 elements");
     }
     assert(str_trim_eq(stream_content, "One Two Three") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: is_true */
+    assert(stream_complete);
     _free_string(chunks);
     _free_string(stream_content);
     _free_string(stream_complete);
@@ -43,7 +43,7 @@ void test_azure_stream(void) {
         assert(elem_count >= 3 && "expected at least 3 elements");
     }
     assert(str_trim_eq(stream_content, "1 2 3") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: is_true */
+    assert(stream_complete);
     _free_string(chunks);
     _free_string(stream_content);
     _free_string(stream_complete);
@@ -82,7 +82,7 @@ void test_bedrock_stream(void) {
         assert(elem_count >= 2 && "expected at least 2 elements");
     }
     assert(str_trim_eq(stream_content, "One Two Three") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: is_true */
+    assert(stream_complete);
     _free_string(chunks);
     _free_string(stream_content);
     _free_string(stream_complete);
@@ -121,7 +121,7 @@ void test_local_stream_ollama(void) {
         assert(elem_count >= 3 && "expected at least 3 elements");
     }
     assert(str_trim_eq(stream_content, "1 2 3") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: is_true */
+    assert(stream_complete);
     _free_string(chunks);
     _free_string(stream_content);
     _free_string(stream_complete);
@@ -135,9 +135,9 @@ void test_stream_done_signal(void) {
     char* stream_complete = _conversion_result_stream_complete(result);
     char* stream_content = _conversion_result_stream_content(result);
     char* no_chunks_after_done = _conversion_result_no_chunks_after_done(result);
-    /* TODO: unsupported assertion type: is_true */
+    assert(stream_complete);
     assert(str_trim_eq(stream_content, "Done") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: is_true */
+    assert(no_chunks_after_done);
     _free_string(stream_complete);
     _free_string(stream_content);
     _free_string(no_chunks_after_done);
@@ -215,7 +215,7 @@ void test_vertex_stream(void) {
         assert(elem_count >= 2 && "expected at least 2 elements");
     }
     assert(str_trim_eq(stream_content, "One Two Three") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: is_true */
+    assert(stream_complete);
     _free_string(chunks);
     _free_string(stream_content);
     _free_string(stream_complete);

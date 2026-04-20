@@ -7,7 +7,7 @@ defmodule E2e.ListModelsTest do
     test "List models response returns an empty data array when no models are available" do
       {:ok, result} = LiterLlm.chat_async(nil)
       assert length(result.data) >= 0
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 0
     end
   end
 

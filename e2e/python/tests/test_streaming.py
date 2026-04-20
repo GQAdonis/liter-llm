@@ -11,7 +11,7 @@ async def test_anthropic_stream() -> None:
     result = await chat(request=request)
     assert len(result.chunks) >= 3  # noqa: S101
     assert result.stream_content.strip() == "One Two Three"  # noqa: S101
-    # TODO: unsupported assertion type: is_true
+    assert result.stream_complete is True  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_azure_stream() -> None:
@@ -20,7 +20,7 @@ async def test_azure_stream() -> None:
     result = await chat(request=request)
     assert len(result.chunks) >= 3  # noqa: S101
     assert result.stream_content.strip() == "1 2 3"  # noqa: S101
-    # TODO: unsupported assertion type: is_true
+    assert result.stream_complete is True  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_basic_stream() -> None:
@@ -37,7 +37,7 @@ async def test_bedrock_stream() -> None:
     result = await chat(request=request)
     assert len(result.chunks) >= 2  # noqa: S101
     assert result.stream_content.strip() == "One Two Three"  # noqa: S101
-    # TODO: unsupported assertion type: is_true
+    assert result.stream_complete is True  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_empty_stream() -> None:
@@ -54,16 +54,16 @@ async def test_local_stream_ollama() -> None:
     result = await chat(request=request)
     assert len(result.chunks) >= 3  # noqa: S101
     assert result.stream_content.strip() == "1 2 3"  # noqa: S101
-    # TODO: unsupported assertion type: is_true
+    assert result.stream_complete is True  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_stream_done_signal() -> None:
     """Verify that the [DONE] sentinel signal properly terminates the stream."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: is_true
+    assert result.stream_complete is True  # noqa: S101
     assert result.stream_content.strip() == "Done"  # noqa: S101
-    # TODO: unsupported assertion type: is_true
+    assert result.no_chunks_after_done is True  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_stream_error_401() -> None:
@@ -99,5 +99,5 @@ async def test_vertex_stream() -> None:
     result = await chat(request=request)
     assert len(result.chunks) >= 2  # noqa: S101
     assert result.stream_content.strip() == "One Two Three"  # noqa: S101
-    # TODO: unsupported assertion type: is_true
+    assert result.stream_complete is True  # noqa: S101
 

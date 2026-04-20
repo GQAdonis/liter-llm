@@ -17,7 +17,7 @@ public class ModerateTests
     {
         // Moderation response with multiple categories flagged
         var result = await LiterLlmLib.Chat("Extremely harmful content targeting multiple categories");
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Results.Count);
         Assert.Equal(true, result.Results["0"].Flagged);
     }
 
@@ -26,7 +26,7 @@ public class ModerateTests
     {
         // Moderation with empty string input
         var result = await LiterLlmLib.Chat("");
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Results.Count);
         Assert.Equal(false, result.Results["0"].Flagged);
     }
 
@@ -49,7 +49,7 @@ public class ModerateTests
     {
         // Moderate multiple inputs in a single request
         var result = await LiterLlmLib.Chat(new[] { "Hello world", "Nice weather today" });
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Results.Count);
         Assert.Equal(false, result.Results["0"].Flagged);
     }
 
@@ -58,7 +58,7 @@ public class ModerateTests
     {
         // Moderation detects flagged content
         var result = await LiterLlmLib.Chat("I want to hurt someone very badly");
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Results.Count);
         Assert.Equal(true, result.Results["0"].Flagged);
     }
 
@@ -67,7 +67,7 @@ public class ModerateTests
     {
         // Moderate a single non-flagged input
         var result = await LiterLlmLib.Chat("The weather is nice today.");
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Results.Count);
         Assert.Equal(false, result.Results["0"].Flagged);
     }
 }

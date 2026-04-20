@@ -6,28 +6,28 @@ defmodule E2e.CacheTest do
   describe "cache_hit" do
     test "Tests that identical chat requests return cached response" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: is_true
+      assert result.cache_hit == true
     end
   end
 
   describe "cache_miss_ttl" do
     test "Tests that cache expires after TTL" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: is_true
+      assert result.cache_hit == true
     end
   end
 
   describe "cache_opendal_memory" do
     test "Cache hit with OpenDAL memory backend returns cached response on repeat request" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: is_true
+      assert result.cache_hit == true
     end
   end
 
   describe "cache_stream_bypass" do
     test "Tests that streaming requests bypass cache entirely" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: is_true
+      assert result.cache_bypassed == true
     end
   end
 end

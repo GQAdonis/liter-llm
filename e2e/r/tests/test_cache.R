@@ -3,20 +3,20 @@
 
 test_that("cache_hit: Tests that identical chat requests return cached response", {
   result <- chat()
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$cache_hit)
 })
 
 test_that("cache_miss_ttl: Tests that cache expires after TTL", {
   result <- chat()
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$cache_hit)
 })
 
 test_that("cache_opendal_memory: Cache hit with OpenDAL memory backend returns cached response on repeat request", {
   result <- chat()
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$cache_hit)
 })
 
 test_that("cache_stream_bypass: Tests that streaming requests bypass cache entirely", {
   result <- chat()
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$cache_bypassed)
 })

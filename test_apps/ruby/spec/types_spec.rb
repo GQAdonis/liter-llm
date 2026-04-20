@@ -7,13 +7,13 @@ require 'json'
 RSpec.describe 'types' do
   it 'all_message_types: Request with all message role types (system, user, assistant, tool) to verify round-trip serialization' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").finish_reason).to eq('stop')
   end
 
   it 'multimodal_content: User message with mixed text and image_url content parts to verify multimodal serialization' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").finish_reason).to eq('stop')
   end
 end

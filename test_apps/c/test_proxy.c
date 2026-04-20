@@ -29,7 +29,12 @@ void test_proxy_chat_basic(void) {
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     _free_string(choices);
@@ -53,7 +58,7 @@ void test_proxy_chat_streaming(void) {
         assert(elem_count >= 3 && "expected at least 3 elements");
     }
     assert(str_trim_eq(stream_content, "1 2 3") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: is_true */
+    assert(stream_complete);
     _free_string(chunks);
     _free_string(stream_content);
     _free_string(stream_complete);
@@ -66,7 +71,12 @@ void test_proxy_embeddings(void) {
     HTMConversionResult* result = chat(options_handle);
     assert(result != NULL && "expected call to succeed");
     char* data = _conversion_result_data(result);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     _free_string(data);
     _conversion_options_free(options_handle);
     _conversion_result_free(result);
@@ -95,7 +105,12 @@ void test_proxy_image_generate(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_url = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
     _free_string(data);
     free(data_0_url);
@@ -127,7 +142,12 @@ void test_proxy_moderation(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
     _free_string(results);
     free(results_0_flagged);
@@ -144,7 +164,12 @@ void test_proxy_rerank(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 2 && "expected 2 elements");
+    }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
     _free_string(results);
     free(results_0_relevance_score);

@@ -21,7 +21,12 @@ void test_anthropic_chat(void) {
     Usage* usage_handle = _conversion_result_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = _usage_total_tokens(usage_handle);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "claude-3-5-sonnet-20241022") == 0 && "equals assertion failed");
@@ -49,7 +54,12 @@ void test_azure_chat(void) {
     Usage* usage_handle = _conversion_result_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = _usage_total_tokens(usage_handle);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "gpt-4") == 0 && "equals assertion failed");
@@ -73,8 +83,18 @@ void test_azure_embed(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
+    {
+        /* count_equals: count elements in array */
+        assert(data_0_embedding != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data_0_embedding);
+        assert(elem_count == 1536 && "expected 1536 elements");
+    }
     _free_string(data);
     free(data_0_embedding);
     _free_string(data_json);
@@ -95,7 +115,12 @@ void test_basic_chat(void) {
     assert(usage_handle != NULL);
     char* usage_total_tokens = _usage_total_tokens(usage_handle);
     char* model = _conversion_result_model(result);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(strcmp(usage_total_tokens, 15) == 0 && "equals assertion failed");
@@ -119,8 +144,18 @@ void test_basic_embed(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
+    {
+        /* count_equals: count elements in array */
+        assert(data_0_embedding != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data_0_embedding);
+        assert(elem_count == 5 && "expected 5 elements");
+    }
     _free_string(data);
     free(data_0_embedding);
     _free_string(data_json);
@@ -156,7 +191,12 @@ void test_bedrock_chat(void) {
     Usage* usage_handle = _conversion_result_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = _usage_total_tokens(usage_handle);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "anthropic.claude-3-sonnet-20240229-v1:0") == 0 && "equals assertion failed");
@@ -184,7 +224,12 @@ void test_github_copilot_chat(void) {
     Usage* usage_handle = _conversion_result_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = _usage_total_tokens(usage_handle);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "gpt-4o") == 0 && "equals assertion failed");
@@ -338,7 +383,12 @@ void test_vertex_chat(void) {
     Usage* usage_handle = _conversion_result_usage(result);
     assert(usage_handle != NULL);
     char* usage_total_tokens = _usage_total_tokens(usage_handle);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "Hello!") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(str_trim_eq(model, "gemini-2.0-flash") == 0 && "equals assertion failed");
@@ -362,8 +412,18 @@ void test_vertex_embed(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
+    {
+        /* count_equals: count elements in array */
+        assert(data_0_embedding != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data_0_embedding);
+        assert(elem_count == 160 && "expected 160 elements");
+    }
     _free_string(data);
     free(data_0_embedding);
     _free_string(data_json);

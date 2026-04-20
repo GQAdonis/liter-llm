@@ -3,12 +3,12 @@
 
 test_that("all_message_types: Request with all message role types (system, user, assistant, tool) to verify round-trip serialization", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
 })
 
 test_that("multimodal_content: User message with mixed text and image_url content parts to verify multimodal serialization", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
 })

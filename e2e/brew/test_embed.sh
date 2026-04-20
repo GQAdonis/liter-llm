@@ -8,8 +8,12 @@ test_batch_embed() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 2 ] || exit 1
+    local count_data_0__embedding
+    count_data_0__embedding=$(echo "$output" | jq '.data[0].embedding | length')
+    [ "$count_data_0__embedding" -eq 5 ] || exit 1
 }
 
 test_embed_encoding_format() {
@@ -17,8 +21,12 @@ test_embed_encoding_format() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
+    local count_data_0__embedding
+    count_data_0__embedding=$(echo "$output" | jq '.data[0].embedding | length')
+    [ "$count_data_0__embedding" -eq 5 ] || exit 1
 }
 
 test_embed_error_401() {
@@ -34,8 +42,12 @@ test_embed_with_dimensions() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
+    local count_data_0__embedding
+    count_data_0__embedding=$(echo "$output" | jq '.data[0].embedding | length')
+    [ "$count_data_0__embedding" -eq 8 ] || exit 1
 }
 
 test_local_embed_ollama() {
@@ -43,8 +55,12 @@ test_local_embed_ollama() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
+    local count_data_0__embedding
+    count_data_0__embedding=$(echo "$output" | jq '.data[0].embedding | length')
+    [ "$count_data_0__embedding" -eq 32 ] || exit 1
 }
 
 run_tests_embed() {

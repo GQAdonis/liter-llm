@@ -8,7 +8,9 @@ test_cache_hit() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: is_true
+    local val_cache_hit
+    val_cache_hit=$(echo "$output" | jq -r '.cache_hit')
+    [ "$val_cache_hit" = "true" ] || exit 1
 }
 
 test_cache_miss_ttl() {
@@ -16,7 +18,9 @@ test_cache_miss_ttl() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: is_true
+    local val_cache_hit
+    val_cache_hit=$(echo "$output" | jq -r '.cache_hit')
+    [ "$val_cache_hit" = "true" ] || exit 1
 }
 
 test_cache_opendal_memory() {
@@ -24,7 +28,9 @@ test_cache_opendal_memory() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: is_true
+    local val_cache_hit
+    val_cache_hit=$(echo "$output" | jq -r '.cache_hit')
+    [ "$val_cache_hit" = "true" ] || exit 1
 }
 
 test_cache_stream_bypass() {
@@ -32,7 +38,9 @@ test_cache_stream_bypass() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: is_true
+    local val_cache_bypassed
+    val_cache_bypassed=$(echo "$output" | jq -r '.cache_bypassed')
+    [ "$val_cache_bypassed" = "true" ] || exit 1
 }
 
 run_tests_cache() {

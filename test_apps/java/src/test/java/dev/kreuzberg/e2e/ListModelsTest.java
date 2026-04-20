@@ -11,7 +11,7 @@ class ListModelsTest {
         // List models response returns an empty data array when no models are available
         var result = LiterLlm.chat(null);
         assertTrue(result.data().size() >= 0, "expected at least 0 elements");
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(0, result.data().size(), "expected exactly 0 elements");
     }
 
     @Test

@@ -6,16 +6,16 @@ defmodule E2e.EmbedTest do
   describe "batch_embed" do
     test "Embedding request with multiple input strings returns one embedding object per input" do
       {:ok, result} = LiterLlm.chat_async(["Hello", "World"])
-      # TODO: unsupported assertion type: count_equals
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 2
+      assert length(result.data["0"].embedding) == 5
     end
   end
 
   describe "embed_encoding_format" do
     test "Embedding request with explicit encoding_format of float returns float array embeddings" do
       {:ok, result} = LiterLlm.chat_async("Test input")
-      # TODO: unsupported assertion type: count_equals
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
+      assert length(result.data["0"].embedding) == 5
     end
   end
 
@@ -28,16 +28,16 @@ defmodule E2e.EmbedTest do
   describe "embed_with_dimensions" do
     test "Embedding request with explicit dimensions parameter returns embeddings of the requested size" do
       {:ok, result} = LiterLlm.chat_async("Hello world")
-      # TODO: unsupported assertion type: count_equals
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
+      assert length(result.data["0"].embedding) == 8
     end
   end
 
   describe "local_embed_ollama" do
     test "Embedding request via Ollama local provider with all-minilm model" do
       {:ok, result} = LiterLlm.chat_async("The quick brown fox jumps over the lazy dog")
-      # TODO: unsupported assertion type: count_equals
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
+      assert length(result.data["0"].embedding) == 32
     end
   end
 end

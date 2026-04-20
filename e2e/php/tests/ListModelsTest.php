@@ -17,7 +17,7 @@ final class ListModelsTest extends TestCase
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(0, count($result->data));
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(0, $result->data);
     }
 
     /** 401 Unauthorized error on list models request when API key is invalid */

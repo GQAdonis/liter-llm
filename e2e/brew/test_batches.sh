@@ -16,7 +16,9 @@ test_edge_batch_empty_list() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 0 ] || exit 1
 }
 
 test_error_batch_auth_401() {
@@ -87,7 +89,9 @@ test_smoke_list_batches() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 2 ] || exit 1
 }
 
 test_smoke_retrieve_batch() {

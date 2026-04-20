@@ -3,7 +3,7 @@
 
 test_that("edge_image_b64_response: Image generation returning base64-encoded data instead of URL", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 1)
   expect_true(if (is.character(result$data[["0"]]$b64_json)) nchar(result$data[["0"]]$b64_json) > 0 else length(result$data[["0"]]$b64_json) > 0)
 })
 
@@ -25,18 +25,18 @@ test_that("error_image_rate_limit: 429 Rate limit exceeded for image generation"
 
 test_that("smoke_image_basic: Basic image generation with a text prompt", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 1)
   expect_true(if (is.character(result$data[["0"]]$url)) nchar(result$data[["0"]]$url) > 0 else length(result$data[["0"]]$url) > 0)
 })
 
 test_that("smoke_image_multiple: Image generation requesting multiple images", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 3)
   expect_true(if (is.character(result$data[["0"]]$url)) nchar(result$data[["0"]]$url) > 0 else length(result$data[["0"]]$url) > 0)
 })
 
 test_that("smoke_image_with_size: Image generation with explicit size parameter", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 1)
   expect_true(if (is.character(result$data[["0"]]$url)) nchar(result$data[["0"]]$url) > 0 else length(result$data[["0"]]$url) > 0)
 })

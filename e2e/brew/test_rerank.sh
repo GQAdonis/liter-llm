@@ -8,7 +8,9 @@ test_edge_rerank_empty_query() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 2 ] || exit 1
 }
 
 test_edge_rerank_single_doc() {
@@ -16,7 +18,9 @@ test_edge_rerank_single_doc() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 1 ] || exit 1
     local val_results_0__relevance_score
     val_results_0__relevance_score=$(echo "$output" | jq -r '.results[0].relevance_score')
     assert_greater_than "$val_results_0__relevance_score" '0.9' 'results[0].relevance_score'
@@ -43,7 +47,9 @@ test_smoke_rerank_basic() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 3 ] || exit 1
     local val_results_0__relevance_score
     val_results_0__relevance_score=$(echo "$output" | jq -r '.results[0].relevance_score')
     assert_greater_than "$val_results_0__relevance_score" '0.9' 'results[0].relevance_score'
@@ -54,7 +60,9 @@ test_smoke_rerank_return_docs() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 2 ] || exit 1
     local val_results_0__document
     val_results_0__document=$(echo "$output" | jq -r '.results[0].document')
     assert_not_empty "$val_results_0__document" 'results[0].document'
@@ -68,7 +76,9 @@ test_smoke_rerank_with_top_n() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 2 ] || exit 1
     local val_results_0__relevance_score
     val_results_0__relevance_score=$(echo "$output" | jq -r '.results[0].relevance_score')
     assert_greater_than "$val_results_0__relevance_score" '0.9' 'results[0].relevance_score'

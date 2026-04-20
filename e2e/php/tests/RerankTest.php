@@ -16,7 +16,7 @@ final class RerankTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(2, $result->results);
     }
 
     /** Reranking with only a single document */
@@ -24,7 +24,7 @@ final class RerankTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->results);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
 
@@ -49,7 +49,7 @@ final class RerankTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(3, $result->results);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
 
@@ -58,7 +58,7 @@ final class RerankTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(2, $result->results);
         $this->assertNotEmpty($result->results["0"]->document);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
@@ -68,7 +68,7 @@ final class RerankTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(2, $result->results);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
 }

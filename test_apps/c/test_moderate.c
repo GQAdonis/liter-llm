@@ -17,7 +17,12 @@ void test_edge_moderate_all_categories(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strcmp(results_0_flagged, 1) == 0 && "equals assertion failed");
     _free_string(results);
     free(results_0_flagged);
@@ -35,7 +40,12 @@ void test_edge_moderate_empty_input(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
     _free_string(results);
     free(results_0_flagged);
@@ -69,7 +79,12 @@ void test_smoke_moderate_batch(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 2 && "expected 2 elements");
+    }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
     _free_string(results);
     free(results_0_flagged);
@@ -87,7 +102,12 @@ void test_smoke_moderate_flagged(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strcmp(results_0_flagged, 1) == 0 && "equals assertion failed");
     _free_string(results);
     free(results_0_flagged);
@@ -105,7 +125,12 @@ void test_smoke_moderate_single(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_flagged = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strcmp(results_0_flagged, 0) == 0 && "equals assertion failed");
     _free_string(results);
     free(results_0_flagged);

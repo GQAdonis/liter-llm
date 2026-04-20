@@ -6,7 +6,7 @@ describe('list-models', () => {
   it('empty_model_list: List models response returns an empty data array when no models are available', async () => {
     const result = await chat(null);
     expect(result.data.length).toBeGreaterThanOrEqual(0);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(0);
   });
 
   it('list_models_error_401: 401 Unauthorized error on list models request when API key is invalid', async () => {

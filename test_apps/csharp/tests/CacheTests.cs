@@ -17,7 +17,7 @@ public class CacheTests
     {
         // Tests that identical chat requests return cached response
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.CacheHit);
     }
 
     [Fact]
@@ -25,7 +25,7 @@ public class CacheTests
     {
         // Tests that cache expires after TTL
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.CacheHit);
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class CacheTests
     {
         // Cache hit with OpenDAL memory backend returns cached response on repeat request
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.CacheHit);
     }
 
     [Fact]
@@ -41,6 +41,6 @@ public class CacheTests
     {
         // Tests that streaming requests bypass cache entirely
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.CacheBypassed);
     }
 }

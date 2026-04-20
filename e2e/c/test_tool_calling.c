@@ -18,7 +18,12 @@ void test_anthropic_tool_calling(void) {
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_message_tool_calls_0_function_name, "get_weather") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");
@@ -40,7 +45,12 @@ void test_single_tool_call(void) {
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_message_tool_calls_0_function_name, "get_weather") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");

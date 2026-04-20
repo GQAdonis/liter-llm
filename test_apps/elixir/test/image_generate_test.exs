@@ -6,7 +6,7 @@ defmodule E2e.ImageGenerateTest do
   describe "edge_image_b64_response" do
     test "Image generation returning base64-encoded data instead of URL" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
       assert result.data["0"].b64_json != ""
     end
   end
@@ -38,7 +38,7 @@ defmodule E2e.ImageGenerateTest do
   describe "smoke_image_basic" do
     test "Basic image generation with a text prompt" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
       assert result.data["0"].url != ""
     end
   end
@@ -46,7 +46,7 @@ defmodule E2e.ImageGenerateTest do
   describe "smoke_image_multiple" do
     test "Image generation requesting multiple images" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 3
       assert result.data["0"].url != ""
     end
   end
@@ -54,7 +54,7 @@ defmodule E2e.ImageGenerateTest do
   describe "smoke_image_with_size" do
     test "Image generation with explicit size parameter" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
       assert result.data["0"].url != ""
     end
   end

@@ -6,7 +6,7 @@ defmodule E2e.TypesTest do
   describe "all_message_types" do
     test "Request with all message role types (system, user, assistant, tool) to verify round-trip serialization" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].finish_reason) == "stop"
     end
   end
@@ -14,7 +14,7 @@ defmodule E2e.TypesTest do
   describe "multimodal_content" do
     test "User message with mixed text and image_url content parts to verify multimodal serialization" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].finish_reason) == "stop"
     end
   end

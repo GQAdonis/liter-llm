@@ -15,7 +15,7 @@ func Test_CacheHit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.CacheHit, "expected true")
 }
 
 func Test_CacheMissTtl(t *testing.T) {
@@ -24,7 +24,7 @@ func Test_CacheMissTtl(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.CacheHit, "expected true")
 }
 
 func Test_CacheOpendalMemory(t *testing.T) {
@@ -33,7 +33,7 @@ func Test_CacheOpendalMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.CacheHit, "expected true")
 }
 
 func Test_CacheStreamBypass(t *testing.T) {
@@ -42,5 +42,5 @@ func Test_CacheStreamBypass(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.CacheBypassed, "expected true")
 }

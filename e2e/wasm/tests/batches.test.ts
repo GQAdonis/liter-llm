@@ -9,7 +9,7 @@ describe('batches', () => {
 
   it('edge_batch_empty_list: List batches when no batches exist', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(0);
   });
 
   it('error_batch_auth_401: 401 Unauthorized when creating a batch with invalid API key', async () => {
@@ -44,7 +44,7 @@ describe('batches', () => {
 
   it('smoke_list_batches: List all batch jobs', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(2);
   });
 
   it('smoke_retrieve_batch: Retrieve the status of a batch job', async () => {

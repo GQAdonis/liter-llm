@@ -8,7 +8,9 @@ test_anthropic_chat() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hello!' 'choices[0].message.content'
@@ -28,7 +30,9 @@ test_azure_chat() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hello!' 'choices[0].message.content'
@@ -48,8 +52,12 @@ test_azure_embed() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
+    local count_data_0__embedding
+    count_data_0__embedding=$(echo "$output" | jq '.data[0].embedding | length')
+    [ "$count_data_0__embedding" -eq 1536 ] || exit 1
 }
 
 test_basic_chat() {
@@ -57,7 +65,9 @@ test_basic_chat() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hello!' 'choices[0].message.content'
@@ -77,8 +87,12 @@ test_basic_embed() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
+    local count_data_0__embedding
+    count_data_0__embedding=$(echo "$output" | jq '.data[0].embedding | length')
+    [ "$count_data_0__embedding" -eq 5 ] || exit 1
 }
 
 test_basic_list_models() {
@@ -96,7 +110,9 @@ test_bedrock_chat() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hello!' 'choices[0].message.content'
@@ -116,7 +132,9 @@ test_github_copilot_chat() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hello!' 'choices[0].message.content'
@@ -245,7 +263,9 @@ test_vertex_chat() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hello!' 'choices[0].message.content'
@@ -265,8 +285,12 @@ test_vertex_embed() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
+    local count_data_0__embedding
+    count_data_0__embedding=$(echo "$output" | jq '.data[0].embedding | length')
+    [ "$count_data_0__embedding" -eq 160 ] || exit 1
 }
 
 run_tests_smoke() {

@@ -22,7 +22,7 @@ func Test_EdgeResponseEmptyOutput(t *testing.T) {
 	if strings.TrimSpace(result.Status) != `completed` {
 		t.Errorf("equals mismatch: got %v", result.Status)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Output), 0, "expected exactly 0 elements")
 }
 
 func Test_EdgeResponseLargeInput(t *testing.T) {
@@ -37,7 +37,7 @@ func Test_EdgeResponseLargeInput(t *testing.T) {
 	if strings.TrimSpace(result.Status) != `completed` {
 		t.Errorf("equals mismatch: got %v", result.Status)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Output), 1, "expected exactly 1 elements")
 }
 
 func Test_ErrorResponseAuth401(t *testing.T) {
@@ -76,7 +76,7 @@ func Test_SmokeCancelResponse(t *testing.T) {
 	if strings.TrimSpace(result.Status) != `cancelled` {
 		t.Errorf("equals mismatch: got %v", result.Status)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Output), 0, "expected exactly 0 elements")
 }
 
 func Test_SmokeCreateResponse(t *testing.T) {
@@ -91,7 +91,7 @@ func Test_SmokeCreateResponse(t *testing.T) {
 	if strings.TrimSpace(result.Status) != `completed` {
 		t.Errorf("equals mismatch: got %v", result.Status)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Output), 1, "expected exactly 1 elements")
 }
 
 func Test_SmokeResponseWithTools(t *testing.T) {
@@ -106,7 +106,7 @@ func Test_SmokeResponseWithTools(t *testing.T) {
 	if strings.TrimSpace(result.Status) != `completed` {
 		t.Errorf("equals mismatch: got %v", result.Status)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Output), 2, "expected exactly 2 elements")
 	if len(result.Choices["0"].Message.ToolCalls) == 0 {
 		t.Errorf("expected non-empty value")
 	}

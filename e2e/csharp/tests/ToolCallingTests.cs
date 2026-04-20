@@ -17,7 +17,7 @@ public class ToolCallingTests
     {
         // Chat request to Anthropic provider with a tool definition; assistant responds with a tool call
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.False(string.IsNullOrEmpty(result.Choices["0"].Message.ToolCalls?.ToString()));
         Assert.Equal("get_weather", result.Choices["0"].Message.ToolCalls["0"].Function.Name.Trim());
         Assert.Equal("tool_calls", result.Choices["0"].FinishReason.Trim());
@@ -28,7 +28,7 @@ public class ToolCallingTests
     {
         // Chat request with a tool definition; assistant responds with a tool call
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.False(string.IsNullOrEmpty(result.Choices["0"].Message.ToolCalls?.ToString()));
         Assert.Equal("get_weather", result.Choices["0"].Message.ToolCalls["0"].Function.Name.Trim());
         Assert.Equal("tool_calls", result.Choices["0"].FinishReason.Trim());

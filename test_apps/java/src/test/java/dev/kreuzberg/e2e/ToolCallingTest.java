@@ -10,7 +10,7 @@ class ToolCallingTest {
     void testAnthropicToolCalling() throws Exception {
         // Chat request to Anthropic provider with a tool definition; assistant responds with a tool call
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertFalse(result.choices().get("0").message().toolCalls().isEmpty(), "expected non-empty value");
         assertEquals("get_weather", result.choices().get("0").message().toolCalls().get("0").function().name().trim());
         assertEquals("tool_calls", result.choices().get("0").finishReason().trim());
@@ -20,7 +20,7 @@ class ToolCallingTest {
     void testSingleToolCall() throws Exception {
         // Chat request with a tool definition; assistant responds with a tool call
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertFalse(result.choices().get("0").message().toolCalls().isEmpty(), "expected non-empty value");
         assertEquals("get_weather", result.choices().get("0").message().toolCalls().get("0").function().name().trim());
         assertEquals("tool_calls", result.choices().get("0").finishReason().trim());

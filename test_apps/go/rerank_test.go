@@ -15,7 +15,7 @@ func Test_EdgeRerankEmptyQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 2, "expected exactly 2 elements")
 }
 
 func Test_EdgeRerankSingleDoc(t *testing.T) {
@@ -24,7 +24,7 @@ func Test_EdgeRerankSingleDoc(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 1, "expected exactly 1 elements")
 	if result.Results["0"].RelevanceScore <= 0.9 {
 		t.Errorf("expected > 0.9, got %v", result.Results["0"].RelevanceScore)
 	}
@@ -52,7 +52,7 @@ func Test_SmokeRerankBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 3, "expected exactly 3 elements")
 	if result.Results["0"].RelevanceScore <= 0.9 {
 		t.Errorf("expected > 0.9, got %v", result.Results["0"].RelevanceScore)
 	}
@@ -64,7 +64,7 @@ func Test_SmokeRerankReturnDocs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 2, "expected exactly 2 elements")
 	if len(result.Results["0"].Document) == 0 {
 		t.Errorf("expected non-empty value")
 	}
@@ -79,7 +79,7 @@ func Test_SmokeRerankWithTopN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 2, "expected exactly 2 elements")
 	if result.Results["0"].RelevanceScore <= 0.9 {
 		t.Errorf("expected > 0.9, got %v", result.Results["0"].RelevanceScore)
 	}

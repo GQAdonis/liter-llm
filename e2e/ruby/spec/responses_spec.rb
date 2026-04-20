@@ -9,14 +9,14 @@ RSpec.describe 'responses' do
     result = LiterLlm.chat('')
     expect(result.id).not_to be_empty
     expect(result.status).to eq('completed')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.output.length).to eq(0)
   end
 
   it 'edge_response_large_input: Response created with a very large input text' do
     result = LiterLlm.chat('Summarize the following long text: Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. ')
     expect(result.id).not_to be_empty
     expect(result.status).to eq('completed')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.output.length).to eq(1)
   end
 
   it 'error_response_auth_401: 401 Unauthorized when creating a response with invalid API key' do
@@ -35,21 +35,21 @@ RSpec.describe 'responses' do
     result = LiterLlm.chat(nil)
     expect(result.id).not_to be_empty
     expect(result.status).to eq('cancelled')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.output.length).to eq(0)
   end
 
   it 'smoke_create_response: Create a basic response using the Responses API' do
     result = LiterLlm.chat('Explain quantum computing in one sentence.')
     expect(result.id).not_to be_empty
     expect(result.status).to eq('completed')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.output.length).to eq(1)
   end
 
   it 'smoke_response_with_tools: Response that includes tool call output items' do
     result = LiterLlm.chat('What is the weather in San Francisco?')
     expect(result.id).not_to be_empty
     expect(result.status).to eq('completed')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.output.length).to eq(2)
     expect(result.choices.get("0").message.tool_calls).not_to be_empty
   end
 

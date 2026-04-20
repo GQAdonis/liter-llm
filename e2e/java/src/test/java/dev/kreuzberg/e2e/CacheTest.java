@@ -10,28 +10,28 @@ class CacheTest {
     void testCacheHit() throws Exception {
         // Tests that identical chat requests return cached response
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.cacheHit(), "expected true");
     }
 
     @Test
     void testCacheMissTtl() throws Exception {
         // Tests that cache expires after TTL
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.cacheHit(), "expected true");
     }
 
     @Test
     void testCacheOpendalMemory() throws Exception {
         // Cache hit with OpenDAL memory backend returns cached response on repeat request
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.cacheHit(), "expected true");
     }
 
     @Test
     void testCacheStreamBypass() throws Exception {
         // Tests that streaming requests bypass cache entirely
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.cacheBypassed(), "expected true");
     }
 
 }

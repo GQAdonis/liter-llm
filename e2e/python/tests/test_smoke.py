@@ -9,7 +9,7 @@ async def test_anthropic_chat() -> None:
     """Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hello!"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "claude-3-5-sonnet-20241022"  # noqa: S101
@@ -20,7 +20,7 @@ async def test_azure_chat() -> None:
     """Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hello!"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "gpt-4"  # noqa: S101
@@ -31,15 +31,15 @@ async def test_azure_embed() -> None:
     """Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged."""
     request = "Hello world"
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
+    assert len(result.data.get("0").embedding) == 1536  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_basic_chat() -> None:
     """Basic chat completion with a single user message."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hello!"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.usage.total_tokens == 15  # noqa: S101
@@ -50,8 +50,8 @@ async def test_basic_embed() -> None:
     """Basic embedding request for a single input string."""
     request = "Hello world"
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
+    assert len(result.data.get("0").embedding) == 5  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_basic_list_models() -> None:
@@ -65,7 +65,7 @@ async def test_bedrock_chat() -> None:
     """Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hello!"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "anthropic.claude-3-sonnet-20240229-v1:0"  # noqa: S101
@@ -76,7 +76,7 @@ async def test_github_copilot_chat() -> None:
     """Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hello!"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "gpt-4o"  # noqa: S101
@@ -160,7 +160,7 @@ async def test_vertex_chat() -> None:
     """Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hello!"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "gemini-2.0-flash"  # noqa: S101
@@ -171,6 +171,6 @@ async def test_vertex_embed() -> None:
     """Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape."""
     request = "Hello"
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
+    assert len(result.data.get("0").embedding) == 160  # noqa: S101
 

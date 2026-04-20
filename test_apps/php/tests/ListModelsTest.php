@@ -6,7 +6,7 @@ declare(strict_types=1);
 namespace Kreuzberg\E2e;
 
 use PHPUnit\Framework\TestCase;
-use LiterLlm\LiterLlm;
+use Liter\Llm\LiterLlm;
 
 /** E2e tests for category: list-models. */
 final class ListModelsTest extends TestCase
@@ -14,15 +14,17 @@ final class ListModelsTest extends TestCase
     /** List models response returns an empty data array when no models are available */
     public function test_empty_model_list(): void
     {
-        $result = LiterLlm::chat(null);
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(0, count($result->data));
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(0, $result->data);
     }
 
     /** 401 Unauthorized error on list models request when API key is invalid */
     public function test_list_models_error_401(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 }

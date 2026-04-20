@@ -19,7 +19,7 @@ async fn test_cache_hit() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.cache_hit, "expected true");
 }
 
 #[tokio::test]
@@ -36,7 +36,7 @@ async fn test_cache_miss_ttl() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.cache_hit, "expected true");
 }
 
 #[tokio::test]
@@ -53,7 +53,7 @@ async fn test_cache_opendal_memory() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.cache_hit, "expected true");
 }
 
 #[tokio::test]
@@ -70,5 +70,6 @@ async fn test_cache_stream_bypass() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.cache_bypassed, "expected true");
 }
+

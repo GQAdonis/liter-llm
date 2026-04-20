@@ -16,7 +16,7 @@ func Test_CustomBaseUrl(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hi there!` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -34,7 +34,7 @@ func Test_ExtraHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].FinishReason) != `stop` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].FinishReason)
 	}
@@ -46,7 +46,7 @@ func Test_LocalProviderLlamacpp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hi there! I'm running locally.` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -64,7 +64,7 @@ func Test_LocalProviderOllama(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hello! How can I help you today?` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -82,7 +82,7 @@ func Test_LocalProviderVllm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hello! How may I assist you?` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}

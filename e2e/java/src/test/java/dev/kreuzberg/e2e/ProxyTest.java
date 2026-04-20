@@ -22,7 +22,7 @@ class ProxyTest {
     void testProxyChatBasic() throws Exception {
         // Basic chat completion request routed through the proxy
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hello!", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
     }
@@ -33,14 +33,14 @@ class ProxyTest {
         var result = LiterLlm.chat(null);
         assertTrue(result.chunks().size() >= 3, "expected at least 3 elements");
         assertEquals("1 2 3", result.streamContent().trim());
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.streamComplete(), "expected true");
     }
 
     @Test
     void testProxyEmbeddings() throws Exception {
         // Embedding request routed through the proxy
         var result = LiterLlm.chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
     }
 
     @Test
@@ -54,7 +54,7 @@ class ProxyTest {
     void testProxyImageGenerate() throws Exception {
         // Image generation request routed through the proxy
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
         assertFalse(result.data().get("0").url().isEmpty(), "expected non-empty value");
     }
 
@@ -69,7 +69,7 @@ class ProxyTest {
     void testProxyModeration() throws Exception {
         // Content moderation request routed through the proxy
         var result = LiterLlm.chat("The weather is nice today.");
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.results().size(), "expected exactly 1 elements");
         assertEquals(false, result.results().get("0").flagged());
     }
 
@@ -77,7 +77,7 @@ class ProxyTest {
     void testProxyRerank() throws Exception {
         // Document reranking request routed through the proxy
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.results().size(), "expected exactly 2 elements");
         assertTrue(result.results().get("0").relevanceScore() > 0.9d, "expected > 0.9d");
     }
 

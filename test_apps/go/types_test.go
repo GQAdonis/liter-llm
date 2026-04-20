@@ -16,7 +16,7 @@ func Test_AllMessageTypes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].FinishReason) != `stop` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].FinishReason)
 	}
@@ -28,7 +28,7 @@ func Test_MultimodalContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].FinishReason) != `stop` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].FinishReason)
 	}

@@ -9,14 +9,14 @@ RSpec.describe 'streaming' do
     result = LiterLlm.chat(nil)
     expect(result.chunks.length).to be >= 3
     expect(result.stream_content).to eq('One Two Three')
-    # TODO: unsupported assertion type: is_true
+    expect(result.stream_complete).to be true
   end
 
   it 'azure_stream: Streaming chat completion via Azure OpenAI — verifies the azure/ prefix routes correctly and SSE chunks are delivered in the standard OpenAI chat.completion.chunk shape' do
     result = LiterLlm.chat(nil)
     expect(result.chunks.length).to be >= 3
     expect(result.stream_content).to eq('1 2 3')
-    # TODO: unsupported assertion type: is_true
+    expect(result.stream_complete).to be true
   end
 
   it 'basic_stream: Streaming chat completion that produces content across multiple SSE chunks' do
@@ -29,7 +29,7 @@ RSpec.describe 'streaming' do
     result = LiterLlm.chat(nil)
     expect(result.chunks.length).to be >= 2
     expect(result.stream_content).to eq('One Two Three')
-    # TODO: unsupported assertion type: is_true
+    expect(result.stream_complete).to be true
   end
 
   it 'empty_stream: Streaming chat completion that produces no content chunks before the DONE signal' do
@@ -42,14 +42,14 @@ RSpec.describe 'streaming' do
     result = LiterLlm.chat(nil)
     expect(result.chunks.length).to be >= 3
     expect(result.stream_content).to eq('1 2 3')
-    # TODO: unsupported assertion type: is_true
+    expect(result.stream_complete).to be true
   end
 
   it 'stream_done_signal: Verify that the [DONE] sentinel signal properly terminates the stream' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: is_true
+    expect(result.stream_complete).to be true
     expect(result.stream_content).to eq('Done')
-    # TODO: unsupported assertion type: is_true
+    expect(result.no_chunks_after_done).to be true
   end
 
   it 'stream_error_401: 401 Unauthorized error on stream initiation before any chunks are received' do
@@ -75,6 +75,6 @@ RSpec.describe 'streaming' do
     result = LiterLlm.chat(nil)
     expect(result.chunks.length).to be >= 2
     expect(result.stream_content).to eq('One Two Three')
-    # TODO: unsupported assertion type: is_true
+    expect(result.stream_complete).to be true
   end
 end

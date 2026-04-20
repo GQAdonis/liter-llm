@@ -6,7 +6,7 @@ declare(strict_types=1);
 namespace Kreuzberg\E2e;
 
 use PHPUnit\Framework\TestCase;
-use LiterLlm\LiterLlm;
+use Liter\Llm\LiterLlm;
 
 /** E2e tests for category: proxy. */
 final class ProxyTest extends TestCase
@@ -14,22 +14,25 @@ final class ProxyTest extends TestCase
     /** 401 Unauthorized when an invalid API key is provided through the proxy */
     public function test_proxy_auth_invalid(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 
     /** 401 Unauthorized when no API key is provided through the proxy */
     public function test_proxy_auth_missing(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 
     /** Basic chat completion request routed through the proxy */
     public function test_proxy_chat_basic(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
@@ -37,68 +40,77 @@ final class ProxyTest extends TestCase
     /** Streaming chat completion routed through the proxy */
     public function test_proxy_chat_streaming(): void
     {
-        $result = LiterLlm::chat(null);
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(3, count($result->chunks));
         $this->assertEquals("1 2 3", $result->stream_content);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->stream_complete);
     }
 
     /** Embedding request routed through the proxy */
     public function test_proxy_embeddings(): void
     {
-        $result = LiterLlm::chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat("Hello world");
+        $this->assertCount(1, $result->data);
     }
 
     /** Health check verifying proxy connectivity via list models */
     public function test_proxy_health(): void
     {
-        $result = LiterLlm::chat(null);
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(1, count($result->data));
     }
 
     /** Image generation request routed through the proxy */
     public function test_proxy_image_generate(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(1, $result->data);
         $this->assertNotEmpty($result->data["0"]->url);
     }
 
     /** List models request routed through the proxy */
     public function test_proxy_models_list(): void
     {
-        $result = LiterLlm::chat(null);
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(1, count($result->data));
     }
 
     /** Content moderation request routed through the proxy */
     public function test_proxy_moderation(): void
     {
-        $result = LiterLlm::chat("The weather is nice today.");
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat("The weather is nice today.");
+        $this->assertCount(1, $result->results);
         $this->assertEquals(false, $result->results["0"]->flagged);
     }
 
     /** Document reranking request routed through the proxy */
     public function test_proxy_rerank(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(2, $result->results);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
 
     /** 429 Too Many Requests from upstream provider through the proxy */
     public function test_proxy_upstream_429(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 
     /** 500 Internal Server Error from upstream provider through the proxy */
     public function test_proxy_upstream_500(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 }

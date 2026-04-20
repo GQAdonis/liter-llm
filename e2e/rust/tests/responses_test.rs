@@ -21,7 +21,7 @@ async fn test_edge_response_empty_output() {
     let result = chat(request).await.expect("should succeed");
     assert!(!result.id.is_empty(), "expected non-empty value");
     assert_eq!(result.status.trim(), r#"completed"#, "equals assertion failed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.output.len(), 0, "expected exactly 0 elements, got {}", result.output.len());
 }
 
 #[tokio::test]
@@ -40,7 +40,7 @@ async fn test_edge_response_large_input() {
     let result = chat(request).await.expect("should succeed");
     assert!(!result.id.is_empty(), "expected non-empty value");
     assert_eq!(result.status.trim(), r#"completed"#, "equals assertion failed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.output.len(), 1, "expected exactly 1 elements, got {}", result.output.len());
 }
 
 #[tokio::test]
@@ -113,7 +113,7 @@ async fn test_smoke_cancel_response() {
     let result = chat(request).await.expect("should succeed");
     assert!(!result.id.is_empty(), "expected non-empty value");
     assert_eq!(result.status.trim(), r#"cancelled"#, "equals assertion failed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.output.len(), 0, "expected exactly 0 elements, got {}", result.output.len());
 }
 
 #[tokio::test]
@@ -132,7 +132,7 @@ async fn test_smoke_create_response() {
     let result = chat(request).await.expect("should succeed");
     assert!(!result.id.is_empty(), "expected non-empty value");
     assert_eq!(result.status.trim(), r#"completed"#, "equals assertion failed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.output.len(), 1, "expected exactly 1 elements, got {}", result.output.len());
 }
 
 #[tokio::test]
@@ -151,7 +151,7 @@ async fn test_smoke_response_with_tools() {
     let result = chat(request).await.expect("should succeed");
     assert!(!result.id.is_empty(), "expected non-empty value");
     assert_eq!(result.status.trim(), r#"completed"#, "equals assertion failed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.output.len(), 2, "expected exactly 2 elements, got {}", result.output.len());
     assert!(!result.choices.get("0").map(|s| s.as_str()).message.tool_calls.is_empty(), "expected non-empty value");
 }
 

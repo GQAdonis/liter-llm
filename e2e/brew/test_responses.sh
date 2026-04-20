@@ -14,7 +14,9 @@ test_edge_response_empty_output() {
     local val_status
     val_status=$(echo "$output" | jq -r '.status')
     assert_equals "$val_status" 'completed' 'status'
-    # TODO: unsupported assertion type: count_equals
+    local count_output
+    count_output=$(echo "$output" | jq '.output | length')
+    [ "$count_output" -eq 0 ] || exit 1
 }
 
 test_edge_response_large_input() {
@@ -28,7 +30,9 @@ test_edge_response_large_input() {
     local val_status
     val_status=$(echo "$output" | jq -r '.status')
     assert_equals "$val_status" 'completed' 'status'
-    # TODO: unsupported assertion type: count_equals
+    local count_output
+    count_output=$(echo "$output" | jq '.output | length')
+    [ "$count_output" -eq 1 ] || exit 1
 }
 
 test_error_response_auth_401() {
@@ -66,7 +70,9 @@ test_smoke_cancel_response() {
     local val_status
     val_status=$(echo "$output" | jq -r '.status')
     assert_equals "$val_status" 'cancelled' 'status'
-    # TODO: unsupported assertion type: count_equals
+    local count_output
+    count_output=$(echo "$output" | jq '.output | length')
+    [ "$count_output" -eq 0 ] || exit 1
 }
 
 test_smoke_create_response() {
@@ -80,7 +86,9 @@ test_smoke_create_response() {
     local val_status
     val_status=$(echo "$output" | jq -r '.status')
     assert_equals "$val_status" 'completed' 'status'
-    # TODO: unsupported assertion type: count_equals
+    local count_output
+    count_output=$(echo "$output" | jq '.output | length')
+    [ "$count_output" -eq 1 ] || exit 1
 }
 
 test_smoke_response_with_tools() {
@@ -94,7 +102,9 @@ test_smoke_response_with_tools() {
     local val_status
     val_status=$(echo "$output" | jq -r '.status')
     assert_equals "$val_status" 'completed' 'status'
-    # TODO: unsupported assertion type: count_equals
+    local count_output
+    count_output=$(echo "$output" | jq '.output | length')
+    [ "$count_output" -eq 2 ] || exit 1
     local val_choices_0__message_tool_calls
     val_choices_0__message_tool_calls=$(echo "$output" | jq -r '.choices[0].message.tool_calls')
     assert_not_empty "$val_choices_0__message_tool_calls" 'choices[0].message.tool_calls'

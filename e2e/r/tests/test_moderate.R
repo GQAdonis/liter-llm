@@ -3,13 +3,13 @@
 
 test_that("edge_moderate_all_categories: Moderation response with multiple categories flagged", {
   result <- chat(request = "extremely harmful content targeting multiple categories")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$results), 1)
   expect_equal(trimws(result$results[["0"]]$flagged), TRUE)
 })
 
 test_that("edge_moderate_empty_input: Moderation with empty string input", {
   result <- chat(request = "")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$results), 1)
   expect_equal(trimws(result$results[["0"]]$flagged), FALSE)
 })
 
@@ -23,18 +23,18 @@ test_that("error_moderate_bad_request: 400 Bad Request for moderation with inval
 
 test_that("smoke_moderate_batch: Moderate multiple inputs in a single request", {
   result <- chat(request = c("hello world", "nice weather today"))
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$results), 2)
   expect_equal(trimws(result$results[["0"]]$flagged), FALSE)
 })
 
 test_that("smoke_moderate_flagged: Moderation detects flagged content", {
   result <- chat(request = "i want to hurt someone very badly")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$results), 1)
   expect_equal(trimws(result$results[["0"]]$flagged), TRUE)
 })
 
 test_that("smoke_moderate_single: Moderate a single non-flagged input", {
   result <- chat(request = "the weather is nice today.")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$results), 1)
   expect_equal(trimws(result$results[["0"]]$flagged), FALSE)
 })

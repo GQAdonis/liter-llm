@@ -6,7 +6,7 @@ declare(strict_types=1);
 namespace Kreuzberg\E2e;
 
 use PHPUnit\Framework\TestCase;
-use LiterLlm\LiterLlm;
+use Liter\Llm\LiterLlm;
 
 /** E2e tests for category: files. */
 final class FilesTest extends TestCase
@@ -14,49 +14,56 @@ final class FilesTest extends TestCase
     /** List files when no files have been uploaded */
     public function test_edge_file_empty_list(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(0, $result->data);
     }
 
     /** Upload a large file successfully */
     public function test_edge_file_large_upload(): void
     {
-        $result = LiterLlm::chat(null);
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
         $this->assertNotEmpty($result->id);
     }
 
     /** 401 Unauthorized when listing files with invalid API key */
     public function test_error_file_auth_401(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 
     /** 400 Bad Request when uploading a file with invalid purpose */
     public function test_error_file_bad_purpose(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 
     /** 404 Not Found when retrieving a nonexistent file */
     public function test_error_file_not_found(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 
     /** Upload a file for use with the API */
     public function test_smoke_create_file(): void
     {
-        $result = LiterLlm::chat(null);
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
         $this->assertNotEmpty($result->id);
     }
 
     /** Delete an uploaded file */
     public function test_smoke_delete_file(): void
     {
-        $result = LiterLlm::chat(null);
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
         $this->assertNotEmpty($result->id);
         $this->assertEquals(true, $result->deleted);
     }
@@ -64,21 +71,24 @@ final class FilesTest extends TestCase
     /** Retrieve the content of an uploaded file */
     public function test_smoke_file_content(): void
     {
-        $result = LiterLlm::chat(null);
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
         $this->assertNotEmpty($result->content);
     }
 
     /** List all uploaded files */
     public function test_smoke_list_files(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(2, $result->data);
     }
 
     /** Retrieve metadata for an uploaded file */
     public function test_smoke_retrieve_file(): void
     {
-        $result = LiterLlm::chat(null);
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
         $this->assertNotEmpty($result->id);
     }
 }

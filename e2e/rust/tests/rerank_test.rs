@@ -19,7 +19,7 @@ async fn test_edge_rerank_empty_query() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 2, "expected exactly 2 elements, got {}", result.results.len());
 }
 
 #[tokio::test]
@@ -36,7 +36,7 @@ async fn test_edge_rerank_single_doc() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 1, "expected exactly 1 elements, got {}", result.results.len());
     assert!(result.results.get("0").map(|s| s.as_str()).relevance_score > 0.9_f64, "expected > 0.9_f64");
 }
 
@@ -90,7 +90,7 @@ async fn test_smoke_rerank_basic() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 3, "expected exactly 3 elements, got {}", result.results.len());
     assert!(result.results.get("0").map(|s| s.as_str()).relevance_score > 0.9_f64, "expected > 0.9_f64");
 }
 
@@ -108,7 +108,7 @@ async fn test_smoke_rerank_return_docs() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 2, "expected exactly 2 elements, got {}", result.results.len());
     assert!(!result.results.get("0").map(|s| s.as_str()).document.is_empty(), "expected non-empty value");
     assert!(result.results.get("0").map(|s| s.as_str()).relevance_score > 0.9_f64, "expected > 0.9_f64");
 }
@@ -127,7 +127,7 @@ async fn test_smoke_rerank_with_top_n() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 2, "expected exactly 2 elements, got {}", result.results.len());
     assert!(result.results.get("0").map(|s| s.as_str()).relevance_score > 0.9_f64, "expected > 0.9_f64");
 }
 

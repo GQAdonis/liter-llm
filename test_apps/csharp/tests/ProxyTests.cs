@@ -31,7 +31,7 @@ public class ProxyTests
     {
         // Basic chat completion request routed through the proxy
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hello!", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
     }
@@ -43,7 +43,7 @@ public class ProxyTests
         var result = await LiterLlmLib.Chat(null);
         Assert.True(result.Chunks.Count >= 3, "expected at least 3 elements");
         Assert.Equal("1 2 3", result.StreamContent.Trim());
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.StreamComplete);
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class ProxyTests
     {
         // Embedding request routed through the proxy
         var result = await LiterLlmLib.Chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class ProxyTests
     {
         // Image generation request routed through the proxy
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
         Assert.False(string.IsNullOrEmpty(result.Data["0"].Url?.ToString()));
     }
 
@@ -84,7 +84,7 @@ public class ProxyTests
     {
         // Content moderation request routed through the proxy
         var result = await LiterLlmLib.Chat("The weather is nice today.");
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Results.Count);
         Assert.Equal(false, result.Results["0"].Flagged);
     }
 
@@ -93,7 +93,7 @@ public class ProxyTests
     {
         // Document reranking request routed through the proxy
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Results.Count);
         Assert.True(result.Results["0"].RelevanceScore > 0.9d, "expected > 0.9d");
     }
 

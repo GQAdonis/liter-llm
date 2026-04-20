@@ -5,13 +5,13 @@ import { chat } from 'liter_llm';
 describe('types', () => {
   it('all_message_types: Request with all message role types (system, user, assistant, tool) to verify round-trip serialization', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices["0"].finishReason.trim()).toBe("stop");
   });
 
   it('multimodal_content: User message with mixed text and image_url content parts to verify multimodal serialization', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices["0"].finishReason.trim()).toBe("stop");
   });
 });

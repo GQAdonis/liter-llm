@@ -12,7 +12,7 @@ class StreamingTest {
         var result = LiterLlm.chat(null);
         assertTrue(result.chunks().size() >= 3, "expected at least 3 elements");
         assertEquals("One Two Three", result.streamContent().trim());
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.streamComplete(), "expected true");
     }
 
     @Test
@@ -21,7 +21,7 @@ class StreamingTest {
         var result = LiterLlm.chat(null);
         assertTrue(result.chunks().size() >= 3, "expected at least 3 elements");
         assertEquals("1 2 3", result.streamContent().trim());
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.streamComplete(), "expected true");
     }
 
     @Test
@@ -38,7 +38,7 @@ class StreamingTest {
         var result = LiterLlm.chat(null);
         assertTrue(result.chunks().size() >= 2, "expected at least 2 elements");
         assertEquals("One Two Three", result.streamContent().trim());
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.streamComplete(), "expected true");
     }
 
     @Test
@@ -55,16 +55,16 @@ class StreamingTest {
         var result = LiterLlm.chat(null);
         assertTrue(result.chunks().size() >= 3, "expected at least 3 elements");
         assertEquals("1 2 3", result.streamContent().trim());
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.streamComplete(), "expected true");
     }
 
     @Test
     void testStreamDoneSignal() throws Exception {
         // Verify that the [DONE] sentinel signal properly terminates the stream
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.streamComplete(), "expected true");
         assertEquals("Done", result.streamContent().trim());
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.noChunksAfterDone(), "expected true");
     }
 
     @Test
@@ -98,7 +98,7 @@ class StreamingTest {
         var result = LiterLlm.chat(null);
         assertTrue(result.chunks().size() >= 2, "expected at least 2 elements");
         assertEquals("One Two Three", result.streamContent().trim());
-        // TODO: unsupported assertion type: is_true
+        assertTrue(result.streamComplete(), "expected true");
     }
 
 }

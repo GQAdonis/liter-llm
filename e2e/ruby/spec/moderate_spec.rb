@@ -7,13 +7,13 @@ require 'json'
 RSpec.describe 'moderate' do
   it 'edge_moderate_all_categories: Moderation response with multiple categories flagged' do
     result = LiterLlm.chat('Extremely harmful content targeting multiple categories')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(1)
     expect(result.results.get("0").flagged).to be(true)
   end
 
   it 'edge_moderate_empty_input: Moderation with empty string input' do
     result = LiterLlm.chat('')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(1)
     expect(result.results.get("0").flagged).to be(false)
   end
 
@@ -27,19 +27,19 @@ RSpec.describe 'moderate' do
 
   it 'smoke_moderate_batch: Moderate multiple inputs in a single request' do
     result = LiterLlm.chat(['Hello world', 'Nice weather today'])
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(2)
     expect(result.results.get("0").flagged).to be(false)
   end
 
   it 'smoke_moderate_flagged: Moderation detects flagged content' do
     result = LiterLlm.chat('I want to hurt someone very badly')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(1)
     expect(result.results.get("0").flagged).to be(true)
   end
 
   it 'smoke_moderate_single: Moderate a single non-flagged input' do
     result = LiterLlm.chat('The weather is nice today.')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(1)
     expect(result.results.get("0").flagged).to be(false)
   end
 end

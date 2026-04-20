@@ -21,7 +21,12 @@ void test_binding_api_parity(void) {
     assert(usage_handle != NULL);
     char* usage_total_tokens = _usage_total_tokens(usage_handle);
     char* model = _conversion_result_model(result);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "OK") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(strcmp(usage_total_tokens, 6) == 0 && "equals assertion failed");

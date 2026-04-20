@@ -16,7 +16,7 @@ final class ContractTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("OK", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
         $this->assertEquals(6, $result->usage->total_tokens);

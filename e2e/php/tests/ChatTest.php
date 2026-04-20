@@ -16,7 +16,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("s[::-1]", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
@@ -26,7 +26,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("content_filter", $result->choices["0"]->finish_reason);
     }
 
@@ -35,7 +35,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("length", $result->choices["0"]->finish_reason);
     }
 
@@ -44,7 +44,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("4 + 4 equals 8.", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
@@ -54,9 +54,9 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->tool_calls);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(2, $result->choices["0"]->message->tool_calls);
         $this->assertEquals("tool_calls", $result->choices["0"]->finish_reason);
     }
 
@@ -65,7 +65,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
@@ -75,7 +75,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
@@ -85,7 +85,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
         $this->assertNotEmpty($result->system_fingerprint);
     }
@@ -95,7 +95,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
 
@@ -104,7 +104,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->tool_calls);
         $this->assertEquals("get_weather", $result->choices["0"]->message->tool_calls["0"]->function->name);
         $this->assertEquals("tool_calls", $result->choices["0"]->finish_reason);
@@ -115,7 +115,7 @@ final class ChatTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertNotEmpty($result->choices["0"]->message->tool_calls);
         $this->assertEquals("get_weather", $result->choices["0"]->message->tool_calls["0"]->function->name);
         $this->assertEquals("tool_calls", $result->choices["0"]->finish_reason);

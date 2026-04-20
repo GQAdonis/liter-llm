@@ -7,7 +7,7 @@ require 'json'
 RSpec.describe 'configuration' do
   it 'custom_base_url: Client configured with a custom base URL routes all requests to that endpoint' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hi there!')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.model).to eq('local-model')
@@ -15,13 +15,13 @@ RSpec.describe 'configuration' do
 
   it 'extra_headers: Client configured with extra custom headers successfully completes a chat request' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").finish_reason).to eq('stop')
   end
 
   it 'local_provider_llamacpp: llamacpp local provider routes requests via llamacpp/ model prefix with no auth' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hi there! I\'m running locally.')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.model).to eq('my-model')
@@ -29,7 +29,7 @@ RSpec.describe 'configuration' do
 
   it 'local_provider_ollama: Ollama local provider routes requests via ollama/ model prefix with no auth' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hello! How can I help you today?')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.model).to eq('qwen2:0.5b')
@@ -37,7 +37,7 @@ RSpec.describe 'configuration' do
 
   it 'local_provider_vllm: vLLM local provider routes requests via vllm/ model prefix with no auth' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hello! How may I assist you?')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.model).to eq('meta-llama/Llama-3.2-1B')

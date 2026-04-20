@@ -19,7 +19,12 @@ void test_edge_batch_empty_list(void) {
     HTMConversionResult* result = chat();
     assert(result != NULL && "expected call to succeed");
     char* data = _conversion_result_data(result);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 0 && "expected 0 elements");
+    }
     _free_string(data);
     _conversion_result_free(result);
 }
@@ -86,7 +91,12 @@ void test_smoke_list_batches(void) {
     HTMConversionResult* result = chat();
     assert(result != NULL && "expected call to succeed");
     char* data = _conversion_result_data(result);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 2 && "expected 2 elements");
+    }
     _free_string(data);
     _conversion_result_free(result);
 }

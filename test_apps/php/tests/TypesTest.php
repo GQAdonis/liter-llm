@@ -6,7 +6,7 @@ declare(strict_types=1);
 namespace Kreuzberg\E2e;
 
 use PHPUnit\Framework\TestCase;
-use LiterLlm\LiterLlm;
+use Liter\Llm\LiterLlm;
 
 /** E2e tests for category: types. */
 final class TypesTest extends TestCase
@@ -14,16 +14,18 @@ final class TypesTest extends TestCase
     /** Request with all message role types (system, user, assistant, tool) to verify round-trip serialization */
     public function test_all_message_types(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
 
     /** User message with mixed text and image_url content parts to verify multimodal serialization */
     public function test_multimodal_content(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
     }
 }

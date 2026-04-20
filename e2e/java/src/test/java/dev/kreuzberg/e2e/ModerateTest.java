@@ -10,7 +10,7 @@ class ModerateTest {
     void testEdgeModerateAllCategories() throws Exception {
         // Moderation response with multiple categories flagged
         var result = LiterLlm.chat("Extremely harmful content targeting multiple categories");
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.results().size(), "expected exactly 1 elements");
         assertEquals(true, result.results().get("0").flagged());
     }
 
@@ -18,7 +18,7 @@ class ModerateTest {
     void testEdgeModerateEmptyInput() throws Exception {
         // Moderation with empty string input
         var result = LiterLlm.chat("");
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.results().size(), "expected exactly 1 elements");
         assertEquals(false, result.results().get("0").flagged());
     }
 
@@ -38,7 +38,7 @@ class ModerateTest {
     void testSmokeModerateBatch() throws Exception {
         // Moderate multiple inputs in a single request
         var result = LiterLlm.chat(java.util.List.of("Hello world", "Nice weather today"));
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.results().size(), "expected exactly 2 elements");
         assertEquals(false, result.results().get("0").flagged());
     }
 
@@ -46,7 +46,7 @@ class ModerateTest {
     void testSmokeModerateFlagged() throws Exception {
         // Moderation detects flagged content
         var result = LiterLlm.chat("I want to hurt someone very badly");
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.results().size(), "expected exactly 1 elements");
         assertEquals(true, result.results().get("0").flagged());
     }
 
@@ -54,7 +54,7 @@ class ModerateTest {
     void testSmokeModerateSingle() throws Exception {
         // Moderate a single non-flagged input
         var result = LiterLlm.chat("The weather is nice today.");
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.results().size(), "expected exactly 1 elements");
         assertEquals(false, result.results().get("0").flagged());
     }
 

@@ -6,7 +6,7 @@ defmodule E2e.ChatTest do
   describe "developer_message" do
     test "Chat request that includes a developer role message alongside user messages" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "s[::-1]"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
     end
@@ -15,7 +15,7 @@ defmodule E2e.ChatTest do
   describe "finish_reason_content_filter" do
     test "Chat response stopped by content filter with finish_reason of content_filter and null content" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].finish_reason) == "content_filter"
     end
   end
@@ -23,7 +23,7 @@ defmodule E2e.ChatTest do
   describe "finish_reason_length" do
     test "Chat response truncated due to max_tokens limit with finish_reason of length" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].finish_reason) == "length"
     end
   end
@@ -31,7 +31,7 @@ defmodule E2e.ChatTest do
   describe "multi_turn_conversation" do
     test "Multi-turn conversation with system, user, assistant, and follow-up user messages" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "4 + 4 equals 8."
       assert String.trim(result.choices["0"].finish_reason) == "stop"
     end
@@ -40,9 +40,9 @@ defmodule E2e.ChatTest do
   describe "parallel_tool_calls" do
     test "Chat request that results in parallel tool calls in the response" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert result.choices["0"].message.tool_calls != ""
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices["0"].message.tool_calls) == 2
       assert String.trim(result.choices["0"].finish_reason) == "tool_calls"
     end
   end
@@ -50,7 +50,7 @@ defmodule E2e.ChatTest do
   describe "response_format_json_object" do
     test "Chat request with response_format json_object that returns valid JSON content" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert result.choices["0"].message.content != ""
       assert String.trim(result.choices["0"].finish_reason) == "stop"
     end
@@ -59,7 +59,7 @@ defmodule E2e.ChatTest do
   describe "response_format_json_schema" do
     test "Chat request with response_format json_schema that validates the output structure" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert result.choices["0"].message.content != ""
       assert String.trim(result.choices["0"].finish_reason) == "stop"
     end
@@ -68,7 +68,7 @@ defmodule E2e.ChatTest do
   describe "seed_parameter" do
     test "Chat request with seed parameter for deterministic output; response includes system_fingerprint" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert result.system_fingerprint != ""
     end
@@ -77,7 +77,7 @@ defmodule E2e.ChatTest do
   describe "stop_sequences" do
     test "Chat request with custom stop sequences that terminates generation at a stop token" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].finish_reason) == "stop"
     end
   end
@@ -85,7 +85,7 @@ defmodule E2e.ChatTest do
   describe "tool_choice_required" do
     test "Chat request with tool_choice set to required forces the model to call a tool" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert result.choices["0"].message.tool_calls != ""
       assert String.trim(result.choices["0"].message.tool_calls["0"].function.name) == "get_weather"
       assert String.trim(result.choices["0"].finish_reason) == "tool_calls"
@@ -95,7 +95,7 @@ defmodule E2e.ChatTest do
   describe "tool_choice_specific" do
     test "Chat request with tool_choice specifying a particular function to call" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert result.choices["0"].message.tool_calls != ""
       assert String.trim(result.choices["0"].message.tool_calls["0"].function.name) == "get_weather"
       assert String.trim(result.choices["0"].finish_reason) == "tool_calls"

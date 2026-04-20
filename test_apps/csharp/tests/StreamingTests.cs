@@ -19,7 +19,7 @@ public class StreamingTests
         var result = await LiterLlmLib.Chat(null);
         Assert.True(result.Chunks.Count >= 3, "expected at least 3 elements");
         Assert.Equal("One Two Three", result.StreamContent.Trim());
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.StreamComplete);
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public class StreamingTests
         var result = await LiterLlmLib.Chat(null);
         Assert.True(result.Chunks.Count >= 3, "expected at least 3 elements");
         Assert.Equal("1 2 3", result.StreamContent.Trim());
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.StreamComplete);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class StreamingTests
         var result = await LiterLlmLib.Chat(null);
         Assert.True(result.Chunks.Count >= 2, "expected at least 2 elements");
         Assert.Equal("One Two Three", result.StreamContent.Trim());
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.StreamComplete);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class StreamingTests
         var result = await LiterLlmLib.Chat(null);
         Assert.True(result.Chunks.Count >= 3, "expected at least 3 elements");
         Assert.Equal("1 2 3", result.StreamContent.Trim());
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.StreamComplete);
     }
 
     [Fact]
@@ -75,9 +75,9 @@ public class StreamingTests
     {
         // Verify that the [DONE] sentinel signal properly terminates the stream
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.StreamComplete);
         Assert.Equal("Done", result.StreamContent.Trim());
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.NoChunksAfterDone);
     }
 
     [Fact]
@@ -115,6 +115,6 @@ public class StreamingTests
         var result = await LiterLlmLib.Chat(null);
         Assert.True(result.Chunks.Count >= 2, "expected at least 2 elements");
         Assert.Equal("One Two Three", result.StreamContent.Trim());
-        // TODO: unsupported assertion type: is_true
+        Assert.True(result.StreamComplete);
     }
 }

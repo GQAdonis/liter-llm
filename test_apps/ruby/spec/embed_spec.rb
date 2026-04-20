@@ -7,14 +7,14 @@ require 'json'
 RSpec.describe 'embed' do
   it 'batch_embed: Embedding request with multiple input strings returns one embedding object per input' do
     result = LiterLlm.chat(['Hello', 'World'])
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(2)
+    expect(result.data.get("0").embedding.length).to eq(5)
   end
 
   it 'embed_encoding_format: Embedding request with explicit encoding_format of float returns float array embeddings' do
     result = LiterLlm.chat('Test input')
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
+    expect(result.data.get("0").embedding.length).to eq(5)
   end
 
   it 'embed_error_401: 401 Unauthorized error on embedding request when API key is invalid' do
@@ -23,13 +23,13 @@ RSpec.describe 'embed' do
 
   it 'embed_with_dimensions: Embedding request with explicit dimensions parameter returns embeddings of the requested size' do
     result = LiterLlm.chat('Hello world')
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
+    expect(result.data.get("0").embedding.length).to eq(8)
   end
 
   it 'local_embed_ollama: Embedding request via Ollama local provider with all-minilm model' do
     result = LiterLlm.chat('The quick brown fox jumps over the lazy dog')
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
+    expect(result.data.get("0").embedding.length).to eq(32)
   end
 end

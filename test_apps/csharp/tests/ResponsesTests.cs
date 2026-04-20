@@ -19,7 +19,7 @@ public class ResponsesTests
         var result = await LiterLlmLib.Chat("");
         Assert.False(string.IsNullOrEmpty(result.Id?.ToString()));
         Assert.Equal("completed", result.Status.Trim());
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(0, result.Output.Count);
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public class ResponsesTests
         var result = await LiterLlmLib.Chat("Summarize the following long text: Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. ");
         Assert.False(string.IsNullOrEmpty(result.Id?.ToString()));
         Assert.Equal("completed", result.Status.Trim());
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Output.Count);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class ResponsesTests
         var result = await LiterLlmLib.Chat(null);
         Assert.False(string.IsNullOrEmpty(result.Id?.ToString()));
         Assert.Equal("cancelled", result.Status.Trim());
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(0, result.Output.Count);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class ResponsesTests
         var result = await LiterLlmLib.Chat("Explain quantum computing in one sentence.");
         Assert.False(string.IsNullOrEmpty(result.Id?.ToString()));
         Assert.Equal("completed", result.Status.Trim());
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Output.Count);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class ResponsesTests
         var result = await LiterLlmLib.Chat("What is the weather in San Francisco?");
         Assert.False(string.IsNullOrEmpty(result.Id?.ToString()));
         Assert.Equal("completed", result.Status.Trim());
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Output.Count);
         Assert.False(string.IsNullOrEmpty(result.Choices["0"].Message.ToolCalls?.ToString()));
     }
 

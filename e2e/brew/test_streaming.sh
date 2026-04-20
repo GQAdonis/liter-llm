@@ -14,7 +14,9 @@ test_anthropic_stream() {
     local val_stream_content
     val_stream_content=$(echo "$output" | jq -r '.stream_content')
     assert_equals "$val_stream_content" 'One Two Three' 'stream_content'
-    # TODO: unsupported assertion type: is_true
+    local val_stream_complete
+    val_stream_complete=$(echo "$output" | jq -r '.stream_complete')
+    [ "$val_stream_complete" = "true" ] || exit 1
 }
 
 test_azure_stream() {
@@ -28,7 +30,9 @@ test_azure_stream() {
     local val_stream_content
     val_stream_content=$(echo "$output" | jq -r '.stream_content')
     assert_equals "$val_stream_content" '1 2 3' 'stream_content'
-    # TODO: unsupported assertion type: is_true
+    local val_stream_complete
+    val_stream_complete=$(echo "$output" | jq -r '.stream_complete')
+    [ "$val_stream_complete" = "true" ] || exit 1
 }
 
 test_basic_stream() {
@@ -55,7 +59,9 @@ test_bedrock_stream() {
     local val_stream_content
     val_stream_content=$(echo "$output" | jq -r '.stream_content')
     assert_equals "$val_stream_content" 'One Two Three' 'stream_content'
-    # TODO: unsupported assertion type: is_true
+    local val_stream_complete
+    val_stream_complete=$(echo "$output" | jq -r '.stream_complete')
+    [ "$val_stream_complete" = "true" ] || exit 1
 }
 
 test_empty_stream() {
@@ -82,7 +88,9 @@ test_local_stream_ollama() {
     local val_stream_content
     val_stream_content=$(echo "$output" | jq -r '.stream_content')
     assert_equals "$val_stream_content" '1 2 3' 'stream_content'
-    # TODO: unsupported assertion type: is_true
+    local val_stream_complete
+    val_stream_complete=$(echo "$output" | jq -r '.stream_complete')
+    [ "$val_stream_complete" = "true" ] || exit 1
 }
 
 test_stream_done_signal() {
@@ -90,11 +98,15 @@ test_stream_done_signal() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: is_true
+    local val_stream_complete
+    val_stream_complete=$(echo "$output" | jq -r '.stream_complete')
+    [ "$val_stream_complete" = "true" ] || exit 1
     local val_stream_content
     val_stream_content=$(echo "$output" | jq -r '.stream_content')
     assert_equals "$val_stream_content" 'Done' 'stream_content'
-    # TODO: unsupported assertion type: is_true
+    local val_no_chunks_after_done
+    val_no_chunks_after_done=$(echo "$output" | jq -r '.no_chunks_after_done')
+    [ "$val_no_chunks_after_done" = "true" ] || exit 1
 }
 
 test_stream_error_401() {
@@ -151,7 +163,9 @@ test_vertex_stream() {
     local val_stream_content
     val_stream_content=$(echo "$output" | jq -r '.stream_content')
     assert_equals "$val_stream_content" 'One Two Three' 'stream_content'
-    # TODO: unsupported assertion type: is_true
+    local val_stream_complete
+    val_stream_complete=$(echo "$output" | jq -r '.stream_complete')
+    [ "$val_stream_complete" = "true" ] || exit 1
 }
 
 run_tests_streaming() {

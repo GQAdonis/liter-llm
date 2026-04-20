@@ -7,21 +7,21 @@ require 'json'
 RSpec.describe 'cache' do
   it 'cache_hit: Tests that identical chat requests return cached response' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: is_true
+    expect(result.cache_hit).to be true
   end
 
   it 'cache_miss_ttl: Tests that cache expires after TTL' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: is_true
+    expect(result.cache_hit).to be true
   end
 
   it 'cache_opendal_memory: Cache hit with OpenDAL memory backend returns cached response on repeat request' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: is_true
+    expect(result.cache_hit).to be true
   end
 
   it 'cache_stream_bypass: Tests that streaming requests bypass cache entirely' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: is_true
+    expect(result.cache_bypassed).to be true
   end
 end

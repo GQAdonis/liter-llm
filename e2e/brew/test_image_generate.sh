@@ -8,7 +8,9 @@ test_edge_image_b64_response() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
     local val_data_0__b64_json
     val_data_0__b64_json=$(echo "$output" | jq -r '.data[0].b64_json')
     assert_not_empty "$val_data_0__b64_json" 'data[0].b64_json'
@@ -51,7 +53,9 @@ test_smoke_image_basic() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
     local val_data_0__url
     val_data_0__url=$(echo "$output" | jq -r '.data[0].url')
     assert_not_empty "$val_data_0__url" 'data[0].url'
@@ -62,7 +66,9 @@ test_smoke_image_multiple() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 3 ] || exit 1
     local val_data_0__url
     val_data_0__url=$(echo "$output" | jq -r '.data[0].url')
     assert_not_empty "$val_data_0__url" 'data[0].url'
@@ -73,7 +79,9 @@ test_smoke_image_with_size() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 1 ] || exit 1
     local val_data_0__url
     val_data_0__url=$(echo "$output" | jq -r '.data[0].url')
     assert_not_empty "$val_data_0__url" 'data[0].url'

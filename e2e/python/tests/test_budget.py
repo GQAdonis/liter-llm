@@ -28,5 +28,5 @@ async def test_budget_tracked() -> None:
     """Tests that cost is tracked after a successful response."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: is_true
+    assert result.cost_tracked is True  # noqa: S101
 

@@ -9,7 +9,7 @@ async def test_edge_image_b64_response() -> None:
     """Image generation returning base64-encoded data instead of URL."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
     assert result.data.get("0").b64_json  # noqa: S101
 
 @pytest.mark.asyncio
@@ -49,7 +49,7 @@ async def test_smoke_image_basic() -> None:
     """Basic image generation with a text prompt."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
     assert result.data.get("0").url  # noqa: S101
 
 @pytest.mark.asyncio
@@ -57,7 +57,7 @@ async def test_smoke_image_multiple() -> None:
     """Image generation requesting multiple images."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 3  # noqa: S101
     assert result.data.get("0").url  # noqa: S101
 
 @pytest.mark.asyncio
@@ -65,6 +65,6 @@ async def test_smoke_image_with_size() -> None:
     """Image generation with explicit size parameter."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
     assert result.data.get("0").url  # noqa: S101
 

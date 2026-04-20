@@ -6,7 +6,7 @@ defmodule E2e.SmokeTest do
   describe "anthropic_chat" do
     test "Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hello!"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert String.trim(result.model) == "claude-3-5-sonnet-20241022"
@@ -17,7 +17,7 @@ defmodule E2e.SmokeTest do
   describe "azure_chat" do
     test "Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hello!"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert String.trim(result.model) == "gpt-4"
@@ -28,15 +28,15 @@ defmodule E2e.SmokeTest do
   describe "azure_embed" do
     test "Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged" do
       {:ok, result} = LiterLlm.chat_async("Hello world")
-      # TODO: unsupported assertion type: count_equals
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
+      assert length(result.data["0"].embedding) == 1536
     end
   end
 
   describe "basic_chat" do
     test "Basic chat completion with a single user message" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hello!"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert result.usage.total_tokens == 15
@@ -47,8 +47,8 @@ defmodule E2e.SmokeTest do
   describe "basic_embed" do
     test "Basic embedding request for a single input string" do
       {:ok, result} = LiterLlm.chat_async("Hello world")
-      # TODO: unsupported assertion type: count_equals
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
+      assert length(result.data["0"].embedding) == 5
     end
   end
 
@@ -62,7 +62,7 @@ defmodule E2e.SmokeTest do
   describe "bedrock_chat" do
     test "Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hello!"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert String.trim(result.model) == "anthropic.claude-3-sonnet-20240229-v1:0"
@@ -73,7 +73,7 @@ defmodule E2e.SmokeTest do
   describe "github_copilot_chat" do
     test "Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hello!"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert String.trim(result.model) == "gpt-4o"
@@ -157,7 +157,7 @@ defmodule E2e.SmokeTest do
   describe "vertex_chat" do
     test "Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hello!"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert String.trim(result.model) == "gemini-2.0-flash"
@@ -168,8 +168,8 @@ defmodule E2e.SmokeTest do
   describe "vertex_embed" do
     test "Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape" do
       {:ok, result} = LiterLlm.chat_async("Hello")
-      # TODO: unsupported assertion type: count_equals
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
+      assert length(result.data["0"].embedding) == 160
     end
   end
 end

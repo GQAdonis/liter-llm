@@ -16,7 +16,12 @@ void test_edge_image_b64_response(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_b64_json = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(data_0_b64_json) > 0 && "expected non-empty value");
     _free_string(data);
     free(data_0_b64_json);
@@ -56,7 +61,12 @@ void test_smoke_image_basic(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_url = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
     _free_string(data);
     free(data_0_url);
@@ -72,7 +82,12 @@ void test_smoke_image_multiple(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_url = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 3 && "expected 3 elements");
+    }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
     _free_string(data);
     free(data_0_url);
@@ -88,7 +103,12 @@ void test_smoke_image_with_size(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_url = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(data_0_url) > 0 && "expected non-empty value");
     _free_string(data);
     free(data_0_url);

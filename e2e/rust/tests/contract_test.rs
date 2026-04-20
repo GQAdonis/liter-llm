@@ -19,7 +19,7 @@ async fn test_binding_api_parity() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"OK"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
     assert_eq!(result.usage.total_tokens, 6, "equals assertion failed");

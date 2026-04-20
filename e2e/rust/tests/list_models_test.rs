@@ -20,7 +20,7 @@ async fn test_empty_model_list() {
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
     assert!(!result.data.is_empty(), "expected >= 0");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 0, "expected exactly 0 elements, got {}", result.data.len());
 }
 
 #[tokio::test]

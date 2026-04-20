@@ -18,7 +18,7 @@ defmodule E2e.ProxyTest do
   describe "proxy_chat_basic" do
     test "Basic chat completion request routed through the proxy" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hello!"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
     end
@@ -29,14 +29,14 @@ defmodule E2e.ProxyTest do
       {:ok, result} = LiterLlm.chat_async(nil)
       assert length(result.chunks) >= 3
       assert String.trim(result.stream_content) == "1 2 3"
-      # TODO: unsupported assertion type: is_true
+      assert result.stream_complete == true
     end
   end
 
   describe "proxy_embeddings" do
     test "Embedding request routed through the proxy" do
       {:ok, result} = LiterLlm.chat_async("Hello world")
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
     end
   end
 
@@ -50,7 +50,7 @@ defmodule E2e.ProxyTest do
   describe "proxy_image_generate" do
     test "Image generation request routed through the proxy" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 1
       assert result.data["0"].url != ""
     end
   end
@@ -65,7 +65,7 @@ defmodule E2e.ProxyTest do
   describe "proxy_moderation" do
     test "Content moderation request routed through the proxy" do
       {:ok, result} = LiterLlm.chat_async("The weather is nice today.")
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.results) == 1
       assert result.results["0"].flagged == false
     end
   end
@@ -73,7 +73,7 @@ defmodule E2e.ProxyTest do
   describe "proxy_rerank" do
     test "Document reranking request routed through the proxy" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.results) == 2
       assert result.results["0"].relevance_score > 0.9
     end
   end

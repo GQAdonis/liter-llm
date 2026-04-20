@@ -18,7 +18,7 @@ func Test_EmptyModelList(t *testing.T) {
 		t.Fatalf("call failed: %v", err)
 	}
 	assert.GreaterOrEqual(t, len(result.Data), 0, "expected at least 0 elements")
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 0, "expected exactly 0 elements")
 }
 
 func Test_ListModelsError401(t *testing.T) {

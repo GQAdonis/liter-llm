@@ -8,7 +8,9 @@ test_developer_message() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 's[::-1]' 'choices[0].message.content'
@@ -22,7 +24,9 @@ test_finish_reason_content_filter() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__finish_reason
     val_choices_0__finish_reason=$(echo "$output" | jq -r '.choices[0].finish_reason')
     assert_equals "$val_choices_0__finish_reason" 'content_filter' 'choices[0].finish_reason'
@@ -33,7 +37,9 @@ test_finish_reason_length() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__finish_reason
     val_choices_0__finish_reason=$(echo "$output" | jq -r '.choices[0].finish_reason')
     assert_equals "$val_choices_0__finish_reason" 'length' 'choices[0].finish_reason'
@@ -44,7 +50,9 @@ test_multi_turn_conversation() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" '4 + 4 equals 8.' 'choices[0].message.content'
@@ -58,11 +66,15 @@ test_parallel_tool_calls() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_tool_calls
     val_choices_0__message_tool_calls=$(echo "$output" | jq -r '.choices[0].message.tool_calls')
     assert_not_empty "$val_choices_0__message_tool_calls" 'choices[0].message.tool_calls'
-    # TODO: unsupported assertion type: count_equals
+    local count_choices_0__message_tool_calls
+    count_choices_0__message_tool_calls=$(echo "$output" | jq '.choices[0].message.tool_calls | length')
+    [ "$count_choices_0__message_tool_calls" -eq 2 ] || exit 1
     local val_choices_0__finish_reason
     val_choices_0__finish_reason=$(echo "$output" | jq -r '.choices[0].finish_reason')
     assert_equals "$val_choices_0__finish_reason" 'tool_calls' 'choices[0].finish_reason'
@@ -73,7 +85,9 @@ test_response_format_json_object() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_not_empty "$val_choices_0__message_content" 'choices[0].message.content'
@@ -87,7 +101,9 @@ test_response_format_json_schema() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_not_empty "$val_choices_0__message_content" 'choices[0].message.content'
@@ -101,7 +117,9 @@ test_seed_parameter() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__finish_reason
     val_choices_0__finish_reason=$(echo "$output" | jq -r '.choices[0].finish_reason')
     assert_equals "$val_choices_0__finish_reason" 'stop' 'choices[0].finish_reason'
@@ -115,7 +133,9 @@ test_stop_sequences() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__finish_reason
     val_choices_0__finish_reason=$(echo "$output" | jq -r '.choices[0].finish_reason')
     assert_equals "$val_choices_0__finish_reason" 'stop' 'choices[0].finish_reason'
@@ -126,7 +146,9 @@ test_tool_choice_required() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_tool_calls
     val_choices_0__message_tool_calls=$(echo "$output" | jq -r '.choices[0].message.tool_calls')
     assert_not_empty "$val_choices_0__message_tool_calls" 'choices[0].message.tool_calls'
@@ -143,7 +165,9 @@ test_tool_choice_specific() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_tool_calls
     val_choices_0__message_tool_calls=$(echo "$output" | jq -r '.choices[0].message.tool_calls')
     assert_not_empty "$val_choices_0__message_tool_calls" 'choices[0].message.tool_calls'

@@ -17,7 +17,7 @@ public class ContractTests
     {
         // Verify all bindings expose the full API surface — constructor accepts all config options and every method exists
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("OK", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal(6, result.Usage.TotalTokens);

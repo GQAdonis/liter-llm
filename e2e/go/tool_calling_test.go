@@ -16,7 +16,7 @@ func Test_AnthropicToolCalling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if len(result.Choices["0"].Message.ToolCalls) == 0 {
 		t.Errorf("expected non-empty value")
 	}
@@ -34,7 +34,7 @@ func Test_SingleToolCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if len(result.Choices["0"].Message.ToolCalls) == 0 {
 		t.Errorf("expected non-empty value")
 	}

@@ -7,7 +7,7 @@ test_that("edge_batch_already_cancelled: Attempt to cancel an already-cancelled 
 
 test_that("edge_batch_empty_list: List batches when no batches exist", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 0)
 })
 
 test_that("error_batch_auth_401: 401 Unauthorized when creating a batch with invalid API key", {
@@ -42,7 +42,7 @@ test_that("smoke_create_batch: Create a new batch processing job", {
 
 test_that("smoke_list_batches: List all batch jobs", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 2)
 })
 
 test_that("smoke_retrieve_batch: Retrieve the status of a batch job", {

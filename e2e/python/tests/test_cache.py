@@ -9,26 +9,26 @@ async def test_cache_hit() -> None:
     """Tests that identical chat requests return cached response."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: is_true
+    assert result.cache_hit is True  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_cache_miss_ttl() -> None:
     """Tests that cache expires after TTL."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: is_true
+    assert result.cache_hit is True  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_cache_opendal_memory() -> None:
     """Cache hit with OpenDAL memory backend returns cached response on repeat request."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: is_true
+    assert result.cache_hit is True  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_cache_stream_bypass() -> None:
     """Tests that streaming requests bypass cache entirely."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: is_true
+    assert result.cache_bypassed is True  # noqa: S101
 

@@ -24,7 +24,7 @@ func Test_EdgeBatchEmptyList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 0, "expected exactly 0 elements")
 }
 
 func Test_ErrorBatchAuth401(t *testing.T) {
@@ -99,7 +99,7 @@ func Test_SmokeListBatches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 2, "expected exactly 2 elements")
 }
 
 func Test_SmokeRetrieveBatch(t *testing.T) {

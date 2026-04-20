@@ -17,8 +17,18 @@ void test_batch_embed(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 2 && "expected 2 elements");
+    }
+    {
+        /* count_equals: count elements in array */
+        assert(data_0_embedding != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data_0_embedding);
+        assert(elem_count == 5 && "expected 5 elements");
+    }
     _free_string(data);
     free(data_0_embedding);
     _free_string(data_json);
@@ -35,8 +45,18 @@ void test_embed_encoding_format(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
+    {
+        /* count_equals: count elements in array */
+        assert(data_0_embedding != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data_0_embedding);
+        assert(elem_count == 5 && "expected 5 elements");
+    }
     _free_string(data);
     free(data_0_embedding);
     _free_string(data_json);
@@ -61,8 +81,18 @@ void test_embed_with_dimensions(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
+    {
+        /* count_equals: count elements in array */
+        assert(data_0_embedding != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data_0_embedding);
+        assert(elem_count == 8 && "expected 8 elements");
+    }
     _free_string(data);
     free(data_0_embedding);
     _free_string(data_json);
@@ -79,8 +109,18 @@ void test_local_embed_ollama(void) {
     char* data_json = _conversion_result_data(result);
     assert(data_json != NULL);
     char* data_0_embedding = htm_json_get_string(data_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
+    {
+        /* count_equals: count elements in array */
+        assert(data_0_embedding != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data_0_embedding);
+        assert(elem_count == 32 && "expected 32 elements");
+    }
     _free_string(data);
     free(data_0_embedding);
     _free_string(data_json);

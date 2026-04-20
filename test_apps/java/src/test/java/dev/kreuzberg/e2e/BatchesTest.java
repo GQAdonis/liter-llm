@@ -16,7 +16,7 @@ class BatchesTest {
     void testEdgeBatchEmptyList() throws Exception {
         // List batches when no batches exist
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(0, result.data().size(), "expected exactly 0 elements");
     }
 
     @Test
@@ -65,7 +65,7 @@ class BatchesTest {
     void testSmokeListBatches() throws Exception {
         // List all batch jobs
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.data().size(), "expected exactly 2 elements");
     }
 
     @Test

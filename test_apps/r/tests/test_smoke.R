@@ -3,7 +3,7 @@
 
 test_that("anthropic_chat: Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$message$content), "Hello!")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
   expect_equal(trimws(result$model), "claude-3-5-sonnet-20241022")
@@ -12,7 +12,7 @@ test_that("anthropic_chat: Basic chat completion via the Anthropic provider (cla
 
 test_that("azure_chat: Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$message$content), "Hello!")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
   expect_equal(trimws(result$model), "gpt-4")
@@ -21,13 +21,13 @@ test_that("azure_chat: Chat completion via Azure OpenAI with the azure/ prefix f
 
 test_that("azure_embed: Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged", {
   result <- chat(request = "hello world")
-  # TODO: unsupported assertion type: count_equals
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 1)
+  expect_equal(length(result$data[["0"]]$embedding), 1536)
 })
 
 test_that("basic_chat: Basic chat completion with a single user message", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$message$content), "Hello!")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
   expect_equal(trimws(result$usage$total_tokens), 15)
@@ -36,8 +36,8 @@ test_that("basic_chat: Basic chat completion with a single user message", {
 
 test_that("basic_embed: Basic embedding request for a single input string", {
   result <- chat(request = "hello world")
-  # TODO: unsupported assertion type: count_equals
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 1)
+  expect_equal(length(result$data[["0"]]$embedding), 5)
 })
 
 test_that("basic_list_models: List available models from the API", {
@@ -47,7 +47,7 @@ test_that("basic_list_models: List available models from the API", {
 
 test_that("bedrock_chat: Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$message$content), "Hello!")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
   expect_equal(trimws(result$model), "anthropic.claude-3-sonnet-20240229-v1:0")
@@ -56,7 +56,7 @@ test_that("bedrock_chat: Basic chat completion via the AWS Bedrock provider usin
 
 test_that("github_copilot_chat: Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$message$content), "Hello!")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
   expect_equal(trimws(result$model), "gpt-4o")
@@ -118,7 +118,7 @@ test_that("smoke_streaming_openai: Chat streaming against real OpenAI API, verif
 
 test_that("vertex_chat: Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$message$content), "Hello!")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
   expect_equal(trimws(result$model), "gemini-2.0-flash")
@@ -127,6 +127,6 @@ test_that("vertex_chat: Basic chat completion via the Google Vertex AI provider 
 
 test_that("vertex_embed: Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape", {
   result <- chat(request = "hello")
-  # TODO: unsupported assertion type: count_equals
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 1)
+  expect_equal(length(result$data[["0"]]$embedding), 160)
 })

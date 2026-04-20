@@ -12,7 +12,7 @@ class ResponsesTest {
         var result = LiterLlm.chat("");
         assertFalse(result.id().isEmpty(), "expected non-empty value");
         assertEquals("completed", result.status().trim());
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(0, result.output().size(), "expected exactly 0 elements");
     }
 
     @Test
@@ -21,7 +21,7 @@ class ResponsesTest {
         var result = LiterLlm.chat("Summarize the following long text: Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. ");
         assertFalse(result.id().isEmpty(), "expected non-empty value");
         assertEquals("completed", result.status().trim());
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.output().size(), "expected exactly 1 elements");
     }
 
     @Test
@@ -48,7 +48,7 @@ class ResponsesTest {
         var result = LiterLlm.chat(null);
         assertFalse(result.id().isEmpty(), "expected non-empty value");
         assertEquals("cancelled", result.status().trim());
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(0, result.output().size(), "expected exactly 0 elements");
     }
 
     @Test
@@ -57,7 +57,7 @@ class ResponsesTest {
         var result = LiterLlm.chat("Explain quantum computing in one sentence.");
         assertFalse(result.id().isEmpty(), "expected non-empty value");
         assertEquals("completed", result.status().trim());
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.output().size(), "expected exactly 1 elements");
     }
 
     @Test
@@ -66,7 +66,7 @@ class ResponsesTest {
         var result = LiterLlm.chat("What is the weather in San Francisco?");
         assertFalse(result.id().isEmpty(), "expected non-empty value");
         assertEquals("completed", result.status().trim());
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.output().size(), "expected exactly 2 elements");
         assertFalse(result.choices().get("0").message().toolCalls().isEmpty(), "expected non-empty value");
     }
 

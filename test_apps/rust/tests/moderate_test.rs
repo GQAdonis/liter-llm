@@ -19,7 +19,7 @@ async fn test_edge_moderate_all_categories() {
     let request_json = serde_json::json!("Extremely harmful content targeting multiple categories");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 1, "expected exactly 1 elements, got {}", result.results.len());
     assert!(result.results.get("0").map(|s| s.as_str()).flagged, "equals assertion failed");
 }
 
@@ -37,7 +37,7 @@ async fn test_edge_moderate_empty_input() {
     let request_json = serde_json::json!("");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 1, "expected exactly 1 elements, got {}", result.results.len());
     assert!(!result.results.get("0").map(|s| s.as_str()).flagged, "equals assertion failed");
 }
 
@@ -91,7 +91,7 @@ async fn test_smoke_moderate_batch() {
     let request_json = serde_json::json!(["Hello world", "Nice weather today"]);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 2, "expected exactly 2 elements, got {}", result.results.len());
     assert!(!result.results.get("0").map(|s| s.as_str()).flagged, "equals assertion failed");
 }
 
@@ -109,7 +109,7 @@ async fn test_smoke_moderate_flagged() {
     let request_json = serde_json::json!("I want to hurt someone very badly");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 1, "expected exactly 1 elements, got {}", result.results.len());
     assert!(result.results.get("0").map(|s| s.as_str()).flagged, "equals assertion failed");
 }
 
@@ -127,6 +127,7 @@ async fn test_smoke_moderate_single() {
     let request_json = serde_json::json!("The weather is nice today.");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 1, "expected exactly 1 elements, got {}", result.results.len());
     assert!(!result.results.get("0").map(|s| s.as_str()).flagged, "equals assertion failed");
 }
+

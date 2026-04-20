@@ -9,7 +9,7 @@ async def test_edge_moderate_all_categories() -> None:
     """Moderation response with multiple categories flagged."""
     request = "Extremely harmful content targeting multiple categories"
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").flagged is True  # noqa: S101
 
 @pytest.mark.asyncio
@@ -17,7 +17,7 @@ async def test_edge_moderate_empty_input() -> None:
     """Moderation with empty string input."""
     request = ""
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").flagged is False  # noqa: S101
 
 @pytest.mark.asyncio
@@ -41,7 +41,7 @@ async def test_smoke_moderate_batch() -> None:
     """Moderate multiple inputs in a single request."""
     request = ["Hello world", "Nice weather today"]
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 2  # noqa: S101
     assert result.results.get("0").flagged is False  # noqa: S101
 
 @pytest.mark.asyncio
@@ -49,7 +49,7 @@ async def test_smoke_moderate_flagged() -> None:
     """Moderation detects flagged content."""
     request = "I want to hurt someone very badly"
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").flagged is True  # noqa: S101
 
 @pytest.mark.asyncio
@@ -57,6 +57,6 @@ async def test_smoke_moderate_single() -> None:
     """Moderate a single non-flagged input."""
     request = "The weather is nice today."
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").flagged is False  # noqa: S101
 

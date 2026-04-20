@@ -10,7 +10,7 @@ class FilesTest {
     void testEdgeFileEmptyList() throws Exception {
         // List files when no files have been uploaded
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(0, result.data().size(), "expected exactly 0 elements");
     }
 
     @Test
@@ -64,7 +64,7 @@ class FilesTest {
     void testSmokeListFiles() throws Exception {
         // List all uploaded files
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.data().size(), "expected exactly 2 elements");
     }
 
     @Test

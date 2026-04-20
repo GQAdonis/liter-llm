@@ -16,7 +16,7 @@ func Test_DeveloperMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `s[::-1]` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -31,7 +31,7 @@ func Test_FinishReasonContentFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].FinishReason) != `content_filter` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].FinishReason)
 	}
@@ -43,7 +43,7 @@ func Test_FinishReasonLength(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].FinishReason) != `length` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].FinishReason)
 	}
@@ -55,7 +55,7 @@ func Test_MultiTurnConversation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `4 + 4 equals 8.` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -70,11 +70,11 @@ func Test_ParallelToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if len(result.Choices["0"].Message.ToolCalls) == 0 {
 		t.Errorf("expected non-empty value")
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices["0"].Message.ToolCalls), 2, "expected exactly 2 elements")
 	if strings.TrimSpace(result.Choices["0"].FinishReason) != `tool_calls` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].FinishReason)
 	}
@@ -86,7 +86,7 @@ func Test_ResponseFormatJsonObject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if len(result.Choices["0"].Message.Content) == 0 {
 		t.Errorf("expected non-empty value")
 	}
@@ -101,7 +101,7 @@ func Test_ResponseFormatJsonSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if len(result.Choices["0"].Message.Content) == 0 {
 		t.Errorf("expected non-empty value")
 	}
@@ -116,7 +116,7 @@ func Test_SeedParameter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].FinishReason) != `stop` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].FinishReason)
 	}
@@ -131,7 +131,7 @@ func Test_StopSequences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].FinishReason) != `stop` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].FinishReason)
 	}
@@ -143,7 +143,7 @@ func Test_ToolChoiceRequired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if len(result.Choices["0"].Message.ToolCalls) == 0 {
 		t.Errorf("expected non-empty value")
 	}
@@ -161,7 +161,7 @@ func Test_ToolChoiceSpecific(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if len(result.Choices["0"].Message.ToolCalls) == 0 {
 		t.Errorf("expected non-empty value")
 	}

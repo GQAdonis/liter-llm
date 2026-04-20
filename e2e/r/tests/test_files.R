@@ -3,7 +3,7 @@
 
 test_that("edge_file_empty_list: List files when no files have been uploaded", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 0)
 })
 
 test_that("edge_file_large_upload: Upload a large file successfully", {
@@ -41,7 +41,7 @@ test_that("smoke_file_content: Retrieve the content of an uploaded file", {
 
 test_that("smoke_list_files: List all uploaded files", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 2)
 })
 
 test_that("smoke_retrieve_file: Retrieve metadata for an uploaded file", {

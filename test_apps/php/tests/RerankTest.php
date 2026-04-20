@@ -6,7 +6,7 @@ declare(strict_types=1);
 namespace Kreuzberg\E2e;
 
 use PHPUnit\Framework\TestCase;
-use LiterLlm\LiterLlm;
+use Liter\Llm\LiterLlm;
 
 /** E2e tests for category: rerank. */
 final class RerankTest extends TestCase
@@ -14,45 +14,51 @@ final class RerankTest extends TestCase
     /** Reranking with an empty query string */
     public function test_edge_rerank_empty_query(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(2, $result->results);
     }
 
     /** Reranking with only a single document */
     public function test_edge_rerank_single_doc(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(1, $result->results);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
 
     /** 401 Unauthorized for reranking with invalid API key */
     public function test_error_rerank_auth_401(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 
     /** 400 Bad Request for reranking with invalid model */
     public function test_error_rerank_bad_request(): void
     {
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $this->expectException(\Exception::class);
-        LiterLlm::chat(null);
+        $client->chat(null);
     }
 
     /** Basic reranking of documents against a query */
     public function test_smoke_rerank_basic(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(3, $result->results);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
 
     /** Reranking with return_documents flag to include document text */
     public function test_smoke_rerank_return_docs(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(2, $result->results);
         $this->assertNotEmpty($result->results["0"]->document);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
@@ -60,8 +66,9 @@ final class RerankTest extends TestCase
     /** Reranking with top_n parameter to limit results */
     public function test_smoke_rerank_with_top_n(): void
     {
-        $result = LiterLlm::chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $client = \Liter\Llm\LiterLlm::createClient('test-key');
+        $result = $client->chat(null);
+        $this->assertCount(2, $result->results);
         $this->assertGreaterThan(0.9, $result->results["0"]->relevance_score);
     }
 }

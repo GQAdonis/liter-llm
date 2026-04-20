@@ -15,7 +15,7 @@ RSpec.describe 'proxy' do
 
   it 'proxy_chat_basic: Basic chat completion request routed through the proxy' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hello!')
     expect(result.choices.get("0").finish_reason).to eq('stop')
   end
@@ -24,12 +24,12 @@ RSpec.describe 'proxy' do
     result = LiterLlm.chat(nil)
     expect(result.chunks.length).to be >= 3
     expect(result.stream_content).to eq('1 2 3')
-    # TODO: unsupported assertion type: is_true
+    expect(result.stream_complete).to be true
   end
 
   it 'proxy_embeddings: Embedding request routed through the proxy' do
     result = LiterLlm.chat('Hello world')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
   end
 
   it 'proxy_health: Health check verifying proxy connectivity via list models' do
@@ -39,7 +39,7 @@ RSpec.describe 'proxy' do
 
   it 'proxy_image_generate: Image generation request routed through the proxy' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
     expect(result.data.get("0").url).not_to be_empty
   end
 
@@ -50,13 +50,13 @@ RSpec.describe 'proxy' do
 
   it 'proxy_moderation: Content moderation request routed through the proxy' do
     result = LiterLlm.chat('The weather is nice today.')
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(1)
     expect(result.results.get("0").flagged).to be(false)
   end
 
   it 'proxy_rerank: Document reranking request routed through the proxy' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(2)
     expect(result.results.get("0").relevance_score).to be > 0.9
   end
 

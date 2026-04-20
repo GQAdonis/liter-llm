@@ -8,7 +8,7 @@ defmodule E2e.StreamingTest do
       {:ok, result} = LiterLlm.chat_async(nil)
       assert length(result.chunks) >= 3
       assert String.trim(result.stream_content) == "One Two Three"
-      # TODO: unsupported assertion type: is_true
+      assert result.stream_complete == true
     end
   end
 
@@ -17,7 +17,7 @@ defmodule E2e.StreamingTest do
       {:ok, result} = LiterLlm.chat_async(nil)
       assert length(result.chunks) >= 3
       assert String.trim(result.stream_content) == "1 2 3"
-      # TODO: unsupported assertion type: is_true
+      assert result.stream_complete == true
     end
   end
 
@@ -34,7 +34,7 @@ defmodule E2e.StreamingTest do
       {:ok, result} = LiterLlm.chat_async(nil)
       assert length(result.chunks) >= 2
       assert String.trim(result.stream_content) == "One Two Three"
-      # TODO: unsupported assertion type: is_true
+      assert result.stream_complete == true
     end
   end
 
@@ -51,16 +51,16 @@ defmodule E2e.StreamingTest do
       {:ok, result} = LiterLlm.chat_async(nil)
       assert length(result.chunks) >= 3
       assert String.trim(result.stream_content) == "1 2 3"
-      # TODO: unsupported assertion type: is_true
+      assert result.stream_complete == true
     end
   end
 
   describe "stream_done_signal" do
     test "Verify that the [DONE] sentinel signal properly terminates the stream" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: is_true
+      assert result.stream_complete == true
       assert String.trim(result.stream_content) == "Done"
-      # TODO: unsupported assertion type: is_true
+      assert result.no_chunks_after_done == true
     end
   end
 
@@ -94,7 +94,7 @@ defmodule E2e.StreamingTest do
       {:ok, result} = LiterLlm.chat_async(nil)
       assert length(result.chunks) >= 2
       assert String.trim(result.stream_content) == "One Two Three"
-      # TODO: unsupported assertion type: is_true
+      assert result.stream_complete == true
     end
   end
 end

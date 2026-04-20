@@ -5,14 +5,14 @@ test_that("edge_response_empty_output: Response completes with empty output item
   result <- chat(request = "")
   expect_true(if (is.character(result$id)) nchar(result$id) > 0 else length(result$id) > 0)
   expect_equal(trimws(result$status), "completed")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$output), 0)
 })
 
 test_that("edge_response_large_input: Response created with a very large input text", {
   result <- chat(request = "summarize the following long text: lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. lorem ipsum dolor sit amet. ")
   expect_true(if (is.character(result$id)) nchar(result$id) > 0 else length(result$id) > 0)
   expect_equal(trimws(result$status), "completed")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$output), 1)
 })
 
 test_that("error_response_auth_401: 401 Unauthorized when creating a response with invalid API key", {
@@ -31,21 +31,21 @@ test_that("smoke_cancel_response: Cancel an in-progress response", {
   result <- chat()
   expect_true(if (is.character(result$id)) nchar(result$id) > 0 else length(result$id) > 0)
   expect_equal(trimws(result$status), "cancelled")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$output), 0)
 })
 
 test_that("smoke_create_response: Create a basic response using the Responses API", {
   result <- chat(request = "explain quantum computing in one sentence.")
   expect_true(if (is.character(result$id)) nchar(result$id) > 0 else length(result$id) > 0)
   expect_equal(trimws(result$status), "completed")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$output), 1)
 })
 
 test_that("smoke_response_with_tools: Response that includes tool call output items", {
   result <- chat(request = "what is the weather in san francisco?")
   expect_true(if (is.character(result$id)) nchar(result$id) > 0 else length(result$id) > 0)
   expect_equal(trimws(result$status), "completed")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$output), 2)
   expect_true(if (is.character(result$choices[["0"]]$message$tool_calls)) nchar(result$choices[["0"]]$message$tool_calls) > 0 else length(result$choices[["0"]]$message$tool_calls) > 0)
 })
 

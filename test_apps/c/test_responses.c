@@ -18,7 +18,12 @@ void test_edge_response_empty_output(void) {
     char* output = _conversion_result_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(output != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(output);
+        assert(elem_count == 0 && "expected 0 elements");
+    }
     _free_string(id);
     _free_string(status);
     _free_string(output);
@@ -36,7 +41,12 @@ void test_edge_response_large_input(void) {
     char* output = _conversion_result_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(output != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(output);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     _free_string(id);
     _free_string(status);
     _free_string(output);
@@ -75,7 +85,12 @@ void test_smoke_cancel_response(void) {
     char* output = _conversion_result_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "cancelled") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(output != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(output);
+        assert(elem_count == 0 && "expected 0 elements");
+    }
     _free_string(id);
     _free_string(status);
     _free_string(output);
@@ -92,7 +107,12 @@ void test_smoke_create_response(void) {
     char* output = _conversion_result_output(result);
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(output != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(output);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     _free_string(id);
     _free_string(status);
     _free_string(output);
@@ -113,7 +133,12 @@ void test_smoke_response_with_tools(void) {
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     assert(strlen(id) > 0 && "expected non-empty value");
     assert(str_trim_eq(status, "completed") == 0 && "equals assertion failed");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(output != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(output);
+        assert(elem_count == 2 && "expected 2 elements");
+    }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
     _free_string(id);
     _free_string(status);

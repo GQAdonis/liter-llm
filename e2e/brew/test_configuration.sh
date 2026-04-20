@@ -8,7 +8,9 @@ test_custom_base_url() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hi there!' 'choices[0].message.content'
@@ -25,7 +27,9 @@ test_extra_headers() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__finish_reason
     val_choices_0__finish_reason=$(echo "$output" | jq -r '.choices[0].finish_reason')
     assert_equals "$val_choices_0__finish_reason" 'stop' 'choices[0].finish_reason'
@@ -36,7 +40,9 @@ test_local_provider_llamacpp() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hi there! I'\''m running locally.' 'choices[0].message.content'
@@ -53,7 +59,9 @@ test_local_provider_ollama() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hello! How can I help you today?' 'choices[0].message.content'
@@ -70,7 +78,9 @@ test_local_provider_vllm() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'Hello! How may I assist you?' 'choices[0].message.content'

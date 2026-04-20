@@ -6,7 +6,7 @@ defmodule E2e.ContractTest do
   describe "binding_api_parity" do
     test "Verify all bindings expose the full API surface — constructor accepts all config options and every method exists" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "OK"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert result.usage.total_tokens == 6

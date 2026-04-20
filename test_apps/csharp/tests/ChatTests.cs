@@ -17,7 +17,7 @@ public class ChatTests
     {
         // Chat request that includes a developer role message alongside user messages
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("s[::-1]", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
     }
@@ -27,7 +27,7 @@ public class ChatTests
     {
         // Chat response stopped by content filter with finish_reason of content_filter and null content
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("content_filter", result.Choices["0"].FinishReason.Trim());
     }
 
@@ -36,7 +36,7 @@ public class ChatTests
     {
         // Chat response truncated due to max_tokens limit with finish_reason of length
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("length", result.Choices["0"].FinishReason.Trim());
     }
 
@@ -45,7 +45,7 @@ public class ChatTests
     {
         // Multi-turn conversation with system, user, assistant, and follow-up user messages
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("4 + 4 equals 8.", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
     }
@@ -55,9 +55,9 @@ public class ChatTests
     {
         // Chat request that results in parallel tool calls in the response
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.False(string.IsNullOrEmpty(result.Choices["0"].Message.ToolCalls?.ToString()));
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Choices["0"].Message.ToolCalls.Count);
         Assert.Equal("tool_calls", result.Choices["0"].FinishReason.Trim());
     }
 
@@ -66,7 +66,7 @@ public class ChatTests
     {
         // Chat request with response_format json_object that returns valid JSON content
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.False(string.IsNullOrEmpty(result.Choices["0"].Message.Content?.ToString()));
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
     }
@@ -76,7 +76,7 @@ public class ChatTests
     {
         // Chat request with response_format json_schema that validates the output structure
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.False(string.IsNullOrEmpty(result.Choices["0"].Message.Content?.ToString()));
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
     }
@@ -86,7 +86,7 @@ public class ChatTests
     {
         // Chat request with seed parameter for deterministic output; response includes system_fingerprint
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.False(string.IsNullOrEmpty(result.SystemFingerprint?.ToString()));
     }
@@ -96,7 +96,7 @@ public class ChatTests
     {
         // Chat request with custom stop sequences that terminates generation at a stop token
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
     }
 
@@ -105,7 +105,7 @@ public class ChatTests
     {
         // Chat request with tool_choice set to required forces the model to call a tool
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.False(string.IsNullOrEmpty(result.Choices["0"].Message.ToolCalls?.ToString()));
         Assert.Equal("get_weather", result.Choices["0"].Message.ToolCalls["0"].Function.Name.Trim());
         Assert.Equal("tool_calls", result.Choices["0"].FinishReason.Trim());
@@ -116,7 +116,7 @@ public class ChatTests
     {
         // Chat request with tool_choice specifying a particular function to call
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.False(string.IsNullOrEmpty(result.Choices["0"].Message.ToolCalls?.ToString()));
         Assert.Equal("get_weather", result.Choices["0"].Message.ToolCalls["0"].Function.Name.Trim());
         Assert.Equal("tool_calls", result.Choices["0"].FinishReason.Trim());

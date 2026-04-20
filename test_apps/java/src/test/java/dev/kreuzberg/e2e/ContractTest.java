@@ -10,7 +10,7 @@ class ContractTest {
     void testBindingApiParity() throws Exception {
         // Verify all bindings expose the full API surface — constructor accepts all config options and every method exists
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("OK", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals(6, result.usage().totalTokens());

@@ -17,7 +17,7 @@ async def test_edge_batch_empty_list() -> None:
     """List batches when no batches exist."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 0  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_error_batch_auth_401() -> None:
@@ -72,7 +72,7 @@ async def test_smoke_list_batches() -> None:
     """List all batch jobs."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 2  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_smoke_retrieve_batch() -> None:

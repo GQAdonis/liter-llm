@@ -18,7 +18,7 @@ func Test_AnthropicChat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hello!` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -39,7 +39,7 @@ func Test_AzureChat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hello!` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -60,8 +60,8 @@ func Test_AzureEmbed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
+	assert.Equal(t, len(result.Data["0"].Embedding), 1536, "expected exactly 1536 elements")
 }
 
 func Test_BasicChat(t *testing.T) {
@@ -70,7 +70,7 @@ func Test_BasicChat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hello!` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -91,8 +91,8 @@ func Test_BasicEmbed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
+	assert.Equal(t, len(result.Data["0"].Embedding), 5, "expected exactly 5 elements")
 }
 
 func Test_BasicListModels(t *testing.T) {
@@ -110,7 +110,7 @@ func Test_BedrockChat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hello!` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -131,7 +131,7 @@ func Test_GithubCopilotChat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hello!` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -265,7 +265,7 @@ func Test_VertexChat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hello!` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -286,6 +286,6 @@ func Test_VertexEmbed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
+	assert.Equal(t, len(result.Data["0"].Embedding), 160, "expected exactly 160 elements")
 }

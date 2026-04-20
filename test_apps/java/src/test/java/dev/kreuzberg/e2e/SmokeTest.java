@@ -10,7 +10,7 @@ class SmokeTest {
     void testAnthropicChat() throws Exception {
         // Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hello!", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals("claude-3-5-sonnet-20241022", result.model().trim());
@@ -21,7 +21,7 @@ class SmokeTest {
     void testAzureChat() throws Exception {
         // Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hello!", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals("gpt-4", result.model().trim());
@@ -32,15 +32,15 @@ class SmokeTest {
     void testAzureEmbed() throws Exception {
         // Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged
         var result = LiterLlm.chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
+        assertEquals(1536, result.data().get("0").embedding().size(), "expected exactly 1536 elements");
     }
 
     @Test
     void testBasicChat() throws Exception {
         // Basic chat completion with a single user message
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hello!", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals(15, result.usage().totalTokens());
@@ -51,8 +51,8 @@ class SmokeTest {
     void testBasicEmbed() throws Exception {
         // Basic embedding request for a single input string
         var result = LiterLlm.chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
+        assertEquals(5, result.data().get("0").embedding().size(), "expected exactly 5 elements");
     }
 
     @Test
@@ -66,7 +66,7 @@ class SmokeTest {
     void testBedrockChat() throws Exception {
         // Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hello!", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals("anthropic.claude-3-sonnet-20240229-v1:0", result.model().trim());
@@ -77,7 +77,7 @@ class SmokeTest {
     void testGithubCopilotChat() throws Exception {
         // Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hello!", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals("gpt-4o", result.model().trim());
@@ -161,7 +161,7 @@ class SmokeTest {
     void testVertexChat() throws Exception {
         // Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hello!", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals("gemini-2.0-flash", result.model().trim());
@@ -172,8 +172,8 @@ class SmokeTest {
     void testVertexEmbed() throws Exception {
         // Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape
         var result = LiterLlm.chat("Hello");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
+        assertEquals(160, result.data().get("0").embedding().size(), "expected exactly 160 elements");
     }
 
 }

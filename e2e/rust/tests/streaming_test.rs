@@ -27,7 +27,7 @@ async fn test_anthropic_stream() {
     let result = chat(request).await.expect("should succeed");
     assert!(result.chunks.len() >= 3, "expected at least 3 elements, got {}", result.chunks.len());
     assert_eq!(result.stream_content.trim(), r#"One Two Three"#, "equals assertion failed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.stream_complete, "expected true");
 }
 
 #[tokio::test]
@@ -52,7 +52,7 @@ async fn test_azure_stream() {
     let result = chat(request).await.expect("should succeed");
     assert!(result.chunks.len() >= 3, "expected at least 3 elements, got {}", result.chunks.len());
     assert_eq!(result.stream_content.trim(), r#"1 2 3"#, "equals assertion failed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.stream_complete, "expected true");
 }
 
 #[tokio::test]
@@ -101,7 +101,7 @@ async fn test_bedrock_stream() {
     let result = chat(request).await.expect("should succeed");
     assert!(result.chunks.len() >= 2, "expected at least 2 elements, got {}", result.chunks.len());
     assert_eq!(result.stream_content.trim(), r#"One Two Three"#, "equals assertion failed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.stream_complete, "expected true");
 }
 
 #[tokio::test]
@@ -145,7 +145,7 @@ async fn test_local_stream_ollama() {
     let result = chat(request).await.expect("should succeed");
     assert!(result.chunks.len() >= 3, "expected at least 3 elements, got {}", result.chunks.len());
     assert_eq!(result.stream_content.trim(), r#"1 2 3"#, "equals assertion failed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.stream_complete, "expected true");
 }
 
 #[tokio::test]
@@ -166,9 +166,9 @@ async fn test_stream_done_signal() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.stream_complete, "expected true");
     assert_eq!(result.stream_content.trim(), r#"Done"#, "equals assertion failed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.no_chunks_after_done, "expected true");
 }
 
 #[tokio::test]
@@ -260,6 +260,6 @@ async fn test_vertex_stream() {
     let result = chat(request).await.expect("should succeed");
     assert!(result.chunks.len() >= 2, "expected at least 2 elements, got {}", result.chunks.len());
     assert_eq!(result.stream_content.trim(), r#"One Two Three"#, "equals assertion failed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.stream_complete, "expected true");
 }
 

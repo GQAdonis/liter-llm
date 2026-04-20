@@ -10,7 +10,7 @@ class TypesTest {
     void testAllMessageTypes() throws Exception {
         // Request with all message role types (system, user, assistant, tool) to verify round-trip serialization
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("stop", result.choices().get("0").finishReason().trim());
     }
 
@@ -18,7 +18,7 @@ class TypesTest {
     void testMultimodalContent() throws Exception {
         // User message with mixed text and image_url content parts to verify multimodal serialization
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("stop", result.choices().get("0").finishReason().trim());
     }
 

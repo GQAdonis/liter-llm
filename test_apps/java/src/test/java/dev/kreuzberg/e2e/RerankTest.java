@@ -10,14 +10,14 @@ class RerankTest {
     void testEdgeRerankEmptyQuery() throws Exception {
         // Reranking with an empty query string
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.results().size(), "expected exactly 2 elements");
     }
 
     @Test
     void testEdgeRerankSingleDoc() throws Exception {
         // Reranking with only a single document
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.results().size(), "expected exactly 1 elements");
         assertTrue(result.results().get("0").relevanceScore() > 0.9d, "expected > 0.9d");
     }
 
@@ -37,7 +37,7 @@ class RerankTest {
     void testSmokeRerankBasic() throws Exception {
         // Basic reranking of documents against a query
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(3, result.results().size(), "expected exactly 3 elements");
         assertTrue(result.results().get("0").relevanceScore() > 0.9d, "expected > 0.9d");
     }
 
@@ -45,7 +45,7 @@ class RerankTest {
     void testSmokeRerankReturnDocs() throws Exception {
         // Reranking with return_documents flag to include document text
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.results().size(), "expected exactly 2 elements");
         assertFalse(result.results().get("0").document().isEmpty(), "expected non-empty value");
         assertTrue(result.results().get("0").relevanceScore() > 0.9d, "expected > 0.9d");
     }
@@ -54,7 +54,7 @@ class RerankTest {
     void testSmokeRerankWithTopN() throws Exception {
         // Reranking with top_n parameter to limit results
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.results().size(), "expected exactly 2 elements");
         assertTrue(result.results().get("0").relevanceScore() > 0.9d, "expected > 0.9d");
     }
 

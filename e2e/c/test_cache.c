@@ -13,7 +13,7 @@ void test_cache_hit(void) {
     HTMConversionResult* result = chat();
     assert(result != NULL && "expected call to succeed");
     char* cache_hit = _conversion_result_cache_hit(result);
-    /* TODO: unsupported assertion type: is_true */
+    assert(cache_hit);
     _free_string(cache_hit);
     _conversion_result_free(result);
 }
@@ -23,7 +23,7 @@ void test_cache_miss_ttl(void) {
     HTMConversionResult* result = chat();
     assert(result != NULL && "expected call to succeed");
     char* cache_hit = _conversion_result_cache_hit(result);
-    /* TODO: unsupported assertion type: is_true */
+    assert(cache_hit);
     _free_string(cache_hit);
     _conversion_result_free(result);
 }
@@ -33,7 +33,7 @@ void test_cache_opendal_memory(void) {
     HTMConversionResult* result = chat();
     assert(result != NULL && "expected call to succeed");
     char* cache_hit = _conversion_result_cache_hit(result);
-    /* TODO: unsupported assertion type: is_true */
+    assert(cache_hit);
     _free_string(cache_hit);
     _conversion_result_free(result);
 }
@@ -43,7 +43,7 @@ void test_cache_stream_bypass(void) {
     HTMConversionResult* result = chat();
     assert(result != NULL && "expected call to succeed");
     char* cache_bypassed = _conversion_result_cache_bypassed(result);
-    /* TODO: unsupported assertion type: is_true */
+    assert(cache_bypassed);
     _free_string(cache_bypassed);
     _conversion_result_free(result);
 }

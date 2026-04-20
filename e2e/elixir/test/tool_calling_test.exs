@@ -6,7 +6,7 @@ defmodule E2e.ToolCallingTest do
   describe "anthropic_tool_calling" do
     test "Chat request to Anthropic provider with a tool definition; assistant responds with a tool call" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert result.choices["0"].message.tool_calls != ""
       assert String.trim(result.choices["0"].message.tool_calls["0"].function.name) == "get_weather"
       assert String.trim(result.choices["0"].finish_reason) == "tool_calls"
@@ -16,7 +16,7 @@ defmodule E2e.ToolCallingTest do
   describe "single_tool_call" do
     test "Chat request with a tool definition; assistant responds with a tool call" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert result.choices["0"].message.tool_calls != ""
       assert String.trim(result.choices["0"].message.tool_calls["0"].function.name) == "get_weather"
       assert String.trim(result.choices["0"].finish_reason) == "tool_calls"

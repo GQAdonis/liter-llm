@@ -7,14 +7,14 @@ describe('streaming', () => {
     const result = await chat(null);
     expect(result.chunks.length).toBeGreaterThanOrEqual(3);
     expect(result.streamContent.trim()).toBe("One Two Three");
-    // TODO: unsupported assertion type: is_true
+    expect(result.streamComplete).toBe(true);
   });
 
   it('azure_stream: Streaming chat completion via Azure OpenAI — verifies the azure/ prefix routes correctly and SSE chunks are delivered in the standard OpenAI chat.completion.chunk shape', async () => {
     const result = await chat(null);
     expect(result.chunks.length).toBeGreaterThanOrEqual(3);
     expect(result.streamContent.trim()).toBe("1 2 3");
-    // TODO: unsupported assertion type: is_true
+    expect(result.streamComplete).toBe(true);
   });
 
   it('basic_stream: Streaming chat completion that produces content across multiple SSE chunks', async () => {
@@ -27,7 +27,7 @@ describe('streaming', () => {
     const result = await chat(null);
     expect(result.chunks.length).toBeGreaterThanOrEqual(2);
     expect(result.streamContent.trim()).toBe("One Two Three");
-    // TODO: unsupported assertion type: is_true
+    expect(result.streamComplete).toBe(true);
   });
 
   it('empty_stream: Streaming chat completion that produces no content chunks before the DONE signal', async () => {
@@ -40,14 +40,14 @@ describe('streaming', () => {
     const result = await chat(null);
     expect(result.chunks.length).toBeGreaterThanOrEqual(3);
     expect(result.streamContent.trim()).toBe("1 2 3");
-    // TODO: unsupported assertion type: is_true
+    expect(result.streamComplete).toBe(true);
   });
 
   it('stream_done_signal: Verify that the [DONE] sentinel signal properly terminates the stream', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: is_true
+    expect(result.streamComplete).toBe(true);
     expect(result.streamContent.trim()).toBe("Done");
-    // TODO: unsupported assertion type: is_true
+    expect(result.noChunksAfterDone).toBe(true);
   });
 
   it('stream_error_401: 401 Unauthorized error on stream initiation before any chunks are received', async () => {
@@ -73,6 +73,6 @@ describe('streaming', () => {
     const result = await chat(null);
     expect(result.chunks.length).toBeGreaterThanOrEqual(2);
     expect(result.streamContent.trim()).toBe("One Two Three");
-    // TODO: unsupported assertion type: is_true
+    expect(result.streamComplete).toBe(true);
   });
 });

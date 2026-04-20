@@ -8,7 +8,7 @@ RSpec.describe 'list-models' do
   it 'empty_model_list: List models response returns an empty data array when no models are available' do
     result = LiterLlm.chat(nil)
     expect(result.data.length).to be >= 0
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(0)
   end
 
   it 'list_models_error_401: 401 Unauthorized error on list models request when API key is invalid' do

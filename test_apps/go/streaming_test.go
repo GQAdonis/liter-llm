@@ -22,7 +22,7 @@ func Test_AnthropicStream(t *testing.T) {
 	if strings.TrimSpace(result.StreamContent) != `One Two Three` {
 		t.Errorf("equals mismatch: got %v", result.StreamContent)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.StreamComplete, "expected true")
 }
 
 func Test_AzureStream(t *testing.T) {
@@ -35,7 +35,7 @@ func Test_AzureStream(t *testing.T) {
 	if strings.TrimSpace(result.StreamContent) != `1 2 3` {
 		t.Errorf("equals mismatch: got %v", result.StreamContent)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.StreamComplete, "expected true")
 }
 
 func Test_BasicStream(t *testing.T) {
@@ -60,7 +60,7 @@ func Test_BedrockStream(t *testing.T) {
 	if strings.TrimSpace(result.StreamContent) != `One Two Three` {
 		t.Errorf("equals mismatch: got %v", result.StreamContent)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.StreamComplete, "expected true")
 }
 
 func Test_EmptyStream(t *testing.T) {
@@ -85,7 +85,7 @@ func Test_LocalStreamOllama(t *testing.T) {
 	if strings.TrimSpace(result.StreamContent) != `1 2 3` {
 		t.Errorf("equals mismatch: got %v", result.StreamContent)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.StreamComplete, "expected true")
 }
 
 func Test_StreamDoneSignal(t *testing.T) {
@@ -94,11 +94,11 @@ func Test_StreamDoneSignal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.StreamComplete, "expected true")
 	if strings.TrimSpace(result.StreamContent) != `Done` {
 		t.Errorf("equals mismatch: got %v", result.StreamContent)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.NoChunksAfterDone, "expected true")
 }
 
 func Test_StreamError401(t *testing.T) {
@@ -152,5 +152,5 @@ func Test_VertexStream(t *testing.T) {
 	if strings.TrimSpace(result.StreamContent) != `One Two Three` {
 		t.Errorf("equals mismatch: got %v", result.StreamContent)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.StreamComplete, "expected true")
 }

@@ -5,14 +5,14 @@ test_that("anthropic_stream: Streaming chat completion via the Anthropic provide
   result <- chat()
   expect_true(length(result$chunks) >= 3)
   expect_equal(trimws(result$stream_content), "One Two Three")
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$stream_complete)
 })
 
 test_that("azure_stream: Streaming chat completion via Azure OpenAI — verifies the azure/ prefix routes correctly and SSE chunks are delivered in the standard OpenAI chat.completion.chunk shape", {
   result <- chat()
   expect_true(length(result$chunks) >= 3)
   expect_equal(trimws(result$stream_content), "1 2 3")
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$stream_complete)
 })
 
 test_that("basic_stream: Streaming chat completion that produces content across multiple SSE chunks", {
@@ -25,7 +25,7 @@ test_that("bedrock_stream: Streaming chat completion via the AWS Bedrock provide
   result <- chat()
   expect_true(length(result$chunks) >= 2)
   expect_equal(trimws(result$stream_content), "One Two Three")
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$stream_complete)
 })
 
 test_that("empty_stream: Streaming chat completion that produces no content chunks before the DONE signal", {
@@ -38,14 +38,14 @@ test_that("local_stream_ollama: Streaming chat completion via Ollama local provi
   result <- chat()
   expect_true(length(result$chunks) >= 3)
   expect_equal(trimws(result$stream_content), "1 2 3")
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$stream_complete)
 })
 
 test_that("stream_done_signal: Verify that the [DONE] sentinel signal properly terminates the stream", {
   result <- chat()
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$stream_complete)
   expect_equal(trimws(result$stream_content), "Done")
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$no_chunks_after_done)
 })
 
 test_that("stream_error_401: 401 Unauthorized error on stream initiation before any chunks are received", {
@@ -71,5 +71,5 @@ test_that("vertex_stream: Streaming chat completion via the Google Vertex AI pro
   result <- chat()
   expect_true(length(result$chunks) >= 2)
   expect_equal(trimws(result$stream_content), "One Two Three")
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$stream_complete)
 })

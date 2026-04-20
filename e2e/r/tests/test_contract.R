@@ -3,7 +3,7 @@
 
 test_that("binding_api_parity: Verify all bindings expose the full API surface — constructor accepts all config options and every method exists", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$message$content), "OK")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
   expect_equal(trimws(result$usage$total_tokens), 6)

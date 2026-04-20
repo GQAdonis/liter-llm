@@ -17,7 +17,12 @@ void test_developer_message(void) {
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "s[::-1]") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     _free_string(choices);
@@ -36,7 +41,12 @@ void test_finish_reason_content_filter(void) {
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_finish_reason, "content_filter") == 0 && "equals assertion failed");
     _free_string(choices);
     free(choices_0_finish_reason);
@@ -53,7 +63,12 @@ void test_finish_reason_length(void) {
     char* choices_json = _conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_finish_reason, "length") == 0 && "equals assertion failed");
     _free_string(choices);
     free(choices_0_finish_reason);
@@ -70,7 +85,12 @@ void test_multi_turn_conversation(void) {
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_message_content, "4 + 4 equals 8.") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     _free_string(choices);
@@ -89,9 +109,19 @@ void test_parallel_tool_calls(void) {
     assert(choices_json != NULL);
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices_0_message_tool_calls != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices_0_message_tool_calls);
+        assert(elem_count == 2 && "expected 2 elements");
+    }
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");
     _free_string(choices);
     free(choices_0_message_tool_calls);
@@ -109,7 +139,12 @@ void test_response_format_json_object(void) {
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(choices_0_message_content) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     _free_string(choices);
@@ -128,7 +163,12 @@ void test_response_format_json_schema(void) {
     assert(choices_json != NULL);
     char* choices_0_message_content = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(choices_0_message_content) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     _free_string(choices);
@@ -147,7 +187,12 @@ void test_seed_parameter(void) {
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
     char* system_fingerprint = _conversion_result_system_fingerprint(result);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     assert(strlen(system_fingerprint) > 0 && "expected non-empty value");
     _free_string(choices);
@@ -165,7 +210,12 @@ void test_stop_sequences(void) {
     char* choices_json = _conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     _free_string(choices);
     free(choices_0_finish_reason);
@@ -183,7 +233,12 @@ void test_tool_choice_required(void) {
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_message_tool_calls_0_function_name, "get_weather") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");
@@ -205,7 +260,12 @@ void test_tool_choice_specific(void) {
     char* choices_0_message_tool_calls = htm_json_get_string(choices_json, "0");
     char* choices_0_message_tool_calls_0_function_name = htm_json_get_string(choices_json, "0");
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(strlen(choices_0_message_tool_calls) > 0 && "expected non-empty value");
     assert(str_trim_eq(choices_0_message_tool_calls_0_function_name, "get_weather") == 0 && "equals assertion failed");
     assert(str_trim_eq(choices_0_finish_reason, "tool_calls") == 0 && "equals assertion failed");

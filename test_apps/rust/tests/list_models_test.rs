@@ -20,7 +20,7 @@ async fn test_empty_model_list() {
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
     assert!(!result.data.is_empty(), "expected >= 0");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 0, "expected exactly 0 elements, got {}", result.data.len());
 }
 
 #[tokio::test]
@@ -40,3 +40,4 @@ async fn test_list_models_error_401() {
     assert!(result.is_err(), "expected call to fail");
     assert!(result.as_ref().unwrap_err().to_string().contains("Authentication"), "error message mismatch");
 }
+

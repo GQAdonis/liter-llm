@@ -11,7 +11,7 @@ async def test_edge_response_empty_output() -> None:
     result = await chat(request=request)
     assert result.id  # noqa: S101
     assert result.status.strip() == "completed"  # noqa: S101
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.output) == 0  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_edge_response_large_input() -> None:
@@ -20,7 +20,7 @@ async def test_edge_response_large_input() -> None:
     result = await chat(request=request)
     assert result.id  # noqa: S101
     assert result.status.strip() == "completed"  # noqa: S101
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.output) == 1  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_error_response_auth_401() -> None:
@@ -53,7 +53,7 @@ async def test_smoke_cancel_response() -> None:
     result = await chat(request=request)
     assert result.id  # noqa: S101
     assert result.status.strip() == "cancelled"  # noqa: S101
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.output) == 0  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_smoke_create_response() -> None:
@@ -62,7 +62,7 @@ async def test_smoke_create_response() -> None:
     result = await chat(request=request)
     assert result.id  # noqa: S101
     assert result.status.strip() == "completed"  # noqa: S101
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.output) == 1  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_smoke_response_with_tools() -> None:
@@ -71,7 +71,7 @@ async def test_smoke_response_with_tools() -> None:
     result = await chat(request=request)
     assert result.id  # noqa: S101
     assert result.status.strip() == "completed"  # noqa: S101
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.output) == 2  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
 
 @pytest.mark.asyncio

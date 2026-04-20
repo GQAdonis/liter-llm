@@ -16,8 +16,8 @@ final class EmbedTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(["Hello", "World"]);
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(2, $result->data);
+        $this->assertCount(5, $result->data["0"]->embedding);
     }
 
     /** Embedding request with explicit encoding_format of float returns float array embeddings */
@@ -25,8 +25,8 @@ final class EmbedTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("Test input");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
+        $this->assertCount(5, $result->data["0"]->embedding);
     }
 
     /** 401 Unauthorized error on embedding request when API key is invalid */
@@ -42,8 +42,8 @@ final class EmbedTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
+        $this->assertCount(8, $result->data["0"]->embedding);
     }
 
     /** Embedding request via Ollama local provider with all-minilm model */
@@ -51,7 +51,7 @@ final class EmbedTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("The quick brown fox jumps over the lazy dog");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
+        $this->assertCount(32, $result->data["0"]->embedding);
     }
 }

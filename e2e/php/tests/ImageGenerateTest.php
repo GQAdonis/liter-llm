@@ -16,7 +16,7 @@ final class ImageGenerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
         $this->assertNotEmpty($result->data["0"]->b64_json);
     }
 
@@ -57,7 +57,7 @@ final class ImageGenerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
         $this->assertNotEmpty($result->data["0"]->url);
     }
 
@@ -66,7 +66,7 @@ final class ImageGenerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(3, $result->data);
         $this->assertNotEmpty($result->data["0"]->url);
     }
 
@@ -75,7 +75,7 @@ final class ImageGenerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
         $this->assertNotEmpty($result->data["0"]->url);
     }
 }

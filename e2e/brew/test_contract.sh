@@ -8,7 +8,9 @@ test_binding_api_parity() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_content
     val_choices_0__message_content=$(echo "$output" | jq -r '.choices[0].message.content')
     assert_equals "$val_choices_0__message_content" 'OK' 'choices[0].message.content'

@@ -16,7 +16,7 @@ final class CacheTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->cache_hit);
     }
 
     /** Tests that cache expires after TTL */
@@ -24,7 +24,7 @@ final class CacheTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->cache_hit);
     }
 
     /** Cache hit with OpenDAL memory backend returns cached response on repeat request */
@@ -32,7 +32,7 @@ final class CacheTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->cache_hit);
     }
 
     /** Tests that streaming requests bypass cache entirely */
@@ -40,6 +40,6 @@ final class CacheTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->cache_bypassed);
     }
 }

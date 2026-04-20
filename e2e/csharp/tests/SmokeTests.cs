@@ -17,7 +17,7 @@ public class SmokeTests
     {
         // Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hello!", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal("claude-3-5-sonnet-20241022", result.Model.Trim());
@@ -29,7 +29,7 @@ public class SmokeTests
     {
         // Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hello!", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal("gpt-4", result.Model.Trim());
@@ -41,8 +41,8 @@ public class SmokeTests
     {
         // Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged
         var result = await LiterLlmLib.Chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
+        Assert.Equal(1536, result.Data["0"].Embedding.Count);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class SmokeTests
     {
         // Basic chat completion with a single user message
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hello!", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal(15, result.Usage.TotalTokens);
@@ -62,8 +62,8 @@ public class SmokeTests
     {
         // Basic embedding request for a single input string
         var result = await LiterLlmLib.Chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
+        Assert.Equal(5, result.Data["0"].Embedding.Count);
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public class SmokeTests
     {
         // Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hello!", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal("anthropic.claude-3-sonnet-20240229-v1:0", result.Model.Trim());
@@ -91,7 +91,7 @@ public class SmokeTests
     {
         // Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hello!", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal("gpt-4o", result.Model.Trim());
@@ -186,7 +186,7 @@ public class SmokeTests
     {
         // Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hello!", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal("gemini-2.0-flash", result.Model.Trim());
@@ -198,7 +198,7 @@ public class SmokeTests
     {
         // Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape
         var result = await LiterLlmLib.Chat("Hello");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
+        Assert.Equal(160, result.Data["0"].Embedding.Count);
     }
 }

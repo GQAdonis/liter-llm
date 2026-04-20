@@ -4,7 +4,7 @@
 test_that("empty_model_list: List models response returns an empty data array when no models are available", {
   result <- chat()
   expect_true(length(result$data) >= 0)
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 0)
 })
 
 test_that("list_models_error_401: 401 Unauthorized error on list models request when API key is invalid", {

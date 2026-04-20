@@ -17,7 +17,7 @@ public class TypesTests
     {
         // Request with all message role types (system, user, assistant, tool) to verify round-trip serialization
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
     }
 
@@ -26,7 +26,7 @@ public class TypesTests
     {
         // User message with mixed text and image_url content parts to verify multimodal serialization
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
     }
 }

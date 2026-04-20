@@ -7,7 +7,7 @@ require 'json'
 RSpec.describe 'tool-calling' do
   it 'anthropic_tool_calling: Chat request to Anthropic provider with a tool definition; assistant responds with a tool call' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.tool_calls).not_to be_empty
     expect(result.choices.get("0").message.tool_calls.get("0").function.name).to eq('get_weather')
     expect(result.choices.get("0").finish_reason).to eq('tool_calls')
@@ -15,7 +15,7 @@ RSpec.describe 'tool-calling' do
 
   it 'single_tool_call: Chat request with a tool definition; assistant responds with a tool call' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.tool_calls).not_to be_empty
     expect(result.choices.get("0").message.tool_calls.get("0").function.name).to eq('get_weather')
     expect(result.choices.get("0").finish_reason).to eq('tool_calls')

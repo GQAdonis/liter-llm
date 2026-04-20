@@ -17,7 +17,7 @@ public class ImageGenerateTests
     {
         // Image generation returning base64-encoded data instead of URL
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
         Assert.False(string.IsNullOrEmpty(result.Data["0"].B64Json?.ToString()));
     }
 
@@ -54,7 +54,7 @@ public class ImageGenerateTests
     {
         // Basic image generation with a text prompt
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
         Assert.False(string.IsNullOrEmpty(result.Data["0"].Url?.ToString()));
     }
 
@@ -63,7 +63,7 @@ public class ImageGenerateTests
     {
         // Image generation requesting multiple images
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(3, result.Data.Count);
         Assert.False(string.IsNullOrEmpty(result.Data["0"].Url?.ToString()));
     }
 
@@ -72,7 +72,7 @@ public class ImageGenerateTests
     {
         // Image generation with explicit size parameter
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Data.Count);
         Assert.False(string.IsNullOrEmpty(result.Data["0"].Url?.ToString()));
     }
 }

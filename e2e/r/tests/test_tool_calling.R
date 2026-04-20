@@ -3,7 +3,7 @@
 
 test_that("anthropic_tool_calling: Chat request to Anthropic provider with a tool definition; assistant responds with a tool call", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_true(if (is.character(result$choices[["0"]]$message$tool_calls)) nchar(result$choices[["0"]]$message$tool_calls) > 0 else length(result$choices[["0"]]$message$tool_calls) > 0)
   expect_equal(trimws(result$choices[["0"]]$message$tool_calls[["0"]]$function$name), "get_weather")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "tool_calls")
@@ -11,7 +11,7 @@ test_that("anthropic_tool_calling: Chat request to Anthropic provider with a too
 
 test_that("single_tool_call: Chat request with a tool definition; assistant responds with a tool call", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_true(if (is.character(result$choices[["0"]]$message$tool_calls)) nchar(result$choices[["0"]]$message$tool_calls) > 0 else length(result$choices[["0"]]$message$tool_calls) > 0)
   expect_equal(trimws(result$choices[["0"]]$message$tool_calls[["0"]]$function$name), "get_weather")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "tool_calls")

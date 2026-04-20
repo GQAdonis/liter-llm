@@ -34,7 +34,7 @@ func Test_ProxyChatBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Choices), 1, "expected exactly 1 elements")
 	if strings.TrimSpace(result.Choices["0"].Message.Content) != `Hello!` {
 		t.Errorf("equals mismatch: got %v", result.Choices["0"].Message.Content)
 	}
@@ -53,7 +53,7 @@ func Test_ProxyChatStreaming(t *testing.T) {
 	if strings.TrimSpace(result.StreamContent) != `1 2 3` {
 		t.Errorf("equals mismatch: got %v", result.StreamContent)
 	}
-	// TODO: unsupported assertion type: is_true
+	assert.True(t, result.StreamComplete, "expected true")
 }
 
 func Test_ProxyEmbeddings(t *testing.T) {
@@ -62,7 +62,7 @@ func Test_ProxyEmbeddings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
 }
 
 func Test_ProxyHealth(t *testing.T) {
@@ -80,7 +80,7 @@ func Test_ProxyImageGenerate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
 	if len(result.Data["0"].Url) == 0 {
 		t.Errorf("expected non-empty value")
 	}
@@ -101,7 +101,7 @@ func Test_ProxyModeration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 1, "expected exactly 1 elements")
 	if result.Results["0"].Flagged != false {
 		t.Errorf("equals mismatch: got %v", result.Results["0"].Flagged)
 	}
@@ -113,7 +113,7 @@ func Test_ProxyRerank(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 2, "expected exactly 2 elements")
 	if result.Results["0"].RelevanceScore <= 0.9 {
 		t.Errorf("expected > 0.9, got %v", result.Results["0"].RelevanceScore)
 	}

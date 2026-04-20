@@ -12,7 +12,7 @@ defmodule E2e.BatchesTest do
   describe "edge_batch_empty_list" do
     test "List batches when no batches exist" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 0
     end
   end
 
@@ -61,7 +61,7 @@ defmodule E2e.BatchesTest do
   describe "smoke_list_batches" do
     test "List all batch jobs" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 2
     end
   end
 

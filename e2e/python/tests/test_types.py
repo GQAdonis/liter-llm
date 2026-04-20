@@ -9,7 +9,7 @@ async def test_all_message_types() -> None:
     """Request with all message role types (system, user, assistant, tool) to verify round-trip serialization."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
 @pytest.mark.asyncio
@@ -17,6 +17,6 @@ async def test_multimodal_content() -> None:
     """User message with mixed text and image_url content parts to verify multimodal serialization."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 

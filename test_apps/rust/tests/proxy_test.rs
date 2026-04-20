@@ -55,7 +55,7 @@ async fn test_proxy_chat_basic() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"Hello!"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
 }
@@ -82,7 +82,7 @@ async fn test_proxy_chat_streaming() {
     let result = chat(request).await.expect("should succeed");
     assert!(result.chunks.len() >= 3, "expected at least 3 elements, got {}", result.chunks.len());
     assert_eq!(result.stream_content.trim(), r#"1 2 3"#, "equals assertion failed");
-    // TODO: unsupported assertion type: is_true
+    assert!(result.stream_complete, "expected true");
 }
 
 #[tokio::test]
@@ -99,7 +99,7 @@ async fn test_proxy_embeddings() {
     let request_json = serde_json::json!("Hello world");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
 }
 
 #[tokio::test]
@@ -133,7 +133,7 @@ async fn test_proxy_image_generate() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
     assert!(!result.data.get("0").map(|s| s.as_str()).url.is_empty(), "expected non-empty value");
 }
 
@@ -168,7 +168,7 @@ async fn test_proxy_moderation() {
     let request_json = serde_json::json!("The weather is nice today.");
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 1, "expected exactly 1 elements, got {}", result.results.len());
     assert!(!result.results.get("0").map(|s| s.as_str()).flagged, "equals assertion failed");
 }
 
@@ -186,7 +186,7 @@ async fn test_proxy_rerank() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.results.len(), 2, "expected exactly 2 elements, got {}", result.results.len());
     assert!(result.results.get("0").map(|s| s.as_str()).relevance_score > 0.9_f64, "expected > 0.9_f64");
 }
 
@@ -225,3 +225,4 @@ async fn test_proxy_upstream_500() {
     assert!(result.is_err(), "expected call to fail");
     assert!(result.as_ref().unwrap_err().to_string().contains("ServerError"), "error message mismatch");
 }
+

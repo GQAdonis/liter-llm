@@ -19,7 +19,7 @@ async fn test_edge_image_b64_response() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
     assert!(!result.data.get("0").map(|s| s.as_str()).b64_json.is_empty(), "expected non-empty value");
 }
 
@@ -109,7 +109,7 @@ async fn test_smoke_image_basic() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
     assert!(!result.data.get("0").map(|s| s.as_str()).url.is_empty(), "expected non-empty value");
 }
 
@@ -127,7 +127,7 @@ async fn test_smoke_image_multiple() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 3, "expected exactly 3 elements, got {}", result.data.len());
     assert!(!result.data.get("0").map(|s| s.as_str()).url.is_empty(), "expected non-empty value");
 }
 
@@ -145,6 +145,7 @@ async fn test_smoke_image_with_size() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 1, "expected exactly 1 elements, got {}", result.data.len());
     assert!(!result.data.get("0").map(|s| s.as_str()).url.is_empty(), "expected non-empty value");
 }
+

@@ -11,7 +11,7 @@ test_that("proxy_auth_missing: 401 Unauthorized when no API key is provided thro
 
 test_that("proxy_chat_basic: Basic chat completion request routed through the proxy", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$choices), 1)
   expect_equal(trimws(result$choices[["0"]]$message$content), "Hello!")
   expect_equal(trimws(result$choices[["0"]]$finish_reason), "stop")
 })
@@ -20,12 +20,12 @@ test_that("proxy_chat_streaming: Streaming chat completion routed through the pr
   result <- chat()
   expect_true(length(result$chunks) >= 3)
   expect_equal(trimws(result$stream_content), "1 2 3")
-  # TODO: unsupported assertion type: is_true
+  expect_true(result$stream_complete)
 })
 
 test_that("proxy_embeddings: Embedding request routed through the proxy", {
   result <- chat(request = "hello world")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 1)
 })
 
 test_that("proxy_health: Health check verifying proxy connectivity via list models", {
@@ -35,7 +35,7 @@ test_that("proxy_health: Health check verifying proxy connectivity via list mode
 
 test_that("proxy_image_generate: Image generation request routed through the proxy", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$data), 1)
   expect_true(if (is.character(result$data[["0"]]$url)) nchar(result$data[["0"]]$url) > 0 else length(result$data[["0"]]$url) > 0)
 })
 
@@ -46,13 +46,13 @@ test_that("proxy_models_list: List models request routed through the proxy", {
 
 test_that("proxy_moderation: Content moderation request routed through the proxy", {
   result <- chat(request = "the weather is nice today.")
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$results), 1)
   expect_equal(trimws(result$results[["0"]]$flagged), FALSE)
 })
 
 test_that("proxy_rerank: Document reranking request routed through the proxy", {
   result <- chat()
-  # TODO: unsupported assertion type: count_equals
+  expect_equal(length(result$results), 2)
   expect_true(result$results[["0"]]$relevance_score > 0.9)
 })
 

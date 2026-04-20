@@ -16,7 +16,7 @@ final class SmokeTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
         $this->assertEquals("claude-3-5-sonnet-20241022", $result->model);
@@ -28,7 +28,7 @@ final class SmokeTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
         $this->assertEquals("gpt-4", $result->model);
@@ -40,8 +40,8 @@ final class SmokeTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
+        $this->assertCount(1536, $result->data["0"]->embedding);
     }
 
     /** Basic chat completion with a single user message */
@@ -49,7 +49,7 @@ final class SmokeTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
         $this->assertEquals(15, $result->usage->total_tokens);
@@ -61,8 +61,8 @@ final class SmokeTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
+        $this->assertCount(5, $result->data["0"]->embedding);
     }
 
     /** List available models from the API */
@@ -78,7 +78,7 @@ final class SmokeTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
         $this->assertEquals("anthropic.claude-3-sonnet-20240229-v1:0", $result->model);
@@ -90,7 +90,7 @@ final class SmokeTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
         $this->assertEquals("gpt-4o", $result->model);
@@ -185,7 +185,7 @@ final class SmokeTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->choices);
         $this->assertEquals("Hello!", $result->choices["0"]->message->content);
         $this->assertEquals("stop", $result->choices["0"]->finish_reason);
         $this->assertEquals("gemini-2.0-flash", $result->model);
@@ -197,7 +197,7 @@ final class SmokeTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("Hello");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->data);
+        $this->assertCount(160, $result->data["0"]->embedding);
     }
 }

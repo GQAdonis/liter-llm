@@ -19,7 +19,12 @@ void test_empty_model_list(void) {
         int elem_count = htm_json_array_count(data);
         assert(elem_count >= 0 && "expected at least 0 elements");
     }
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(data != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(data);
+        assert(elem_count == 0 && "expected 0 elements");
+    }
     _free_string(data);
     _conversion_result_free(result);
 }

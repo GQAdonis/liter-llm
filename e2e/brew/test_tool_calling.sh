@@ -8,7 +8,9 @@ test_anthropic_tool_calling() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_tool_calls
     val_choices_0__message_tool_calls=$(echo "$output" | jq -r '.choices[0].message.tool_calls')
     assert_not_empty "$val_choices_0__message_tool_calls" 'choices[0].message.tool_calls'
@@ -25,7 +27,9 @@ test_single_tool_call() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_choices
+    count_choices=$(echo "$output" | jq '.choices | length')
+    [ "$count_choices" -eq 1 ] || exit 1
     local val_choices_0__message_tool_calls
     val_choices_0__message_tool_calls=$(echo "$output" | jq -r '.choices[0].message.tool_calls')
     assert_not_empty "$val_choices_0__message_tool_calls" 'choices[0].message.tool_calls'

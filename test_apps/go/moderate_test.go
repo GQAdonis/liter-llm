@@ -15,7 +15,7 @@ func Test_EdgeModerateAllCategories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 1, "expected exactly 1 elements")
 	if result.Results["0"].Flagged != true {
 		t.Errorf("equals mismatch: got %v", result.Results["0"].Flagged)
 	}
@@ -27,7 +27,7 @@ func Test_EdgeModerateEmptyInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 1, "expected exactly 1 elements")
 	if result.Results["0"].Flagged != false {
 		t.Errorf("equals mismatch: got %v", result.Results["0"].Flagged)
 	}
@@ -55,7 +55,7 @@ func Test_SmokeModerateBatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 2, "expected exactly 2 elements")
 	if result.Results["0"].Flagged != false {
 		t.Errorf("equals mismatch: got %v", result.Results["0"].Flagged)
 	}
@@ -67,7 +67,7 @@ func Test_SmokeModerateFlagged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 1, "expected exactly 1 elements")
 	if result.Results["0"].Flagged != true {
 		t.Errorf("equals mismatch: got %v", result.Results["0"].Flagged)
 	}
@@ -79,7 +79,7 @@ func Test_SmokeModerateSingle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Results), 1, "expected exactly 1 elements")
 	if result.Results["0"].Flagged != false {
 		t.Errorf("equals mismatch: got %v", result.Results["0"].Flagged)
 	}

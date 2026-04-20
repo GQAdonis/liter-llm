@@ -5,7 +5,7 @@ import { chat } from 'liter_llm';
 describe('tool-calling', () => {
   it('anthropic_tool_calling: Chat request to Anthropic provider with a tool definition; assistant responds with a tool call', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices.get("0").message.toolCalls.length).toBeGreaterThan(0);
     expect(result.choices.get("0").message.toolCalls.get("0").function.name.trim()).toBe("get_weather");
     expect(result.choices.get("0").finishReason.trim()).toBe("tool_calls");
@@ -13,7 +13,7 @@ describe('tool-calling', () => {
 
   it('single_tool_call: Chat request with a tool definition; assistant responds with a tool call', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices.get("0").message.toolCalls.length).toBeGreaterThan(0);
     expect(result.choices.get("0").message.toolCalls.get("0").function.name.trim()).toBe("get_weather");
     expect(result.choices.get("0").finishReason.trim()).toBe("tool_calls");

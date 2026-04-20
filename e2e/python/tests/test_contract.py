@@ -9,7 +9,7 @@ async def test_binding_api_parity() -> None:
     """Verify all bindings expose the full API surface — constructor accepts all config options and every method exists."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "OK"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.usage.total_tokens == 6  # noqa: S101

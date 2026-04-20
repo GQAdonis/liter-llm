@@ -18,7 +18,7 @@ public class ListModelsTests
         // List models response returns an empty data array when no models are available
         var result = await LiterLlmLib.Chat(null);
         Assert.True(result.Data.Count >= 0, "expected at least 0 elements");
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(0, result.Data.Count);
     }
 
     [Fact]

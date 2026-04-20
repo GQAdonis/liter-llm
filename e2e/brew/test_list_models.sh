@@ -11,7 +11,9 @@ test_empty_model_list() {
     local count_data
     count_data=$(echo "$output" | jq '.data | length')
     assert_count_min "$count_data" 0 'data'
-    # TODO: unsupported assertion type: count_equals
+    local count_data
+    count_data=$(echo "$output" | jq '.data | length')
+    [ "$count_data" -eq 0 ] || exit 1
 }
 
 test_list_models_error_401() {

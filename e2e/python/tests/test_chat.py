@@ -9,7 +9,7 @@ async def test_developer_message() -> None:
     """Chat request that includes a developer role message alongside user messages."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "s[::-1]"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
@@ -18,7 +18,7 @@ async def test_finish_reason_content_filter() -> None:
     """Chat response stopped by content filter with finish_reason of content_filter and null content."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "content_filter"  # noqa: S101
 
 @pytest.mark.asyncio
@@ -26,7 +26,7 @@ async def test_finish_reason_length() -> None:
     """Chat response truncated due to max_tokens limit with finish_reason of length."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "length"  # noqa: S101
 
 @pytest.mark.asyncio
@@ -34,7 +34,7 @@ async def test_multi_turn_conversation() -> None:
     """Multi-turn conversation with system, user, assistant, and follow-up user messages."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "4 + 4 equals 8."  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
@@ -43,9 +43,9 @@ async def test_parallel_tool_calls() -> None:
     """Chat request that results in parallel tool calls in the response."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices.get("0").message.tool_calls) == 2  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101
 
 @pytest.mark.asyncio
@@ -53,7 +53,7 @@ async def test_response_format_json_object() -> None:
     """Chat request with response_format json_object that returns valid JSON content."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
@@ -62,7 +62,7 @@ async def test_response_format_json_schema() -> None:
     """Chat request with response_format json_schema that validates the output structure."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
@@ -71,7 +71,7 @@ async def test_seed_parameter() -> None:
     """Chat request with seed parameter for deterministic output; response includes system_fingerprint."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.system_fingerprint  # noqa: S101
 
@@ -80,7 +80,7 @@ async def test_stop_sequences() -> None:
     """Chat request with custom stop sequences that terminates generation at a stop token."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
 @pytest.mark.asyncio
@@ -88,7 +88,7 @@ async def test_tool_choice_required() -> None:
     """Chat request with tool_choice set to required forces the model to call a tool."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
     assert result.choices.get("0").message.tool_calls.get("0").function.name.strip() == "get_weather"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101
@@ -98,7 +98,7 @@ async def test_tool_choice_specific() -> None:
     """Chat request with tool_choice specifying a particular function to call."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
     assert result.choices.get("0").message.tool_calls.get("0").function.name.strip() == "get_weather"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101

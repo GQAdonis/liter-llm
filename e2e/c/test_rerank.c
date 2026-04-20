@@ -13,7 +13,12 @@ void test_edge_rerank_empty_query(void) {
     HTMConversionResult* result = chat();
     assert(result != NULL && "expected call to succeed");
     char* results = _conversion_result_results(result);
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 2 && "expected 2 elements");
+    }
     _free_string(results);
     _conversion_result_free(result);
 }
@@ -26,7 +31,12 @@ void test_edge_rerank_single_doc(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
     _free_string(results);
     free(results_0_relevance_score);
@@ -54,7 +64,12 @@ void test_smoke_rerank_basic(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 3 && "expected 3 elements");
+    }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
     _free_string(results);
     free(results_0_relevance_score);
@@ -71,7 +86,12 @@ void test_smoke_rerank_return_docs(void) {
     assert(results_json != NULL);
     char* results_0_document = htm_json_get_string(results_json, "0");
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 2 && "expected 2 elements");
+    }
     assert(strlen(results_0_document) > 0 && "expected non-empty value");
     assert(results_0_relevance_score > 0.9 && "expected greater than");
     _free_string(results);
@@ -89,7 +109,12 @@ void test_smoke_rerank_with_top_n(void) {
     char* results_json = _conversion_result_results(result);
     assert(results_json != NULL);
     char* results_0_relevance_score = htm_json_get_string(results_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(results != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(results);
+        assert(elem_count == 2 && "expected 2 elements");
+    }
     assert(results_0_relevance_score > 0.9 && "expected greater than");
     _free_string(results);
     free(results_0_relevance_score);

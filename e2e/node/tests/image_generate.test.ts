@@ -5,7 +5,7 @@ import { chat } from 'liter_llm';
 describe('image-generate', () => {
   it('edge_image_b64_response: Image generation returning base64-encoded data instead of URL', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
     expect(result.data["0"].b64Json.length).toBeGreaterThan(0);
   });
 
@@ -35,19 +35,19 @@ describe('image-generate', () => {
 
   it('smoke_image_basic: Basic image generation with a text prompt', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
     expect(result.data["0"].url.length).toBeGreaterThan(0);
   });
 
   it('smoke_image_multiple: Image generation requesting multiple images', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(3);
     expect(result.data["0"].url.length).toBeGreaterThan(0);
   });
 
   it('smoke_image_with_size: Image generation with explicit size parameter', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
     expect(result.data["0"].url.length).toBeGreaterThan(0);
   });
 });

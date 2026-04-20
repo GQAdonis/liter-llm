@@ -9,14 +9,14 @@ async def test_edge_rerank_empty_query() -> None:
     """Reranking with an empty query string."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 2  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_edge_rerank_single_doc() -> None:
     """Reranking with only a single document."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").relevance_score > 0.9  # noqa: S101
 
 @pytest.mark.asyncio
@@ -40,7 +40,7 @@ async def test_smoke_rerank_basic() -> None:
     """Basic reranking of documents against a query."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 3  # noqa: S101
     assert result.results.get("0").relevance_score > 0.9  # noqa: S101
 
 @pytest.mark.asyncio
@@ -48,7 +48,7 @@ async def test_smoke_rerank_return_docs() -> None:
     """Reranking with return_documents flag to include document text."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 2  # noqa: S101
     assert result.results.get("0").document  # noqa: S101
     assert result.results.get("0").relevance_score > 0.9  # noqa: S101
 
@@ -57,6 +57,6 @@ async def test_smoke_rerank_with_top_n() -> None:
     """Reranking with top_n parameter to limit results."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.results) == 2  # noqa: S101
     assert result.results.get("0").relevance_score > 0.9  # noqa: S101
 

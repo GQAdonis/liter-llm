@@ -5,7 +5,7 @@ import { chat } from 'liter_llm';
 describe('files', () => {
   it('edge_file_empty_list: List files when no files have been uploaded', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(0);
   });
 
   it('edge_file_large_upload: Upload a large file successfully', async () => {
@@ -43,7 +43,7 @@ describe('files', () => {
 
   it('smoke_list_files: List all uploaded files', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(2);
   });
 
   it('smoke_retrieve_file: Retrieve metadata for an uploaded file', async () => {

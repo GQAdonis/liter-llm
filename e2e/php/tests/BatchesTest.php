@@ -24,7 +24,7 @@ final class BatchesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(0, $result->data);
     }
 
     /** 401 Unauthorized when creating a batch with invalid API key */
@@ -83,7 +83,7 @@ final class BatchesTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(2, $result->data);
     }
 
     /** Retrieve the status of a batch job */

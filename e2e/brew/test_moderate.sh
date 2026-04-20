@@ -8,7 +8,9 @@ test_edge_moderate_all_categories() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 1 ] || exit 1
     local val_results_0__flagged
     val_results_0__flagged=$(echo "$output" | jq -r '.results[0].flagged')
     assert_equals "$val_results_0__flagged" 'true' 'results[0].flagged'
@@ -19,7 +21,9 @@ test_edge_moderate_empty_input() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 1 ] || exit 1
     local val_results_0__flagged
     val_results_0__flagged=$(echo "$output" | jq -r '.results[0].flagged')
     assert_equals "$val_results_0__flagged" 'false' 'results[0].flagged'
@@ -46,7 +50,9 @@ test_smoke_moderate_batch() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 2 ] || exit 1
     local val_results_0__flagged
     val_results_0__flagged=$(echo "$output" | jq -r '.results[0].flagged')
     assert_equals "$val_results_0__flagged" 'false' 'results[0].flagged'
@@ -57,7 +63,9 @@ test_smoke_moderate_flagged() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 1 ] || exit 1
     local val_results_0__flagged
     val_results_0__flagged=$(echo "$output" | jq -r '.results[0].flagged')
     assert_equals "$val_results_0__flagged" 'true' 'results[0].flagged'
@@ -68,7 +76,9 @@ test_smoke_moderate_single() {
     local output
     output=$(liter_llm chat)
 
-    # TODO: unsupported assertion type: count_equals
+    local count_results
+    count_results=$(echo "$output" | jq '.results | length')
+    [ "$count_results" -eq 1 ] || exit 1
     local val_results_0__flagged
     val_results_0__flagged=$(echo "$output" | jq -r '.results[0].flagged')
     assert_equals "$val_results_0__flagged" 'false' 'results[0].flagged'

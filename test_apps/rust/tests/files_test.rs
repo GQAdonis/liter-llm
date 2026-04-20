@@ -19,7 +19,7 @@ async fn test_edge_file_empty_list() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 0, "expected exactly 0 elements, got {}", result.data.len());
 }
 
 #[tokio::test]
@@ -159,7 +159,7 @@ async fn test_smoke_list_files() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.data.len(), 2, "expected exactly 2 elements, got {}", result.data.len());
 }
 
 #[tokio::test]
@@ -178,3 +178,4 @@ async fn test_smoke_retrieve_file() {
     let result = chat(request).await.expect("should succeed");
     assert!(!result.id.is_empty(), "expected non-empty value");
 }
+

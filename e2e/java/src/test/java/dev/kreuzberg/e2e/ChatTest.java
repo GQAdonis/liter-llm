@@ -10,7 +10,7 @@ class ChatTest {
     void testDeveloperMessage() throws Exception {
         // Chat request that includes a developer role message alongside user messages
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("s[::-1]", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
     }
@@ -19,7 +19,7 @@ class ChatTest {
     void testFinishReasonContentFilter() throws Exception {
         // Chat response stopped by content filter with finish_reason of content_filter and null content
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("content_filter", result.choices().get("0").finishReason().trim());
     }
 
@@ -27,7 +27,7 @@ class ChatTest {
     void testFinishReasonLength() throws Exception {
         // Chat response truncated due to max_tokens limit with finish_reason of length
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("length", result.choices().get("0").finishReason().trim());
     }
 
@@ -35,7 +35,7 @@ class ChatTest {
     void testMultiTurnConversation() throws Exception {
         // Multi-turn conversation with system, user, assistant, and follow-up user messages
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("4 + 4 equals 8.", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
     }
@@ -44,9 +44,9 @@ class ChatTest {
     void testParallelToolCalls() throws Exception {
         // Chat request that results in parallel tool calls in the response
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertFalse(result.choices().get("0").message().toolCalls().isEmpty(), "expected non-empty value");
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.choices().get("0").message().toolCalls().size(), "expected exactly 2 elements");
         assertEquals("tool_calls", result.choices().get("0").finishReason().trim());
     }
 
@@ -54,7 +54,7 @@ class ChatTest {
     void testResponseFormatJsonObject() throws Exception {
         // Chat request with response_format json_object that returns valid JSON content
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertFalse(result.choices().get("0").message().content().isEmpty(), "expected non-empty value");
         assertEquals("stop", result.choices().get("0").finishReason().trim());
     }
@@ -63,7 +63,7 @@ class ChatTest {
     void testResponseFormatJsonSchema() throws Exception {
         // Chat request with response_format json_schema that validates the output structure
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertFalse(result.choices().get("0").message().content().isEmpty(), "expected non-empty value");
         assertEquals("stop", result.choices().get("0").finishReason().trim());
     }
@@ -72,7 +72,7 @@ class ChatTest {
     void testSeedParameter() throws Exception {
         // Chat request with seed parameter for deterministic output; response includes system_fingerprint
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertFalse(result.systemFingerprint().isEmpty(), "expected non-empty value");
     }
@@ -81,7 +81,7 @@ class ChatTest {
     void testStopSequences() throws Exception {
         // Chat request with custom stop sequences that terminates generation at a stop token
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("stop", result.choices().get("0").finishReason().trim());
     }
 
@@ -89,7 +89,7 @@ class ChatTest {
     void testToolChoiceRequired() throws Exception {
         // Chat request with tool_choice set to required forces the model to call a tool
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertFalse(result.choices().get("0").message().toolCalls().isEmpty(), "expected non-empty value");
         assertEquals("get_weather", result.choices().get("0").message().toolCalls().get("0").function().name().trim());
         assertEquals("tool_calls", result.choices().get("0").finishReason().trim());
@@ -99,7 +99,7 @@ class ChatTest {
     void testToolChoiceSpecific() throws Exception {
         // Chat request with tool_choice specifying a particular function to call
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertFalse(result.choices().get("0").message().toolCalls().isEmpty(), "expected non-empty value");
         assertEquals("get_weather", result.choices().get("0").message().toolCalls().get("0").function().name().trim());
         assertEquals("tool_calls", result.choices().get("0").finishReason().trim());

@@ -5,14 +5,14 @@ import { chat } from 'liter_llm';
 describe('embed', () => {
   it('batch_embed: Embedding request with multiple input strings returns one embedding object per input', async () => {
     const result = await chat(["Hello", "World"]);
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(2);
+    expect(result.data.get("0").embedding.length).toBe(5);
   });
 
   it('embed_encoding_format: Embedding request with explicit encoding_format of float returns float array embeddings', async () => {
     const result = await chat("Test input");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
+    expect(result.data.get("0").embedding.length).toBe(5);
   });
 
   it('embed_error_401: 401 Unauthorized error on embedding request when API key is invalid', async () => {
@@ -21,13 +21,13 @@ describe('embed', () => {
 
   it('embed_with_dimensions: Embedding request with explicit dimensions parameter returns embeddings of the requested size', async () => {
     const result = await chat("Hello world");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
+    expect(result.data.get("0").embedding.length).toBe(8);
   });
 
   it('local_embed_ollama: Embedding request via Ollama local provider with all-minilm model', async () => {
     const result = await chat("The quick brown fox jumps over the lazy dog");
-    // TODO: unsupported assertion type: count_equals
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
+    expect(result.data.get("0").embedding.length).toBe(32);
   });
 });

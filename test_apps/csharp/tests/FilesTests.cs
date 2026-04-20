@@ -17,7 +17,7 @@ public class FilesTests
     {
         // List files when no files have been uploaded
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(0, result.Data.Count);
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public class FilesTests
     {
         // List all uploaded files
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Data.Count);
     }
 
     [Fact]

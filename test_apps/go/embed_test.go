@@ -15,8 +15,8 @@ func Test_BatchEmbed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 2, "expected exactly 2 elements")
+	assert.Equal(t, len(result.Data["0"].Embedding), 5, "expected exactly 5 elements")
 }
 
 func Test_EmbedEncodingFormat(t *testing.T) {
@@ -25,8 +25,8 @@ func Test_EmbedEncodingFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
+	assert.Equal(t, len(result.Data["0"].Embedding), 5, "expected exactly 5 elements")
 }
 
 func Test_EmbedError401(t *testing.T) {
@@ -43,8 +43,8 @@ func Test_EmbedWithDimensions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
+	assert.Equal(t, len(result.Data["0"].Embedding), 8, "expected exactly 8 elements")
 }
 
 func Test_LocalEmbedOllama(t *testing.T) {
@@ -53,6 +53,6 @@ func Test_LocalEmbedOllama(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call failed: %v", err)
 	}
-	// TODO: unsupported assertion type: count_equals
-	// TODO: unsupported assertion type: count_equals
+	assert.Equal(t, len(result.Data), 1, "expected exactly 1 elements")
+	assert.Equal(t, len(result.Data["0"].Embedding), 32, "expected exactly 32 elements")
 }

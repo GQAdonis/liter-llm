@@ -13,7 +13,7 @@ describe('proxy', () => {
 
   it('proxy_chat_basic: Basic chat completion request routed through the proxy', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).toBe(1);
     expect(result.choices.get("0").message.content.trim()).toBe("Hello!");
     expect(result.choices.get("0").finishReason.trim()).toBe("stop");
   });
@@ -22,12 +22,12 @@ describe('proxy', () => {
     const result = await chat(null);
     expect(result.chunks.length).toBeGreaterThanOrEqual(3);
     expect(result.streamContent.trim()).toBe("1 2 3");
-    // TODO: unsupported assertion type: is_true
+    expect(result.streamComplete).toBe(true);
   });
 
   it('proxy_embeddings: Embedding request routed through the proxy', async () => {
     const result = await chat("Hello world");
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
   });
 
   it('proxy_health: Health check verifying proxy connectivity via list models', async () => {
@@ -37,7 +37,7 @@ describe('proxy', () => {
 
   it('proxy_image_generate: Image generation request routed through the proxy', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.data.length).toBe(1);
     expect(result.data.get("0").url.length).toBeGreaterThan(0);
   });
 
@@ -48,13 +48,13 @@ describe('proxy', () => {
 
   it('proxy_moderation: Content moderation request routed through the proxy', async () => {
     const result = await chat("The weather is nice today.");
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(1);
     expect(result.results.get("0").flagged).toBe(false);
   });
 
   it('proxy_rerank: Document reranking request routed through the proxy', async () => {
     const result = await chat(null);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(2);
     expect(result.results.get("0").relevanceScore).toBeGreaterThan(0.9);
   });
 

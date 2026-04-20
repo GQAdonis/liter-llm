@@ -16,7 +16,7 @@ final class ModerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("Extremely harmful content targeting multiple categories");
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->results);
         $this->assertEquals(true, $result->results["0"]->flagged);
     }
 
@@ -25,7 +25,7 @@ final class ModerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("");
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->results);
         $this->assertEquals(false, $result->results["0"]->flagged);
     }
 
@@ -50,7 +50,7 @@ final class ModerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(["Hello world", "Nice weather today"]);
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(2, $result->results);
         $this->assertEquals(false, $result->results["0"]->flagged);
     }
 
@@ -59,7 +59,7 @@ final class ModerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("I want to hurt someone very badly");
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->results);
         $this->assertEquals(true, $result->results["0"]->flagged);
     }
 
@@ -68,7 +68,7 @@ final class ModerateTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat("The weather is nice today.");
-        // TODO: unsupported assertion type: count_equals
+        $this->assertCount(1, $result->results);
         $this->assertEquals(false, $result->results["0"]->flagged);
     }
 }

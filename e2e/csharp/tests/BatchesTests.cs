@@ -24,7 +24,7 @@ public class BatchesTests
     {
         // List batches when no batches exist
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(0, result.Data.Count);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class BatchesTests
     {
         // List all batch jobs
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(2, result.Data.Count);
     }
 
     [Fact]

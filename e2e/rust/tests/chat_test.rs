@@ -19,7 +19,7 @@ async fn test_developer_message() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"s[::-1]"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
 }
@@ -38,7 +38,7 @@ async fn test_finish_reason_content_filter() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"content_filter"#, "equals assertion failed");
 }
 
@@ -56,7 +56,7 @@ async fn test_finish_reason_length() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"length"#, "equals assertion failed");
 }
 
@@ -74,7 +74,7 @@ async fn test_multi_turn_conversation() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.content.trim(), r#"4 + 4 equals 8."#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
 }
@@ -93,9 +93,9 @@ async fn test_parallel_tool_calls() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert!(!result.choices.get("0").map(|s| s.as_str()).message.tool_calls.is_empty(), "expected non-empty value");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.tool_calls.len(), 2, "expected exactly 2 elements, got {}", result.choices.get("0").map(|s| s.as_str()).message.tool_calls.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"tool_calls"#, "equals assertion failed");
 }
 
@@ -113,7 +113,7 @@ async fn test_response_format_json_object() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert!(!result.choices.get("0").map(|s| s.as_str()).message.content.is_empty(), "expected non-empty value");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
 }
@@ -132,7 +132,7 @@ async fn test_response_format_json_schema() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert!(!result.choices.get("0").map(|s| s.as_str()).message.content.is_empty(), "expected non-empty value");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
 }
@@ -151,7 +151,7 @@ async fn test_seed_parameter() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
     assert!(!result.system_fingerprint.is_empty(), "expected non-empty value");
 }
@@ -170,7 +170,7 @@ async fn test_stop_sequences() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"stop"#, "equals assertion failed");
 }
 
@@ -188,7 +188,7 @@ async fn test_tool_choice_required() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert!(!result.choices.get("0").map(|s| s.as_str()).message.tool_calls.is_empty(), "expected non-empty value");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.tool_calls.get("0").map(|s| s.as_str()).function.name.trim(), r#"get_weather"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"tool_calls"#, "equals assertion failed");
@@ -208,7 +208,7 @@ async fn test_tool_choice_specific() {
     let request_json = serde_json::json!(null);
     let request = serde_json::from_value(request_json).unwrap();
     let result = chat(request).await.expect("should succeed");
-    // TODO: unsupported assertion type: count_equals
+    assert_eq!(result.choices.len(), 1, "expected exactly 1 elements, got {}", result.choices.len());
     assert!(!result.choices.get("0").map(|s| s.as_str()).message.tool_calls.is_empty(), "expected non-empty value");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).message.tool_calls.get("0").map(|s| s.as_str()).function.name.trim(), r#"get_weather"#, "equals assertion failed");
     assert_eq!(result.choices.get("0").map(|s| s.as_str()).finish_reason.trim(), r#"tool_calls"#, "equals assertion failed");

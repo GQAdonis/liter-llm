@@ -11,7 +11,7 @@ RSpec.describe 'batches' do
 
   it 'edge_batch_empty_list: List batches when no batches exist' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(0)
   end
 
   it 'error_batch_auth_401: 401 Unauthorized when creating a batch with invalid API key' do
@@ -46,7 +46,7 @@ RSpec.describe 'batches' do
 
   it 'smoke_list_batches: List all batch jobs' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(2)
   end
 
   it 'smoke_retrieve_batch: Retrieve the status of a batch job' do

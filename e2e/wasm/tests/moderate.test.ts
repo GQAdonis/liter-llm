@@ -5,13 +5,13 @@ import { chat } from 'liter_llm';
 describe('moderate', () => {
   it('edge_moderate_all_categories: Moderation response with multiple categories flagged', async () => {
     const result = await chat("Extremely harmful content targeting multiple categories");
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(1);
     expect(result.results.get("0").flagged).toBe(true);
   });
 
   it('edge_moderate_empty_input: Moderation with empty string input', async () => {
     const result = await chat("");
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(1);
     expect(result.results.get("0").flagged).toBe(false);
   });
 
@@ -25,19 +25,19 @@ describe('moderate', () => {
 
   it('smoke_moderate_batch: Moderate multiple inputs in a single request', async () => {
     const result = await chat(["Hello world", "Nice weather today"]);
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(2);
     expect(result.results.get("0").flagged).toBe(false);
   });
 
   it('smoke_moderate_flagged: Moderation detects flagged content', async () => {
     const result = await chat("I want to hurt someone very badly");
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(1);
     expect(result.results.get("0").flagged).toBe(true);
   });
 
   it('smoke_moderate_single: Moderate a single non-flagged input', async () => {
     const result = await chat("The weather is nice today.");
-    // TODO: unsupported assertion type: count_equals
+    expect(result.results.length).toBe(1);
     expect(result.results.get("0").flagged).toBe(false);
   });
 });

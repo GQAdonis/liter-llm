@@ -10,16 +10,16 @@ class EmbedTest {
     void testBatchEmbed() throws Exception {
         // Embedding request with multiple input strings returns one embedding object per input
         var result = LiterLlm.chat(java.util.List.of("Hello", "World"));
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(2, result.data().size(), "expected exactly 2 elements");
+        assertEquals(5, result.data().get("0").embedding().size(), "expected exactly 5 elements");
     }
 
     @Test
     void testEmbedEncodingFormat() throws Exception {
         // Embedding request with explicit encoding_format of float returns float array embeddings
         var result = LiterLlm.chat("Test input");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
+        assertEquals(5, result.data().get("0").embedding().size(), "expected exactly 5 elements");
     }
 
     @Test
@@ -32,16 +32,16 @@ class EmbedTest {
     void testEmbedWithDimensions() throws Exception {
         // Embedding request with explicit dimensions parameter returns embeddings of the requested size
         var result = LiterLlm.chat("Hello world");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
+        assertEquals(8, result.data().get("0").embedding().size(), "expected exactly 8 elements");
     }
 
     @Test
     void testLocalEmbedOllama() throws Exception {
         // Embedding request via Ollama local provider with all-minilm model
         var result = LiterLlm.chat("The quick brown fox jumps over the lazy dog");
-        // TODO: unsupported assertion type: count_equals
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.data().size(), "expected exactly 1 elements");
+        assertEquals(32, result.data().get("0").embedding().size(), "expected exactly 32 elements");
     }
 
 }

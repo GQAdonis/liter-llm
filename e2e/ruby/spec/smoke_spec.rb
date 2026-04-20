@@ -7,7 +7,7 @@ require 'json'
 RSpec.describe 'smoke' do
   it 'anthropic_chat: Basic chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) with system and user messages' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hello!')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.model).to eq('claude-3-5-sonnet-20241022')
@@ -16,7 +16,7 @@ RSpec.describe 'smoke' do
 
   it 'azure_chat: Chat completion via Azure OpenAI with the azure/ prefix for provider routing — verifies the prefix is stripped before dispatching and the response is normalised to the standard OpenAI chat completion shape' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hello!')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.model).to eq('gpt-4')
@@ -25,13 +25,13 @@ RSpec.describe 'smoke' do
 
   it 'azure_embed: Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged' do
     result = LiterLlm.chat('Hello world')
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
+    expect(result.data.get("0").embedding.length).to eq(1536)
   end
 
   it 'basic_chat: Basic chat completion with a single user message' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hello!')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.usage.total_tokens).to eq(15)
@@ -40,8 +40,8 @@ RSpec.describe 'smoke' do
 
   it 'basic_embed: Basic embedding request for a single input string' do
     result = LiterLlm.chat('Hello world')
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
+    expect(result.data.get("0").embedding.length).to eq(5)
   end
 
   it 'basic_list_models: List available models from the API' do
@@ -51,7 +51,7 @@ RSpec.describe 'smoke' do
 
   it 'bedrock_chat: Basic chat completion via the AWS Bedrock provider using the bedrock/ prefix for routing — verifies the prefix is stripped before dispatching and the Converse API response is normalised to the standard OpenAI chat completion shape' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hello!')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.model).to eq('anthropic.claude-3-sonnet-20240229-v1:0')
@@ -60,7 +60,7 @@ RSpec.describe 'smoke' do
 
   it 'github_copilot_chat: Basic chat completion via the GitHub Copilot provider (gpt-4o) with a single user message' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hello!')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.model).to eq('gpt-4o')
@@ -122,7 +122,7 @@ RSpec.describe 'smoke' do
 
   it 'vertex_chat: Basic chat completion via the Google Vertex AI provider using the vertex_ai/ prefix for routing — verifies the prefix is stripped before dispatching and the Gemini response is normalised to the standard OpenAI chat completion shape' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('Hello!')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.model).to eq('gemini-2.0-flash')
@@ -131,7 +131,7 @@ RSpec.describe 'smoke' do
 
   it 'vertex_embed: Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape' do
     result = LiterLlm.chat('Hello')
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    expect(result.data.length).to eq(1)
+    expect(result.data.get("0").embedding.length).to eq(160)
   end
 end

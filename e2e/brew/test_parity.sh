@@ -5,8 +5,7 @@ set -euo pipefail
 
 test_api_surface_parity() {
     # Canonical API surface definition for cross-binding parity verification
-    local output
-    output=$(liter_llm chat)
+    liter_llm chat >/dev/null
 
 }
 

@@ -18,7 +18,7 @@ final class StreamingTest extends TestCase
         $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(3, count($result->chunks));
         $this->assertEquals("One Two Three", $result->stream_content);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->stream_complete);
     }
 
     /** Streaming chat completion via Azure OpenAI — verifies the azure/ prefix routes correctly and SSE chunks are delivered in the standard OpenAI chat.completion.chunk shape */
@@ -28,7 +28,7 @@ final class StreamingTest extends TestCase
         $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(3, count($result->chunks));
         $this->assertEquals("1 2 3", $result->stream_content);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->stream_complete);
     }
 
     /** Streaming chat completion that produces content across multiple SSE chunks */
@@ -47,7 +47,7 @@ final class StreamingTest extends TestCase
         $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(2, count($result->chunks));
         $this->assertEquals("One Two Three", $result->stream_content);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->stream_complete);
     }
 
     /** Streaming chat completion that produces no content chunks before the DONE signal */
@@ -66,7 +66,7 @@ final class StreamingTest extends TestCase
         $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(3, count($result->chunks));
         $this->assertEquals("1 2 3", $result->stream_content);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->stream_complete);
     }
 
     /** Verify that the [DONE] sentinel signal properly terminates the stream */
@@ -74,9 +74,9 @@ final class StreamingTest extends TestCase
     {
         $client = \Liter\Llm\LiterLlm::createClient('test-key');
         $result = $client->chat(null);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->stream_complete);
         $this->assertEquals("Done", $result->stream_content);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->no_chunks_after_done);
     }
 
     /** 401 Unauthorized error on stream initiation before any chunks are received */
@@ -115,6 +115,6 @@ final class StreamingTest extends TestCase
         $result = $client->chat(null);
         $this->assertGreaterThanOrEqual(2, count($result->chunks));
         $this->assertEquals("One Two Three", $result->stream_content);
-        // TODO: unsupported assertion type: is_true
+        $this->assertTrue($result->stream_complete);
     }
 }

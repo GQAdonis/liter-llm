@@ -10,7 +10,7 @@ async def test_empty_model_list() -> None:
     request = None
     result = await chat(request=request)
     assert len(result.data) >= 0  # noqa: S101
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 0  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_list_models_error_401() -> None:

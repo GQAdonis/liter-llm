@@ -9,7 +9,7 @@ async def test_anthropic_tool_calling() -> None:
     """Chat request to Anthropic provider with a tool definition; assistant responds with a tool call."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
     assert result.choices.get("0").message.tool_calls.get("0").function.name.strip() == "get_weather"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101
@@ -19,7 +19,7 @@ async def test_single_tool_call() -> None:
     """Chat request with a tool definition; assistant responds with a tool call."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
     assert result.choices.get("0").message.tool_calls.get("0").function.name.strip() == "get_weather"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101

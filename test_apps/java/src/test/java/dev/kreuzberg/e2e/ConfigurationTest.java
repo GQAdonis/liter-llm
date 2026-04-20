@@ -10,7 +10,7 @@ class ConfigurationTest {
     void testCustomBaseUrl() throws Exception {
         // Client configured with a custom base URL routes all requests to that endpoint
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hi there!", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals("local-model", result.model().trim());
@@ -20,7 +20,7 @@ class ConfigurationTest {
     void testExtraHeaders() throws Exception {
         // Client configured with extra custom headers successfully completes a chat request
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("stop", result.choices().get("0").finishReason().trim());
     }
 
@@ -28,7 +28,7 @@ class ConfigurationTest {
     void testLocalProviderLlamacpp() throws Exception {
         // llamacpp local provider routes requests via llamacpp/ model prefix with no auth
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hi there! I'm running locally.", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals("my-model", result.model().trim());
@@ -38,7 +38,7 @@ class ConfigurationTest {
     void testLocalProviderOllama() throws Exception {
         // Ollama local provider routes requests via ollama/ model prefix with no auth
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hello! How can I help you today?", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals("qwen2:0.5b", result.model().trim());
@@ -48,7 +48,7 @@ class ConfigurationTest {
     void testLocalProviderVllm() throws Exception {
         // vLLM local provider routes requests via vllm/ model prefix with no auth
         var result = LiterLlm.chat(null);
-        // TODO: unsupported assertion type: count_equals
+        assertEquals(1, result.choices().size(), "expected exactly 1 elements");
         assertEquals("Hello! How may I assist you?", result.choices().get("0").message().content().trim());
         assertEquals("stop", result.choices().get("0").finishReason().trim());
         assertEquals("meta-llama/Llama-3.2-1B", result.model().trim());

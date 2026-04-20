@@ -16,7 +16,12 @@ void test_all_message_types(void) {
     char* choices_json = _conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     _free_string(choices);
     free(choices_0_finish_reason);
@@ -32,7 +37,12 @@ void test_multimodal_content(void) {
     char* choices_json = _conversion_result_choices(result);
     assert(choices_json != NULL);
     char* choices_0_finish_reason = htm_json_get_string(choices_json, "0");
-    /* TODO: unsupported assertion type: count_equals */
+    {
+        /* count_equals: count elements in array */
+        assert(choices != NULL && "expected non-null collection JSON");
+        int elem_count = htm_json_array_count(choices);
+        assert(elem_count == 1 && "expected 1 elements");
+    }
     assert(str_trim_eq(choices_0_finish_reason, "stop") == 0 && "equals assertion failed");
     _free_string(choices);
     free(choices_0_finish_reason);

@@ -9,7 +9,7 @@ async def test_custom_base_url() -> None:
     """Client configured with a custom base URL routes all requests to that endpoint."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hi there!"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "local-model"  # noqa: S101
@@ -19,7 +19,7 @@ async def test_extra_headers() -> None:
     """Client configured with extra custom headers successfully completes a chat request."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_local_provider_llamacpp() -> None:
     """llamacpp local provider routes requests via llamacpp/ model prefix with no auth."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hi there! I'm running locally."  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "my-model"  # noqa: S101
@@ -37,7 +37,7 @@ async def test_local_provider_ollama() -> None:
     """Ollama local provider routes requests via ollama/ model prefix with no auth."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hello! How can I help you today?"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "qwen2:0.5b"  # noqa: S101
@@ -47,7 +47,7 @@ async def test_local_provider_vllm() -> None:
     """vLLM local provider routes requests via vllm/ model prefix with no auth."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "Hello! How may I assist you?"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "meta-llama/Llama-3.2-1B"  # noqa: S101

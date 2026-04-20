@@ -6,7 +6,7 @@ defmodule E2e.ModerateTest do
   describe "edge_moderate_all_categories" do
     test "Moderation response with multiple categories flagged" do
       {:ok, result} = LiterLlm.chat_async("Extremely harmful content targeting multiple categories")
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.results) == 1
       assert result.results["0"].flagged == true
     end
   end
@@ -14,7 +14,7 @@ defmodule E2e.ModerateTest do
   describe "edge_moderate_empty_input" do
     test "Moderation with empty string input" do
       {:ok, result} = LiterLlm.chat_async("")
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.results) == 1
       assert result.results["0"].flagged == false
     end
   end
@@ -34,7 +34,7 @@ defmodule E2e.ModerateTest do
   describe "smoke_moderate_batch" do
     test "Moderate multiple inputs in a single request" do
       {:ok, result} = LiterLlm.chat_async(["Hello world", "Nice weather today"])
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.results) == 2
       assert result.results["0"].flagged == false
     end
   end
@@ -42,7 +42,7 @@ defmodule E2e.ModerateTest do
   describe "smoke_moderate_flagged" do
     test "Moderation detects flagged content" do
       {:ok, result} = LiterLlm.chat_async("I want to hurt someone very badly")
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.results) == 1
       assert result.results["0"].flagged == true
     end
   end
@@ -50,7 +50,7 @@ defmodule E2e.ModerateTest do
   describe "smoke_moderate_single" do
     test "Moderate a single non-flagged input" do
       {:ok, result} = LiterLlm.chat_async("The weather is nice today.")
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.results) == 1
       assert result.results["0"].flagged == false
     end
   end

@@ -6,7 +6,7 @@ defmodule E2e.ConfigurationTest do
   describe "custom_base_url" do
     test "Client configured with a custom base URL routes all requests to that endpoint" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hi there!"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert String.trim(result.model) == "local-model"
@@ -16,7 +16,7 @@ defmodule E2e.ConfigurationTest do
   describe "extra_headers" do
     test "Client configured with extra custom headers successfully completes a chat request" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].finish_reason) == "stop"
     end
   end
@@ -24,7 +24,7 @@ defmodule E2e.ConfigurationTest do
   describe "local_provider_llamacpp" do
     test "llamacpp local provider routes requests via llamacpp/ model prefix with no auth" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hi there! I'm running locally."
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert String.trim(result.model) == "my-model"
@@ -34,7 +34,7 @@ defmodule E2e.ConfigurationTest do
   describe "local_provider_ollama" do
     test "Ollama local provider routes requests via ollama/ model prefix with no auth" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hello! How can I help you today?"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert String.trim(result.model) == "qwen2:0.5b"
@@ -44,7 +44,7 @@ defmodule E2e.ConfigurationTest do
   describe "local_provider_vllm" do
     test "vLLM local provider routes requests via vllm/ model prefix with no auth" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.choices) == 1
       assert String.trim(result.choices["0"].message.content) == "Hello! How may I assist you?"
       assert String.trim(result.choices["0"].finish_reason) == "stop"
       assert String.trim(result.model) == "meta-llama/Llama-3.2-1B"

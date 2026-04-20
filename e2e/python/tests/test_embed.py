@@ -9,16 +9,16 @@ async def test_batch_embed() -> None:
     """Embedding request with multiple input strings returns one embedding object per input."""
     request = ["Hello", "World"]
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 2  # noqa: S101
+    assert len(result.data.get("0").embedding) == 5  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_embed_encoding_format() -> None:
     """Embedding request with explicit encoding_format of float returns float array embeddings."""
     request = "Test input"
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
+    assert len(result.data.get("0").embedding) == 5  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_embed_error_401() -> None:
@@ -33,14 +33,14 @@ async def test_embed_with_dimensions() -> None:
     """Embedding request with explicit dimensions parameter returns embeddings of the requested size."""
     request = "Hello world"
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
+    assert len(result.data.get("0").embedding) == 8  # noqa: S101
 
 @pytest.mark.asyncio
 async def test_local_embed_ollama() -> None:
     """Embedding request via Ollama local provider with all-minilm model."""
     request = "The quick brown fox jumps over the lazy dog"
     result = await chat(request=request)
-    # TODO: unsupported assertion type: count_equals
-    # TODO: unsupported assertion type: count_equals
+    assert len(result.data) == 1  # noqa: S101
+    assert len(result.data.get("0").embedding) == 32  # noqa: S101
 

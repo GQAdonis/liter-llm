@@ -17,7 +17,7 @@ public class ConfigurationTests
     {
         // Client configured with a custom base URL routes all requests to that endpoint
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hi there!", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal("local-model", result.Model.Trim());
@@ -28,7 +28,7 @@ public class ConfigurationTests
     {
         // Client configured with extra custom headers successfully completes a chat request
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
     }
 
@@ -37,7 +37,7 @@ public class ConfigurationTests
     {
         // llamacpp local provider routes requests via llamacpp/ model prefix with no auth
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hi there! I'm running locally.", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal("my-model", result.Model.Trim());
@@ -48,7 +48,7 @@ public class ConfigurationTests
     {
         // Ollama local provider routes requests via ollama/ model prefix with no auth
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hello! How can I help you today?", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal("qwen2:0.5b", result.Model.Trim());
@@ -59,7 +59,7 @@ public class ConfigurationTests
     {
         // vLLM local provider routes requests via vllm/ model prefix with no auth
         var result = await LiterLlmLib.Chat(null);
-        // TODO: unsupported assertion type: count_equals
+        Assert.Equal(1, result.Choices.Count);
         Assert.Equal("Hello! How may I assist you?", result.Choices["0"].Message.Content.Trim());
         Assert.Equal("stop", result.Choices["0"].FinishReason.Trim());
         Assert.Equal("meta-llama/Llama-3.2-1B", result.Model.Trim());

@@ -6,7 +6,7 @@ defmodule E2e.FilesTest do
   describe "edge_file_empty_list" do
     test "List files when no files have been uploaded" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 0
     end
   end
 
@@ -60,7 +60,7 @@ defmodule E2e.FilesTest do
   describe "smoke_list_files" do
     test "List all uploaded files" do
       {:ok, result} = LiterLlm.chat_async(nil)
-      # TODO: unsupported assertion type: count_equals
+      assert length(result.data) == 2
     end
   end
 

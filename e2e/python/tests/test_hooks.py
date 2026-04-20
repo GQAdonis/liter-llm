@@ -19,7 +19,7 @@ async def test_hook_on_error() -> None:
     """Tests that on_error hook is called on failure."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: is_true
+    assert result.hook_on_error_called is True  # noqa: S101
 
 @pytest.mark.skip(reason="skipped for python")
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_hook_on_request() -> None:
     """Tests that on_request hook is called before the request."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: is_true
+    assert result.hook_on_request_called is True  # noqa: S101
 
 @pytest.mark.skip(reason="skipped for python")
 @pytest.mark.asyncio
@@ -35,5 +35,5 @@ async def test_hook_on_response() -> None:
     """Tests that on_response hook is called with response data."""
     request = None
     result = await chat(request=request)
-    # TODO: unsupported assertion type: is_true
+    assert result.hook_on_response_called is True  # noqa: S101
 

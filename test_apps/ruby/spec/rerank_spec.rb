@@ -7,12 +7,12 @@ require 'json'
 RSpec.describe 'rerank' do
   it 'edge_rerank_empty_query: Reranking with an empty query string' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(2)
   end
 
   it 'edge_rerank_single_doc: Reranking with only a single document' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(1)
     expect(result.results.get("0").relevance_score).to be > 0.9
   end
 
@@ -26,20 +26,20 @@ RSpec.describe 'rerank' do
 
   it 'smoke_rerank_basic: Basic reranking of documents against a query' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(3)
     expect(result.results.get("0").relevance_score).to be > 0.9
   end
 
   it 'smoke_rerank_return_docs: Reranking with return_documents flag to include document text' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(2)
     expect(result.results.get("0").document).not_to be_empty
     expect(result.results.get("0").relevance_score).to be > 0.9
   end
 
   it 'smoke_rerank_with_top_n: Reranking with top_n parameter to limit results' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.results.length).to eq(2)
     expect(result.results.get("0").relevance_score).to be > 0.9
   end
 end

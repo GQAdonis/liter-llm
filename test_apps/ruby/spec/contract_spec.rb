@@ -7,7 +7,7 @@ require 'json'
 RSpec.describe 'contract' do
   it 'binding_api_parity: Verify all bindings expose the full API surface — constructor accepts all config options and every method exists' do
     result = LiterLlm.chat(nil)
-    # TODO: unsupported assertion type: count_equals
+    expect(result.choices.length).to eq(1)
     expect(result.choices.get("0").message.content).to eq('OK')
     expect(result.choices.get("0").finish_reason).to eq('stop')
     expect(result.usage.total_tokens).to eq(6)
