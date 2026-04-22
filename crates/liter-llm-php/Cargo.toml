@@ -20,6 +20,7 @@ default = []
 
 [dependencies]
 ext-php-rs = "0.15"
+futures-util = { workspace = true }
 liter-llm = { path = "../liter-llm", version = "1.2.2", features = ["full"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

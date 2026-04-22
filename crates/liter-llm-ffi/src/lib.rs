@@ -6,7 +6,13 @@
     clippy::let_unit_value,
     clippy::needless_borrow,
     clippy::redundant_locals,
-    dropping_references
+    dropping_references,
+    clippy::unnecessary_cast,
+    clippy::unused_unit,
+    clippy::unwrap_or_default,
+    clippy::derivable_impls,
+    clippy::needless_borrows_for_generic_args,
+    clippy::unnecessary_fallible_conversions
 )]
 
 use liter_llm::client::LlmClient;

@@ -6,7 +6,13 @@
     clippy::let_unit_value,
     clippy::needless_borrow,
     clippy::map_identity,
-    clippy::just_underscores_and_digits
+    clippy::just_underscores_and_digits,
+    clippy::unnecessary_cast,
+    clippy::unused_unit,
+    clippy::unwrap_or_default,
+    clippy::derivable_impls,
+    clippy::needless_borrows_for_generic_args,
+    clippy::unnecessary_fallible_conversions
 )]
 
 use liter_llm::client::LlmClient;
@@ -592,99 +598,108 @@ impl JsDefaultClient {
     #[allow(clippy::missing_errors_doc)]
     #[napi]
     pub async fn chat(&self, req: JsChatCompletionRequest) -> Result<JsChatCompletionResponse> {
-        let inner = self.inner.clone();
-        let result = inner
-            .chat(req.into())
+        let core_req = req.into();
+        self.inner
+            .chat(core_req)
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-        Ok(result.into())
+            .map(JsChatCompletionResponse::from)
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
     }
 
     #[allow(clippy::missing_errors_doc)]
     #[napi(js_name = "chatStream")]
     pub async fn chat_stream(&self, req: JsChatCompletionRequest) -> Result<String> {
-        let _ = req;
-        Err(napi::Error::new(
-            napi::Status::GenericFailure,
-            "Not implemented: DefaultClient.chat_stream",
-        ))
+        use futures_util::StreamExt;
+        let core_req: liter_llm::ChatCompletionRequest = req.into();
+        let stream = self
+            .inner
+            .chat_stream(core_req)
+            .await
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
+        let chunks: Vec<JsChatCompletionChunk> = stream
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map(|v| v.into_iter().map(JsChatCompletionChunk::from).collect())
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
+        serde_json::to_string(&chunks).map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
     }
 
     #[allow(clippy::missing_errors_doc)]
     #[napi]
     pub async fn embed(&self, req: JsEmbeddingRequest) -> Result<JsEmbeddingResponse> {
-        let inner = self.inner.clone();
-        let result = inner
-            .embed(req.into())
+        let core_req = req.into();
+        self.inner
+            .embed(core_req)
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-        Ok(result.into())
+            .map(JsEmbeddingResponse::from)
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
     }
 
     #[allow(clippy::missing_errors_doc)]
     #[napi(js_name = "listModels")]
     pub async fn list_models(&self) -> Result<JsModelsListResponse> {
-        let inner = self.inner.clone();
-        let result = inner
+        self.inner
             .list_models()
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-        Ok(result.into())
+            .map(JsModelsListResponse::from)
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
     }
 
     #[allow(clippy::missing_errors_doc)]
     #[napi(js_name = "imageGenerate")]
     pub async fn image_generate(&self, req: JsCreateImageRequest) -> Result<JsImagesResponse> {
-        let inner = self.inner.clone();
-        let result = inner
-            .image_generate(req.into())
+        let core_req = req.into();
+        self.inner
+            .image_generate(core_req)
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-        Ok(result.into())
+            .map(JsImagesResponse::from)
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
     }
 
     #[allow(clippy::missing_errors_doc)]
     #[napi]
     pub async fn transcribe(&self, req: JsCreateTranscriptionRequest) -> Result<JsTranscriptionResponse> {
-        let inner = self.inner.clone();
-        let result = inner
-            .transcribe(req.into())
+        let core_req = req.into();
+        self.inner
+            .transcribe(core_req)
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-        Ok(result.into())
+            .map(JsTranscriptionResponse::from)
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
     }
 
     #[allow(clippy::missing_errors_doc)]
     #[napi]
     pub async fn moderate(&self, req: JsModerationRequest) -> Result<JsModerationResponse> {
-        let inner = self.inner.clone();
-        let result = inner
-            .moderate(req.into())
+        let core_req = req.into();
+        self.inner
+            .moderate(core_req)
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-        Ok(result.into())
+            .map(JsModerationResponse::from)
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
     }
 
     #[allow(clippy::missing_errors_doc)]
     #[napi]
     pub async fn rerank(&self, req: JsRerankRequest) -> Result<JsRerankResponse> {
-        let inner = self.inner.clone();
-        let result = inner
-            .rerank(req.into())
+        let core_req = req.into();
+        self.inner
+            .rerank(core_req)
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-        Ok(result.into())
+            .map(JsRerankResponse::from)
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
     }
 
     #[allow(clippy::missing_errors_doc)]
     #[napi]
     pub async fn search(&self, req: JsSearchRequest) -> Result<JsSearchResponse> {
-        let inner = self.inner.clone();
-        let result = inner
-            .search(req.into())
+        let core_req = req.into();
+        self.inner
+            .search(core_req)
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-        Ok(result.into())
+            .map(JsSearchResponse::from)
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
     }
 }
 
@@ -989,7 +1004,7 @@ pub fn create_client(
         api_key,
         base_url,
         timeout_secs.map(|v| v as u64),
-        max_retries.map(|v| v),
+        max_retries,
         model_hint,
     )
     .map(|val| JsDefaultClient { inner: Arc::new(val) })

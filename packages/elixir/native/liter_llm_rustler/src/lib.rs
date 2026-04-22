@@ -7,7 +7,12 @@
     clippy::needless_borrow,
     clippy::map_identity,
     clippy::just_underscores_and_digits,
-    clippy::unused_unit
+    clippy::unused_unit,
+    clippy::unnecessary_cast,
+    clippy::unwrap_or_default,
+    clippy::derivable_impls,
+    clippy::needless_borrows_for_generic_args,
+    clippy::unnecessary_fallible_conversions
 )]
 
 use liter_llm::client::LlmClient;
@@ -1157,7 +1162,20 @@ pub fn defaultclient_chat_stream_async(
     resource: ResourceArc<DefaultClient>,
     req: ChatCompletionRequest,
 ) -> Result<String, String> {
-    Err(String::from("Not implemented: defaultclient_chat_stream_async"))
+    use futures_util::StreamExt;
+    let rt = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    let core_req: liter_llm::ChatCompletionRequest = req.into();
+    rt.block_on(async {
+        let stream = resource.inner.chat_stream(core_req).await.map_err(|e| e.to_string())?;
+        let chunks: Vec<ChatCompletionChunk> = stream
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map(|v| v.into_iter().map(ChatCompletionChunk::from).collect())
+            .map_err(|e| e.to_string())?;
+        serde_json::to_string(&chunks).map_err(|e| e.to_string())
+    })
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]

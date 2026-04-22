@@ -2345,6 +2345,7 @@ dependencies = [
 name = "liter-llm-node"
 version = "1.2.2"
 dependencies = [
+ "futures-util",
  "liter-llm",
  "napi",
  "napi-build",
@@ -2358,6 +2359,7 @@ name = "liter-llm-php"
 version = "1.2.2"
 dependencies = [
  "ext-php-rs",
+ "futures-util",
  "liter-llm",
  "serde",
  "serde_json",
@@ -2420,6 +2422,7 @@ dependencies = [
 name = "liter_llm_rustler"
 version = "1.2.2"
 dependencies = [
+ "futures-util",
  "liter-llm",
  "rustler",
  "serde",

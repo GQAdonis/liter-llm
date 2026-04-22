@@ -7,7 +7,12 @@
     clippy::needless_borrow,
     clippy::map_identity,
     clippy::just_underscores_and_digits,
-    clippy::unused_unit
+    clippy::unused_unit,
+    clippy::unnecessary_cast,
+    clippy::unwrap_or_default,
+    clippy::derivable_impls,
+    clippy::needless_borrows_for_generic_args,
+    clippy::unnecessary_fallible_conversions
 )]
 
 use liter_llm::client::LlmClient;
@@ -3574,7 +3579,21 @@ impl WasmDefaultClient {
     #[allow(clippy::missing_errors_doc)]
     #[wasm_bindgen(js_name = "chatStream")]
     pub async fn chat_stream(&self, _req: WasmChatCompletionRequest) -> Result<String, JsValue> {
-        Err(JsValue::from_str("Not implemented: chat_stream"))
+        use futures_util::StreamExt;
+        let core_req: liter_llm::ChatCompletionRequest = req.into();
+        let stream = self
+            .inner
+            .chat_stream(core_req)
+            .await
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let chunks: Vec<ChatCompletionChunk> = stream
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map(|v| v.into_iter().map(ChatCompletionChunk::from).collect())
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        serde_json::to_string(&chunks).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     #[allow(clippy::missing_errors_doc)]

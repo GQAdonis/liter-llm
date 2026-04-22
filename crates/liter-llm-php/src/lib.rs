@@ -4,7 +4,13 @@
     clippy::let_unit_value,
     clippy::needless_borrow,
     clippy::map_identity,
-    clippy::just_underscores_and_digits
+    clippy::just_underscores_and_digits,
+    clippy::unnecessary_cast,
+    clippy::unused_unit,
+    clippy::unwrap_or_default,
+    clippy::derivable_impls,
+    clippy::needless_borrows_for_generic_args,
+    clippy::unnecessary_fallible_conversions
 )]
 
 use ext_php_rs::prelude::*;
@@ -1560,97 +1566,79 @@ pub struct DefaultClient {
 #[php_impl]
 impl DefaultClient {
     pub fn chat_async(&self, req: &ChatCompletionRequest) -> PhpResult<ChatCompletionResponse> {
-        let inner = self.inner.clone();
-        WORKER_RUNTIME.block_on(async {
-            let result = inner
-                .chat(req.clone().into())
-                .await
-                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
-            Ok(result.into())
-        })
+        WORKER_RUNTIME
+            .block_on(async { self.inner.chat(req.clone().into()).await })
+            .map(ChatCompletionResponse::from)
+            .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))
     }
 
     pub fn chat_stream_async(&self, req: &ChatCompletionRequest) -> PhpResult<String> {
-        Err(ext_php_rs::exception::PhpException::default(
-            "Not implemented: chat_stream_async".to_string(),
-        ))
+        use futures_util::StreamExt;
+        let core_req: liter_llm::ChatCompletionRequest = req.clone().into();
+        WORKER_RUNTIME.block_on(async {
+            let stream = self
+                .inner
+                .chat_stream(core_req)
+                .await
+                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
+            let chunks: Vec<ChatCompletionChunk> = stream
+                .collect::<Vec<_>>()
+                .await
+                .into_iter()
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map(|v| v.into_iter().map(ChatCompletionChunk::from).collect())
+                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
+            serde_json::to_string(&chunks).map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))
+        })
     }
 
     pub fn embed_async(&self, req: &EmbeddingRequest) -> PhpResult<EmbeddingResponse> {
-        let inner = self.inner.clone();
-        WORKER_RUNTIME.block_on(async {
-            let result = inner
-                .embed(req.clone().into())
-                .await
-                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
-            Ok(result.into())
-        })
+        WORKER_RUNTIME
+            .block_on(async { self.inner.embed(req.clone().into()).await })
+            .map(EmbeddingResponse::from)
+            .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))
     }
 
     pub fn list_models_async(&self) -> PhpResult<ModelsListResponse> {
-        let inner = self.inner.clone();
-        WORKER_RUNTIME.block_on(async {
-            let result = inner
-                .list_models()
-                .await
-                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
-            Ok(result.into())
-        })
+        WORKER_RUNTIME
+            .block_on(async { self.inner.list_models().await })
+            .map(ModelsListResponse::from)
+            .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))
     }
 
     pub fn image_generate_async(&self, req: &CreateImageRequest) -> PhpResult<ImagesResponse> {
-        let inner = self.inner.clone();
-        WORKER_RUNTIME.block_on(async {
-            let result = inner
-                .image_generate(req.clone().into())
-                .await
-                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
-            Ok(result.into())
-        })
+        WORKER_RUNTIME
+            .block_on(async { self.inner.image_generate(req.clone().into()).await })
+            .map(ImagesResponse::from)
+            .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))
     }
 
     pub fn transcribe_async(&self, req: &CreateTranscriptionRequest) -> PhpResult<TranscriptionResponse> {
-        let inner = self.inner.clone();
-        WORKER_RUNTIME.block_on(async {
-            let result = inner
-                .transcribe(req.clone().into())
-                .await
-                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
-            Ok(result.into())
-        })
+        WORKER_RUNTIME
+            .block_on(async { self.inner.transcribe(req.clone().into()).await })
+            .map(TranscriptionResponse::from)
+            .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))
     }
 
     pub fn moderate_async(&self, req: &ModerationRequest) -> PhpResult<ModerationResponse> {
-        let inner = self.inner.clone();
-        WORKER_RUNTIME.block_on(async {
-            let result = inner
-                .moderate(req.clone().into())
-                .await
-                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
-            Ok(result.into())
-        })
+        WORKER_RUNTIME
+            .block_on(async { self.inner.moderate(req.clone().into()).await })
+            .map(ModerationResponse::from)
+            .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))
     }
 
     pub fn rerank_async(&self, req: &RerankRequest) -> PhpResult<RerankResponse> {
-        let inner = self.inner.clone();
-        WORKER_RUNTIME.block_on(async {
-            let result = inner
-                .rerank(req.clone().into())
-                .await
-                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
-            Ok(result.into())
-        })
+        WORKER_RUNTIME
+            .block_on(async { self.inner.rerank(req.clone().into()).await })
+            .map(RerankResponse::from)
+            .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))
     }
 
     pub fn search_async(&self, req: &SearchRequest) -> PhpResult<SearchResponse> {
-        let inner = self.inner.clone();
-        WORKER_RUNTIME.block_on(async {
-            let result = inner
-                .search(req.clone().into())
-                .await
-                .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))?;
-            Ok(result.into())
-        })
+        WORKER_RUNTIME
+            .block_on(async { self.inner.search(req.clone().into()).await })
+            .map(SearchResponse::from)
+            .map_err(|e| ext_php_rs::exception::PhpException::default(e.to_string()))
     }
 }
 
