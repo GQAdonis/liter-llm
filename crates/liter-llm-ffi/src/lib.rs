@@ -74,6 +74,11 @@ pub unsafe extern "C" fn literllm_version() -> *const c_char {
     VERSION.as_ptr() as *const c_char
 }
 
+/// Callback invoked for each streamed chunk.
+/// `chunk_json` is a JSON-encoded chunk; `user_data` is forwarded from the caller.
+pub type LiterLlmStreamCallback =
+    unsafe extern "C" fn(chunk_json: *const std::ffi::c_char, user_data: *mut std::ffi::c_void);
+
 /// Free a `LiterLlmError` handle.
 /// # Safety
 /// Pointer must have been returned by this library, or be null.
@@ -7533,16 +7538,88 @@ pub unsafe extern "C" fn literllm_default_client_chat(
 }
 
 /// # Safety
-/// Caller must ensure all pointer arguments are valid or null.
-/// Returned pointers must be freed with the appropriate free function.
+/// `client` and `request_json` must be non-null valid pointers. `callback` must be a valid function pointer. `user_data` is forwarded as-is; ownership stays with the caller.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn literllm_default_client_chat_stream(
-    _this: *const liter_llm::client::DefaultClient,
-    _req: *const liter_llm::types::ChatCompletionRequest,
-) -> *mut std::ffi::c_char {
+    client: *const liter_llm::client::DefaultClient,
+    request_json: *const std::ffi::c_char,
+    callback: LiterLlmStreamCallback,
+    user_data: *mut std::ffi::c_void,
+) -> i32 {
     clear_last_error();
-    set_last_error(99, "Not implemented: DefaultClient::chat_stream");
-    std::ptr::null_mut()
+
+    if client.is_null() {
+        set_last_error(99, "literllm_chat_stream: client must not be NULL");
+        return -1;
+    }
+    if request_json.is_null() {
+        set_last_error(99, "literllm_chat_stream: request_json must not be NULL");
+        return -1;
+    }
+
+    // SAFETY: caller guarantees `client` and `request_json` are non-null and valid.
+    let client_ref = unsafe { &(*client) };
+
+    let json_str = match unsafe { std::ffi::CStr::from_ptr(request_json) }.to_str() {
+        Ok(s) => s,
+        Err(e) => {
+            set_last_error(
+                99,
+                &format!("literllm_chat_stream: request_json is not valid UTF-8: {e}"),
+            );
+            return -1;
+        }
+    };
+
+    let request: liter_llm::ChatCompletionRequest = match serde_json::from_str(json_str) {
+        Ok(r) => r,
+        Err(e) => {
+            set_last_error(99, &format!("literllm_chat_stream: failed to parse request JSON: {e}"));
+            return -1;
+        }
+    };
+
+    let rt = get_ffi_runtime();
+
+    let result = rt.block_on(async {
+        use futures_util::StreamExt;
+
+        let mut stream = match client_ref.chat_stream(request).await {
+            Ok(s) => s,
+            Err(e) => return Err(format!("literllm_chat_stream: failed to open stream: {e}")),
+        };
+
+        loop {
+            match stream.next().await {
+                None => break,
+                Some(Err(e)) => return Err(format!("literllm_chat_stream: stream error: {e}")),
+                Some(Ok(chunk)) => {
+                    let chunk_json = match serde_json::to_string(&chunk) {
+                        Ok(s) => s,
+                        Err(e) => return Err(format!("literllm_chat_stream: failed to serialise chunk: {e}")),
+                    };
+                    match std::ffi::CString::new(chunk_json) {
+                        Ok(c_str) => {
+                            // SAFETY: `callback` is a valid function pointer supplied by the caller.
+                            // `c_str.as_ptr()` is valid for this block scope.
+                            // `user_data` is forwarded as-is; ownership stays with the caller.
+                            unsafe { callback(c_str.as_ptr(), user_data) };
+                        }
+                        Err(e) => return Err(format!("literllm_chat_stream: chunk JSON contained NUL byte: {e}")),
+                    }
+                }
+            }
+        }
+        Ok(())
+    });
+
+    match result {
+        Ok(()) => 0,
+        Err(e) => {
+            set_last_error(99, &e);
+            -1
+        }
+    }
 }
 
 /// # Safety

@@ -77,10 +77,11 @@ impl SystemMessage {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 #[pyclass(frozen, from_py_object)]
 pub struct UserMessage {
     #[pyo3(get)]
+    #[serde(skip)]
     pub content: UserContent,
     #[pyo3(get)]
     pub name: Option<String>,
@@ -469,12 +470,13 @@ impl Usage {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 #[pyclass(frozen, from_py_object)]
 pub struct ChatCompletionRequest {
     #[pyo3(get)]
     pub model: String,
     #[pyo3(get)]
+    #[serde(skip)]
     pub messages: Vec<Message>,
     #[pyo3(get)]
     pub temperature: Option<f64>,
@@ -488,6 +490,7 @@ pub struct ChatCompletionRequest {
     #[pyo3(get)]
     pub stream: Option<bool>,
     #[pyo3(get)]
+    #[serde(skip)]
     pub stop: Option<StopSequence>,
     #[pyo3(get)]
     pub max_tokens: Option<u64>,
@@ -504,10 +507,12 @@ pub struct ChatCompletionRequest {
     #[pyo3(get)]
     pub tools: Option<Vec<ChatCompletionTool>>,
     #[pyo3(get)]
+    #[serde(skip)]
     pub tool_choice: Option<ToolChoice>,
     #[pyo3(get)]
     pub parallel_tool_calls: Option<bool>,
     #[pyo3(get)]
+    #[serde(skip)]
     pub response_format: Option<ResponseFormat>,
     #[pyo3(get)]
     pub stream_options: Option<StreamOptions>,
@@ -835,12 +840,13 @@ impl StreamFunctionCall {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 #[pyclass(frozen, from_py_object)]
 pub struct EmbeddingRequest {
     #[pyo3(get)]
     pub model: String,
     #[pyo3(get)]
+    #[serde(skip)]
     pub input: EmbeddingInput,
     #[pyo3(get)]
     pub encoding_format: Option<EmbeddingFormat>,
@@ -1166,10 +1172,11 @@ impl TranscriptionSegment {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 #[pyclass(frozen, from_py_object)]
 pub struct ModerationRequest {
     #[pyo3(get)]
+    #[serde(skip)]
     pub input: ModerationInput,
     #[pyo3(get)]
     pub model: Option<String>,
@@ -1355,7 +1362,7 @@ impl ModerationCategoryScores {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 #[pyclass(frozen, from_py_object)]
 pub struct RerankRequest {
     #[pyo3(get)]
@@ -1363,6 +1370,7 @@ pub struct RerankRequest {
     #[pyo3(get)]
     pub query: String,
     #[pyo3(get)]
+    #[serde(skip)]
     pub documents: Vec<RerankDocument>,
     #[pyo3(get)]
     pub top_n: Option<u32>,
@@ -1550,7 +1558,7 @@ impl SearchResult {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 #[pyclass(frozen, from_py_object)]
 pub struct OcrRequest {
     /// The model/provider to use (e.g. `"mistral/mistral-ocr-latest"`).
@@ -1558,6 +1566,7 @@ pub struct OcrRequest {
     pub model: String,
     /// The document to process.
     #[pyo3(get)]
+    #[serde(skip)]
     pub document: OcrDocument,
     /// Specific pages to process (1-indexed). `None` means all pages.
     #[pyo3(get)]
@@ -1878,7 +1887,7 @@ impl DefaultClient {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 #[pyclass(frozen, from_py_object)]
 pub struct CustomProviderConfig {
     /// Unique name for this provider (e.g., "my-provider").
@@ -1889,6 +1898,7 @@ pub struct CustomProviderConfig {
     pub base_url: String,
     /// Authentication header format.
     #[pyo3(get)]
+    #[serde(skip)]
     pub auth_header: AuthHeaderFormat,
     /// Model name prefixes that route to this provider (e.g., ["my-"]).
     #[pyo3(get)]

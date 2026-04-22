@@ -5775,7 +5775,6 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
 
     let class = module.define_class("DefaultClient", ruby.class_object())?;
     class.define_method("chat_async", method!(DefaultClient::chat_async, 1))?;
-    class.define_method("chat_stream_async", method!(DefaultClient::chat_stream_async, 1))?;
     class.define_method("embed_async", method!(DefaultClient::embed_async, 1))?;
     class.define_method("list_models_async", method!(DefaultClient::list_models_async, 0))?;
     class.define_method("image_generate_async", method!(DefaultClient::image_generate_async, 1))?;

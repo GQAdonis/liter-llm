@@ -88,6 +88,13 @@ typedef struct LITERLLMUserMessage LITERLLMUserMessage;
 
 
 /**
+ * Callback invoked for each streamed chunk.
+ * `chunk_json` is a JSON-encoded chunk; `user_data` is forwarded from the caller.
+ */
+typedef void (*LITERLLMLiterLlmStreamCallback)(const char *chunk_json,
+                                               void *user_data);
+
+/**
  * Return the last error code (0 means no error).
  * # Safety
  * Caller must ensure all pointer arguments are valid or null.
@@ -2912,11 +2919,12 @@ LITERLLMChatCompletionResponse *literllm_default_client_chat(const LITERLLMDefau
 
 /**
  * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
+ * `client` and `request_json` must be non-null valid pointers. `callback` must be a valid function pointer. `user_data` is forwarded as-is; ownership stays with the caller.
  */
-char *literllm_default_client_chat_stream(const LITERLLMDefaultClient *_this,
-                                          const LITERLLMChatCompletionRequest *_req);
+int32_t literllm_default_client_chat_stream(const LITERLLMDefaultClient *client,
+                                            const char *request_json,
+                                            LITERLLMLiterLlmStreamCallback callback,
+                                            void *user_data);
 
 /**
  * # Safety
