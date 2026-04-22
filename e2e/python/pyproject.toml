@@ -10,7 +10,7 @@ requires-python = ">=3.10"
 dependencies = ["kreuzcrawl", "pytest>=7.4", "pytest-asyncio>=0.23", "pytest-timeout>=2.1"]
 
 [tool.uv.sources]
-kreuzcrawl = { path = "../../packages/python", editable = true }
+kreuzcrawl = { workspace = true }
 
 [tool.setuptools]
 packages = []
