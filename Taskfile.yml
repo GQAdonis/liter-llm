@@ -272,8 +272,8 @@ tasks:
     cmds:
       - |
         for f in docs/reference/*.md; do
-          sed -i'' -e 's/[[:space:]]*$//' "$f"
-          printf '%s\n' "$(cat "$f")" > "$f"
+          # Strip trailing whitespace (portable across macOS/Linux)
+          sed -i.bak 's/[[:space:]]*$//' "$f" && rm -f "$f.bak"
         done
 
   generate:readme:
