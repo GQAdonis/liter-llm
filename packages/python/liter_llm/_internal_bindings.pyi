@@ -652,59 +652,68 @@ class DefaultClient:
     def rerank(self, req: RerankRequest) -> RerankResponse: ...
     def search(self, req: SearchRequest) -> SearchResponse: ...
 
-class MessageSystem(TypedDict):
+class MessageSystemVariant(TypedDict):
     role: Literal["system"]
     _0: SystemMessage
 
-class MessageUser(TypedDict):
+class MessageUserVariant(TypedDict):
     role: Literal["user"]
     _0: UserMessage
 
-class MessageAssistant(TypedDict):
+class MessageAssistantVariant(TypedDict):
     role: Literal["assistant"]
     _0: AssistantMessage
 
-class MessageTool(TypedDict):
+class MessageToolVariant(TypedDict):
     role: Literal["tool"]
     _0: ToolMessage
 
-class MessageDeveloper(TypedDict):
+class MessageDeveloperVariant(TypedDict):
     role: Literal["developer"]
     _0: DeveloperMessage
 
-class MessageFunction(TypedDict):
+class MessageFunctionVariant(TypedDict):
     role: Literal["function"]
     _0: FunctionMessage
 
-Message: TypeAlias = MessageSystem | MessageUser | MessageAssistant | MessageTool | MessageDeveloper | MessageFunction
+Message: TypeAlias = (
+    MessageSystemVariant
+    | MessageUserVariant
+    | MessageAssistantVariant
+    | MessageToolVariant
+    | MessageDeveloperVariant
+    | MessageFunctionVariant
+)
 
-class UserContentText(TypedDict):
+class UserContentTextVariant(TypedDict):
     type: Literal["Text"]
     _0: str
 
-class UserContentParts(TypedDict):
+class UserContentPartsVariant(TypedDict):
     type: Literal["Parts"]
     _0: list[ContentPart]
 
-UserContent: TypeAlias = UserContentText | UserContentParts
+UserContent: TypeAlias = UserContentTextVariant | UserContentPartsVariant
 
-class ContentPartText(TypedDict):
+class ContentPartTextVariant(TypedDict):
     type: Literal["text"]
     text: str
 
-class ContentPartImageUrl(TypedDict):
+class ContentPartImageUrlVariant(TypedDict):
     type: Literal["image_url"]
     image_url: ImageUrl
 
-class ContentPartDocument(TypedDict):
+class ContentPartDocumentVariant(TypedDict):
     type: Literal["document"]
     document: DocumentContent
 
-class ContentPartInputAudio(TypedDict):
+class ContentPartInputAudioVariant(TypedDict):
     type: Literal["input_audio"]
     input_audio: AudioContent
 
-ContentPart: TypeAlias = ContentPartText | ContentPartImageUrl | ContentPartDocument | ContentPartInputAudio
+ContentPart: TypeAlias = (
+    ContentPartTextVariant | ContentPartImageUrlVariant | ContentPartDocumentVariant | ContentPartInputAudioVariant
+)
 
 class ImageDetail:
     Low: ImageDetail = ...
@@ -716,15 +725,15 @@ class ToolType:
     Function: ToolType = ...
     def __init__(self, value: int | str) -> None: ...
 
-class _ToolChoiceModeVariant(TypedDict):
+class ToolChoiceModeVariant(TypedDict):
     type: Literal["Mode"]
     _0: ToolChoiceMode
 
-class ToolChoiceSpecific(TypedDict):
+class ToolChoiceSpecificVariant(TypedDict):
     type: Literal["Specific"]
     _0: SpecificToolChoice
 
-ToolChoice: TypeAlias = _ToolChoiceModeVariant | ToolChoiceSpecific
+ToolChoice: TypeAlias = ToolChoiceModeVariant | ToolChoiceSpecificVariant
 
 class ToolChoiceMode:
     Auto: ToolChoiceMode = ...
@@ -732,27 +741,29 @@ class ToolChoiceMode:
     None_: ToolChoiceMode = ...
     def __init__(self, value: int | str) -> None: ...
 
-class ResponseFormatText(TypedDict):
+class ResponseFormatTextVariant(TypedDict):
     type: Literal["text"]
 
-class ResponseFormatJsonObject(TypedDict):
+class ResponseFormatJsonObjectVariant(TypedDict):
     type: Literal["json_object"]
 
-class ResponseFormatJsonSchema(TypedDict):
+class ResponseFormatJsonSchemaVariant(TypedDict):
     type: Literal["json_schema"]
     json_schema: JsonSchemaFormat
 
-ResponseFormat: TypeAlias = ResponseFormatText | ResponseFormatJsonObject | ResponseFormatJsonSchema
+ResponseFormat: TypeAlias = (
+    ResponseFormatTextVariant | ResponseFormatJsonObjectVariant | ResponseFormatJsonSchemaVariant
+)
 
-class StopSequenceSingle(TypedDict):
+class StopSequenceSingleVariant(TypedDict):
     type: Literal["Single"]
     _0: str
 
-class StopSequenceMultiple(TypedDict):
+class StopSequenceMultipleVariant(TypedDict):
     type: Literal["Multiple"]
     _0: list[str]
 
-StopSequence: TypeAlias = StopSequenceSingle | StopSequenceMultiple
+StopSequence: TypeAlias = StopSequenceSingleVariant | StopSequenceMultipleVariant
 
 class FinishReason:
     Stop: FinishReason = ...
@@ -774,58 +785,60 @@ class EmbeddingFormat:
     Base64: EmbeddingFormat = ...
     def __init__(self, value: int | str) -> None: ...
 
-class EmbeddingInputSingle(TypedDict):
+class EmbeddingInputSingleVariant(TypedDict):
     type: Literal["Single"]
     _0: str
 
-class EmbeddingInputMultiple(TypedDict):
+class EmbeddingInputMultipleVariant(TypedDict):
     type: Literal["Multiple"]
     _0: list[str]
 
-EmbeddingInput: TypeAlias = EmbeddingInputSingle | EmbeddingInputMultiple
+EmbeddingInput: TypeAlias = EmbeddingInputSingleVariant | EmbeddingInputMultipleVariant
 
-class ModerationInputSingle(TypedDict):
+class ModerationInputSingleVariant(TypedDict):
     type: Literal["Single"]
     _0: str
 
-class ModerationInputMultiple(TypedDict):
+class ModerationInputMultipleVariant(TypedDict):
     type: Literal["Multiple"]
     _0: list[str]
 
-ModerationInput: TypeAlias = ModerationInputSingle | ModerationInputMultiple
+ModerationInput: TypeAlias = ModerationInputSingleVariant | ModerationInputMultipleVariant
 
-class RerankDocumentText(TypedDict):
+class RerankDocumentTextVariant(TypedDict):
     type: Literal["Text"]
     _0: str
 
-class RerankDocumentObject(TypedDict):
+class RerankDocumentObjectVariant(TypedDict):
     type: Literal["Object"]
     text: str
 
-RerankDocument: TypeAlias = RerankDocumentText | RerankDocumentObject
+RerankDocument: TypeAlias = RerankDocumentTextVariant | RerankDocumentObjectVariant
 
-class OcrDocumentUrl(TypedDict):
+class OcrDocumentUrlVariant(TypedDict):
     type: Literal["document_url"]
     url: str
 
-class OcrDocumentBase64(TypedDict):
+class OcrDocumentBase64Variant(TypedDict):
     type: Literal["base64"]
     data: str
     media_type: str
 
-OcrDocument: TypeAlias = OcrDocumentUrl | OcrDocumentBase64
+OcrDocument: TypeAlias = OcrDocumentUrlVariant | OcrDocumentBase64Variant
 
-class AuthHeaderFormatBearer(TypedDict):
+class AuthHeaderFormatBearerVariant(TypedDict):
     type: Literal["Bearer"]
 
-class AuthHeaderFormatApiKey(TypedDict):
+class AuthHeaderFormatApiKeyVariant(TypedDict):
     type: Literal["ApiKey"]
     _0: str
 
-class AuthHeaderFormatNone(TypedDict):
+class AuthHeaderFormatNoneVariant(TypedDict):
     type: Literal["None"]
 
-AuthHeaderFormat: TypeAlias = AuthHeaderFormatBearer | AuthHeaderFormatApiKey | AuthHeaderFormatNone
+AuthHeaderFormat: TypeAlias = (
+    AuthHeaderFormatBearerVariant | AuthHeaderFormatApiKeyVariant | AuthHeaderFormatNoneVariant
+)
 
 def create_client(
     api_key: str,
