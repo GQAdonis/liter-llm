@@ -1371,3 +1371,4 @@ jobs:
           OLLAMA_BASE_URL: http://localhost:11434
           RUST_BACKTRACE: full
         shell: bash
+# trigger CI
