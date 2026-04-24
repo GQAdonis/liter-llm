@@ -30,16 +30,14 @@ builtins = [
 
 [[includes]]
 name = "kreuzberg-core"
-source = "git@github.com:kreuzberg-dev/ai-rulez.git"
+source = "https://github.com/kreuzberg-dev/ai-rulez"
 path = "modules/core"
-local_override = "../ai-rulez"
 merge_strategy = "local-override"
 
 [[includes]]
 name = "kreuzberg-cicd"
-source = "git@github.com:kreuzberg-dev/ai-rulez.git"
+source = "https://github.com/kreuzberg-dev/ai-rulez"
 path = "modules/cicd"
-local_override = "../ai-rulez"
 merge_strategy = "local-override"
 
 [[mcp_servers]]
