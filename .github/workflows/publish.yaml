@@ -555,21 +555,16 @@ jobs:
         with:
           php-version: "8.2"
           tools: composer
-      - name: Build PHP extension
+      - name: Install alef
+        uses: kreuzberg-dev/actions/install-alef@v1
+      - name: Build and package PHP extension
+        shell: bash
         env:
           # ext-php-rs on macOS requires dynamic_lookup to resolve PHP symbols at runtime
           RUSTFLAGS: ${{ matrix.os == 'macos' && '-C link-arg=-undefined -C link-arg=dynamic_lookup' || '' }}
-        run: >
-          cargo build --release
-          --target ${{ matrix.target }}
-          --manifest-path crates/liter-llm-php/Cargo.toml
-        shell: bash
-      - name: Build PIE package
-        shell: bash
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-          CARGO_TARGET: ${{ matrix.target }}
-        run: scripts/publish/php/build-pie-package.sh "${{ matrix.label }}" "dist/php"
+        run: |
+          alef publish build --lang php --target ${{ matrix.target }}
+          alef publish package --lang php --target ${{ matrix.target }} -o dist/php
       - uses: actions/upload-artifact@v7
         with:
           name: php-pie-${{ matrix.label }}
@@ -622,26 +617,18 @@ jobs:
         uses: kreuzberg-dev/actions/setup-rust@v1
         with:
           target: ${{ matrix.target }}
+      - name: Install alef
+        uses: kreuzberg-dev/actions/install-alef@v1
       - name: Build FFI
         shell: bash
-        run: cargo build -p liter-llm-ffi --release --target ${{ matrix.target }}
+        run: alef publish build --lang ffi --target ${{ matrix.target }}
       - name: Stage FFI artifacts
         env:
           TARGET: ${{ matrix.target }}
           RID: ${{ matrix.rid }}
         run: |
-          # Find and stage the built libraries (dynamic + static)
           mkdir -p "ffi-staging/${RID}"
-          if [[ "$TARGET" == *"windows"* ]]; then
-            cp "target/${TARGET}/release/liter_llm_ffi.dll" "ffi-staging/${RID}/"
-            cp "target/${TARGET}/release/liter_llm_ffi.dll.lib" "ffi-staging/${RID}/" 2>/dev/null || true
-          elif [[ "$TARGET" == *"apple"* ]]; then
-            cp "target/${TARGET}/release/libliter_llm_ffi.dylib" "ffi-staging/${RID}/"
-            cp "target/${TARGET}/release/libliter_llm_ffi.a" "ffi-staging/${RID}/" 2>/dev/null || true
-          else
-            cp "target/${TARGET}/release/libliter_llm_ffi.so" "ffi-staging/${RID}/"
-            cp "target/${TARGET}/release/libliter_llm_ffi.a" "ffi-staging/${RID}/" 2>/dev/null || true
-          fi
+          find target/release -maxdepth 1 -type f \( -name '*.so' -o -name '*.dylib' -o -name '*.dll' -o -name '*.a' -o -name '*.dll.lib' \) -name '*liter_llm_ffi*' -exec cp {} "ffi-staging/${RID}/" \;
           # Copy cbindgen-generated header if present
           if [ -f crates/liter-llm-ffi/include/liter_llm_ffi.h ]; then
             mkdir -p ffi-staging/include

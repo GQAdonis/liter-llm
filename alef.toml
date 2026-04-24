@@ -869,5 +869,19 @@ name = "@kreuzberg/liter-llm"
 [e2e.registry]
 output = "test_apps"
 
+[publish]
+core_crate = "crates/liter-llm"
+
+[publish.languages.ruby]
+vendor_mode = "core-only"
+
+[publish.languages.elixir]
+vendor_mode = "core-only"
+nif_versions = ["2.16", "2.17"]
+
+[publish.languages.ffi]
+pkg_config = true
+cmake_config = true
+
 [sync]
 extra_paths = []
