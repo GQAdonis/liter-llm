@@ -1,0 +1,49 @@
+version = "4.0"
+name = "liter-llm"
+description = "Multi-language LLM library with Rust core and polyglot bindings (Python, TypeScript, Ruby, PHP, Elixir, Go, Java, C#, WASM)"
+gitignore = true
+
+presets = ["claude", "gemini", "codex"]
+
+[header]
+style = "minimal"
+
+builtins = [
+  "rust",
+  "python",
+  "typescript",
+  "ruby",
+  "php",
+  "elixir",
+  "go",
+  "java",
+  "csharp",
+  "pyo3",
+  "napi-rs",
+  "security",
+  "git-workflow",
+  "code-quality",
+  "testing",
+  "token-efficiency",
+  "default-commands",
+]
+
+[[includes]]
+name = "kreuzberg-core"
+source = "git@github.com:kreuzberg-dev/ai-rulez.git"
+path = "modules/core"
+local_override = "../ai-rulez"
+merge_strategy = "local-override"
+
+[[includes]]
+name = "kreuzberg-cicd"
+source = "git@github.com:kreuzberg-dev/ai-rulez.git"
+path = "modules/cicd"
+local_override = "../ai-rulez"
+merge_strategy = "local-override"
+
+[[mcp_servers]]
+name = "ai-rulez"
+description = "AI-Rulez MCP server for configuration management"
+command = "npx"
+args = ["-y", "ai-rulez@latest", "mcp"]
