@@ -188,6 +188,14 @@ jobs:
         run: task rust:lint:check
         shell: bash
 
+      - name: Run WASM Clippy
+        run: cargo clippy -p liter-llm-wasm --target wasm32-unknown-unknown -- -D warnings
+        shell: bash
+
+      - name: Run PHP Clippy
+        run: cargo clippy -p liter-llm-php --all-targets -- -D warnings
+        shell: bash
+
       - name: Run Python Lint Check
         run: task python:lint:check
         shell: bash

@@ -72,39 +72,6 @@ repos:
           ]
         files: ^(crates/|tools/|Cargo\.(toml|lock))
         types_or: [rust, toml]
-      - id: cargo-clippy
-        name: clippy (liter-llm-php)
-        args:
-          [
-            "--fix",
-            "--allow-dirty",
-            "--allow-staged",
-            "-p",
-            "liter-llm-php",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
-          ]
-        files: ^crates/liter-llm-php/
-        types: [rust]
-      - id: cargo-clippy
-        name: clippy (liter-llm-wasm)
-        args:
-          [
-            "--fix",
-            "--allow-dirty",
-            "--allow-staged",
-            "-p",
-            "liter-llm-wasm",
-            "--target",
-            "wasm32-unknown-unknown",
-            "--",
-            "-D",
-            "warnings",
-          ]
-        files: ^crates/liter-llm-wasm/
-        types: [rust]
 
   - repo: https://github.com/bnjbvr/cargo-machete
     rev: v0.9.2
