@@ -1,4 +1,4 @@
-version = "0.7.8"
+version = "0.7.9"
 languages = ["python", "node", "ruby", "php", "ffi", "go", "java", "csharp", "elixir", "wasm"]
 
 [crate]
@@ -147,6 +147,7 @@ csharp = "packages/csharp/"
 [python]
 module_name = "_internal_bindings"
 pip_name = "liter-llm"
+run_wrapper = "uv run --no-sync"
 
 [python.stubs]
 output = "packages/python/liter_llm/"
@@ -165,9 +166,11 @@ package_name = "literllm"
 
 [java]
 package = "dev.kreuzberg.literllm"
+project_file = "packages/java/pom.xml"
 
 [csharp]
 namespace = "LiterLlm"
+project_file = "packages/csharp/LiterLlm.csproj"
 
 [ruby]
 gem_name = "liter_llm"
@@ -540,10 +543,7 @@ basic_chat = "getting-started/basic_chat.md"
 streaming = "getting-started/streaming.md"
 
 [lint.python]
-precondition = "command -v ruff >/dev/null 2>&1"
 before = "uv sync --no-install-project"
-format = "uv run --no-sync ruff check --fix --select I packages/python scripts && uv run --no-sync ruff format packages/python scripts"
-check = "uv run --no-sync ruff check packages/python scripts && uv run --no-sync ruff format --check packages/python scripts"
 
 [lint.node]
 precondition = "command -v npx >/dev/null 2>&1"
@@ -560,31 +560,9 @@ precondition = "command -v php >/dev/null 2>&1"
 format = "cd packages/php && PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix --config php-cs-fixer.php src"
 check = "cd packages/php && PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix --config php-cs-fixer.php --dry-run src"
 
-[lint.csharp]
-precondition = "command -v dotnet >/dev/null 2>&1"
-format = "dotnet format packages/csharp/LiterLlm.csproj"
-check = "dotnet format packages/csharp/LiterLlm.csproj --verify-no-changes"
-
-[lint.ruby]
-precondition = "command -v bundle >/dev/null 2>&1"
-before = "cd packages/ruby && bundle install"
-format = "cd packages/ruby && bundle exec rubocop -a ."
-check = "cd packages/ruby && bundle exec rubocop ."
-
 [lint.go]
 precondition = "command -v golangci-lint >/dev/null 2>&1"
 before = "cargo build --release -p liter-llm-ffi"
-
-[lint.elixir]
-precondition = "command -v mix >/dev/null 2>&1"
-before = "cd packages/elixir && mix deps.get"
-format = "cd packages/elixir && mix format"
-check = "cd packages/elixir && mix credo"
-
-[lint.java]
-precondition = "command -v mvn >/dev/null 2>&1"
-format = "mvn -f packages/java/pom.xml spotless:apply -q"
-check = "mvn -f packages/java/pom.xml spotless:check -q"
 
 [lint.ffi]
 precondition = "test -d crates/liter-llm-ffi/src"
