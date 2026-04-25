@@ -91,6 +91,11 @@ lint.per-file-ignores."e2e/python/**/*.*" = [
   "RUF100",  # unused noqa in generated code
   "S101",    # assert usage in tests
 ]
+lint.per-file-ignores."packages/python/liter_llm/_internal_bindings.pyi" = [
+  "F401",   # unused import in alef-generated stub
+  "PYI026", # TypeAlias annotation not added by alef codegen
+  "RUF100", # noqa directives added by alef codegen may be redundant
+]
 lint.per-file-ignores."scripts/**/*.*" = [
   "B904",    # raise without from
   "BLE001",  # broad exception catch

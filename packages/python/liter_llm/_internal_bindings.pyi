@@ -32,7 +32,7 @@ class AudioContent:
     def __init__(
         self,
         data: str | None = None,
-        format: str | None = None,
+        format: str | None = None,  # noqa: A002
     ) -> None: ...
 
 class AssistantMessage:
@@ -95,7 +95,7 @@ class ToolCall:
     function: FunctionCall
     def __init__(
         self,
-        id: str,
+        id: str,  # noqa: A002
         call_type: ToolType | str,
         function: FunctionCall,
     ) -> None: ...
@@ -202,8 +202,8 @@ class ChatCompletionResponse:
     service_tier: str | None
     def __init__(
         self,
-        id: str | None = None,
-        object: str | None = None,
+        id: str | None = None,  # noqa: A002
+        object: str | None = None,  # noqa: A002
         created: int | None = None,
         model: str | None = None,
         choices: list[Choice] | None = None,
@@ -234,8 +234,8 @@ class ChatCompletionChunk:
     service_tier: str | None
     def __init__(
         self,
-        id: str | None = None,
-        object: str | None = None,
+        id: str | None = None,  # noqa: A002
+        object: str | None = None,  # noqa: A002
         created: int | None = None,
         model: str | None = None,
         choices: list[StreamChoice] | None = None,
@@ -278,7 +278,7 @@ class StreamToolCall:
     def __init__(
         self,
         index: int | None = None,
-        id: str | None = None,
+        id: str | None = None,  # noqa: A002
         call_type: ToolType | str | None = None,
         function: StreamFunctionCall | None = None,
     ) -> None: ...
@@ -297,7 +297,7 @@ class EmbeddingRequest:
     def __init__(
         self,
         model: str,
-        input: EmbeddingInput,
+        input: EmbeddingInput,  # noqa: A002
         encoding_format: EmbeddingFormat | str | None = None,
         dimensions: int | None = None,
         user: str | None = None,
@@ -310,7 +310,7 @@ class EmbeddingResponse:
     usage: Usage | None
     def __init__(
         self,
-        object: str,
+        object: str,  # noqa: A002
         data: list[EmbeddingObject],
         model: str,
         usage: Usage | None = None,
@@ -322,7 +322,7 @@ class EmbeddingObject:
     index: int
     def __init__(
         self,
-        object: str,
+        object: str,  # noqa: A002
         embedding: list[float],
         index: int,
     ) -> None: ...
@@ -373,7 +373,7 @@ class CreateSpeechRequest:
     def __init__(
         self,
         model: str | None = None,
-        input: str | None = None,
+        input: str | None = None,  # noqa: A002
         voice: str | None = None,
         response_format: str | None = None,
         speed: float | None = None,
@@ -416,7 +416,7 @@ class TranscriptionSegment:
     text: str
     def __init__(
         self,
-        id: int | None = None,
+        id: int | None = None,  # noqa: A002
         start: float | None = None,
         end: float | None = None,
         text: str | None = None,
@@ -427,7 +427,7 @@ class ModerationRequest:
     model: str | None
     def __init__(
         self,
-        input: ModerationInput,
+        input: ModerationInput,  # noqa: A002
         model: str | None = None,
     ) -> None: ...
 
@@ -437,7 +437,7 @@ class ModerationResponse:
     results: list[ModerationResult]
     def __init__(
         self,
-        id: str,
+        id: str,  # noqa: A002
         model: str,
         results: list[ModerationResult],
     ) -> None: ...
@@ -529,7 +529,7 @@ class RerankResponse:
     def __init__(
         self,
         results: list[RerankResult],
-        id: str | None = None,
+        id: str | None = None,  # noqa: A002
         meta: dict[str, Any] | None = None,
     ) -> None: ...
 
@@ -612,7 +612,7 @@ class OcrImage:
     image_base64: str | None
     def __init__(
         self,
-        id: str,
+        id: str,  # noqa: A002
         image_base64: str | None = None,
     ) -> None: ...
 
@@ -626,7 +626,7 @@ class ModelsListResponse:
     data: list[ModelObject]
     def __init__(
         self,
-        object: str | None = None,
+        object: str | None = None,  # noqa: A002
         data: list[ModelObject] | None = None,
     ) -> None: ...
 
@@ -637,8 +637,8 @@ class ModelObject:
     owned_by: str
     def __init__(
         self,
-        id: str | None = None,
-        object: str | None = None,
+        id: str | None = None,  # noqa: A002
+        object: str | None = None,  # noqa: A002
         created: int | None = None,
         owned_by: str | None = None,
     ) -> None: ...
@@ -693,7 +693,7 @@ class MessageFunctionVariant(TypedDict):
     role: Literal["function"]
     _0: FunctionMessage
 
-Message: TypeAlias = (
+Message = (
     MessageSystemVariant
     | MessageUserVariant
     | MessageAssistantVariant
@@ -710,7 +710,7 @@ class UserContentPartsVariant(TypedDict):
     type: Literal["Parts"]
     _0: list[ContentPart]
 
-UserContent: TypeAlias = UserContentTextVariant | UserContentPartsVariant
+UserContent = UserContentTextVariant | UserContentPartsVariant
 
 class ContentPartTextVariant(TypedDict):
     type: Literal["text"]
@@ -728,7 +728,7 @@ class ContentPartInputAudioVariant(TypedDict):
     type: Literal["input_audio"]
     input_audio: AudioContent
 
-ContentPart: TypeAlias = (
+ContentPart = (
     ContentPartTextVariant | ContentPartImageUrlVariant | ContentPartDocumentVariant | ContentPartInputAudioVariant
 )
 
@@ -750,7 +750,7 @@ class ToolChoiceSpecificVariant(TypedDict):
     type: Literal["Specific"]
     _0: SpecificToolChoice
 
-ToolChoice: TypeAlias = ToolChoiceModeVariant | ToolChoiceSpecificVariant
+ToolChoice = ToolChoiceModeVariant | ToolChoiceSpecificVariant
 
 class ToolChoiceMode:
     Auto: ToolChoiceMode = ...
@@ -768,9 +768,7 @@ class ResponseFormatJsonSchemaVariant(TypedDict):
     type: Literal["json_schema"]
     json_schema: JsonSchemaFormat
 
-ResponseFormat: TypeAlias = (
-    ResponseFormatTextVariant | ResponseFormatJsonObjectVariant | ResponseFormatJsonSchemaVariant
-)
+ResponseFormat = ResponseFormatTextVariant | ResponseFormatJsonObjectVariant | ResponseFormatJsonSchemaVariant
 
 class StopSequenceSingleVariant(TypedDict):
     type: Literal["Single"]
@@ -780,7 +778,7 @@ class StopSequenceMultipleVariant(TypedDict):
     type: Literal["Multiple"]
     _0: list[str]
 
-StopSequence: TypeAlias = StopSequenceSingleVariant | StopSequenceMultipleVariant
+StopSequence = StopSequenceSingleVariant | StopSequenceMultipleVariant
 
 class FinishReason:
     Stop: FinishReason = ...
@@ -810,7 +808,7 @@ class EmbeddingInputMultipleVariant(TypedDict):
     type: Literal["Multiple"]
     _0: list[str]
 
-EmbeddingInput: TypeAlias = EmbeddingInputSingleVariant | EmbeddingInputMultipleVariant
+EmbeddingInput = EmbeddingInputSingleVariant | EmbeddingInputMultipleVariant
 
 class ModerationInputSingleVariant(TypedDict):
     type: Literal["Single"]
@@ -820,7 +818,7 @@ class ModerationInputMultipleVariant(TypedDict):
     type: Literal["Multiple"]
     _0: list[str]
 
-ModerationInput: TypeAlias = ModerationInputSingleVariant | ModerationInputMultipleVariant
+ModerationInput = ModerationInputSingleVariant | ModerationInputMultipleVariant
 
 class RerankDocumentTextVariant(TypedDict):
     type: Literal["Text"]
@@ -830,7 +828,7 @@ class RerankDocumentObjectVariant(TypedDict):
     type: Literal["Object"]
     text: str
 
-RerankDocument: TypeAlias = RerankDocumentTextVariant | RerankDocumentObjectVariant
+RerankDocument = RerankDocumentTextVariant | RerankDocumentObjectVariant
 
 class OcrDocumentUrlVariant(TypedDict):
     type: Literal["document_url"]
@@ -841,7 +839,7 @@ class OcrDocumentBase64Variant(TypedDict):
     data: str
     media_type: str
 
-OcrDocument: TypeAlias = OcrDocumentUrlVariant | OcrDocumentBase64Variant
+OcrDocument = OcrDocumentUrlVariant | OcrDocumentBase64Variant
 
 class AuthHeaderFormatBearerVariant(TypedDict):
     type: Literal["Bearer"]
@@ -853,9 +851,7 @@ class AuthHeaderFormatApiKeyVariant(TypedDict):
 class AuthHeaderFormatNoneVariant(TypedDict):
     type: Literal["None"]
 
-AuthHeaderFormat: TypeAlias = (
-    AuthHeaderFormatBearerVariant | AuthHeaderFormatApiKeyVariant | AuthHeaderFormatNoneVariant
-)
+AuthHeaderFormat = AuthHeaderFormatBearerVariant | AuthHeaderFormatApiKeyVariant | AuthHeaderFormatNoneVariant
 
 def create_client(
     api_key: str,

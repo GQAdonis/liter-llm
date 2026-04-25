@@ -111,6 +111,7 @@ repos:
       - id: alef-fmt
       - id: alef-lint
       - id: alef-verify
+        entry: alef verify
       - id: alef-sync-versions
 
   # GitHub Actions: linting
