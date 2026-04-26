@@ -184,6 +184,7 @@ tasks:
       - echo "Updating dependencies (within-major)..."
       - alef update
       - prek autoupdate
+      - task: generate:pricing
       - echo "All dependencies updated"
 
   upgrade:
@@ -192,6 +193,7 @@ tasks:
       - echo "Upgrading dependencies (latest)..."
       - alef update --latest
       - prek autoupdate
+      - task: generate:pricing
       - echo "All dependencies upgraded"
 
   clean:
@@ -265,6 +267,16 @@ tasks:
     desc: Validate providers documentation is up-to-date (CI)
     cmds:
       - uv run python scripts/generate_providers_doc.py --validate
+
+  generate:pricing:
+    desc: Refresh schemas/pricing.json from models.dev (also runs as part of `task update`/`upgrade`)
+    cmds:
+      - uv run python scripts/generate_pricing.py
+
+  generate:pricing:check:
+    desc: Validate pricing.json is up-to-date with models.dev (CI)
+    cmds:
+      - uv run python scripts/generate_pricing.py --validate
 
   e2e:generate:all:
     desc: Generate E2E tests for all languages from fixtures

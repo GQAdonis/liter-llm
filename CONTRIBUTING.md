@@ -326,6 +326,16 @@ Version is managed in `Cargo.toml` workspace and synced across all manifests:
 task version:sync
 ```
 
+### Pricing Refresh
+
+Cost-tracking data lives in `schemas/pricing.json` (mirrored at `crates/liter-llm/schemas/pricing.json`) and is generated from [models.dev](https://models.dev). It refreshes automatically as part of `task update` and `task upgrade`; you can also run it standalone:
+
+```bash
+task generate:pricing
+```
+
+If models.dev is missing a model liter-llm needs to price, add the entry to `OVERRIDES` at the top of `scripts/generate_pricing.py` and re-run.
+
 ## Questions?
 
 - Check existing [issues](https://github.com/kreuzberg-dev/liter-llm/issues)

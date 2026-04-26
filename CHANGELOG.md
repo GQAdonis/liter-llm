@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/generate_pricing.py` regenerates `schemas/pricing.json` from [models.dev](https://models.dev), wired into `task generate:pricing`, `task update`, and `task upgrade`
+
+### Changed
+
+- `schemas/pricing.json` now covers 4,219 models (up from 35) sourced from models.dev — closes #48
+
 ## [1.3.0] - 2026-04-23
 
 ### Changed
