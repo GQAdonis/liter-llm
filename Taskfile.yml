@@ -57,6 +57,14 @@ vars:
   VERSION:
     sh: python3 -c "import tomllib; print(tomllib.load(open('Cargo.toml','rb'))['workspace']['package']['version'])"
 
+# Preconditions for task setup:
+# - Rust toolchain (rustup) — install via https://rustup.rs
+# - alef CLI — install via cargo install --git https://github.com/kreuzberg-dev/alef
+# - prek — install via cargo install prek
+# - Per-language tools auto-skipped via alef preconditions; install as needed:
+#   - Python: uv, Node: pnpm (corepack enable), Ruby: bundle, PHP: composer
+#   - Go: go, Java: mvn (use sdkman: task setup:sdkman), C#: dotnet, Elixir: mix
+
 tasks:
   default:
     desc: Show available tasks
@@ -64,17 +72,17 @@ tasks:
       - task --list
 
   setup:
-    desc: "Install all dependencies and initialize project. Idempotent - safe to re-run anytime."
+    desc: "Install all dependencies and dev tools"
     cmds:
-      - task: _platforms:setup:sdkman
-      - echo "Installing pre-commit hooks..."
+      - task: rust:install
+      - alef setup
       - prek install
       - prek install --hook-type commit-msg
-      - echo "Setting up language tools..."
-      - alef setup
-      - echo "Generating AI rules..."
-      - task: tools:ai-rulez
-      - echo "Setup complete - safe to re-run anytime"
+
+  setup:sdkman:
+    desc: "Install and configure sdkman for JVM toolchain management (run separately if you need Java/Maven)"
+    cmds:
+      - task: _platforms:setup:sdkman
 
   ai-rulez:
     desc: Generate ai-rulez configuration files (CLAUDE.md, etc.)
