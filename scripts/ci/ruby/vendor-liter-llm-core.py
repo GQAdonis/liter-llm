@@ -15,11 +15,12 @@ import re
 import shutil
 import sys
 from pathlib import Path
+from typing import cast
 
 try:
     import tomllib
 except ImportError:
-    import tomli as tomllib  # type: ignore[no-redef]
+    import tomli as tomllib
 
 
 def get_repo_root() -> Path:
@@ -35,21 +36,24 @@ def get_repo_root() -> Path:
 def read_toml(path: Path) -> dict[str, object]:
     """Read TOML file."""
     with open(path, "rb") as f:
-        return tomllib.load(f)
+        return cast("dict[str, object]", tomllib.load(f))
 
 
 def get_workspace_deps(repo_root: Path) -> dict[str, object]:
     """Extract workspace.dependencies from root Cargo.toml."""
     cargo_toml_path = repo_root / "Cargo.toml"
     data = read_toml(cargo_toml_path)
-    return data.get("workspace", {}).get("dependencies", {})
+    workspace = cast("dict[str, object]", data.get("workspace", {}))
+    return cast("dict[str, object]", workspace.get("dependencies", {}))
 
 
 def get_workspace_version(repo_root: Path) -> str:
     """Extract version from workspace.package."""
     cargo_toml_path = repo_root / "Cargo.toml"
     data = read_toml(cargo_toml_path)
-    return data.get("workspace", {}).get("package", {}).get("version", "1.0.0-rc.1")
+    workspace = cast("dict[str, object]", data.get("workspace", {}))
+    package = cast("dict[str, object]", workspace.get("package", {}))
+    return cast("str", package.get("version", "1.0.0-rc.1"))
 
 
 def format_dependency(name: str, dep_spec: object) -> str:
@@ -271,16 +275,16 @@ def main() -> None:
     temp_patterns: list[str] = ["*.swp", "*.bak", "*.tmp", "*~"]
 
     for crate_dir in copied_crates:
-        crate_path: Path = vendor_base / crate_dir
-        if crate_path.exists():
+        artifact_crate_path: Path = vendor_base / crate_dir
+        if artifact_crate_path.exists():
             for artifact_dir in artifact_dirs:
-                artifact: Path = crate_path / artifact_dir
+                artifact: Path = artifact_crate_path / artifact_dir
                 if artifact.exists():
                     shutil.rmtree(artifact)
 
             for pattern in temp_patterns:
-                for f in crate_path.rglob(pattern):
-                    f.unlink()
+                for tmp_file in artifact_crate_path.rglob(pattern):
+                    tmp_file.unlink()
 
     print("Cleaned build artifacts")
 

@@ -14,6 +14,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,26 +30,26 @@ CHECK = ":white_check_mark:"
 DASH = "--"
 
 
-def load_providers(schema_path: Path) -> list[dict]:
+def load_providers(schema_path: Path) -> list[dict[str, Any]]:
     """Load and return the providers list from the JSON schema."""
     with schema_path.open() as f:
-        data = json.load(f)
-    return data["providers"]
+        data: dict[str, Any] = json.load(f)
+    return list(data["providers"])
 
 
-def provider_prefix(provider: dict) -> str:
+def provider_prefix(provider: dict[str, Any]) -> str:
     """Derive the routing prefix for a provider."""
     name = provider["name"]
     return f"`{name}/`"
 
 
-def endpoint_cell(provider: dict, endpoint: str) -> str:
+def endpoint_cell(provider: dict[str, Any], endpoint: str) -> str:
     """Return a checkmark or dash for a given endpoint."""
     endpoints = provider.get("endpoints", [])
     return CHECK if endpoint in endpoints else DASH
 
 
-def generate_markdown(providers: list[dict]) -> str:
+def generate_markdown(providers: list[dict[str, Any]]) -> str:
     """Generate the full providers.md content."""
     sorted_providers = sorted(providers, key=lambda p: p["display_name"].lower())
     count = len(sorted_providers)
