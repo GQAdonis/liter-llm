@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: configuration."""
+
 import pytest
 from liter_llm import chat
 
@@ -18,6 +19,7 @@ async def test_custom_base_url() -> None:
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "local-model"  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_extra_headers() -> None:
     """Client configured with extra custom headers successfully completes a chat request."""
@@ -26,15 +28,20 @@ async def test_extra_headers() -> None:
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_local_provider_llamacpp() -> None:
     """llamacpp local provider routes requests via llamacpp/ model prefix with no auth."""
     request = None
     result = await chat(request=request)
     assert len(result.choices) == 1  # noqa: S101
-    assert result.choices.get("0").message.content.strip() == "Hi there! I'm running locally."  # noqa: S101
+    assert (
+        result.choices.get("0").message.content.strip()
+        == "Hi there! I'm running locally."
+    )  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "my-model"  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_local_provider_ollama() -> None:
@@ -42,9 +49,13 @@ async def test_local_provider_ollama() -> None:
     request = None
     result = await chat(request=request)
     assert len(result.choices) == 1  # noqa: S101
-    assert result.choices.get("0").message.content.strip() == "Hello! How can I help you today?"  # noqa: S101
+    assert (
+        result.choices.get("0").message.content.strip()
+        == "Hello! How can I help you today?"
+    )  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "qwen2:0.5b"  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_local_provider_vllm() -> None:
@@ -52,7 +63,9 @@ async def test_local_provider_vllm() -> None:
     request = None
     result = await chat(request=request)
     assert len(result.choices) == 1  # noqa: S101
-    assert result.choices.get("0").message.content.strip() == "Hello! How may I assist you?"  # noqa: S101
+    assert (
+        result.choices.get("0").message.content.strip()
+        == "Hello! How may I assist you?"
+    )  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.model.strip() == "meta-llama/Llama-3.2-1B"  # noqa: S101
-

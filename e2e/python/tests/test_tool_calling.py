@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: tool-calling."""
+
 import pytest
 from liter_llm import chat
 
@@ -15,8 +16,12 @@ async def test_anthropic_tool_calling() -> None:
     result = await chat(request=request)
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
-    assert result.choices.get("0").message.tool_calls.get("0").function.name.strip() == "get_weather"  # noqa: S101
+    assert (
+        result.choices.get("0").message.tool_calls.get("0").function.name.strip()
+        == "get_weather"
+    )  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_single_tool_call() -> None:
@@ -25,6 +30,8 @@ async def test_single_tool_call() -> None:
     result = await chat(request=request)
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
-    assert result.choices.get("0").message.tool_calls.get("0").function.name.strip() == "get_weather"  # noqa: S101
+    assert (
+        result.choices.get("0").message.tool_calls.get("0").function.name.strip()
+        == "get_weather"
+    )  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101
-

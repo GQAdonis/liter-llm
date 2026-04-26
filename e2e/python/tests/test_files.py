@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: files."""
+
 import pytest
 from liter_llm import list_files, create_file, retrieve_file, delete_file, file_content
 
@@ -14,6 +15,7 @@ async def test_edge_file_empty_list() -> None:
     result = await list_files()
     assert len(result.data) == 0  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_edge_file_large_upload() -> None:
     """Upload a large file successfully."""
@@ -21,12 +23,14 @@ async def test_edge_file_large_upload() -> None:
     result = await create_file(request=request)
     assert result.id  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_error_file_auth_401() -> None:
     """401 Unauthorized when listing files with invalid API key."""
     with pytest.raises(Exception) as exc_info:  # noqa: B017
         await list_files()
     assert "Authentication" in str(exc_info.value)  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_error_file_bad_purpose() -> None:
@@ -36,6 +40,7 @@ async def test_error_file_bad_purpose() -> None:
         await create_file(request=request)
     assert "InvalidRequest" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_error_file_not_found() -> None:
     """404 Not Found when retrieving a nonexistent file."""
@@ -44,12 +49,14 @@ async def test_error_file_not_found() -> None:
         await retrieve_file(file_id=file_id)
     assert "NotFound" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_smoke_create_file() -> None:
     """Upload a file for use with the API."""
     request = None
     result = await create_file(request=request)
     assert result.id  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_smoke_delete_file() -> None:
@@ -59,6 +66,7 @@ async def test_smoke_delete_file() -> None:
     assert result.id  # noqa: S101
     assert result.deleted is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_smoke_file_content() -> None:
     """Retrieve the content of an uploaded file."""
@@ -66,11 +74,13 @@ async def test_smoke_file_content() -> None:
     result = await file_content(file_id=file_id)
     assert result.content  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_smoke_list_files() -> None:
     """List all uploaded files."""
     result = await list_files()
     assert len(result.data) == 2  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_smoke_retrieve_file() -> None:
@@ -78,4 +88,3 @@ async def test_smoke_retrieve_file() -> None:
     file_id = "file-abc123"
     result = await retrieve_file(file_id=file_id)
     assert result.id  # noqa: S101
-

@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: search."""
+
 import pytest
 from liter_llm import search
 
@@ -14,11 +15,13 @@ async def test_search_basic() -> None:
     request = None
     _ = await search(request=request)
 
+
 @pytest.mark.asyncio
 async def test_search_empty_results() -> None:
     """Web search with a query that returns no results."""
     request = None
     _ = await search(request=request)
+
 
 @pytest.mark.asyncio
 async def test_search_error_400() -> None:
@@ -28,6 +31,7 @@ async def test_search_error_400() -> None:
         await search(request=request)
     assert "BadRequest" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_search_error_401() -> None:
     """401 Unauthorized error on web search due to invalid API credentials."""
@@ -36,10 +40,10 @@ async def test_search_error_401() -> None:
         await search(request=request)
     assert "Authentication" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_search_with_max_results() -> None:
     """Search request with max_results parameter limiting response count."""
     request = None
     result = await search(request=request)
     assert len(result.results) == 2  # noqa: S101
-

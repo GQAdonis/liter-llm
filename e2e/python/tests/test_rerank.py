@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: rerank."""
+
 import pytest
 from liter_llm import rerank
 
@@ -15,6 +16,7 @@ async def test_edge_rerank_empty_query() -> None:
     result = await rerank(request=request)
     assert len(result.results) == 2  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_edge_rerank_single_doc() -> None:
     """Reranking with only a single document."""
@@ -22,6 +24,7 @@ async def test_edge_rerank_single_doc() -> None:
     result = await rerank(request=request)
     assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").relevance_score > 0.9  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_error_rerank_auth_401() -> None:
@@ -31,6 +34,7 @@ async def test_error_rerank_auth_401() -> None:
         await rerank(request=request)
     assert "Authentication" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_error_rerank_bad_request() -> None:
     """400 Bad Request for reranking with invalid model."""
@@ -39,6 +43,7 @@ async def test_error_rerank_bad_request() -> None:
         await rerank(request=request)
     assert "InvalidRequest" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_smoke_rerank_basic() -> None:
     """Basic reranking of documents against a query."""
@@ -46,6 +51,7 @@ async def test_smoke_rerank_basic() -> None:
     result = await rerank(request=request)
     assert len(result.results) == 3  # noqa: S101
     assert result.results.get("0").relevance_score > 0.9  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_smoke_rerank_return_docs() -> None:
@@ -56,6 +62,7 @@ async def test_smoke_rerank_return_docs() -> None:
     assert result.results.get("0").document  # noqa: S101
     assert result.results.get("0").relevance_score > 0.9  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_smoke_rerank_with_top_n() -> None:
     """Reranking with top_n parameter to limit results."""
@@ -63,4 +70,3 @@ async def test_smoke_rerank_with_top_n() -> None:
     result = await rerank(request=request)
     assert len(result.results) == 2  # noqa: S101
     assert result.results.get("0").relevance_score > 0.9  # noqa: S101
-

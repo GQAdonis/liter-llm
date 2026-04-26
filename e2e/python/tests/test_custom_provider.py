@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: custom_provider."""
+
 import pytest
 from liter_llm import chat
 
@@ -14,9 +15,9 @@ async def test_provider_auth() -> None:
     request = None
     _ = await chat(request=request)
 
+
 @pytest.mark.asyncio
 async def test_register_provider() -> None:
     """Tests that a custom provider can be registered and routes requests."""
     request = None
     _ = await chat(request=request)
-

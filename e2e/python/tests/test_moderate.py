@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: moderate."""
+
 import pytest
 from liter_llm import moderate
 
@@ -16,6 +17,7 @@ async def test_edge_moderate_all_categories() -> None:
     assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").flagged is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_edge_moderate_empty_input() -> None:
     """Moderation with empty string input."""
@@ -23,6 +25,7 @@ async def test_edge_moderate_empty_input() -> None:
     result = await moderate(request=request)
     assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").flagged is False  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_error_moderate_auth_401() -> None:
@@ -32,6 +35,7 @@ async def test_error_moderate_auth_401() -> None:
         await moderate(request=request)
     assert "Authentication" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_error_moderate_bad_request() -> None:
     """400 Bad Request for moderation with invalid model."""
@@ -39,6 +43,7 @@ async def test_error_moderate_bad_request() -> None:
     with pytest.raises(Exception) as exc_info:  # noqa: B017
         await moderate(request=request)
     assert "InvalidRequest" in str(exc_info.value)  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_smoke_moderate_batch() -> None:
@@ -48,6 +53,7 @@ async def test_smoke_moderate_batch() -> None:
     assert len(result.results) == 2  # noqa: S101
     assert result.results.get("0").flagged is False  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_smoke_moderate_flagged() -> None:
     """Moderation detects flagged content."""
@@ -56,6 +62,7 @@ async def test_smoke_moderate_flagged() -> None:
     assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").flagged is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_smoke_moderate_single() -> None:
     """Moderate a single non-flagged input."""
@@ -63,4 +70,3 @@ async def test_smoke_moderate_single() -> None:
     result = await moderate(request=request)
     assert len(result.results) == 1  # noqa: S101
     assert result.results.get("0").flagged is False  # noqa: S101
-

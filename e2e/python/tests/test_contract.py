@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: contract."""
+
 import pytest
 from liter_llm import chat, ocr, search
 
@@ -19,15 +20,16 @@ async def test_binding_api_parity() -> None:
     assert result.usage.total_tokens == 6  # noqa: S101
     assert result.model.strip() == "gpt-4o"  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_contract_ocr() -> None:
     """Verify ocr() method exists in all bindings."""
     request = None
     _ = await ocr(request=request)
 
+
 @pytest.mark.asyncio
 async def test_contract_search() -> None:
     """Verify search() method exists in all bindings."""
     request = None
     _ = await search(request=request)
-

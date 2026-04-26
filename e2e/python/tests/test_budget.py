@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: budget."""
+
 import pytest
 from liter_llm import chat
 
@@ -17,6 +18,7 @@ async def test_budget_enforced() -> None:
         await chat(request=request)
     assert "BudgetExceeded" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.skip(reason="skipped for python")
 @pytest.mark.asyncio
 async def test_budget_per_model() -> None:
@@ -26,6 +28,7 @@ async def test_budget_per_model() -> None:
         await chat(request=request)
     assert "BudgetExceeded" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.skip(reason="skipped for python")
 @pytest.mark.asyncio
 async def test_budget_tracked() -> None:
@@ -33,4 +36,3 @@ async def test_budget_tracked() -> None:
     request = None
     result = await chat(request=request)
     assert result.cost_tracked is True  # noqa: S101
-

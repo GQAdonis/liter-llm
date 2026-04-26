@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: parity."""
+
 import pytest
 from liter_llm import chat
 
@@ -13,4 +14,3 @@ async def test_api_surface_parity() -> None:
     """Canonical API surface definition for cross-binding parity verification."""
     request = None
     _ = await chat(request=request)
-

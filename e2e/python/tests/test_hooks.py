@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: hooks."""
+
 import pytest
 from liter_llm import chat
 
@@ -17,6 +18,7 @@ async def test_hook_guardrail() -> None:
         await chat(request=request)
     assert "HookRejected" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.skip(reason="skipped for python")
 @pytest.mark.asyncio
 async def test_hook_on_error() -> None:
@@ -24,6 +26,7 @@ async def test_hook_on_error() -> None:
     request = None
     result = await chat(request=request)
     assert result.hook_on_error_called is True  # noqa: S101
+
 
 @pytest.mark.skip(reason="skipped for python")
 @pytest.mark.asyncio
@@ -33,6 +36,7 @@ async def test_hook_on_request() -> None:
     result = await chat(request=request)
     assert result.hook_on_request_called is True  # noqa: S101
 
+
 @pytest.mark.skip(reason="skipped for python")
 @pytest.mark.asyncio
 async def test_hook_on_response() -> None:
@@ -40,4 +44,3 @@ async def test_hook_on_response() -> None:
     request = None
     result = await chat(request=request)
     assert result.hook_on_response_called is True  # noqa: S101
-

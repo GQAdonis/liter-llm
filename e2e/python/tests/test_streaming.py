@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: streaming."""
+
 import pytest
 from liter_llm import chat_stream
 
@@ -17,6 +18,7 @@ async def test_anthropic_stream() -> None:
     assert result.stream_content.strip() == "One Two Three"  # noqa: S101
     assert result.stream_complete is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_azure_stream() -> None:
     """Streaming chat completion via Azure OpenAI — verifies the azure/ prefix routes correctly and SSE chunks are delivered in the standard OpenAI chat.completion.chunk shape."""
@@ -26,6 +28,7 @@ async def test_azure_stream() -> None:
     assert result.stream_content.strip() == "1 2 3"  # noqa: S101
     assert result.stream_complete is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_basic_stream() -> None:
     """Streaming chat completion that produces content across multiple SSE chunks."""
@@ -33,6 +36,7 @@ async def test_basic_stream() -> None:
     result = await chat_stream(request=request)
     assert len(result.chunks) >= 3  # noqa: S101
     assert result.stream_content.strip() == "1 2 3"  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_bedrock_stream() -> None:
@@ -43,12 +47,14 @@ async def test_bedrock_stream() -> None:
     assert result.stream_content.strip() == "One Two Three"  # noqa: S101
     assert result.stream_complete is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_edge_stream_function_call() -> None:
     """Streaming chat completion with tool/function call chunks."""
     request = None
     result = await chat_stream(request=request)
     assert len(result.chunks) >= 2  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_empty_stream() -> None:
@@ -57,6 +63,7 @@ async def test_empty_stream() -> None:
     result = await chat_stream(request=request)
     assert len(result.chunks) >= 0  # noqa: S101
     assert result.stream_content.strip() == ""  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_local_stream_ollama() -> None:
@@ -67,6 +74,7 @@ async def test_local_stream_ollama() -> None:
     assert result.stream_content.strip() == "1 2 3"  # noqa: S101
     assert result.stream_complete is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_stream_content_policy_error() -> None:
     """400 Bad Request error on stream due to content policy violation."""
@@ -74,6 +82,7 @@ async def test_stream_content_policy_error() -> None:
     with pytest.raises(Exception) as exc_info:  # noqa: B017
         await chat_stream(request=request)
     assert "ContentPolicy" in str(exc_info.value)  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_stream_done_signal() -> None:
@@ -84,6 +93,7 @@ async def test_stream_done_signal() -> None:
     assert result.stream_content.strip() == "Done"  # noqa: S101
     assert result.no_chunks_after_done is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_stream_error_401() -> None:
     """401 Unauthorized error on stream initiation before any chunks are received."""
@@ -92,11 +102,13 @@ async def test_stream_error_401() -> None:
         await chat_stream(request=request)
     assert "Authentication" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_stream_multiple_choices() -> None:
     """Streaming chat completion with multiple choice outputs (n > 1)."""
     request = None
     _ = await chat_stream(request=request)
+
 
 @pytest.mark.asyncio
 async def test_stream_with_tool_calls() -> None:
@@ -108,6 +120,7 @@ async def test_stream_with_tool_calls() -> None:
     assert result.tool_calls  # noqa: S101
     assert result.tool_calls.get("0").function.name.strip() == "get_weather"  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_stream_with_usage() -> None:
     """Streaming chat completion that includes a usage summary in the final chunk."""
@@ -117,6 +130,7 @@ async def test_stream_with_usage() -> None:
     assert result.stream_content.strip() == "Hi there!"  # noqa: S101
     assert result.usage.total_tokens == 18  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_vertex_stream() -> None:
     """Streaming chat completion via the Google Vertex AI provider using the vertex_ai/ prefix — verifies SSE chunks from the Gemini streaming endpoint are yielded and assembled correctly."""
@@ -125,4 +139,3 @@ async def test_vertex_stream() -> None:
     assert len(result.chunks) >= 2  # noqa: S101
     assert result.stream_content.strip() == "One Two Three"  # noqa: S101
     assert result.stream_complete is True  # noqa: S101
-

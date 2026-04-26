@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: chat."""
+
 import pytest
 from liter_llm import chat
 
@@ -17,6 +18,7 @@ async def test_developer_message() -> None:
     assert result.choices.get("0").message.content.strip() == "s[::-1]"  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_edge_chat_max_tokens() -> None:
     """Chat request with max_tokens=1 terminates with length finish_reason."""
@@ -25,6 +27,7 @@ async def test_edge_chat_max_tokens() -> None:
     assert result.choices.get("0").finish_reason.strip() == "length"  # noqa: S101
     assert result.choices.get("0").message.content  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_edge_chat_system_only() -> None:
     """Chat request with system message and user message."""
@@ -32,12 +35,14 @@ async def test_edge_chat_system_only() -> None:
     result = await chat(request=request)
     assert result.choices.get("0").message.content  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_edge_chat_temperature_zero() -> None:
     """Chat request with temperature=0 for deterministic responses."""
     request = None
     result = await chat(request=request)
     assert result.choices.get("0").message.content  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_finish_reason_content_filter() -> None:
@@ -47,6 +52,7 @@ async def test_finish_reason_content_filter() -> None:
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "content_filter"  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_finish_reason_length() -> None:
     """Chat response truncated due to max_tokens limit with finish_reason of length."""
@@ -54,6 +60,7 @@ async def test_finish_reason_length() -> None:
     result = await chat(request=request)
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "length"  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_multi_turn_conversation() -> None:
@@ -63,6 +70,7 @@ async def test_multi_turn_conversation() -> None:
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content.strip() == "4 + 4 equals 8."  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_parallel_tool_calls() -> None:
@@ -74,6 +82,7 @@ async def test_parallel_tool_calls() -> None:
     assert len(result.choices.get("0").message.tool_calls) == 2  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_response_format_json_object() -> None:
     """Chat request with response_format json_object that returns valid JSON content."""
@@ -82,6 +91,7 @@ async def test_response_format_json_object() -> None:
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.content  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_response_format_json_schema() -> None:
@@ -92,6 +102,7 @@ async def test_response_format_json_schema() -> None:
     assert result.choices.get("0").message.content  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_seed_parameter() -> None:
     """Chat request with seed parameter for deterministic output; response includes system_fingerprint."""
@@ -101,6 +112,7 @@ async def test_seed_parameter() -> None:
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
     assert result.system_fingerprint  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_stop_sequences() -> None:
     """Chat request with custom stop sequences that terminates generation at a stop token."""
@@ -109,6 +121,7 @@ async def test_stop_sequences() -> None:
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "stop"  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_tool_choice_required() -> None:
     """Chat request with tool_choice set to required forces the model to call a tool."""
@@ -116,8 +129,12 @@ async def test_tool_choice_required() -> None:
     result = await chat(request=request)
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
-    assert result.choices.get("0").message.tool_calls.get("0").function.name.strip() == "get_weather"  # noqa: S101
+    assert (
+        result.choices.get("0").message.tool_calls.get("0").function.name.strip()
+        == "get_weather"
+    )  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_tool_choice_specific() -> None:
@@ -126,6 +143,8 @@ async def test_tool_choice_specific() -> None:
     result = await chat(request=request)
     assert len(result.choices) == 1  # noqa: S101
     assert result.choices.get("0").message.tool_calls  # noqa: S101
-    assert result.choices.get("0").message.tool_calls.get("0").function.name.strip() == "get_weather"  # noqa: S101
+    assert (
+        result.choices.get("0").message.tool_calls.get("0").function.name.strip()
+        == "get_weather"
+    )  # noqa: S101
     assert result.choices.get("0").finish_reason.strip() == "tool_calls"  # noqa: S101
-

@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: embed."""
+
 import pytest
 from liter_llm import embed
 
@@ -16,6 +17,7 @@ async def test_batch_embed() -> None:
     assert len(result.data) == 2  # noqa: S101
     assert len(result.data.get("0").embedding) == 5  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_edge_embed_batch_input() -> None:
     """Embedding request with multiple inputs returns multiple embedding objects."""
@@ -25,12 +27,14 @@ async def test_edge_embed_batch_input() -> None:
     assert result.data.get("0").index == 0  # noqa: S101
     assert result.data.get("1").index == 1  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_edge_embed_empty_input() -> None:
     """Embedding request with empty string input returns empty data array."""
     request = ""
     result = await embed(request=request)
     assert len(result.data) == 0  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_embed_encoding_format() -> None:
@@ -40,6 +44,7 @@ async def test_embed_encoding_format() -> None:
     assert len(result.data) == 1  # noqa: S101
     assert len(result.data.get("0").embedding) == 5  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_embed_error_401() -> None:
     """401 Unauthorized error on embedding request when API key is invalid."""
@@ -47,6 +52,7 @@ async def test_embed_error_401() -> None:
     with pytest.raises(Exception) as exc_info:  # noqa: B017
         await embed(request=request)
     assert "Authentication" in str(exc_info.value)  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_embed_with_dimensions() -> None:
@@ -56,6 +62,7 @@ async def test_embed_with_dimensions() -> None:
     assert len(result.data) == 1  # noqa: S101
     assert len(result.data.get("0").embedding) == 8  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_local_embed_ollama() -> None:
     """Embedding request via Ollama local provider with all-minilm model."""
@@ -63,4 +70,3 @@ async def test_local_embed_ollama() -> None:
     result = await embed(request=request)
     assert len(result.data) == 1  # noqa: S101
     assert len(result.data.get("0").embedding) == 32  # noqa: S101
-

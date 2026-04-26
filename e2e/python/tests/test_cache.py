@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: cache."""
+
 import pytest
 from liter_llm import chat, chat_stream
 
@@ -15,12 +16,14 @@ async def test_cache_hit() -> None:
     result = await chat(request=request)
     assert result.cache_hit is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_cache_miss_ttl() -> None:
     """Tests that cache expires after TTL."""
     request = None
     result = await chat(request=request)
     assert result.cache_hit is True  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_cache_opendal_memory() -> None:
@@ -29,10 +32,10 @@ async def test_cache_opendal_memory() -> None:
     result = await chat(request=request)
     assert result.cache_hit is True  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_cache_stream_bypass() -> None:
     """Tests that streaming requests bypass cache entirely."""
     request = None
     result = await chat_stream(request=request)
     assert result.cache_bypassed is True  # noqa: S101
-

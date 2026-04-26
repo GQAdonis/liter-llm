@@ -4,6 +4,7 @@
 # To verify freshness: alef verify --exit-code
 # Issues & docs: https://github.com/kreuzberg-dev/alef
 """E2e tests for category: list-models."""
+
 import pytest
 from liter_llm import list_models
 
@@ -15,12 +16,14 @@ async def test_empty_model_list() -> None:
     assert len(result.data) >= 0  # noqa: S101
     assert len(result.data) == 0  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_list_models_error_401() -> None:
     """401 Unauthorized error on list models request when API key is invalid."""
     with pytest.raises(Exception) as exc_info:  # noqa: B017
         await list_models()
     assert "Authentication" in str(exc_info.value)  # noqa: S101
+
 
 @pytest.mark.asyncio
 async def test_list_models_error_500() -> None:
@@ -29,10 +32,10 @@ async def test_list_models_error_500() -> None:
         await list_models()
     assert "ServerError" in str(exc_info.value)  # noqa: S101
 
+
 @pytest.mark.asyncio
 async def test_list_models_filtered() -> None:
     """List models response with multiple model objects."""
     result = await list_models()
     assert len(result.data) >= 5  # noqa: S101
     assert result.data.get("0").object.strip() == "model"  # noqa: S101
-
