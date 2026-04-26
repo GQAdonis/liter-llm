@@ -171,15 +171,20 @@ tasks:
       - alef fmt
 
   update:
-    desc: Update all dependencies to latest versions
+    desc: Update all dependencies within current major versions
     cmds:
-      - echo "Updating Rust dependencies..."
-      - task: rust:update
-      - echo "Updating binding language dependencies..."
+      - echo "Updating dependencies (within-major)..."
       - alef update
-      - echo "Updating prek dependencies..."
       - prek autoupdate
       - echo "All dependencies updated"
+
+  upgrade:
+    desc: Upgrade all dependencies to latest versions (may cross major versions)
+    cmds:
+      - echo "Upgrading dependencies (latest)..."
+      - alef update --latest
+      - prek autoupdate
+      - echo "All dependencies upgraded"
 
   clean:
     desc: Clean all build artifacts

@@ -6,7 +6,7 @@ export {
   createClientFromJson,
   registerCustomProvider,
   unregisterCustomProvider,
-} from "@kreuzberg/liter-llm-native";
+} from '@kreuzberg/liter-llm-native';
 
 export type {
   JsAssistantMessage,
@@ -84,4 +84,4 @@ export type {
   JsUsage,
   JsUserContent,
   JsUserMessage,
-} from "@kreuzberg/liter-llm-native";
+} from '@kreuzberg/liter-llm-native';
