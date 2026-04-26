@@ -1416,6 +1416,111 @@ jobs:
         env:
           PACKAGIST_API_TOKEN: ${{ secrets.PACKAGIST_API_TOKEN }}
 
+  # ── CLI binary tarballs (for direct download, non-brew/non-docker users) ─
+  build-cli-binaries:
+    name: Build CLI binary (${{ matrix.label }})
+    needs: [prepare, validate-versions]
+    if: |
+      always() &&
+      needs.prepare.outputs.release_homebrew == 'true' &&
+      needs.validate-versions.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux-x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - label: linux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            archive: tar.gz
+          - label: macos-aarch64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar.gz
+          - label: windows-x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+      - uses: kreuzberg-dev/actions/setup-rust@v1
+        with:
+          target: ${{ matrix.target }}
+          cache-key-prefix: publish-cli-${{ matrix.label }}
+      - name: Build CLI
+        shell: bash
+        run: cargo build --release -p liter-llm-cli --target ${{ matrix.target }}
+      - name: Stage archive
+        id: stage
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TARGET: ${{ matrix.target }}
+          ARCHIVE: ${{ matrix.archive }}
+        run: |
+          stem="liter-llm-${VERSION}-${TARGET}"
+          stage_dir="dist/${stem}"
+          mkdir -p "${stage_dir}"
+          if [ "${ARCHIVE}" = "zip" ]; then
+            cp "target/${TARGET}/release/liter-llm.exe" "${stage_dir}/"
+          else
+            cp "target/${TARGET}/release/liter-llm" "${stage_dir}/"
+          fi
+          cp LICENSE README.md "${stage_dir}/"
+          cd dist
+          if [ "${ARCHIVE}" = "zip" ]; then
+            archive_name="${stem}.zip"
+            if command -v 7z >/dev/null 2>&1; then
+              7z a "${archive_name}" "${stem}" >/dev/null
+            else
+              powershell -Command "Compress-Archive -Path '${stem}' -DestinationPath '${archive_name}'"
+            fi
+          else
+            archive_name="${stem}.tar.gz"
+            tar -czf "${archive_name}" "${stem}"
+          fi
+          shasum -a 256 "${archive_name}" > "${archive_name}.sha256"
+          echo "archive=${archive_name}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cli-binary-${{ matrix.label }}
+          path: |
+            dist/${{ steps.stage.outputs.archive }}
+            dist/${{ steps.stage.outputs.archive }}.sha256
+          retention-days: 14
+
+  upload-cli-binaries:
+    name: Upload CLI binaries to GitHub Release
+    needs: [prepare, build-cli-binaries]
+    if: |
+      always() &&
+      needs.prepare.outputs.dry_run != 'true' &&
+      needs.prepare.outputs.release_homebrew == 'true' &&
+      needs.build-cli-binaries.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: cli-binary-*
+          path: dist/cli
+          merge-multiple: true
+      - uses: kreuzberg-dev/actions/publish-github-release@v1
+        with:
+          tag: ${{ needs.prepare.outputs.tag }}
+          artifacts: "dist/cli/*"
+          draft: "false"
+
   # ── Homebrew ─────────────────────────────────────────────────────────────
   check-homebrew:
     name: Check Homebrew tap for formula

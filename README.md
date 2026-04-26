@@ -124,15 +124,24 @@ An honest look at where things stand. We're newer and leaner -- litellm has brea
 - **Schema-driven** -- Provider registry and API types compiled from JSON schemas, no runtime lookups
 - **Local LLM support** — Run models locally with Ollama, LM Studio, vLLM, llama.cpp, LocalAI, and llamafile via OpenAI-compatible APIs
 
-## Proxy Server & Docker
+## Proxy Server & CLI
 
-Drop-in replacement for litellm's proxy -- 22 OpenAI-compatible endpoints in a 35MB Docker image:
+Drop-in replacement for litellm's proxy -- 22 OpenAI-compatible endpoints. Install the `liter-llm` CLI (which ships both the proxy server and the MCP tool server) one of three ways:
 
 ```bash
-# Start the proxy
-docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-your-key ghcr.io/kreuzberg-dev/liter-llm
+# Homebrew (macOS / Linux)
+brew install kreuzberg-dev/tap/liter-llm
 
-# Use it like OpenAI
+# Pre-built binary (Linux x86_64/arm64, macOS arm64, Windows x86_64)
+curl -L https://github.com/kreuzberg-dev/liter-llm/releases/latest/download/liter-llm-${VERSION}-${TARGET}.tar.gz | tar xz
+
+# Docker (35MB image)
+docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-your-key ghcr.io/kreuzberg-dev/liter-llm
+```
+
+Then call it like OpenAI:
+
+```bash
 curl http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -d '{"model": "openai/gpt-4o", "messages": [{"role": "user", "content": "Hello"}]}'

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- CLI binary tarballs (Linux x86_64/aarch64, macOS aarch64, Windows x86_64) attached to GitHub Releases for direct download — closes #64
 - `scripts/generate_pricing.py` regenerates `schemas/pricing.json` from [models.dev](https://models.dev), wired into `task generate:pricing`, `task update`, and `task upgrade`
 
 ### Changed
