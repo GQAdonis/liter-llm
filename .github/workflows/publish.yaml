@@ -473,6 +473,10 @@ jobs:
             runner: macos-latest
             target: aarch64-apple-darwin
             lib_ext: dylib
+          - label: windows-x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-gnu
+            lib_ext: dll
     steps:
       - uses: actions/checkout@v6
         with:
@@ -492,15 +496,20 @@ jobs:
           TARGET: ${{ matrix.target }}
           LIB_EXT: ${{ matrix.lib_ext }}
         run: |
-          LIB_SRC="target/${TARGET}/release/libliter_llm_rustler.${LIB_EXT}"
+          if [ "$LIB_EXT" = "dll" ]; then
+            LIB_SRC="target/${TARGET}/release/liter_llm_rustler.${LIB_EXT}"
+          else
+            LIB_SRC="target/${TARGET}/release/libliter_llm_rustler.${LIB_EXT}"
+          fi
           mkdir -p nif-tarballs
           for NIF_VER in 2.16 2.17; do
-            # RustlerPrecompiled expects: lib{crate}-v{version}-nif-{nif_ver}-{target}.so.tar.gz
-            TARBALL="nif-tarballs/libliter_llm_rustler-v${VERSION}-nif-${NIF_VER}-${TARGET}.so.tar.gz"
-            # Rustler loads the NIF as liter_llm_rustler.so on all platforms
-            cp "$LIB_SRC" "liter_llm_rustler.so"
-            tar -czf "$TARBALL" "liter_llm_rustler.so"
-            rm "liter_llm_rustler.so"
+            # RustlerPrecompiled expects platform-specific extensions:
+            #   linux → .so.tar.gz, darwin → .dylib.tar.gz, windows → .dll.tar.gz
+            TARBALL="nif-tarballs/libliter_llm_rustler-v${VERSION}-nif-${NIF_VER}-${TARGET}.${LIB_EXT}.tar.gz"
+            INNER="liter_llm_rustler.${LIB_EXT}"
+            cp "$LIB_SRC" "$INNER"
+            tar -czf "$TARBALL" "$INNER"
+            rm "$INNER"
             echo "Created: $TARBALL"
           done
         shell: bash
@@ -972,7 +981,17 @@ jobs:
 
       - name: Install workspace dependencies
         if: ${{ needs.prepare.outputs.dry_run != 'true' }}
-        run: pnpm install -C crates/liter-llm-node
+        run: |
+          # e2e/wasm depends on file:../../crates/liter-llm-wasm/pkg (built by wasm-pack, gitignored).
+          # During the publish-node workspace scan that path must resolve, so stub a minimal package.
+          mkdir -p crates/liter-llm-wasm/pkg
+          if [ ! -f crates/liter-llm-wasm/pkg/package.json ]; then
+            cat > crates/liter-llm-wasm/pkg/package.json <<'JSON'
+          {"name": "liter_llm", "version": "0.0.0", "private": true}
+          JSON
+          fi
+          pnpm install -C crates/liter-llm-node
+        shell: bash
 
       - name: Pack platform packages
         run: |
@@ -1310,7 +1329,7 @@ jobs:
           github-repo: kreuzberg-dev/liter-llm
           tag: ${{ needs.prepare.outputs.tag }}
           version: ${{ needs.prepare.outputs.version }}
-          lib-name: liter_llm_nif
+          lib-name: liter_llm_rustler
           targets: "aarch64-apple-darwin,aarch64-unknown-linux-gnu,x86_64-unknown-linux-gnu,x86_64-pc-windows-gnu"
           output-path: packages/elixir/checksum-Elixir.LiterLlm.Native.exs
 
