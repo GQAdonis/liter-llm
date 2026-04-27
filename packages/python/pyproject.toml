@@ -4,7 +4,7 @@ requires = [ "maturin>=1,<2" ]
 
 [project]
 name = "liter-llm"
-version = "1.4.0rc2"
+version = "1.4.0rc3"
 description = """\
   Universal LLM API client for Python. Unified interface for streaming, tool calling, and provider routing across 142+ \
   LLM providers. Rust-powered.\
@@ -49,6 +49,11 @@ urls.Issues = "https://github.com/kreuzberg-dev/liter-llm/issues"
 urls.Repository = "https://github.com/kreuzberg-dev/liter-llm"
 urls.Source = "https://github.com/kreuzberg-dev/liter-llm"
 
+[dependency-groups]
+dev = [
+  "mypy>=1.20.2",
+]
+
 [tool.maturin]
 module-name = "liter_llm._internal_bindings"
 manifest-path = "../../crates/liter-llm-py/Cargo.toml"
@@ -61,8 +66,3 @@ include = [
 ini_options.asyncio_mode = "auto"
 ini_options.timeout = 60
 ini_options.timeout_method = "thread"
-
-[dependency-groups]
-dev = [
-    "mypy>=1.20.2",
-]
