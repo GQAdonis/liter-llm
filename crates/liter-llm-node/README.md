@@ -73,14 +73,11 @@ Universal LLM API client for TypeScript and Node.js. Access 143+ LLM providers t
 Install via one of the supported package managers:
 
 
-
 **npm:**
 
 ```bash
 npm install @kreuzberg/liter-llm
 ```
-
-
 
 
 **pnpm:**
@@ -90,16 +87,11 @@ pnpm add @kreuzberg/liter-llm
 ```
 
 
-
-
 **yarn:**
 
 ```bash
 yarn add @kreuzberg/liter-llm
 ```
-
-
-
 
 
 ### System Requirements
@@ -115,7 +107,6 @@ Pre-built binaries available for:
 - macOS (arm64, x64)
 - Linux (x64)
 - Windows (x64)
-
 
 
 ## Quick Start
@@ -138,7 +129,6 @@ console.log(response.choices[0].message.content);
 ### Common Use Cases
 
 
-
 #### Streaming Responses
 
 Stream tokens in real time:
@@ -157,8 +147,6 @@ for (const chunk of chunks) {
 }
 console.log();
 ```
-
-
 
 
 #### Tool Calling
@@ -199,7 +187,6 @@ for (const call of response.choices[0]?.message?.toolCalls ?? []) {
 ```
 
 
-
 ### Next Steps
 
 - **[Provider Registry](https://github.com/kreuzberg-dev/liter-llm/blob/main/schemas/providers.json)** - Full list of supported providers
@@ -228,7 +215,6 @@ This binding uses NAPI-RS to provide native Node.js bindings with:
 - API keys are wrapped in `secrecy::SecretString` and never logged
 - Streaming buffers are released as soon as each chunk is consumed
 - Provider registry is compiled into the binary — no runtime disk access
-
 
 
 ## Features
@@ -277,7 +263,6 @@ Built on a compiled Rust core for speed and safety:
 - **API keys** wrapped in secure memory, zeroed on drop
 
 
-
 ## Provider Routing
 
 Route to 143+ providers using the `provider/model` prefix convention:
@@ -290,7 +275,6 @@ mistral/mistral-large-latest
 ```
 
 See the [provider registry](https://github.com/kreuzberg-dev/liter-llm/blob/main/schemas/providers.json) for the full list.
-
 
 
 ## Proxy Server

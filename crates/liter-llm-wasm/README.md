@@ -73,14 +73,11 @@ Universal LLM API client for browsers and WebAssembly runtimes. Access 143+ LLM 
 Install via one of the supported package managers:
 
 
-
 **npm:**
 
 ```bash
 npm install @kreuzberg/liter-llm-wasm
 ```
-
-
 
 
 **pnpm:**
@@ -90,16 +87,11 @@ pnpm add @kreuzberg/liter-llm-wasm
 ```
 
 
-
-
 **yarn:**
 
 ```bash
 yarn add @kreuzberg/liter-llm-wasm
 ```
-
-
-
 
 
 ### System Requirements
@@ -132,7 +124,6 @@ console.log(response.choices[0].message.content);
 ### Common Use Cases
 
 
-
 #### Streaming Responses
 
 Stream tokens in real time:
@@ -151,13 +142,10 @@ const stream = await client.chatStream({
 ```
 
 
-
-
 ### Next Steps
 
 - **[Provider Registry](https://github.com/kreuzberg-dev/liter-llm/blob/main/schemas/providers.json)** - Full list of supported providers
 - **[GitHub Repository](https://github.com/kreuzberg-dev/liter-llm)** - Source, issues, and discussions
-
 
 
 ## Features
@@ -206,7 +194,6 @@ Built on a compiled Rust core for speed and safety:
 - **API keys** wrapped in secure memory, zeroed on drop
 
 
-
 ## Provider Routing
 
 Route to 143+ providers using the `provider/model` prefix convention:
@@ -219,7 +206,6 @@ mistral/mistral-large-latest
 ```
 
 See the [provider registry](https://github.com/kreuzberg-dev/liter-llm/blob/main/schemas/providers.json) for the full list.
-
 
 
 ## Proxy Server

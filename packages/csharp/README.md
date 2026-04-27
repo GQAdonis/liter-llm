@@ -70,8 +70,6 @@ Universal LLM API client for .NET. Access 143+ LLM providers through a single ty
 ### Package Installation
 
 
-
-
 Install via NuGet:
 
 ```bash
@@ -83,8 +81,6 @@ Or via NuGet Package Manager:
 ```text
 Install-Package LiterLlm
 ```
-
-
 
 
 ### System Requirements
@@ -116,7 +112,6 @@ Console.WriteLine(response.Choices[0].Message.Content);
 ### Common Use Cases
 
 
-
 #### Streaming Responses
 
 Stream tokens in real time:
@@ -139,13 +134,10 @@ await foreach (var chunk in client.ChatStreamAsync(request))
 ```
 
 
-
-
 ### Next Steps
 
 - **[Provider Registry](https://github.com/kreuzberg-dev/liter-llm/blob/main/schemas/providers.json)** - Full list of supported providers
 - **[GitHub Repository](https://github.com/kreuzberg-dev/liter-llm)** - Source, issues, and discussions
-
 
 
 ## Features
@@ -194,7 +186,6 @@ Built on a compiled Rust core for speed and safety:
 - **API keys** wrapped in secure memory, zeroed on drop
 
 
-
 ## Provider Routing
 
 Route to 143+ providers using the `provider/model` prefix convention:
@@ -207,7 +198,6 @@ mistral/mistral-large-latest
 ```
 
 See the [provider registry](https://github.com/kreuzberg-dev/liter-llm/blob/main/schemas/providers.json) for the full list.
-
 
 
 ## Proxy Server

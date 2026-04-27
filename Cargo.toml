@@ -11,6 +11,7 @@ members = [
     "tools/snippet-runner",
 ]
 exclude = [
+    "e2e/rust",
     "packages/elixir/native/liter_llm_nif",
     "packages/ruby/ext/liter_llm_rb/native",
 ]
