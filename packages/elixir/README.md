@@ -75,7 +75,7 @@ Add to your `mix.exs` dependencies:
 ```elixir
 def deps do
   [
-    {:liter_llm, "~> 1.4.0-rc.7"}
+    {:liter_llm, "~> 1.4.0-rc.8"}
   ]
 end
 ```
