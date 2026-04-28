@@ -839,13 +839,30 @@ jobs:
       - name: List PHP artifacts
         run: ls -lah php-pie-artifacts/
         shell: bash
+      - name: Rename PHP PIE archives so they can't be mistaken for CLI binaries
+        # alef publish package --lang php emits liter-llm-${VERSION}-${LABEL}.tar.gz,
+        # which collides with the CLI archive naming convention. Rename to
+        # liter-llm-php-* so the asset list on the release page is unambiguous.
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for f in php-pie-artifacts/liter-llm-*.tar.gz*; do
+            base="$(basename "$f")"
+            new="${base/liter-llm-/liter-llm-php-}"
+            if [ "$base" != "$new" ]; then
+              mv "$f" "php-pie-artifacts/$new"
+              echo "Renamed: $base → $new"
+            fi
+          done
+          ls -lah php-pie-artifacts/
+        shell: bash
       - name: Upload PIE packages to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           echo "Uploading PHP PIE packages to GitHub release ${TAG}..."
-          for file in php-pie-artifacts/liter-llm-*.tar.gz*; do
+          for file in php-pie-artifacts/liter-llm-php-*.tar.gz*; do
             if [ -f "$file" ]; then
               echo "Uploading: $file"
               gh release upload "$TAG" "$file" --clobber --repo ${{ github.repository }}
@@ -1499,11 +1516,18 @@ jobs:
   upload-cli-binaries:
     name: Upload CLI binaries to GitHub Release
     needs: [prepare, build-cli-binaries]
+    # Upload whatever CLI binaries actually built. The matrix has
+    # `fail-fast: false`, so a single platform failure (e.g. Windows MSVC)
+    # mustn't drop the linux/macos artifacts on the floor. Require the
+    # parent matrix to have at least started (not cancelled) and check that
+    # at least one artifact was produced via download-artifact's
+    # `if-no-files-found: error` below.
     if: |
       always() &&
       needs.prepare.outputs.dry_run != 'true' &&
       needs.prepare.outputs.release_homebrew == 'true' &&
-      needs.build-cli-binaries.result == 'success'
+      needs.build-cli-binaries.result != 'cancelled' &&
+      needs.build-cli-binaries.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1546,10 +1570,17 @@ jobs:
       needs.check-homebrew.outputs.exists != 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: macos-latest
             bottle_tag: arm64_sequoia
+          - runner: macos-15-intel
+            bottle_tag: sequoia
+          - runner: ubuntu-latest
+            bottle_tag: x86_64_linux
+          - runner: ubuntu-24.04-arm
+            bottle_tag: arm64_linux
     steps:
       - uses: actions/checkout@v6
         with:
