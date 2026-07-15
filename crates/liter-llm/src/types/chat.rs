@@ -225,15 +225,25 @@ pub struct Choice {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ChatCompletionChunk {
     /// Unique identifier for this stream.
+    ///
+    /// Some OpenAI-compatible proxies and self-hosted backends omit `id` on
+    /// individual chunks (or on the final usage-only chunk). Default to an
+    /// empty string rather than failing the whole stream on a field that
+    /// carries no semantic weight for chunk processing.
+    #[serde(default)]
     pub id: String,
     /// Always `"chat.completion.chunk"` from OpenAI-compatible APIs.  Stored
     /// as a plain `String` so non-standard provider values do not fail parsing.
+    #[serde(default)]
     pub object: String,
     /// Unix timestamp of chunk creation.
+    #[serde(default)]
     pub created: u64,
     /// Model used to generate the chunk.
+    #[serde(default)]
     pub model: String,
     /// Streaming choices (delta updates).
+    #[serde(default)]
     pub choices: Vec<StreamChoice>,
     /// Token usage (typically only in the final chunk).
     #[serde(default, skip_serializing_if = "Option::is_none")]

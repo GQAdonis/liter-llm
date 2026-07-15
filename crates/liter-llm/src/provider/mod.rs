@@ -428,6 +428,33 @@ pub(crate) trait Provider: Send + Sync {
     /// Returns `Ok(None)` to skip this event (continue reading the stream).
     /// Returns `Err` when the event cannot be parsed.
     fn parse_stream_event(&self, event_data: &str) -> Result<Option<crate::types::ChatCompletionChunk>> {
+        // Some OpenAI-compatible backends (e.g. Groq, when the model emits a
+        // malformed tool call) answer with HTTP 200 and an SSE stream, but
+        // abort mid-stream by sending a `data:` line containing an error
+        // object — `{"error": {"message": ..., "code": ..., "status_code":
+        // ...}}` — instead of a normal chat-completion chunk, then close the
+        // connection. Detect that shape first and surface it as a real
+        // error. Without this check, every field of `ChatCompletionChunk`
+        // being optional (for providers that omit `id`/`object`/etc. on
+        // legitimate chunks) means this error payload would otherwise
+        // silently deserialize into an empty, content-free "successful"
+        // chunk — hiding the failure and leaving callers waiting forever for
+        // content that will never arrive.
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(event_data) {
+            if let Some(error) = value.get("error") {
+                let message = error
+                    .get("message")
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("provider returned an error mid-stream")
+                    .to_string();
+                let status = error
+                    .get("status_code")
+                    .and_then(serde_json::Value::as_u64)
+                    .map_or(400, |s| s as u16);
+                return Err(LiterLlmError::BadRequest { message, status });
+            }
+        }
+
         serde_json::from_str::<crate::types::ChatCompletionChunk>(event_data)
             .map(Some)
             .map_err(|e| LiterLlmError::Streaming {
