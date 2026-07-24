@@ -99,9 +99,14 @@ etcd-key-resolver = ["dep:etcd-client", "dep:hex", "dep:sha2"]
 default = ["native-http"]
 
 [dependencies]
-ahash = { workspace = true }
-arc-swap = { workspace = true }
-async-trait = { workspace = true }
+# ~keep Hardcoded (NOT `*.workspace = true`) for the same reason as the [package]
+# ~keep fields above: this crate is vendored as a nested `path` dependency inside
+# ~keep universal-agent-runtime's workspace, where Cargo resolves `workspace = true`
+# ~keep against UAR's root manifest (which has no [workspace.dependencies]) rather
+# ~keep than this repo's own. Values mirror ../../Cargo.toml [workspace.dependencies].
+ahash = "0.8"
+arc-swap = "1"
+async-trait = "0.1"
 aws-credential-types = { version = "1", optional = true }
 aws-sigv4 = { version = "1", features = ["sign-http", "http1"], optional = true }
 # ~keep Image data-URI helpers are transport-agnostic and must stay available
