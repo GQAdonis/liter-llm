@@ -100,6 +100,7 @@ mod serde_tests {
             }]),
             refusal: None,
             function_call: None,
+            reasoning_content: None,
         });
 
         let json = serde_json::to_string(&msg).expect("serialization should not fail");
@@ -215,6 +216,7 @@ mod serde_tests {
             tool_calls: None,
             refusal: Some("I cannot help with that.".into()),
             function_call: None,
+            reasoning_content: None,
         });
         let json = serde_json::to_string(&msg).expect("serialization should not fail");
         assert!(json.contains("refusal"));
@@ -496,6 +498,7 @@ mod serde_tests {
             tool_calls: None,
             refusal: None,
             function_call: None,
+            reasoning_content: None,
         });
         let json = serde_json::to_string(&msg).expect("serialization should not fail");
         let parsed: Message = serde_json::from_str(&json).expect("deserialization should not fail");
@@ -1153,6 +1156,48 @@ mod provider_tests {
         assert_eq!(body["max_tokens"], 256);
         assert!(body.get("max_completion_tokens").is_none());
     }
+
+    #[test]
+    fn detect_inception_resolves_base_url() {
+        let p = detect_provider("inception/mercury-2").expect("provider should be detected");
+        assert_eq!(p.base_url(), "https://api.inceptionlabs.ai/v1");
+        assert_eq!(p.env_var(), Some("INCEPTION_API_KEY"));
+    }
+
+    #[test]
+    fn detect_modelscope_resolves_base_url() {
+        let p = detect_provider("modelscope/Qwen/Qwen3-235B-A22B").expect("provider should be detected");
+        assert_eq!(p.base_url(), "https://api-inference.modelscope.cn/v1");
+        assert_eq!(p.env_var(), Some("MODELSCOPE_API_KEY"));
+    }
+
+    #[test]
+    fn detect_tencent_resolves_base_url() {
+        let p = detect_provider("tencent/deepseek-v4-pro").expect("provider should be detected");
+        assert_eq!(p.base_url(), "https://tokenhub-intl.tencentcloudmaas.com/v1");
+        assert_eq!(p.env_var(), Some("TENCENT_API_KEY"));
+    }
+
+    #[test]
+    fn detect_opencode_zen() {
+        let p = detect_provider("opencode/gpt-5.5").expect("provider should be detected");
+        assert_eq!(p.name(), "opencode");
+        assert_eq!(p.base_url(), "https://opencode.ai/zen/v1");
+        assert_eq!(p.env_var(), Some("OPENCODE_API_KEY"));
+        let header = p.auth_header("k");
+        assert!(header.is_some());
+        let (name, value) = header.expect("auth header should be present");
+        assert_eq!(name, "Authorization");
+        assert!(value.contains("Bearer"));
+    }
+
+    #[test]
+    fn detect_opencode_go() {
+        let p = detect_provider("opencode-go/kimi-k2.6").expect("provider should be detected");
+        assert_eq!(p.name(), "opencode-go");
+        assert_eq!(p.base_url(), "https://opencode.ai/zen/go/v1");
+        assert_eq!(p.env_var(), Some("OPENCODE_API_KEY"));
+    }
 }
 
 #[cfg(test)]
@@ -1459,14 +1504,14 @@ mod capability_tests {
         assert!(!providers.is_empty(), "registry should have at least one provider");
     }
 
-    /// The total number of providers in the embedded registry must equal 143.
+    /// The total number of providers in the embedded registry must equal 165.
     #[test]
-    fn schema_provider_count_is_143() {
+    fn schema_provider_count_is_165() {
         let providers = all_providers().expect("registry should load");
         assert_eq!(
             providers.len(),
-            143,
-            "expected 143 providers in providers.json, found {}",
+            165,
+            "expected 165 providers in providers.json, found {}",
             providers.len()
         );
     }

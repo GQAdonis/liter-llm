@@ -10,6 +10,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-07-23
+
+### Added
+
+- **OpenCode Zen and OpenCode Go providers** — now 165 total (up from 163).
+  OpenCode Zen routes via the `opencode/` model prefix
+  (`https://opencode.ai/zen/v1`); OpenCode Go routes via the `opencode-go/`
+  model prefix (`https://opencode.ai/zen/go/v1`). Both are OpenAI-compatible,
+  bearer-authenticated (`OPENCODE_API_KEY`), and support chat completions.
+- **`reasoning_content` support** — `StreamDelta` and `AssistantMessage` now
+  carry an optional `reasoning_content` field, so reasoning/thinking tokens
+  from OpenAI-compatible providers (DeepSeek R1, Qwen, etc.) are preserved in
+  both streaming and non-streaming responses instead of being dropped. Anthropic
+  extended-thinking blocks are mapped into the same field. `AssistantMessage`
+  gains a `reasoning_text()` accessor.
+
+### Changed
+
+- **base64 embedding responses.** `EmbeddingObject.embedding` now accepts either
+  a JSON float array or a base64 string of little-endian `f32` bytes (the
+  OpenAI-compatible `encoding_format: "base64"` response), decoding base64
+  vectors that previously failed to deserialize. Payloads are ~2.3× smaller on
+  the wire and decode ~15× faster via a zero-copy `Visitor`. The element type
+  narrows from `Vec<f64>` to `Vec<f32>` (float32 is what providers send on the
+  wire); the high-level `embed()` API was already `f32`, so only code reading
+  the raw `EmbeddingObject.embedding` field as `f64` needs a one-line
+  adjustment.
+
+## [1.10.1] - 2026-07-20
+
+### Fixed
+
+- **Swift**: tool-call responses now decode correctly — the `type` field on
+  tool calls honors its wire name instead of throwing `keyNotFound`.
+- **Swift**: transcription `segments`, `tool_calls`, and other optional list
+  fields on response DTOs now decode instead of throwing
+  `DecodingError.typeMismatch`.
+- **Elixir**: streaming entry points now call `chat_stream/2` (a non-existent
+  `chat_stream_async/2` was generated previously), fixing
+  `UndefinedFunctionError`.
+- Regenerated all language bindings with alef 0.38.4.
+
+## [1.10.0] - 2026-07-19
+
+### Added
+
+- **Public `ModelInfo` DTO and `cost::model_info(name)` accessor**, exposing
+  per-model metadata — context window, max input/output tokens, mode, and
+  capability flags (vision, reasoning, tool calling, structured output, audio) —
+  across all language bindings.
+- **Opt-in runtime catalog refresh.** `cost::refresh_catalog(&CatalogRefreshConfig)`
+  overlays an updated `catalog.json` on top of the embedded catalog at runtime,
+  without a rebuild. It is a **runtime toggle, not a Cargo feature**, and is
+  disabled by default (`enabled: false`). A failed, unreachable, or air-gapped
+  refresh always falls back to the embedded (or prior) catalog, so a refresh
+  failure never degrades availability. Also exposed: `RefreshOutcome`,
+  `CatalogRefreshError`, `install_catalog_overlay_from_str`,
+  `clear_catalog_overlay`, and `DEFAULT_CATALOG_URL`.
+- **Extended per-model pricing.** The catalog now carries context-tiered pricing
+  (e.g. distinct rates above a 200k-token context), plus audio and reasoning
+  token costs, all consumed by `completion_cost`. New `ModelTier` type.
+- **20 new providers — now 163 total (up from 143)** — including Black Forest
+  Labs, Reducto, Soniox, Nvidia Riva, Google Distributed Cloud (Gemini), and AWS
+  Bedrock Mantle.
+- **Rust catalog generator (`liter-llm-catalog-gen`)** replacing the Python
+  `generate_pricing.py` / `generate_providers_doc.py` scripts. It fetches and
+  strictly validates the models.dev `api.json` (rejecting unknown fields so
+  upstream drift fails loudly) and dual-writes `catalog.json` with a
+  `$provenance` block (source SHA-256, fetch date, library version). New tasks
+  `generate:catalog` and `generate:catalog:check`.
+- **Catalog automation workflows.** A daily `sync-catalog` workflow opens an
+  auto-merging PR when models.dev drifts; `publish-catalog` pushes catalog
+  snapshots to a rolling `model-catalog` release; `catalog-verify` gates PRs that
+  touch the catalog.
+
+### Changed
+
+- **Renamed the embedded pricing registry from `pricing.json` to `catalog.json`**
+  (both the canonical `schemas/` copy and the crate's `crates/liter-llm/schemas/`
+  copy), reflecting its expanded per-model metadata.
+- **Upgrade dependencies:** `jsonschema` 0.46 → 0.48, `rmcp` 2.1 → 2.2,
+  `tokio-tungstenite` 0.29 → 0.30. Regenerate all bindings with alef 0.38.0.
+
+### Fixed
+
+- **`list_models()` no longer fails for providers that omit `created`** (e.g.
+  DeepSeek). `ModelObject.created`, `object`, and `owned_by` now default when
+  absent from a provider's `/v1/models` response. Fixes #139.
+
 ## [1.9.3] - 2026-07-04
 
 ### Changed
