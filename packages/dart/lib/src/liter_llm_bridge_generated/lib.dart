@@ -2917,6 +2917,7 @@ class ModelTier {
 class ModelsListResponse {
   /// Always `"list"` from OpenAI-compatible APIs.  Stored as a plain
   /// `String` so non-standard provider values do not break deserialization.
+  /// Defaults to empty when a provider omits the field.
   final String object;
 
   /// List of available models.

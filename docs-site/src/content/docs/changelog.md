@@ -10,6 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-07-26
+
+### Fixed
+
+- **`list_models()` on providers that omit `object`.** `ModelsListResponse.object`
+  is now `#[serde(default)]`, so listing models no longer fails with
+  `missing field 'object'` against OpenRouter and other OpenAI-compatible
+  providers that omit the top-level `"object": "list"` field from `/v1/models`.
+  (#149)
+
+### Changed
+
+- **Dependency upgrades.** pnpm 11.15 → 11.17, Jackson (databind/jdk8)
+  2.21.2 → 2.22.1, and a `sorbet-runtime` bump.
+
 ## [1.11.0] - 2026-07-23
 
 ### Added

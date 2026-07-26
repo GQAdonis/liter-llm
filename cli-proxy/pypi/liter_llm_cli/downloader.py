@@ -61,7 +61,7 @@ def _binary_name() -> str:
 class _HttpsOnlyRedirectHandler(HTTPRedirectHandler):
     """Reject any redirect whose target is not https (downgrade/SSRF guard)."""
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]  # noqa: PLR0917 — overrides fixed HTTPRedirectHandler signature
         if urlsplit(newurl).scheme.lower() != "https":
             raise URLError(f"refusing non-https redirect to: {newurl}")
         return super().redirect_request(req, fp, code, msg, headers, newurl)

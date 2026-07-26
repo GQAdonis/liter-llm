@@ -40,7 +40,6 @@ mod tests {
 
     #[test]
     fn models_list_deserializes_without_object_field() {
-        // OpenRouter and similar providers omit the top-level `object` field.
         let body = r#"{"data":[{"id":"gpt-4o"}]}"#;
         let response: ModelsListResponse =
             serde_json::from_str(body).expect("models list without `object` should deserialize");

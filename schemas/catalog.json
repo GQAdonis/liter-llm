@@ -1,9 +1,9 @@
 {
   "$provenance": {
     "source": "models.dev/api.json",
-    "source_sha256": "36f5527e307ddadb3f97b1a0c7f808bc7b77a7617ee70bba4e685196480e2892",
-    "fetched": "2026-07-25",
-    "library_version": "1.11.0"
+    "source_sha256": "4fd44f3252644b5cb9ab028dc6cfe322a9a3535ef44e0e83570ac9d372d19e17",
+    "fetched": "2026-07-26",
+    "library_version": "1.11.1"
   },
   "$schema_version": 1,
   "providers": {
@@ -19910,8 +19910,8 @@
           "id": "moonshotai/kimi-k2.7-code",
           "name": "Kimi K2.7 Code",
           "pricing": {
-            "input_cost_per_token": 0.00000082,
-            "output_cost_per_token": 0.00000375,
+            "input_cost_per_token": 0.00000075,
+            "output_cost_per_token": 0.0000035,
             "cache_read_input_token_cost": 0.00000015,
             "cache_creation_input_token_cost": 0.0
           },
@@ -129394,9 +129394,9 @@
           "id": "deepseek/deepseek-v4-flash",
           "name": "DeepSeek V4 Flash",
           "pricing": {
-            "input_cost_per_token": 0.0000000938,
-            "output_cost_per_token": 0.0000001876,
-            "cache_read_input_token_cost": 0.00000001876
+            "input_cost_per_token": 0.00000014,
+            "output_cost_per_token": 0.00000028,
+            "cache_read_input_token_cost": 0.000000028
           },
           "limit": {
             "context": 1048576,
@@ -136977,12 +136977,13 @@
           "id": "qwen/qwen3.6-27b",
           "name": "Qwen3.6 27B",
           "pricing": {
-            "input_cost_per_token": 0.000000289,
-            "output_cost_per_token": 0.0000024
+            "input_cost_per_token": 0.0000003,
+            "output_cost_per_token": 0.000002,
+            "cache_read_input_token_cost": 0.00000015
           },
           "limit": {
             "context": 262144,
-            "output": 131072
+            "output": 65536
           },
           "modalities": {
             "input": ["text", "image", "video"],
@@ -138438,9 +138439,9 @@
           "id": "z-ai/glm-5.2",
           "name": "GLM-5.2",
           "pricing": {
-            "input_cost_per_token": 0.0000007966,
-            "output_cost_per_token": 0.0000025036,
-            "cache_read_input_token_cost": 0.00000014794
+            "input_cost_per_token": 0.0000007182,
+            "output_cost_per_token": 0.0000022572,
+            "cache_read_input_token_cost": 0.00000013338
           },
           "limit": {
             "context": 1048576,
