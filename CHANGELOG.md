@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-07-26
+
+### Changed
+
+- Regenerate all language bindings on alef 0.48.2.
+- Update dependencies to their latest compatible versions.
+
+### Removed
+
+- Remove unused Java PMD ruleset and stale linter configuration.
+
 ## [1.11.1] - 2026-07-26
 
 ### Fixed

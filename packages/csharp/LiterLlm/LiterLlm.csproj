@@ -3,10 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>LiterLlm</RootNamespace>
     <PackageId>XbergIo.LiterLlm</PackageId>
-    <Version>1.11.1</Version>
+    <Version>1.11.2</Version>
     <AssemblyVersion>1.11.1.0</AssemblyVersion>
     <FileVersion>1.11.1.0</FileVersion>
-    <InformationalVersion>1.11.1</InformationalVersion>
+    <InformationalVersion>1.11.2</InformationalVersion>
     <Description>Universal LLM API client with Rust-powered polyglot bindings.</Description>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/xberg-io/liter-llm</RepositoryUrl>
@@ -31,7 +31,7 @@
          per-RID XbergIo.LiterLlm.runtime.<rid> packages (see ../LiterLlm.Runtime); this
          package only carries the managed assembly plus runtime.json, which tells
          NuGet's RID-fallback graph which runtime package to pull in for the
-         consumer's RID (xberg #1280 / rc.35 413 fix). runtime.json is rendered
+         consumer's RID. runtime.json is rendered
          from runtime.json.template by CI before pack; RequireRuntimeJson guards
          against packing without it. -->
     <None Include="runtime.json" Pack="true" PackagePath="/" Condition="Exists('runtime.json')" />

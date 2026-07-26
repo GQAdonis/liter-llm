@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.47.2"
+alef_version = "0.48.2"
 languages = [
   "python",
   "node",
@@ -89,6 +89,16 @@ exclude = [
   "packages/go/include/*.h",
   "**/catalog.json",
   ".cargo/config.toml",
+  # xberg-baseline generic hygiene excludes (tool output, doc snippets, patches).
+  "docs-site/src/snippets/**",
+  "**/coverage/**",
+  "**/pkg/**",
+  "**/.next/**",
+  "**/*.min.js",
+  "**/vendored/**",
+  "**/testdata/**",
+  "**/*.diff",
+  "**/*.patch",
 ]
 
 [workspace.poly.uncomment]
@@ -1881,7 +1891,7 @@ name = "liter_llm_ffi"
 name = "LiterLlm"
 
 [crates.e2e.registry.packages.zig]
-hash = "liter_llm-1.11.1-ITuy7j8Hy2Yavk0BjGZ43I0Ix2GL"
+hash = "liter_llm-1.11.2-ITuy7j8Hy2Yavk0BjGZ43I0Ix2GL"
 
 [crates.e2e.registry.packages.homebrew]
 tap = "xberg-io/homebrew-tap"

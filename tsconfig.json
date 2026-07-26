@@ -2,7 +2,9 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "target": "ESNext",
-    "lib": ["ESNext"],
+    "lib": [
+      "ESNext"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
 
@@ -35,5 +37,8 @@
 
     "noEmit": true
   },
-  "include": ["packages/node/src/**/*.ts", "packages/node/index.d.ts"]
+  "include": [
+    "packages/node/src/**/*.ts",
+    "packages/node/index.d.ts"
+  ]
 }
