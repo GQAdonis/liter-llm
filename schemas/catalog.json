@@ -22638,70 +22638,6 @@
           "release_date": "2025-03-13",
           "last_updated": "2025-03-13"
         },
-        "cohere-command-r-08-2024": {
-          "id": "cohere-command-r-08-2024",
-          "name": "Command R",
-          "pricing": {
-            "input_cost_per_token": 0.00000015,
-            "output_cost_per_token": 0.0000006
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4000
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "command-r",
-          "knowledge": "2024-06-01",
-          "release_date": "2024-08-30",
-          "last_updated": "2024-08-30"
-        },
-        "cohere-command-r-plus-08-2024": {
-          "id": "cohere-command-r-plus-08-2024",
-          "name": "Command R+",
-          "pricing": {
-            "input_cost_per_token": 0.0000025,
-            "output_cost_per_token": 0.00001
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4000
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "command-r",
-          "knowledge": "2024-06-01",
-          "release_date": "2024-08-30",
-          "last_updated": "2024-08-30"
-        },
         "cohere-embed-v-4-0": {
           "id": "cohere-embed-v-4-0",
           "name": "Embed v4",
@@ -22826,102 +22762,6 @@
           "knowledge": "2024-07",
           "release_date": "2025-01-20",
           "last_updated": "2025-01-20"
-        },
-        "deepseek-r1-0528": {
-          "id": "deepseek-r1-0528",
-          "name": "DeepSeek-R1-0528",
-          "pricing": {
-            "input_cost_per_token": 0.00000135,
-            "output_cost_per_token": 0.0000054
-          },
-          "limit": {
-            "context": 163840,
-            "output": 163840
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "deepseek-thinking",
-          "knowledge": "2024-07",
-          "release_date": "2025-05-28",
-          "last_updated": "2025-05-28"
-        },
-        "deepseek-v3-0324": {
-          "id": "deepseek-v3-0324",
-          "name": "DeepSeek-V3-0324",
-          "pricing": {
-            "input_cost_per_token": 0.00000114,
-            "output_cost_per_token": 0.00000456
-          },
-          "limit": {
-            "context": 131072,
-            "output": 131072
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "deepseek",
-          "knowledge": "2024-07",
-          "release_date": "2025-03-24",
-          "last_updated": "2025-03-24"
-        },
-        "deepseek-v3.1": {
-          "id": "deepseek-v3.1",
-          "name": "DeepSeek-V3.1",
-          "pricing": {
-            "input_cost_per_token": 0.00000056,
-            "output_cost_per_token": 0.00000168
-          },
-          "limit": {
-            "context": 131072,
-            "output": 131072
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "deepseek",
-          "knowledge": "2024-07",
-          "release_date": "2025-08-21",
-          "last_updated": "2025-08-21"
         },
         "deepseek-v3.2": {
           "id": "deepseek-v3.2",
@@ -23085,70 +22925,6 @@
           "release_date": "2024-01-25",
           "last_updated": "2024-01-25"
         },
-        "gpt-3.5-turbo-0301": {
-          "id": "gpt-3.5-turbo-0301",
-          "name": "GPT-3.5 Turbo 0301",
-          "pricing": {
-            "input_cost_per_token": 0.0000015,
-            "output_cost_per_token": 0.000002
-          },
-          "limit": {
-            "context": 4096,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2021-08",
-          "release_date": "2023-03-01",
-          "last_updated": "2023-03-01"
-        },
-        "gpt-3.5-turbo-0613": {
-          "id": "gpt-3.5-turbo-0613",
-          "name": "GPT-3.5 Turbo 0613",
-          "pricing": {
-            "input_cost_per_token": 0.000003,
-            "output_cost_per_token": 0.000004
-          },
-          "limit": {
-            "context": 16384,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2021-08",
-          "release_date": "2023-06-13",
-          "last_updated": "2023-06-13"
-        },
         "gpt-3.5-turbo-1106": {
           "id": "gpt-3.5-turbo-1106",
           "name": "GPT-3.5 Turbo 1106",
@@ -23212,70 +22988,6 @@
           "knowledge": "2021-08",
           "release_date": "2023-09-21",
           "last_updated": "2023-09-21"
-        },
-        "gpt-4": {
-          "id": "gpt-4",
-          "name": "GPT-4",
-          "pricing": {
-            "input_cost_per_token": 0.00006,
-            "output_cost_per_token": 0.00012
-          },
-          "limit": {
-            "context": 8192,
-            "output": 8192
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2023-11",
-          "release_date": "2023-03-14",
-          "last_updated": "2023-03-14"
-        },
-        "gpt-4-32k": {
-          "id": "gpt-4-32k",
-          "name": "GPT-4 32K",
-          "pricing": {
-            "input_cost_per_token": 0.00006,
-            "output_cost_per_token": 0.00012
-          },
-          "limit": {
-            "context": 32768,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2023-11",
-          "release_date": "2023-03-14",
-          "last_updated": "2023-03-14"
         },
         "gpt-4-turbo": {
           "id": "gpt-4-turbo",
@@ -23540,39 +23252,6 @@
           "release_date": "2025-08-07",
           "last_updated": "2025-08-07"
         },
-        "gpt-5-chat": {
-          "id": "gpt-5-chat",
-          "name": "GPT-5 Chat",
-          "pricing": {
-            "input_cost_per_token": 0.00000125,
-            "output_cost_per_token": 0.00001,
-            "cache_read_input_token_cost": 0.00000013
-          },
-          "limit": {
-            "context": 128000,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": false,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gpt-codex",
-          "knowledge": "2024-10-24",
-          "release_date": "2025-08-07",
-          "last_updated": "2025-08-07"
-        },
         "gpt-5-codex": {
           "id": "gpt-5-codex",
           "name": "GPT-5-Codex",
@@ -23741,39 +23420,6 @@
           "release_date": "2025-11-14",
           "last_updated": "2025-11-14"
         },
-        "gpt-5.1-chat": {
-          "id": "gpt-5.1-chat",
-          "name": "GPT-5.1 Chat",
-          "pricing": {
-            "input_cost_per_token": 0.00000125,
-            "output_cost_per_token": 0.00001,
-            "cache_read_input_token_cost": 0.000000125
-          },
-          "limit": {
-            "context": 128000,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text", "image", "audio"],
-            "output": ["text", "image", "audio"]
-          },
-          "mode": "image_generation",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": true,
-            "audio_input": true,
-            "audio_output": true,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gpt-codex",
-          "knowledge": "2024-09-30",
-          "release_date": "2025-11-14",
-          "last_updated": "2025-11-14"
-        },
         "gpt-5.1-codex": {
           "id": "gpt-5.1-codex",
           "name": "GPT-5.1 Codex",
@@ -23909,39 +23555,6 @@
           "release_date": "2025-12-11",
           "last_updated": "2025-12-11"
         },
-        "gpt-5.2-chat": {
-          "id": "gpt-5.2-chat",
-          "name": "GPT-5.2 Chat",
-          "pricing": {
-            "input_cost_per_token": 0.00000175,
-            "output_cost_per_token": 0.000014,
-            "cache_read_input_token_cost": 0.000000175
-          },
-          "limit": {
-            "context": 128000,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": true,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gpt-codex",
-          "knowledge": "2025-08-31",
-          "release_date": "2025-12-11",
-          "last_updated": "2025-12-11"
-        },
         "gpt-5.2-codex": {
           "id": "gpt-5.2-codex",
           "name": "GPT-5.2 Codex",
@@ -23975,39 +23588,6 @@
           "knowledge": "2025-08-31",
           "release_date": "2026-01-14",
           "last_updated": "2026-01-14"
-        },
-        "gpt-5.3-chat": {
-          "id": "gpt-5.3-chat",
-          "name": "GPT-5.3 Chat",
-          "pricing": {
-            "input_cost_per_token": 0.00000175,
-            "output_cost_per_token": 0.000014,
-            "cache_read_input_token_cost": 0.000000175
-          },
-          "limit": {
-            "context": 128000,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": true,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gpt-codex",
-          "knowledge": "2025-08-31",
-          "release_date": "2026-03-03",
-          "last_updated": "2026-03-03"
         },
         "gpt-5.3-codex": {
           "id": "gpt-5.3-codex",
@@ -24620,72 +24200,6 @@
           "release_date": "2026-04-08",
           "last_updated": "2026-04-08"
         },
-        "grok-4-fast-reasoning": {
-          "id": "grok-4-fast-reasoning",
-          "name": "Grok 4 Fast (Reasoning)",
-          "pricing": {
-            "input_cost_per_token": 0.0000002,
-            "output_cost_per_token": 0.0000005,
-            "cache_read_input_token_cost": 0.00000005
-          },
-          "limit": {
-            "context": 2000000,
-            "output": 30000
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "grok",
-          "knowledge": "2025-07",
-          "release_date": "2025-09-19",
-          "last_updated": "2025-09-19"
-        },
-        "kimi-k2-thinking": {
-          "id": "kimi-k2-thinking",
-          "name": "Kimi K2 Thinking",
-          "pricing": {
-            "input_cost_per_token": 0.0000006,
-            "output_cost_per_token": 0.0000025,
-            "cache_read_input_token_cost": 0.00000015
-          },
-          "limit": {
-            "context": 262144,
-            "output": 262144
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "kimi-thinking",
-          "knowledge": "2024-08",
-          "release_date": "2025-11-06",
-          "last_updated": "2025-12-02"
-        },
         "kimi-k2.5": {
           "id": "kimi-k2.5",
           "name": "Kimi K2.5",
@@ -24751,70 +24265,6 @@
           "knowledge": "2025-01",
           "release_date": "2026-04-22",
           "last_updated": "2026-04-22"
-        },
-        "llama-3.2-11b-vision-instruct": {
-          "id": "llama-3.2-11b-vision-instruct",
-          "name": "Llama-3.2-11B-Vision-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000037,
-            "output_cost_per_token": 0.00000037
-          },
-          "limit": {
-            "context": 128000,
-            "output": 8192
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": true,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-09-25",
-          "last_updated": "2024-09-25"
-        },
-        "llama-3.2-90b-vision-instruct": {
-          "id": "llama-3.2-90b-vision-instruct",
-          "name": "Llama-3.2-90B-Vision-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000204,
-            "output_cost_per_token": 0.00000204
-          },
-          "limit": {
-            "context": 128000,
-            "output": 8192
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": true,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-09-25",
-          "last_updated": "2024-09-25"
         },
         "llama-3.3-70b-instruct": {
           "id": "llama-3.3-70b-instruct",
@@ -24912,166 +24362,6 @@
           "release_date": "2025-04-05",
           "last_updated": "2025-04-05"
         },
-        "meta-llama-3-70b-instruct": {
-          "id": "meta-llama-3-70b-instruct",
-          "name": "Meta-Llama-3-70B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000268,
-            "output_cost_per_token": 0.00000354
-          },
-          "limit": {
-            "context": 8192,
-            "output": 2048
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-04-18",
-          "last_updated": "2024-04-18"
-        },
-        "meta-llama-3-8b-instruct": {
-          "id": "meta-llama-3-8b-instruct",
-          "name": "Meta-Llama-3-8B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.0000003,
-            "output_cost_per_token": 0.00000061
-          },
-          "limit": {
-            "context": 8192,
-            "output": 2048
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-04-18",
-          "last_updated": "2024-04-18"
-        },
-        "meta-llama-3.1-405b-instruct": {
-          "id": "meta-llama-3.1-405b-instruct",
-          "name": "Meta-Llama-3.1-405B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000533,
-            "output_cost_per_token": 0.000016
-          },
-          "limit": {
-            "context": 128000,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-07-23",
-          "last_updated": "2024-07-23"
-        },
-        "meta-llama-3.1-70b-instruct": {
-          "id": "meta-llama-3.1-70b-instruct",
-          "name": "Meta-Llama-3.1-70B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000268,
-            "output_cost_per_token": 0.00000354
-          },
-          "limit": {
-            "context": 128000,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-07-23",
-          "last_updated": "2024-07-23"
-        },
-        "meta-llama-3.1-8b-instruct": {
-          "id": "meta-llama-3.1-8b-instruct",
-          "name": "Meta-Llama-3.1-8B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.0000003,
-            "output_cost_per_token": 0.00000061
-          },
-          "limit": {
-            "context": 128000,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-07-23",
-          "last_updated": "2024-07-23"
-        },
         "ministral-3b": {
           "id": "ministral-3b",
           "name": "Ministral 3B",
@@ -25104,38 +24394,6 @@
           "release_date": "2024-10-22",
           "last_updated": "2024-10-22"
         },
-        "mistral-large-2411": {
-          "id": "mistral-large-2411",
-          "name": "Mistral Large 24.11",
-          "pricing": {
-            "input_cost_per_token": 0.000002,
-            "output_cost_per_token": 0.000006
-          },
-          "limit": {
-            "context": 128000,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "mistral-large",
-          "knowledge": "2024-09",
-          "release_date": "2024-11-01",
-          "last_updated": "2024-11-01"
-        },
         "mistral-medium-2505": {
           "id": "mistral-medium-2505",
           "name": "Mistral Medium 3",
@@ -25167,38 +24425,6 @@
           "knowledge": "2025-05",
           "release_date": "2025-05-07",
           "last_updated": "2025-05-07"
-        },
-        "mistral-nemo": {
-          "id": "mistral-nemo",
-          "name": "Mistral Nemo",
-          "pricing": {
-            "input_cost_per_token": 0.00000015,
-            "output_cost_per_token": 0.00000015
-          },
-          "limit": {
-            "context": 128000,
-            "output": 128000
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "mistral-nemo",
-          "knowledge": "2024-07",
-          "release_date": "2024-07-18",
-          "last_updated": "2024-07-18"
         },
         "mistral-small-2503": {
           "id": "mistral-small-2503",
@@ -25295,39 +24521,6 @@
           "knowledge": "2023-09",
           "release_date": "2024-12-05",
           "last_updated": "2024-12-05"
-        },
-        "o1-mini": {
-          "id": "o1-mini",
-          "name": "o1-mini",
-          "pricing": {
-            "input_cost_per_token": 0.0000011,
-            "output_cost_per_token": 0.0000044,
-            "cache_read_input_token_cost": 0.00000055
-          },
-          "limit": {
-            "context": 128000,
-            "output": 65536
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "o-mini",
-          "knowledge": "2023-09",
-          "release_date": "2024-09-12",
-          "last_updated": "2024-09-12"
         },
         "o3": {
           "id": "o3",
@@ -25427,262 +24620,6 @@
           "knowledge": "2024-05",
           "release_date": "2025-04-16",
           "last_updated": "2025-04-16"
-        },
-        "phi-3-medium-128k-instruct": {
-          "id": "phi-3-medium-128k-instruct",
-          "name": "Phi-3-medium-instruct (128k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000017,
-            "output_cost_per_token": 0.00000068
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-medium-4k-instruct": {
-          "id": "phi-3-medium-4k-instruct",
-          "name": "Phi-3-medium-instruct (4k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000017,
-            "output_cost_per_token": 0.00000068
-          },
-          "limit": {
-            "context": 4096,
-            "output": 1024
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-mini-128k-instruct": {
-          "id": "phi-3-mini-128k-instruct",
-          "name": "Phi-3-mini-instruct (128k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000013,
-            "output_cost_per_token": 0.00000052
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-mini-4k-instruct": {
-          "id": "phi-3-mini-4k-instruct",
-          "name": "Phi-3-mini-instruct (4k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000013,
-            "output_cost_per_token": 0.00000052
-          },
-          "limit": {
-            "context": 4096,
-            "output": 1024
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-small-128k-instruct": {
-          "id": "phi-3-small-128k-instruct",
-          "name": "Phi-3-small-instruct (128k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000015,
-            "output_cost_per_token": 0.0000006
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-small-8k-instruct": {
-          "id": "phi-3-small-8k-instruct",
-          "name": "Phi-3-small-instruct (8k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000015,
-            "output_cost_per_token": 0.0000006
-          },
-          "limit": {
-            "context": 8192,
-            "output": 2048
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3.5-mini-instruct": {
-          "id": "phi-3.5-mini-instruct",
-          "name": "Phi-3.5-mini-instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000013,
-            "output_cost_per_token": 0.00000052
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-08-20",
-          "last_updated": "2024-08-20"
-        },
-        "phi-3.5-moe-instruct": {
-          "id": "phi-3.5-moe-instruct",
-          "name": "Phi-3.5-MoE-instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000016,
-            "output_cost_per_token": 0.00000064
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-08-20",
-          "last_updated": "2024-08-20"
         },
         "phi-4": {
           "id": "phi-4",
@@ -26331,70 +25268,6 @@
           "release_date": "2025-03-13",
           "last_updated": "2025-03-13"
         },
-        "cohere-command-r-08-2024": {
-          "id": "cohere-command-r-08-2024",
-          "name": "Command R",
-          "pricing": {
-            "input_cost_per_token": 0.00000015,
-            "output_cost_per_token": 0.0000006
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4000
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "command-r",
-          "knowledge": "2024-06-01",
-          "release_date": "2024-08-30",
-          "last_updated": "2024-08-30"
-        },
-        "cohere-command-r-plus-08-2024": {
-          "id": "cohere-command-r-plus-08-2024",
-          "name": "Command R+",
-          "pricing": {
-            "input_cost_per_token": 0.0000025,
-            "output_cost_per_token": 0.00001
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4000
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "command-r",
-          "knowledge": "2024-06-01",
-          "release_date": "2024-08-30",
-          "last_updated": "2024-08-30"
-        },
         "cohere-embed-v-4-0": {
           "id": "cohere-embed-v-4-0",
           "name": "Embed v4",
@@ -26520,102 +25393,6 @@
           "release_date": "2025-01-20",
           "last_updated": "2025-01-20"
         },
-        "deepseek-r1-0528": {
-          "id": "deepseek-r1-0528",
-          "name": "DeepSeek-R1-0528",
-          "pricing": {
-            "input_cost_per_token": 0.00000135,
-            "output_cost_per_token": 0.0000054
-          },
-          "limit": {
-            "context": 163840,
-            "output": 163840
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "deepseek-thinking",
-          "knowledge": "2024-07",
-          "release_date": "2025-05-28",
-          "last_updated": "2025-05-28"
-        },
-        "deepseek-v3-0324": {
-          "id": "deepseek-v3-0324",
-          "name": "DeepSeek-V3-0324",
-          "pricing": {
-            "input_cost_per_token": 0.00000114,
-            "output_cost_per_token": 0.00000456
-          },
-          "limit": {
-            "context": 131072,
-            "output": 131072
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "deepseek",
-          "knowledge": "2024-07",
-          "release_date": "2025-03-24",
-          "last_updated": "2025-03-24"
-        },
-        "deepseek-v3.1": {
-          "id": "deepseek-v3.1",
-          "name": "DeepSeek-V3.1",
-          "pricing": {
-            "input_cost_per_token": 0.00000056,
-            "output_cost_per_token": 0.00000168
-          },
-          "limit": {
-            "context": 131072,
-            "output": 131072
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "deepseek",
-          "knowledge": "2024-07",
-          "release_date": "2025-08-21",
-          "last_updated": "2025-08-21"
-        },
         "deepseek-v3.2": {
           "id": "deepseek-v3.2",
           "name": "DeepSeek-V3.2",
@@ -26712,70 +25489,6 @@
           "release_date": "2024-01-25",
           "last_updated": "2024-01-25"
         },
-        "gpt-3.5-turbo-0301": {
-          "id": "gpt-3.5-turbo-0301",
-          "name": "GPT-3.5 Turbo 0301",
-          "pricing": {
-            "input_cost_per_token": 0.0000015,
-            "output_cost_per_token": 0.000002
-          },
-          "limit": {
-            "context": 4096,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2021-08",
-          "release_date": "2023-03-01",
-          "last_updated": "2023-03-01"
-        },
-        "gpt-3.5-turbo-0613": {
-          "id": "gpt-3.5-turbo-0613",
-          "name": "GPT-3.5 Turbo 0613",
-          "pricing": {
-            "input_cost_per_token": 0.000003,
-            "output_cost_per_token": 0.000004
-          },
-          "limit": {
-            "context": 16384,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2021-08",
-          "release_date": "2023-06-13",
-          "last_updated": "2023-06-13"
-        },
         "gpt-3.5-turbo-1106": {
           "id": "gpt-3.5-turbo-1106",
           "name": "GPT-3.5 Turbo 1106",
@@ -26839,70 +25552,6 @@
           "knowledge": "2021-08",
           "release_date": "2023-09-21",
           "last_updated": "2023-09-21"
-        },
-        "gpt-4": {
-          "id": "gpt-4",
-          "name": "GPT-4",
-          "pricing": {
-            "input_cost_per_token": 0.00006,
-            "output_cost_per_token": 0.00012
-          },
-          "limit": {
-            "context": 8192,
-            "output": 8192
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2023-11",
-          "release_date": "2023-03-14",
-          "last_updated": "2023-03-14"
-        },
-        "gpt-4-32k": {
-          "id": "gpt-4-32k",
-          "name": "GPT-4 32K",
-          "pricing": {
-            "input_cost_per_token": 0.00006,
-            "output_cost_per_token": 0.00012
-          },
-          "limit": {
-            "context": 32768,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2023-11",
-          "release_date": "2023-03-14",
-          "last_updated": "2023-03-14"
         },
         "gpt-4-turbo": {
           "id": "gpt-4-turbo",
@@ -27167,39 +25816,6 @@
           "release_date": "2025-08-07",
           "last_updated": "2025-08-07"
         },
-        "gpt-5-chat": {
-          "id": "gpt-5-chat",
-          "name": "GPT-5 Chat",
-          "pricing": {
-            "input_cost_per_token": 0.00000125,
-            "output_cost_per_token": 0.00001,
-            "cache_read_input_token_cost": 0.00000013
-          },
-          "limit": {
-            "context": 128000,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": false,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gpt-codex",
-          "knowledge": "2024-10-24",
-          "release_date": "2025-08-07",
-          "last_updated": "2025-08-07"
-        },
         "gpt-5-codex": {
           "id": "gpt-5-codex",
           "name": "GPT-5-Codex",
@@ -27368,39 +25984,6 @@
           "release_date": "2025-11-14",
           "last_updated": "2025-11-14"
         },
-        "gpt-5.1-chat": {
-          "id": "gpt-5.1-chat",
-          "name": "GPT-5.1 Chat",
-          "pricing": {
-            "input_cost_per_token": 0.00000125,
-            "output_cost_per_token": 0.00001,
-            "cache_read_input_token_cost": 0.000000125
-          },
-          "limit": {
-            "context": 128000,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text", "image", "audio"],
-            "output": ["text", "image", "audio"]
-          },
-          "mode": "image_generation",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": true,
-            "audio_input": true,
-            "audio_output": true,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gpt-codex",
-          "knowledge": "2024-09-30",
-          "release_date": "2025-11-14",
-          "last_updated": "2025-11-14"
-        },
         "gpt-5.1-codex": {
           "id": "gpt-5.1-codex",
           "name": "GPT-5.1 Codex",
@@ -27499,39 +26082,6 @@
             "open_weights": false
           },
           "family": "gpt",
-          "knowledge": "2025-08-31",
-          "release_date": "2025-12-11",
-          "last_updated": "2025-12-11"
-        },
-        "gpt-5.2-chat": {
-          "id": "gpt-5.2-chat",
-          "name": "GPT-5.2 Chat",
-          "pricing": {
-            "input_cost_per_token": 0.00000175,
-            "output_cost_per_token": 0.000014,
-            "cache_read_input_token_cost": 0.000000175
-          },
-          "limit": {
-            "context": 128000,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": true,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gpt-codex",
           "knowledge": "2025-08-31",
           "release_date": "2025-12-11",
           "last_updated": "2025-12-11"
@@ -27955,72 +26505,6 @@
           "release_date": "2026-05-05",
           "last_updated": "2026-05-28"
         },
-        "grok-4-fast-reasoning": {
-          "id": "grok-4-fast-reasoning",
-          "name": "Grok 4 Fast (Reasoning)",
-          "pricing": {
-            "input_cost_per_token": 0.0000002,
-            "output_cost_per_token": 0.0000005,
-            "cache_read_input_token_cost": 0.00000005
-          },
-          "limit": {
-            "context": 2000000,
-            "output": 30000
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "grok",
-          "knowledge": "2025-07",
-          "release_date": "2025-09-19",
-          "last_updated": "2025-09-19"
-        },
-        "kimi-k2-thinking": {
-          "id": "kimi-k2-thinking",
-          "name": "Kimi K2 Thinking",
-          "pricing": {
-            "input_cost_per_token": 0.0000006,
-            "output_cost_per_token": 0.0000025,
-            "cache_read_input_token_cost": 0.00000015
-          },
-          "limit": {
-            "context": 262144,
-            "output": 262144
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "kimi-thinking",
-          "knowledge": "2024-08",
-          "release_date": "2025-11-06",
-          "last_updated": "2025-12-02"
-        },
         "kimi-k2.5": {
           "id": "kimi-k2.5",
           "name": "Kimi K2.5",
@@ -28086,70 +26570,6 @@
           "knowledge": "2025-01",
           "release_date": "2026-04-21",
           "last_updated": "2026-04-21"
-        },
-        "llama-3.2-11b-vision-instruct": {
-          "id": "llama-3.2-11b-vision-instruct",
-          "name": "Llama-3.2-11B-Vision-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000037,
-            "output_cost_per_token": 0.00000037
-          },
-          "limit": {
-            "context": 128000,
-            "output": 8192
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": true,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-09-25",
-          "last_updated": "2024-09-25"
-        },
-        "llama-3.2-90b-vision-instruct": {
-          "id": "llama-3.2-90b-vision-instruct",
-          "name": "Llama-3.2-90B-Vision-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000204,
-            "output_cost_per_token": 0.00000204
-          },
-          "limit": {
-            "context": 128000,
-            "output": 8192
-          },
-          "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": true,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-09-25",
-          "last_updated": "2024-09-25"
         },
         "llama-3.3-70b-instruct": {
           "id": "llama-3.3-70b-instruct",
@@ -28247,166 +26667,6 @@
           "release_date": "2025-04-05",
           "last_updated": "2025-04-05"
         },
-        "meta-llama-3-70b-instruct": {
-          "id": "meta-llama-3-70b-instruct",
-          "name": "Meta-Llama-3-70B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000268,
-            "output_cost_per_token": 0.00000354
-          },
-          "limit": {
-            "context": 8192,
-            "output": 2048
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-04-18",
-          "last_updated": "2024-04-18"
-        },
-        "meta-llama-3-8b-instruct": {
-          "id": "meta-llama-3-8b-instruct",
-          "name": "Meta-Llama-3-8B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.0000003,
-            "output_cost_per_token": 0.00000061
-          },
-          "limit": {
-            "context": 8192,
-            "output": 2048
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-04-18",
-          "last_updated": "2024-04-18"
-        },
-        "meta-llama-3.1-405b-instruct": {
-          "id": "meta-llama-3.1-405b-instruct",
-          "name": "Meta-Llama-3.1-405B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000533,
-            "output_cost_per_token": 0.000016
-          },
-          "limit": {
-            "context": 128000,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-07-23",
-          "last_updated": "2024-07-23"
-        },
-        "meta-llama-3.1-70b-instruct": {
-          "id": "meta-llama-3.1-70b-instruct",
-          "name": "Meta-Llama-3.1-70B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000268,
-            "output_cost_per_token": 0.00000354
-          },
-          "limit": {
-            "context": 128000,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-07-23",
-          "last_updated": "2024-07-23"
-        },
-        "meta-llama-3.1-8b-instruct": {
-          "id": "meta-llama-3.1-8b-instruct",
-          "name": "Meta-Llama-3.1-8B-Instruct",
-          "pricing": {
-            "input_cost_per_token": 0.0000003,
-            "output_cost_per_token": 0.00000061
-          },
-          "limit": {
-            "context": 128000,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "llama",
-          "knowledge": "2023-12",
-          "release_date": "2024-07-23",
-          "last_updated": "2024-07-23"
-        },
         "ministral-3b": {
           "id": "ministral-3b",
           "name": "Ministral 3B",
@@ -28439,38 +26699,6 @@
           "release_date": "2024-10-22",
           "last_updated": "2024-10-22"
         },
-        "mistral-large-2411": {
-          "id": "mistral-large-2411",
-          "name": "Mistral Large 24.11",
-          "pricing": {
-            "input_cost_per_token": 0.000002,
-            "output_cost_per_token": 0.000006
-          },
-          "limit": {
-            "context": 128000,
-            "output": 32768
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "mistral-large",
-          "knowledge": "2024-09",
-          "release_date": "2024-11-01",
-          "last_updated": "2024-11-01"
-        },
         "mistral-medium-2505": {
           "id": "mistral-medium-2505",
           "name": "Mistral Medium 3",
@@ -28502,38 +26730,6 @@
           "knowledge": "2025-05",
           "release_date": "2025-05-07",
           "last_updated": "2025-05-07"
-        },
-        "mistral-nemo": {
-          "id": "mistral-nemo",
-          "name": "Mistral Nemo",
-          "pricing": {
-            "input_cost_per_token": 0.00000015,
-            "output_cost_per_token": 0.00000015
-          },
-          "limit": {
-            "context": 128000,
-            "output": 128000
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "mistral-nemo",
-          "knowledge": "2024-07",
-          "release_date": "2024-07-18",
-          "last_updated": "2024-07-18"
         },
         "mistral-small-2503": {
           "id": "mistral-small-2503",
@@ -28630,39 +26826,6 @@
           "knowledge": "2023-09",
           "release_date": "2024-12-05",
           "last_updated": "2024-12-05"
-        },
-        "o1-mini": {
-          "id": "o1-mini",
-          "name": "o1-mini",
-          "pricing": {
-            "input_cost_per_token": 0.0000011,
-            "output_cost_per_token": 0.0000044,
-            "cache_read_input_token_cost": 0.00000055
-          },
-          "limit": {
-            "context": 128000,
-            "output": 65536
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "o-mini",
-          "knowledge": "2023-09",
-          "release_date": "2024-09-12",
-          "last_updated": "2024-09-12"
         },
         "o3": {
           "id": "o3",
@@ -28762,262 +26925,6 @@
           "knowledge": "2024-05",
           "release_date": "2025-04-16",
           "last_updated": "2025-04-16"
-        },
-        "phi-3-medium-128k-instruct": {
-          "id": "phi-3-medium-128k-instruct",
-          "name": "Phi-3-medium-instruct (128k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000017,
-            "output_cost_per_token": 0.00000068
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-medium-4k-instruct": {
-          "id": "phi-3-medium-4k-instruct",
-          "name": "Phi-3-medium-instruct (4k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000017,
-            "output_cost_per_token": 0.00000068
-          },
-          "limit": {
-            "context": 4096,
-            "output": 1024
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-mini-128k-instruct": {
-          "id": "phi-3-mini-128k-instruct",
-          "name": "Phi-3-mini-instruct (128k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000013,
-            "output_cost_per_token": 0.00000052
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-mini-4k-instruct": {
-          "id": "phi-3-mini-4k-instruct",
-          "name": "Phi-3-mini-instruct (4k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000013,
-            "output_cost_per_token": 0.00000052
-          },
-          "limit": {
-            "context": 4096,
-            "output": 1024
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-small-128k-instruct": {
-          "id": "phi-3-small-128k-instruct",
-          "name": "Phi-3-small-instruct (128k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000015,
-            "output_cost_per_token": 0.0000006
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3-small-8k-instruct": {
-          "id": "phi-3-small-8k-instruct",
-          "name": "Phi-3-small-instruct (8k)",
-          "pricing": {
-            "input_cost_per_token": 0.00000015,
-            "output_cost_per_token": 0.0000006
-          },
-          "limit": {
-            "context": 8192,
-            "output": 2048
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-04-23",
-          "last_updated": "2024-04-23"
-        },
-        "phi-3.5-mini-instruct": {
-          "id": "phi-3.5-mini-instruct",
-          "name": "Phi-3.5-mini-instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000013,
-            "output_cost_per_token": 0.00000052
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-08-20",
-          "last_updated": "2024-08-20"
-        },
-        "phi-3.5-moe-instruct": {
-          "id": "phi-3.5-moe-instruct",
-          "name": "Phi-3.5-MoE-instruct",
-          "pricing": {
-            "input_cost_per_token": 0.00000016,
-            "output_cost_per_token": 0.00000064
-          },
-          "limit": {
-            "context": 128000,
-            "output": 4096
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "phi",
-          "knowledge": "2023-10",
-          "release_date": "2024-08-20",
-          "last_updated": "2024-08-20"
         },
         "phi-4": {
           "id": "phi-4",
@@ -38378,6 +36285,40 @@
           "knowledge": "2026-01",
           "release_date": "2026-05-28",
           "last_updated": "2026-05-28"
+        },
+        "anthropic/claude-opus-5": {
+          "id": "anthropic/claude-opus-5",
+          "name": "Claude Opus 5",
+          "pricing": {
+            "input_cost_per_token": 0.000005,
+            "output_cost_per_token": 0.000025,
+            "cache_read_input_token_cost": 0.0000005,
+            "cache_creation_input_token_cost": 0.00000625
+          },
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "mode": "chat",
+          "capabilities": {
+            "vision": true,
+            "function_calling": true,
+            "reasoning": true,
+            "structured_output": false,
+            "audio_input": false,
+            "audio_output": false,
+            "prompt_caching": true,
+            "attachment": true,
+            "open_weights": false
+          },
+          "family": "claude-opus",
+          "knowledge": "2026-05",
+          "release_date": "2026-07-24",
+          "last_updated": "2026-07-24"
         },
         "anthropic/claude-sonnet-4-6": {
           "id": "anthropic/claude-sonnet-4-6",
@@ -130687,13 +128628,13 @@
           "id": "arcee-ai/trinity-large-thinking",
           "name": "Trinity Large Thinking",
           "pricing": {
-            "input_cost_per_token": 0.00000025,
-            "output_cost_per_token": 0.0000008,
+            "input_cost_per_token": 0.00000022,
+            "output_cost_per_token": 0.00000085,
             "cache_read_input_token_cost": 0.00000006
           },
           "limit": {
             "context": 262144,
-            "output": 80000
+            "output": 262144
           },
           "modalities": {
             "input": ["text"],
@@ -131459,7 +129400,7 @@
           },
           "limit": {
             "context": 1048576,
-            "output": 65536
+            "output": 393216
           },
           "modalities": {
             "input": ["text"],
@@ -134368,9 +132309,9 @@
           "id": "moonshotai/kimi-k2.6",
           "name": "Kimi K2.6",
           "pricing": {
-            "input_cost_per_token": 0.000000684,
-            "output_cost_per_token": 0.00000342,
-            "cache_read_input_token_cost": 0.000000144
+            "input_cost_per_token": 0.000000646,
+            "output_cost_per_token": 0.00000272,
+            "cache_read_input_token_cost": 0.0000001088
           },
           "limit": {
             "context": 262144,
@@ -136821,8 +134762,7 @@
           "name": "GPT OSS 20B",
           "pricing": {
             "input_cost_per_token": 0.00000003,
-            "output_cost_per_token": 0.00000013,
-            "cache_read_input_token_cost": 0.00000003
+            "output_cost_per_token": 0.00000014
           },
           "limit": {
             "context": 131072,
@@ -136840,7 +134780,7 @@
             "structured_output": true,
             "audio_input": false,
             "audio_output": false,
-            "prompt_caching": true,
+            "prompt_caching": false,
             "attachment": false,
             "open_weights": true
           },
@@ -138142,8 +136082,8 @@
           "id": "qwen/qwen3-30b-a3b-instruct-2507",
           "name": "Qwen3 30B A3B Instruct 2507",
           "pricing": {
-            "input_cost_per_token": 0.0000001,
-            "output_cost_per_token": 0.0000003
+            "input_cost_per_token": 0.00000004815,
+            "output_cost_per_token": 0.00000019305
           },
           "limit": {
             "context": 262144,
@@ -139056,7 +136996,7 @@
             "structured_output": true,
             "audio_input": false,
             "audio_output": false,
-            "prompt_caching": false,
+            "prompt_caching": true,
             "attachment": true,
             "open_weights": true
           },
@@ -172075,40 +170015,6 @@
           "release_date": "2026-04-16",
           "last_updated": "2026-04-16"
         },
-        "anthropic/claude-opus-4.7-fast": {
-          "id": "anthropic/claude-opus-4.7-fast",
-          "name": "Claude Opus 4.7 (Fast)",
-          "pricing": {
-            "input_cost_per_token": 0.00003,
-            "output_cost_per_token": 0.00015,
-            "cache_read_input_token_cost": 0.000003,
-            "cache_creation_input_token_cost": 0.0000375
-          },
-          "limit": {
-            "context": 1000000,
-            "output": 128000
-          },
-          "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "claude-opus",
-          "knowledge": "2026-01-31",
-          "release_date": "2026-04-16",
-          "last_updated": "2026-04-16"
-        },
         "anthropic/claude-opus-4.8": {
           "id": "anthropic/claude-opus-4.8",
           "name": "Claude Opus 4.8",
@@ -173808,39 +171714,6 @@
           "knowledge": "2025-01",
           "release_date": "2026-06-30",
           "last_updated": "2026-06-30"
-        },
-        "google/gemini-3.1-flash-lite-preview": {
-          "id": "google/gemini-3.1-flash-lite-preview",
-          "name": "Gemini 3.1 Flash Lite Preview",
-          "pricing": {
-            "input_cost_per_token": 0.00000025,
-            "output_cost_per_token": 0.0000015,
-            "cache_read_input_token_cost": 0.00000003
-          },
-          "limit": {
-            "context": 1000000,
-            "output": 65000
-          },
-          "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": true,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gemini",
-          "knowledge": "2025-01",
-          "release_date": "2026-03-03",
-          "last_updated": "2026-03-03"
         },
         "google/gemini-3.1-pro-preview": {
           "id": "google/gemini-3.1-pro-preview",
@@ -176591,40 +174464,6 @@
           "release_date": "2025-08-07",
           "last_updated": "2025-08-07"
         },
-        "openai/gpt-5-chat": {
-          "id": "openai/gpt-5-chat",
-          "name": "GPT-5 Chat",
-          "pricing": {
-            "input_cost_per_token": 0.00000125,
-            "output_cost_per_token": 0.00001,
-            "cache_read_input_token_cost": 0.000000125
-          },
-          "limit": {
-            "context": 128000,
-            "input": 111616,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text", "image"]
-          },
-          "mode": "image_generation",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2024-10",
-          "release_date": "2025-08-07",
-          "last_updated": "2025-08-07"
-        },
         "openai/gpt-5-codex": {
           "id": "openai/gpt-5-codex",
           "name": "GPT-5-Codex",
@@ -176963,40 +174802,6 @@
           "knowledge": "2024-10",
           "release_date": "2025-12-11",
           "last_updated": "2025-12-11"
-        },
-        "openai/gpt-5.2-chat": {
-          "id": "openai/gpt-5.2-chat",
-          "name": "GPT-5.2 Chat",
-          "pricing": {
-            "input_cost_per_token": 0.00000175,
-            "output_cost_per_token": 0.000014,
-            "cache_read_input_token_cost": 0.000000175
-          },
-          "limit": {
-            "context": 128000,
-            "input": 111616,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": true,
-            "function_calling": true,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": true,
-            "open_weights": false
-          },
-          "family": "gpt",
-          "knowledge": "2024-10",
-          "release_date": "2025-12-11",
-          "last_updated": "2025-08-07"
         },
         "openai/gpt-5.2-codex": {
           "id": "openai/gpt-5.2-codex",
@@ -181361,9 +179166,9 @@
           "id": "MiniMaxAI/MiniMax-M3",
           "name": "MiniMax M3",
           "pricing": {
-            "input_cost_per_token": 0.00000029,
-            "output_cost_per_token": 0.0000012,
-            "cache_read_input_token_cost": 0.00000006
+            "input_cost_per_token": 0.00000023,
+            "output_cost_per_token": 0.00000096,
+            "cache_read_input_token_cost": 0.00000005
           },
           "limit": {
             "context": 262144,
@@ -181782,9 +179587,9 @@
           "id": "google/gemma-4-31B-it",
           "name": "Gemma 4 31B",
           "pricing": {
-            "input_cost_per_token": 0.00000012,
-            "output_cost_per_token": 0.00000035,
-            "cache_read_input_token_cost": 0.00000009
+            "input_cost_per_token": 0.0000001,
+            "output_cost_per_token": 0.00000034,
+            "cache_read_input_token_cost": 0.0000001
           },
           "limit": {
             "context": 262144,
@@ -182010,9 +179815,9 @@
           "id": "moonshotai/Kimi-K2.6",
           "name": "Kimi K2.6",
           "pricing": {
-            "input_cost_per_token": 0.00000095,
-            "output_cost_per_token": 0.000004,
-            "cache_read_input_token_cost": 0.00000016
+            "input_cost_per_token": 0.00000065,
+            "output_cost_per_token": 0.00000341,
+            "cache_read_input_token_cost": 0.00000015
           },
           "limit": {
             "context": 262144,
@@ -182043,9 +179848,9 @@
           "id": "moonshotai/Kimi-K2.7-Code",
           "name": "Kimi K2.7 Code",
           "pricing": {
-            "input_cost_per_token": 0.00000094,
-            "output_cost_per_token": 0.000004,
-            "cache_read_input_token_cost": 0.00000019
+            "input_cost_per_token": 0.00000071,
+            "output_cost_per_token": 0.0000035,
+            "cache_read_input_token_cost": 0.00000015
           },
           "limit": {
             "context": 262144,
@@ -182140,9 +179945,9 @@
           "id": "openai/gpt-oss-120b",
           "name": "gpt-oss-120b",
           "pricing": {
-            "input_cost_per_token": 0.00000004,
-            "output_cost_per_token": 0.00000014,
-            "cache_read_input_token_cost": 0.00000004
+            "input_cost_per_token": 0.00000003,
+            "output_cost_per_token": 0.00000017,
+            "cache_read_input_token_cost": 0.00000003
           },
           "limit": {
             "context": 131072,
@@ -182236,9 +180041,9 @@
           "id": "zai-org/GLM-5.2",
           "name": "GLM 5.2",
           "pricing": {
-            "input_cost_per_token": 0.00000139,
-            "output_cost_per_token": 0.0000044,
-            "cache_read_input_token_cost": 0.00000026
+            "input_cost_per_token": 0.00000076,
+            "output_cost_per_token": 0.00000242,
+            "cache_read_input_token_cost": 0.00000014
           },
           "limit": {
             "context": 262144,
