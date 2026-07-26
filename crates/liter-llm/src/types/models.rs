@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 pub struct ModelsListResponse {
     /// Always `"list"` from OpenAI-compatible APIs.  Stored as a plain
     /// `String` so non-standard provider values do not break deserialization.
+    /// Defaults to empty when a provider omits the field.
+    #[serde(default)]
     pub object: String,
     /// List of available models.
     pub data: Vec<ModelObject>,
@@ -30,4 +32,29 @@ pub struct ModelObject {
     /// Defaults to empty when a provider omits the field.
     #[serde(default)]
     pub owned_by: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn models_list_deserializes_without_object_field() {
+        // OpenRouter and similar providers omit the top-level `object` field.
+        let body = r#"{"data":[{"id":"gpt-4o"}]}"#;
+        let response: ModelsListResponse =
+            serde_json::from_str(body).expect("models list without `object` should deserialize");
+        assert_eq!(response.object, "");
+        assert_eq!(response.data.len(), 1);
+        assert_eq!(response.data[0].id, "gpt-4o");
+    }
+
+    #[test]
+    fn models_list_deserializes_with_object_field() {
+        let body = r#"{"object":"list","data":[{"id":"gpt-4o","object":"model","owned_by":"openai"}]}"#;
+        let response: ModelsListResponse = serde_json::from_str(body).expect("standard models list should deserialize");
+        assert_eq!(response.object, "list");
+        assert_eq!(response.data.len(), 1);
+        assert_eq!(response.data[0].owned_by, "openai");
+    }
 }
