@@ -1,9 +1,9 @@
 {
   "$provenance": {
     "source": "models.dev/api.json",
-    "source_sha256": "4fd44f3252644b5cb9ab028dc6cfe322a9a3535ef44e0e83570ac9d372d19e17",
-    "fetched": "2026-07-26",
-    "library_version": "1.11.1"
+    "source_sha256": "ee9717714365449d9deec7ff808d494a8d724031389320de232c9150973f2de1",
+    "fetched": "2026-07-27",
+    "library_version": "1.11.2"
   },
   "$schema_version": 1,
   "providers": {
@@ -19809,9 +19809,9 @@
           "id": "ambient/large",
           "name": "Ambient Large",
           "pricing": {
-            "input_cost_per_token": 0.00000105,
-            "output_cost_per_token": 0.0000044,
-            "cache_read_input_token_cost": 0.0000002,
+            "input_cost_per_token": 0.00000076,
+            "output_cost_per_token": 0.00000242,
+            "cache_read_input_token_cost": 0.00000014,
             "cache_creation_input_token_cost": 0.0
           },
           "limit": {
@@ -19910,7 +19910,7 @@
           "id": "moonshotai/kimi-k2.7-code",
           "name": "Kimi K2.7 Code",
           "pricing": {
-            "input_cost_per_token": 0.00000075,
+            "input_cost_per_token": 0.00000073,
             "output_cost_per_token": 0.0000035,
             "cache_read_input_token_cost": 0.00000015,
             "cache_creation_input_token_cost": 0.0
@@ -20011,9 +20011,9 @@
           "id": "z-ai/glm-5.2",
           "name": "GLM-5.2",
           "pricing": {
-            "input_cost_per_token": 0.00000105,
-            "output_cost_per_token": 0.0000044,
-            "cache_read_input_token_cost": 0.0000002,
+            "input_cost_per_token": 0.00000076,
+            "output_cost_per_token": 0.00000242,
+            "cache_read_input_token_cost": 0.00000014,
             "cache_creation_input_token_cost": 0.0
           },
           "limit": {
@@ -30167,6 +30167,40 @@
           "knowledge": "2026-01",
           "release_date": "2026-05-28",
           "last_updated": "2026-05-28"
+        },
+        "anthropic/claude-opus-5": {
+          "id": "anthropic/claude-opus-5",
+          "name": "Claude Opus 5",
+          "pricing": {
+            "input_cost_per_token": 0.000005,
+            "output_cost_per_token": 0.000025,
+            "cache_read_input_token_cost": 0.0000005,
+            "cache_creation_input_token_cost": 0.00000625
+          },
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": ["text", "image", "pdf"],
+            "output": ["text"]
+          },
+          "mode": "chat",
+          "capabilities": {
+            "vision": true,
+            "function_calling": true,
+            "reasoning": true,
+            "structured_output": false,
+            "audio_input": false,
+            "audio_output": false,
+            "prompt_caching": true,
+            "attachment": true,
+            "open_weights": false
+          },
+          "family": "claude-opus",
+          "knowledge": "2026-05",
+          "release_date": "2026-07-24",
+          "last_updated": "2026-07-24"
         },
         "anthropic/claude-sonnet-4": {
           "id": "anthropic/claude-sonnet-4",
@@ -47100,38 +47134,6 @@
           "release_date": "2026-04-24",
           "last_updated": "2026-04-24"
         },
-        "accounts/fireworks/models/glm-5p1": {
-          "id": "accounts/fireworks/models/glm-5p1",
-          "name": "GLM 5.1",
-          "pricing": {
-            "input_cost_per_token": 0.0000014,
-            "output_cost_per_token": 0.0000044,
-            "cache_read_input_token_cost": 0.00000026
-          },
-          "limit": {
-            "context": 202800,
-            "output": 131072
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "glm",
-          "release_date": "2026-04-01",
-          "last_updated": "2026-04-01"
-        },
         "accounts/fireworks/models/glm-5p2": {
           "id": "accounts/fireworks/models/glm-5p2",
           "name": "GLM 5.2",
@@ -47387,38 +47389,6 @@
           "family": "qwen",
           "release_date": "2026-06-12",
           "last_updated": "2026-06-12"
-        },
-        "accounts/fireworks/routers/glm-5p1-fast": {
-          "id": "accounts/fireworks/routers/glm-5p1-fast",
-          "name": "GLM 5.1 Fast",
-          "pricing": {
-            "input_cost_per_token": 0.0000028,
-            "output_cost_per_token": 0.0000088,
-            "cache_read_input_token_cost": 0.00000052
-          },
-          "limit": {
-            "context": 202800,
-            "output": 131072
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": true,
-            "reasoning": true,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": true,
-            "attachment": false,
-            "open_weights": true
-          },
-          "family": "glm",
-          "release_date": "2026-04-01",
-          "last_updated": "2026-04-01"
         },
         "accounts/fireworks/routers/glm-5p2-fast": {
           "id": "accounts/fireworks/routers/glm-5p2-fast",
@@ -130728,68 +130698,6 @@
           "release_date": "2026-05-08",
           "last_updated": "2026-05-08"
         },
-        "inflection/inflection-3-pi": {
-          "id": "inflection/inflection-3-pi",
-          "name": "Inflection 3 Pi",
-          "pricing": {
-            "input_cost_per_token": 0.0000025,
-            "output_cost_per_token": 0.00001
-          },
-          "limit": {
-            "context": 8000,
-            "output": 1024
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "knowledge": "2024-10-31",
-          "release_date": "2024-10-11",
-          "last_updated": "2024-10-11"
-        },
-        "inflection/inflection-3-productivity": {
-          "id": "inflection/inflection-3-productivity",
-          "name": "Inflection 3 Productivity",
-          "pricing": {
-            "input_cost_per_token": 0.0000025,
-            "output_cost_per_token": 0.00001
-          },
-          "limit": {
-            "context": 8000,
-            "output": 1024
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": false,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "knowledge": "2024-10-31",
-          "release_date": "2024-10-11",
-          "last_updated": "2024-10-11"
-        },
         "kwaipilot/kat-coder-air-v2.5": {
           "id": "kwaipilot/kat-coder-air-v2.5",
           "name": "KAT-Coder-Air V2.5",
@@ -132342,7 +132250,7 @@
           "id": "moonshotai/kimi-k2.7-code",
           "name": "Kimi K2.7 Code",
           "pricing": {
-            "input_cost_per_token": 0.00000078,
+            "input_cost_per_token": 0.00000073,
             "output_cost_per_token": 0.0000035,
             "cache_read_input_token_cost": 0.00000015
           },
@@ -133488,38 +133396,6 @@
           "release_date": "2024-07-18",
           "last_updated": "2024-07-18"
         },
-        "openai/gpt-4o-mini-search-preview": {
-          "id": "openai/gpt-4o-mini-search-preview",
-          "name": "GPT-4o-mini Search Preview",
-          "pricing": {
-            "input_cost_per_token": 0.00000015,
-            "output_cost_per_token": 0.0000006
-          },
-          "limit": {
-            "context": 128000,
-            "output": 16384
-          },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          },
-          "mode": "chat",
-          "capabilities": {
-            "vision": false,
-            "function_calling": false,
-            "reasoning": false,
-            "structured_output": true,
-            "audio_input": false,
-            "audio_output": false,
-            "prompt_caching": false,
-            "attachment": false,
-            "open_weights": false
-          },
-          "family": "o-mini",
-          "knowledge": "2023-10-31",
-          "release_date": "2025-03-12",
-          "last_updated": "2025-03-12"
-        },
         "openai/gpt-4o-search-preview": {
           "id": "openai/gpt-4o-search-preview",
           "name": "GPT-4o Search Preview",
@@ -133892,7 +133768,7 @@
           "pricing": {
             "input_cost_per_token": 0.00000125,
             "output_cost_per_token": 0.00001,
-            "cache_read_input_token_cost": 0.000000125
+            "cache_read_input_token_cost": 0.00000013
           },
           "limit": {
             "context": 400000,
@@ -133960,12 +133836,12 @@
           "pricing": {
             "input_cost_per_token": 0.00000025,
             "output_cost_per_token": 0.000002,
-            "cache_read_input_token_cost": 0.000000025
+            "cache_read_input_token_cost": 0.00000003
           },
           "limit": {
             "context": 400000,
             "input": 272000,
-            "output": 100000
+            "output": 128000
           },
           "modalities": {
             "input": ["text", "image"],
@@ -136050,12 +135926,12 @@
           "id": "qwen/qwen3-30b-a3b",
           "name": "Qwen3 30B A3B",
           "pricing": {
-            "input_cost_per_token": 0.00000013,
-            "output_cost_per_token": 0.00000052
+            "input_cost_per_token": 0.00000012,
+            "output_cost_per_token": 0.0000005
           },
           "limit": {
             "context": 131072,
-            "output": 8192
+            "output": 16384
           },
           "modalities": {
             "input": ["text"],
@@ -138439,9 +138315,9 @@
           "id": "z-ai/glm-5.2",
           "name": "GLM-5.2",
           "pricing": {
-            "input_cost_per_token": 0.0000007182,
-            "output_cost_per_token": 0.0000022572,
-            "cache_read_input_token_cost": 0.00000013338
+            "input_cost_per_token": 0.0000006692,
+            "output_cost_per_token": 0.0000021032,
+            "cache_read_input_token_cost": 0.00000012428
           },
           "limit": {
             "context": 1048576,
@@ -162658,7 +162534,7 @@
         },
         "thinkingmachines/Inkling:peft:262144": {
           "id": "thinkingmachines/Inkling:peft:262144",
-          "name": "Inkling",
+          "name": "Inkling (256K)",
           "pricing": {
             "input_cost_per_token": 0.00000374,
             "output_cost_per_token": 0.00000936,
