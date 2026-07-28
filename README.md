@@ -338,7 +338,14 @@ copilot plugin install liter-llm@liter-llm
 <details>
 <summary><strong>opencode</strong></summary>
 
-Not yet published as an opencode package. Install via any harness above (self-hosted marketplace); opencode support is tracked in [`xberg-io/liter-llm`](https://github.com/xberg-io/liter-llm).
+Add the package to `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["@xberg-io/opencode-liter-llm"]
+}
+```
 
 </details>
 
