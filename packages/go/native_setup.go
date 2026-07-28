@@ -6,4 +6,4 @@ package literllm
 // module is upgraded without re-running `cmd/setup`, the previously written shim (built
 // against the old version) references an identifier that no longer exists here, turning
 // silent native-library skew into a compile-time error instead of a runtime crash.
-const RequireNativeSetup_1_11_3 = "1.11.3"
+const RequireNativeSetup_1_11_4 = "1.11.4"

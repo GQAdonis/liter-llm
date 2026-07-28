@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.4] - 2026-07-28
+
 ### Fixed
 
 - **SSE streams no longer abort with "invalid UTF-8" when a provider splits a
@@ -15,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with the next chunk, instead of treating the incomplete sequence as corruption
   and terminating the stream. Common with CJK text, accented characters, emoji, or
   any sufficiently long response. Genuinely malformed UTF-8 still errors. (#152)
+
+### Changed
+
+- Refresh the model catalog from models.dev (now 165 providers).
+- Refresh `Cargo.lock` to the latest compatible dependency versions.
 
 ## [1.11.3] - 2026-07-27
 
