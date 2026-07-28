@@ -1,0 +1,144 @@
+{
+  "schema_version": "v1",
+  "source_hash": "blake3:ea89891892adcba330a86adcb4f7d0d1cfeb0c6f82ff665b0a3087e80bd7cd12",
+  "outputs": {
+    ".claude-plugin/plugin.json": {
+      "content_hash": "blake3:74372bbdfa019ab2334116912d35458c418c0261cee20afc5225a2cb36d28e6a"
+    },
+    ".codex-plugin/plugin.json": {
+      "content_hash": "blake3:d496a5d9e56c7e2fa21ece913b8d5abb5dd6f6dbff5d860ae61b4d1da6000ec9"
+    },
+    ".cursor-plugin/plugin.json": {
+      "content_hash": "blake3:e711cd18f95675e2b662a0aacccaf764b5ff860b709b8cc9d63929f8dd14f21e"
+    },
+    ".cursor-plugin/skills/calling-llms/SKILL.md": {
+      "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
+    },
+    ".cursor-plugin/skills/embeddings-and-search/SKILL.md": {
+      "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
+    },
+    ".cursor-plugin/skills/liter-llm/SKILL.md": {
+      "content_hash": "blake3:2fa27fd4d771d530a072afc9c10f24123280b69a3eb09f1b06f58abdba7b4511"
+    },
+    ".cursor-plugin/skills/running-the-proxy/SKILL.md": {
+      "content_hash": "blake3:c116c87cc47e287a604e874041bfbf9fd6c4da4206035b9f9943563df1a3ce4b"
+    },
+    ".cursor-plugin/skills/streaming-responses/SKILL.md": {
+      "content_hash": "blake3:df7f4ae1ab36743798209d92e87aac1c81da9aa8742319a8b84a898b2d1649b1"
+    },
+    ".cursor-plugin/skills/tool-calling/SKILL.md": {
+      "content_hash": "blake3:636c5d6448b2e3c003bd5caec347391513d72e415ceaef0740241141bc363b35"
+    },
+    ".cursor-plugin/skills/using-the-mcp-server/SKILL.md": {
+      "content_hash": "blake3:08655420ed4ca451d289d65aa8e9269df597b713ae5a601f56b7b951ed1841aa"
+    },
+    ".factory-plugin/plugin.json": {
+      "content_hash": "blake3:2d5ea31689826e0db3e08c0c323f15f564297c2751502e08f27ae2ed450d0e0e"
+    },
+    ".hermes/package/pyproject.toml": {
+      "content_hash": "blake3:2497bce1d969fc4dcf30861de848ba350ade899ce1e5dd25853d51e1287a88f0"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/__init__.py": {
+      "content_hash": "blake3:fbdad78dd804cec4411168ee1e198f3f8292f2f2b4ea9d1075f74d3069c5299b"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/hermes.py": {
+      "content_hash": "blake3:ea67a2034fe7813e671d3946523d836f6a1d77bc2fa96f766f838d77aa9068a4"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/plugin.yaml": {
+      "content_hash": "blake3:3c2722746ddb67218ad5cc926af6d0b113366b38cb92e7ab146c6e5ffbd1e7b4"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/skills/calling-llms/SKILL.md": {
+      "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/skills/embeddings-and-search/SKILL.md": {
+      "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/skills/liter-llm/SKILL.md": {
+      "content_hash": "blake3:2fa27fd4d771d530a072afc9c10f24123280b69a3eb09f1b06f58abdba7b4511"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/skills/running-the-proxy/SKILL.md": {
+      "content_hash": "blake3:c116c87cc47e287a604e874041bfbf9fd6c4da4206035b9f9943563df1a3ce4b"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/skills/streaming-responses/SKILL.md": {
+      "content_hash": "blake3:df7f4ae1ab36743798209d92e87aac1c81da9aa8742319a8b84a898b2d1649b1"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/skills/tool-calling/SKILL.md": {
+      "content_hash": "blake3:636c5d6448b2e3c003bd5caec347391513d72e415ceaef0740241141bc363b35"
+    },
+    ".hermes/package/src/liter_llm_hermes_plugin/skills/using-the-mcp-server/SKILL.md": {
+      "content_hash": "blake3:08655420ed4ca451d289d65aa8e9269df597b713ae5a601f56b7b951ed1841aa"
+    },
+    ".hermes/plugins/liter-llm/__init__.py": {
+      "content_hash": "blake3:fbdad78dd804cec4411168ee1e198f3f8292f2f2b4ea9d1075f74d3069c5299b"
+    },
+    ".hermes/plugins/liter-llm/hermes.py": {
+      "content_hash": "blake3:ea67a2034fe7813e671d3946523d836f6a1d77bc2fa96f766f838d77aa9068a4"
+    },
+    ".hermes/plugins/liter-llm/plugin.yaml": {
+      "content_hash": "blake3:3c2722746ddb67218ad5cc926af6d0b113366b38cb92e7ab146c6e5ffbd1e7b4"
+    },
+    ".hermes/plugins/liter-llm/skills/calling-llms/SKILL.md": {
+      "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
+    },
+    ".hermes/plugins/liter-llm/skills/embeddings-and-search/SKILL.md": {
+      "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
+    },
+    ".hermes/plugins/liter-llm/skills/liter-llm/SKILL.md": {
+      "content_hash": "blake3:2fa27fd4d771d530a072afc9c10f24123280b69a3eb09f1b06f58abdba7b4511"
+    },
+    ".hermes/plugins/liter-llm/skills/running-the-proxy/SKILL.md": {
+      "content_hash": "blake3:c116c87cc47e287a604e874041bfbf9fd6c4da4206035b9f9943563df1a3ce4b"
+    },
+    ".hermes/plugins/liter-llm/skills/streaming-responses/SKILL.md": {
+      "content_hash": "blake3:df7f4ae1ab36743798209d92e87aac1c81da9aa8742319a8b84a898b2d1649b1"
+    },
+    ".hermes/plugins/liter-llm/skills/tool-calling/SKILL.md": {
+      "content_hash": "blake3:636c5d6448b2e3c003bd5caec347391513d72e415ceaef0740241141bc363b35"
+    },
+    ".hermes/plugins/liter-llm/skills/using-the-mcp-server/SKILL.md": {
+      "content_hash": "blake3:08655420ed4ca451d289d65aa8e9269df597b713ae5a601f56b7b951ed1841aa"
+    },
+    ".mcp.json": {
+      "content_hash": "blake3:8cd5a868ad52946f0d81ffaf17f7cb3e42661fa3f054acdfbef0a1b842bb9e08"
+    },
+    ".opencode/plugins/liter-llm.js": {
+      "content_hash": "blake3:1ad3d813d05d2ed27d81f6e6848ad8cf124882181d5f4d5ca2e62e81d7bbc91c"
+    },
+    "assets/icon.svg": {
+      "content_hash": "blake3:283395b878a3b79266483098f81ad37defaf741adfa2484c82f982627f3cf590"
+    },
+    "assets/logo.svg": {
+      "content_hash": "blake3:ef9ead7fa9fc0dbbe0b7a3d01f1277c1ecded4e7be7fa76a8e7ad04277a23f6b"
+    },
+    "gemini-extension.json": {
+      "content_hash": "blake3:a39c97191f7e63bf12d9435257f5f94502ca7d7770bd01f3f617ba93ab900f6b"
+    },
+    "kimi.plugin.json": {
+      "content_hash": "blake3:f448e697067b07f4aafd21ce1ee4686426bd5a862badf1353918193bd77eef71"
+    },
+    "package.json": {
+      "content_hash": "blake3:5c55c51dbdd2e80ccef076e32af4d7cdb7e6d51a09d6d86903b89a6b21e071ee"
+    },
+    "skills/calling-llms/SKILL.md": {
+      "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
+    },
+    "skills/embeddings-and-search/SKILL.md": {
+      "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
+    },
+    "skills/liter-llm/SKILL.md": {
+      "content_hash": "blake3:2fa27fd4d771d530a072afc9c10f24123280b69a3eb09f1b06f58abdba7b4511"
+    },
+    "skills/running-the-proxy/SKILL.md": {
+      "content_hash": "blake3:c116c87cc47e287a604e874041bfbf9fd6c4da4206035b9f9943563df1a3ce4b"
+    },
+    "skills/streaming-responses/SKILL.md": {
+      "content_hash": "blake3:df7f4ae1ab36743798209d92e87aac1c81da9aa8742319a8b84a898b2d1649b1"
+    },
+    "skills/tool-calling/SKILL.md": {
+      "content_hash": "blake3:636c5d6448b2e3c003bd5caec347391513d72e415ceaef0740241141bc363b35"
+    },
+    "skills/using-the-mcp-server/SKILL.md": {
+      "content_hash": "blake3:08655420ed4ca451d289d65aa8e9269df597b713ae5a601f56b7b951ed1841aa"
+    }
+  }
+}
