@@ -1,7 +1,7 @@
 ---
 name: liter-llm
 description: >-
-  Universal LLM API client for 143 providers with native bindings for 14
+  Universal LLM API client for 165 providers with native bindings for 14
   languages. Use when writing code that calls LLM APIs via liter-llm in Python,
   TypeScript, Rust, Go, Java, C#, Ruby, PHP, Elixir, WASM, or C, when running
   the OpenAI-compatible proxy, or when calling LLMs through the MCP server.
@@ -19,7 +19,7 @@ metadata:
 
 Liter-LLM is a universal LLM API client with a Rust core and native bindings for
 Python, TypeScript/Node.js, Go, Java, C#, Ruby, PHP, Elixir, WebAssembly, and C
-(FFI). One unified interface reaches 143 providers (OpenAI, Anthropic, Google
+(FFI). One unified interface reaches 165 providers (OpenAI, Anthropic, Google
 Gemini, Groq, Mistral, Cohere, AWS Bedrock, Azure, and many more).
 
 ## Capability map
@@ -30,7 +30,7 @@ Gemini, Groq, Mistral, Cohere, AWS Bedrock, Azure, and many more).
   and file operations.
 - **Provider routing** — `provider/model` prefix selects the backend
   (`openai/gpt-4o`, `anthropic/claude-sonnet-4-20250514`,
-  `google/gemini-2.0-flash`). Set `model_hint` to skip the prefix.
+  `gemini/gemini-2.0-flash`). Set `model_hint` to skip the prefix.
 - **Middleware** — response caching, rate limiting (RPM/TPM), cost tracking,
   budget enforcement (`hard` / `soft`), fallback chains, circuit-breaker
   cooldown, and background health checks.
@@ -115,7 +115,7 @@ The prefix before `/` in the request's `model` selects the provider:
 ```python
 ChatCompletionRequest.from_json('{"model":"openai/gpt-4o","messages":[...]}')
 ChatCompletionRequest.from_json('{"model":"anthropic/claude-sonnet-4-20250514","messages":[...]}')
-ChatCompletionRequest.from_json('{"model":"google/gemini-2.0-flash","messages":[...]}')
+ChatCompletionRequest.from_json('{"model":"gemini/gemini-2.0-flash","messages":[...]}')
 ChatCompletionRequest.from_json('{"model":"groq/llama3-70b","messages":[...]}')
 ```
 

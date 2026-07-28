@@ -1,15 +1,15 @@
 {
   "schema_version": "v1",
-  "source_hash": "blake3:ea89891892adcba330a86adcb4f7d0d1cfeb0c6f82ff665b0a3087e80bd7cd12",
+  "source_hash": "blake3:987ceb633960e9e756faf9949d908490b6bb816bd1faa1224a5cf599b833c11e",
   "outputs": {
     ".claude-plugin/plugin.json": {
-      "content_hash": "blake3:74372bbdfa019ab2334116912d35458c418c0261cee20afc5225a2cb36d28e6a"
+      "content_hash": "blake3:2ad771514b716c246b65195694cdce95137568bdacf0f3c4e3952e497e6d52db"
     },
     ".codex-plugin/plugin.json": {
-      "content_hash": "blake3:d496a5d9e56c7e2fa21ece913b8d5abb5dd6f6dbff5d860ae61b4d1da6000ec9"
+      "content_hash": "blake3:ba28c618ffdab4d1b1c6b7199145c5f9fae4d4e00b5231189609ceb55871904e"
     },
     ".cursor-plugin/plugin.json": {
-      "content_hash": "blake3:e711cd18f95675e2b662a0aacccaf764b5ff860b709b8cc9d63929f8dd14f21e"
+      "content_hash": "blake3:a036a6b1d7b305f7cc074817ad9d1bca580d975f8beb2ce639b74ab5c79774c0"
     },
     ".cursor-plugin/skills/calling-llms/SKILL.md": {
       "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
@@ -18,25 +18,25 @@
       "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
     },
     ".cursor-plugin/skills/liter-llm/SKILL.md": {
-      "content_hash": "blake3:2fa27fd4d771d530a072afc9c10f24123280b69a3eb09f1b06f58abdba7b4511"
+      "content_hash": "blake3:a9ebf7409cdd2e0aa6c1374b018a5d8066efbecbb8a501f9e901e288221e6e3e"
     },
     ".cursor-plugin/skills/running-the-proxy/SKILL.md": {
-      "content_hash": "blake3:c116c87cc47e287a604e874041bfbf9fd6c4da4206035b9f9943563df1a3ce4b"
+      "content_hash": "blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60"
     },
     ".cursor-plugin/skills/streaming-responses/SKILL.md": {
-      "content_hash": "blake3:df7f4ae1ab36743798209d92e87aac1c81da9aa8742319a8b84a898b2d1649b1"
+      "content_hash": "blake3:13410510899be94ef40712ffcb27a284ef4ac4977b6e45b38b014d60e913f995"
     },
     ".cursor-plugin/skills/tool-calling/SKILL.md": {
       "content_hash": "blake3:636c5d6448b2e3c003bd5caec347391513d72e415ceaef0740241141bc363b35"
     },
     ".cursor-plugin/skills/using-the-mcp-server/SKILL.md": {
-      "content_hash": "blake3:08655420ed4ca451d289d65aa8e9269df597b713ae5a601f56b7b951ed1841aa"
+      "content_hash": "blake3:4c8d31c57c57ec1db9bc8fa0064086f1ee33a81418bc129b4bf9fae2b5099bab"
     },
     ".factory-plugin/plugin.json": {
-      "content_hash": "blake3:2d5ea31689826e0db3e08c0c323f15f564297c2751502e08f27ae2ed450d0e0e"
+      "content_hash": "blake3:d2b451caca620b44c238a81ff9e681634b18011deae2af06d7c9d824216652fc"
     },
     ".hermes/package/pyproject.toml": {
-      "content_hash": "blake3:2497bce1d969fc4dcf30861de848ba350ade899ce1e5dd25853d51e1287a88f0"
+      "content_hash": "blake3:b2e6d5874ab6540b813f0177d65ca4b27197e88566fd5356c7a81538f6319f91"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/__init__.py": {
       "content_hash": "blake3:fbdad78dd804cec4411168ee1e198f3f8292f2f2b4ea9d1075f74d3069c5299b"
@@ -45,7 +45,7 @@
       "content_hash": "blake3:ea67a2034fe7813e671d3946523d836f6a1d77bc2fa96f766f838d77aa9068a4"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/plugin.yaml": {
-      "content_hash": "blake3:3c2722746ddb67218ad5cc926af6d0b113366b38cb92e7ab146c6e5ffbd1e7b4"
+      "content_hash": "blake3:fd7d144e189b871c573ba79e54adcd7459be52c0ff60e37341f962d7e3494154"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/skills/calling-llms/SKILL.md": {
       "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
@@ -54,19 +54,19 @@
       "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/skills/liter-llm/SKILL.md": {
-      "content_hash": "blake3:2fa27fd4d771d530a072afc9c10f24123280b69a3eb09f1b06f58abdba7b4511"
+      "content_hash": "blake3:a9ebf7409cdd2e0aa6c1374b018a5d8066efbecbb8a501f9e901e288221e6e3e"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/skills/running-the-proxy/SKILL.md": {
-      "content_hash": "blake3:c116c87cc47e287a604e874041bfbf9fd6c4da4206035b9f9943563df1a3ce4b"
+      "content_hash": "blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/skills/streaming-responses/SKILL.md": {
-      "content_hash": "blake3:df7f4ae1ab36743798209d92e87aac1c81da9aa8742319a8b84a898b2d1649b1"
+      "content_hash": "blake3:13410510899be94ef40712ffcb27a284ef4ac4977b6e45b38b014d60e913f995"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/skills/tool-calling/SKILL.md": {
       "content_hash": "blake3:636c5d6448b2e3c003bd5caec347391513d72e415ceaef0740241141bc363b35"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/skills/using-the-mcp-server/SKILL.md": {
-      "content_hash": "blake3:08655420ed4ca451d289d65aa8e9269df597b713ae5a601f56b7b951ed1841aa"
+      "content_hash": "blake3:4c8d31c57c57ec1db9bc8fa0064086f1ee33a81418bc129b4bf9fae2b5099bab"
     },
     ".hermes/plugins/liter-llm/__init__.py": {
       "content_hash": "blake3:fbdad78dd804cec4411168ee1e198f3f8292f2f2b4ea9d1075f74d3069c5299b"
@@ -75,7 +75,7 @@
       "content_hash": "blake3:ea67a2034fe7813e671d3946523d836f6a1d77bc2fa96f766f838d77aa9068a4"
     },
     ".hermes/plugins/liter-llm/plugin.yaml": {
-      "content_hash": "blake3:3c2722746ddb67218ad5cc926af6d0b113366b38cb92e7ab146c6e5ffbd1e7b4"
+      "content_hash": "blake3:fd7d144e189b871c573ba79e54adcd7459be52c0ff60e37341f962d7e3494154"
     },
     ".hermes/plugins/liter-llm/skills/calling-llms/SKILL.md": {
       "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
@@ -84,19 +84,19 @@
       "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
     },
     ".hermes/plugins/liter-llm/skills/liter-llm/SKILL.md": {
-      "content_hash": "blake3:2fa27fd4d771d530a072afc9c10f24123280b69a3eb09f1b06f58abdba7b4511"
+      "content_hash": "blake3:a9ebf7409cdd2e0aa6c1374b018a5d8066efbecbb8a501f9e901e288221e6e3e"
     },
     ".hermes/plugins/liter-llm/skills/running-the-proxy/SKILL.md": {
-      "content_hash": "blake3:c116c87cc47e287a604e874041bfbf9fd6c4da4206035b9f9943563df1a3ce4b"
+      "content_hash": "blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60"
     },
     ".hermes/plugins/liter-llm/skills/streaming-responses/SKILL.md": {
-      "content_hash": "blake3:df7f4ae1ab36743798209d92e87aac1c81da9aa8742319a8b84a898b2d1649b1"
+      "content_hash": "blake3:13410510899be94ef40712ffcb27a284ef4ac4977b6e45b38b014d60e913f995"
     },
     ".hermes/plugins/liter-llm/skills/tool-calling/SKILL.md": {
       "content_hash": "blake3:636c5d6448b2e3c003bd5caec347391513d72e415ceaef0740241141bc363b35"
     },
     ".hermes/plugins/liter-llm/skills/using-the-mcp-server/SKILL.md": {
-      "content_hash": "blake3:08655420ed4ca451d289d65aa8e9269df597b713ae5a601f56b7b951ed1841aa"
+      "content_hash": "blake3:4c8d31c57c57ec1db9bc8fa0064086f1ee33a81418bc129b4bf9fae2b5099bab"
     },
     ".mcp.json": {
       "content_hash": "blake3:8cd5a868ad52946f0d81ffaf17f7cb3e42661fa3f054acdfbef0a1b842bb9e08"
@@ -111,13 +111,13 @@
       "content_hash": "blake3:ef9ead7fa9fc0dbbe0b7a3d01f1277c1ecded4e7be7fa76a8e7ad04277a23f6b"
     },
     "gemini-extension.json": {
-      "content_hash": "blake3:a39c97191f7e63bf12d9435257f5f94502ca7d7770bd01f3f617ba93ab900f6b"
+      "content_hash": "blake3:a10bfe21d90e9cdec76c2537186262fbaf907d7e2c028178adc9af172b090040"
     },
     "kimi.plugin.json": {
-      "content_hash": "blake3:f448e697067b07f4aafd21ce1ee4686426bd5a862badf1353918193bd77eef71"
+      "content_hash": "blake3:eff70e94a7427a448794ea01da54e67b04fd2d1f6f1cdac85e803b8eb0edf664"
     },
     "package.json": {
-      "content_hash": "blake3:5c55c51dbdd2e80ccef076e32af4d7cdb7e6d51a09d6d86903b89a6b21e071ee"
+      "content_hash": "blake3:a187b49cf1b4668f52aea1ef171e404c4a530917d8063c059e7165bd2ac22c7a"
     },
     "skills/calling-llms/SKILL.md": {
       "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
@@ -126,19 +126,19 @@
       "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
     },
     "skills/liter-llm/SKILL.md": {
-      "content_hash": "blake3:2fa27fd4d771d530a072afc9c10f24123280b69a3eb09f1b06f58abdba7b4511"
+      "content_hash": "blake3:a9ebf7409cdd2e0aa6c1374b018a5d8066efbecbb8a501f9e901e288221e6e3e"
     },
     "skills/running-the-proxy/SKILL.md": {
-      "content_hash": "blake3:c116c87cc47e287a604e874041bfbf9fd6c4da4206035b9f9943563df1a3ce4b"
+      "content_hash": "blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60"
     },
     "skills/streaming-responses/SKILL.md": {
-      "content_hash": "blake3:df7f4ae1ab36743798209d92e87aac1c81da9aa8742319a8b84a898b2d1649b1"
+      "content_hash": "blake3:13410510899be94ef40712ffcb27a284ef4ac4977b6e45b38b014d60e913f995"
     },
     "skills/tool-calling/SKILL.md": {
       "content_hash": "blake3:636c5d6448b2e3c003bd5caec347391513d72e415ceaef0740241141bc363b35"
     },
     "skills/using-the-mcp-server/SKILL.md": {
-      "content_hash": "blake3:08655420ed4ca451d289d65aa8e9269df597b713ae5a601f56b7b951ed1841aa"
+      "content_hash": "blake3:4c8d31c57c57ec1db9bc8fa0064086f1ee33a81418bc129b4bf9fae2b5099bab"
     }
   }
 }

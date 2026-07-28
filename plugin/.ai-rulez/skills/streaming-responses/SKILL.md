@@ -49,7 +49,8 @@ for await (const chunk of chunks) {
 - The first and last chunks often carry null content. Always null-check
   `chunk.choices[0].delta.content` (Python) or
   `chunk.choices[0]?.delta?.content` (TypeScript) before using it.
-- Tool-call deltas arrive in `delta.tool_calls`; accumulate
-  `function.arguments` fragments across chunks before parsing.
+- Tool-call deltas arrive in `delta.tool_calls` (Python) /
+  `delta.toolCalls` (TypeScript); accumulate `function.arguments` fragments
+  across chunks before parsing.
 - Through the proxy, request streaming with `"stream": true` on
   `/v1/chat/completions`.

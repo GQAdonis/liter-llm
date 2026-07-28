@@ -5,15 +5,15 @@ description: Use when running the `liter-llm api` OpenAI-compatible gateway — 
 
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-Content-Hash: blake3:c116c87cc47e287a604e874041bfbf9fd6c4da4206035b9f9943563df1a3ce4b
-Source-Hash: blake3:ea89891892adcba330a86adcb4f7d0d1cfeb0c6f82ff665b0a3087e80bd7cd12
+Content-Hash: blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60
+Source-Hash: blake3:987ceb633960e9e756faf9949d908490b6bb816bd1faa1224a5cf599b833c11e
 Schema-Version: v1
 -->
 
 # Running the Proxy
 
 `liter-llm api` is a drop-in OpenAI-compatible gateway: 22 REST endpoints that
-route to 143 providers, with multi-tenant virtual keys, rate limits, budgets,
+route to 165 providers, with multi-tenant virtual keys, rate limits, budgets,
 and cost tracking.
 
 ## Start it
