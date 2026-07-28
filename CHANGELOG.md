@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **SSE streams no longer abort with "invalid UTF-8" when a provider splits a
+  multi-byte character across HTTP chunks.** The SSE parser now buffers the
+  trailing bytes of a codepoint that lands on a chunk boundary and reassembles it
+  with the next chunk, instead of treating the incomplete sequence as corruption
+  and terminating the stream. Common with CJK text, accented characters, emoji, or
+  any sufficiently long response. Genuinely malformed UTF-8 still errors. (#152)
+
 ## [1.11.3] - 2026-07-27
 
 ### Changed
