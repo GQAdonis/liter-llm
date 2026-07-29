@@ -421,6 +421,9 @@ jobs:
           - label: linux-arm64-gnu
             runner: ubuntu-24.04-arm
             napi_target: aarch64-unknown-linux-gnu
+          - label: darwin-x64
+            runner: macos-13
+            napi_target: x86_64-apple-darwin
           - label: darwin-arm64
             runner: macos-latest
             napi_target: aarch64-apple-darwin
