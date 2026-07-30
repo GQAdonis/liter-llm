@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.5] - 2026-07-30
+
+### Changed
+
+- Upgrade the MCP server to `rmcp` 3.0, adopting the MCP 2026-07-28 protocol
+  revision and its sessionless streamable-HTTP transport. The existing
+  `validate_api_key` middleware and per-request `KeyContext` auth model are
+  retained.
+
 ## [1.11.4] - 2026-07-28
 
 ### Fixed
