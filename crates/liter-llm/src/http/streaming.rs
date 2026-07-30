@@ -89,16 +89,13 @@ pub use tokio_util::sync::CancellationToken;
 /// `parse_event` translates a raw SSE `data:` payload string into a
 /// `ChatCompletionChunk`.  Pass the provider's `parse_stream_event` method
 /// to support non-OpenAI SSE formats.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            http.method = "POST",
-            http.url = %url,
-            http.status_code = tracing::field::Empty,
-            http.retry_count = tracing::field::Empty,
-        )
+#[tracing::instrument(
+    skip_all,
+    fields(
+        http.method = "POST",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
     )
 )]
 pub async fn post_stream<P>(
@@ -131,7 +128,6 @@ where
     })
     .await?;
 
-    #[cfg(feature = "tracing")]
     {
         let span = tracing::Span::current();
         span.record("http.status_code", resp.status().as_u16());
@@ -151,16 +147,13 @@ where
 #[cfg(feature = "native-http")]
 #[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            http.method = "POST",
-            http.url = %url,
-            http.status_code = tracing::field::Empty,
-            http.retry_count = tracing::field::Empty,
-        )
+#[tracing::instrument(
+    skip_all,
+    fields(
+        http.method = "POST",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
     )
 )]
 pub async fn post_stream_with_cancel<P>(
@@ -194,7 +187,6 @@ where
     })
     .await?;
 
-    #[cfg(feature = "tracing")]
     {
         let span = tracing::Span::current();
         span.record("http.status_code", resp.status().as_u16());
@@ -285,7 +277,6 @@ where
 
         #[cfg(feature = "native-http")]
         if this.cancel.as_ref().is_some_and(|t| t.is_cancelled()) {
-            #[cfg(feature = "tracing")]
             tracing::debug!("SSE stream cancelled by downstream disconnect");
             *this.done = true;
             return Poll::Ready(None);
@@ -332,7 +323,6 @@ where
                 // ~keep Leftover bytes at EOF are an incomplete SSE line and indicate truncation.
                 let remaining = this.buffer.len() - *this.cursor;
                 if remaining > 0 {
-                    #[cfg(feature = "tracing")]
                     tracing::warn!(
                         leftover_bytes = remaining,
                         preview = &this.buffer[*this.cursor..(*this.cursor + remaining.min(64))],
@@ -350,7 +340,6 @@ where
             // ~keep Re-check cancellation before blocking on the inner stream.
             #[cfg(feature = "native-http")]
             if this.cancel.as_ref().is_some_and(|t| t.is_cancelled()) {
-                #[cfg(feature = "tracing")]
                 tracing::debug!("SSE stream cancelled while waiting for next chunk");
                 *this.done = true;
                 return Poll::Ready(None);

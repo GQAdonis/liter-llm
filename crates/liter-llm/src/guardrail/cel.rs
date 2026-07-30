@@ -221,7 +221,6 @@ impl Guardrail for CelGuardrail {
                 Ok(Value::Bool(false)) => GuardrailDecision::Allow,
 
                 Ok(non_bool) => {
-                    #[cfg(feature = "tracing")]
                     tracing::error!(
                         guardrail = self.guardrail_name,
                         stage = ?stage,
@@ -230,11 +229,6 @@ impl Guardrail for CelGuardrail {
                          defaulting to fail-closed (Block/4001) — \
                          set fail_open=true to suppress"
                     );
-                    #[cfg(not(feature = "tracing"))]
-                    {
-                        let _ = stage;
-                        let _ = non_bool;
-                    }
 
                     if self.fail_open {
                         GuardrailDecision::Allow
@@ -247,7 +241,6 @@ impl Guardrail for CelGuardrail {
                 }
 
                 Err(e) => {
-                    #[cfg(feature = "tracing")]
                     tracing::error!(
                         guardrail = self.guardrail_name,
                         stage = ?stage,
@@ -256,11 +249,6 @@ impl Guardrail for CelGuardrail {
                          defaulting to fail-closed (Block/4001) — \
                          set fail_open=true to suppress"
                     );
-                    #[cfg(not(feature = "tracing"))]
-                    {
-                        let _ = stage;
-                        let _ = e;
-                    }
 
                     if self.fail_open {
                         GuardrailDecision::Allow

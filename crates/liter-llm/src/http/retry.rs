@@ -71,7 +71,6 @@ pub fn parse_retry_after(value: &str) -> Option<Duration> {
         return Some(Duration::from_secs(secs));
     }
 
-    #[cfg(feature = "tracing")]
     tracing::warn!(
         retry_after = trimmed,
         "Retry-After header uses HTTP-date format which is not yet supported; \

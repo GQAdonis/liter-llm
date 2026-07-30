@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   interactive GitHub Copilot device-flow auth prompt and the CLI's top-level error report), and the
   `catalog-gen` dev tool keeps its stdout/stderr contract. Language bindings regenerated with alef
   0.48.12.
+- **The `tracing` Cargo feature is removed; `tracing` is now an always-on dependency.** Spans and
+  events compile unconditionally (near-zero cost with no subscriber installed), aligning with the
+  org feature-flag contract that tracing is never optional. `otel` remains the opt-in OTLP export
+  layer.
 
 ## [1.11.5] - 2026-07-30
 

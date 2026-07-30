@@ -40,16 +40,13 @@ const HEADER_TYPE_STRING: u8 = 7;
 ///
 /// The `parse_event` function receives `(event_type, payload_json)` for each
 /// event and returns a parsed chunk or `None` for terminal events.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            http.method = "POST",
-            http.url = %url,
-            http.status_code = tracing::field::Empty,
-            http.retry_count = tracing::field::Empty,
-        )
+#[tracing::instrument(
+    skip_all,
+    fields(
+        http.method = "POST",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
     )
 )]
 pub async fn post_eventstream<P>(
@@ -82,7 +79,6 @@ where
     })
     .await?;
 
-    #[cfg(feature = "tracing")]
     {
         let span = tracing::Span::current();
         span.record("http.status_code", resp.status().as_u16());

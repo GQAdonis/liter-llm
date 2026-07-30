@@ -880,7 +880,6 @@ fn convert_user_content_to_anthropic(content: Option<&Value>) -> Value {
                             Some(block)
                         }
                         _ => {
-                            #[cfg(feature = "tracing")]
                             tracing::warn!(
                                 part_type = part_type,
                                 "unrecognized user content part type; falling back to text"
