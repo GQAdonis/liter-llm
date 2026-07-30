@@ -3209,12 +3209,13 @@ name = "liter-llm-jni"
 version = "1.11.5"
 dependencies = [
  "async-trait",
- "base64 0.23.0",
+ "base64 0.22.1",
  "futures-util",
  "jni",
  "liter-llm",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3310,6 +3311,7 @@ dependencies = [
  "futures-util",
  "libc",
  "liter-llm",
+ "liter-llm-ffi",
  "serde",
  "serde_json",
  "swift-bridge",

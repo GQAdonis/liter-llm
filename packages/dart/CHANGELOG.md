@@ -2,6 +2,6 @@
 
 All notable changes to this package will be documented in this file.
 
-## 1.11.2
+## 1.11.5
 
 - Initial release.
