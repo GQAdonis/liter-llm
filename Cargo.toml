@@ -30,6 +30,11 @@ needless-pass-by-value = "allow"
 module-name-repetitions = "allow"
 missing-errors-doc = "allow"
 missing-panics-doc = "allow"
+# Diagnostics belong in `tracing`, not raw stdout/stderr writes. CLI data output and
+# build-script `cargo:` directives opt back in locally with `#[expect(clippy::print_stdout)]`. ~keep
+print_stdout = "deny"
+print_stderr = "deny"
+dbg_macro = "deny"
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(alef)'] }
