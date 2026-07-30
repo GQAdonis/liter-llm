@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout, clippy::print_stderr, clippy::dbg_macro)] // ~keep: test/bench code prints by design
 //! Integration tests that hit real LLM provider APIs.
 //!
 //! Gated on environment variables — tests skip gracefully when the

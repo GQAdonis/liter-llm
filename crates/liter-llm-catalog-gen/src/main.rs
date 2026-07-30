@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout, clippy::print_stderr)] // ~keep: dev codegen tool; stdout/stderr is its output contract
 //! CLI entry point for `liter-llm-catalog-gen`.
 //!
 //! ```text

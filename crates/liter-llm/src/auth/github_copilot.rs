@@ -288,10 +288,15 @@ impl GithubCopilotCredentialProvider {
                 status: 401,
             })?;
 
-        eprintln!(
-            "\nTo authenticate with GitHub Copilot, visit: {}\nand enter code: {}\n",
-            device.verification_uri, device.user_code
-        );
+        // Device-flow auth instructions the user must read to complete OAuth; a `tracing`
+        // event would be swallowed without a subscriber, breaking the interactive flow. ~keep
+        #[expect(clippy::print_stderr, reason = "interactive device-flow auth prompt, not a diagnostic")]
+        {
+            eprintln!(
+                "\nTo authenticate with GitHub Copilot, visit: {}\nand enter code: {}\n",
+                device.verification_uri, device.user_code
+            );
+        }
 
         for attempt in 0..DEVICE_FLOW_POLL_ATTEMPTS {
             tokio::time::sleep(DEVICE_FLOW_POLL_INTERVAL).await;

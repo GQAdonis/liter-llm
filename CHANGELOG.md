@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Raw `println!`/`eprintln!`/`print!`/`eprint!`/`dbg!` are denied in production code across the
+  workspace (clippy `print_stdout`/`print_stderr`/`dbg_macro`); `tracing` is the sole diagnostic
+  surface. Genuinely non-diagnostic output opts back in per site with `#[expect(...)]` (the
+  interactive GitHub Copilot device-flow auth prompt and the CLI's top-level error report), and the
+  `catalog-gen` dev tool keeps its stdout/stderr contract. Language bindings regenerated with alef
+  0.48.12.
+
 ## [1.11.5] - 2026-07-30
 
 ### Changed

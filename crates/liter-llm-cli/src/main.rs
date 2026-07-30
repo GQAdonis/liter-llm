@@ -27,7 +27,12 @@ fn main() {
     let runtime = build_tokio_runtime(&cli);
 
     if let Err(e) = runtime.block_on(run(cli)) {
-        eprintln!("Error: {e}");
+        // Fatal error reported to stderr before a non-zero exit; must be visible without a
+        // tracing subscriber installed, so this is legitimate CLI output, not a diagnostic. ~keep
+        #[expect(clippy::print_stderr, reason = "top-level CLI fatal-error report before exit")]
+        {
+            eprintln!("Error: {e}");
+        }
         std::process::exit(1);
     }
 }

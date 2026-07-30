@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout, clippy::print_stderr, clippy::dbg_macro)] // ~keep: test/bench code prints by design
 //! Integration tests against local LLM providers (Ollama).
 //!
 //! These tests require a running Ollama instance with models pulled.
