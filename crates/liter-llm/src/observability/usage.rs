@@ -194,9 +194,7 @@ pub enum UsageSinkError {
 pub struct LoggingUsageSink;
 
 impl UsageSink for LoggingUsageSink {
-    #[cfg_attr(not(feature = "tracing"), allow(unused_variables))]
     async fn emit(&self, event: UsageEvent) -> Result<(), UsageSinkError> {
-        #[cfg(feature = "tracing")]
         tracing::info!(
             target: "gen_ai.usage",
             tenant_id = event.tenant_id.as_ref().map(|t| t.as_ref()),
@@ -295,11 +293,10 @@ impl MultiUsageSink {
 impl UsageSink for MultiUsageSink {
     async fn emit(&self, event: UsageEvent) -> Result<(), UsageSinkError> {
         for sink in &self.sinks {
-            if let Err(_err) = sink.emit_erased(event.clone()).await {
-                #[cfg(feature = "tracing")]
+            if let Err(err) = sink.emit_erased(event.clone()).await {
                 tracing::warn!(
                     target: "gen_ai.usage",
-                    error = %_err,
+                    error = %err,
                     "usage sink emit failed"
                 );
             }

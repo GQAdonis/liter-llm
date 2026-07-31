@@ -13,7 +13,11 @@ members = [
     "packages/dart/rust",
     "packages/swift/rust",
 ]
-exclude = ["e2e/rust", "packages/elixir/native/liter_llm_nif", "packages/ruby/ext/liter_llm_rb/native"]
+exclude = [
+    "e2e/rust",
+    "packages/elixir/native/liter_llm_nif",
+    "packages/ruby/ext/liter_llm_rb/native",
+]
 resolver = "2"
 
 [workspace.lints.clippy]
@@ -30,12 +34,17 @@ needless-pass-by-value = "allow"
 module-name-repetitions = "allow"
 missing-errors-doc = "allow"
 missing-panics-doc = "allow"
+# Diagnostics belong in `tracing`, not raw stdout/stderr writes. CLI data output and
+# build-script `cargo:` directives opt back in locally with `#[expect(clippy::print_stdout)]`. ~keep
+print_stdout = "deny"
+print_stderr = "deny"
+dbg_macro = "deny"
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(alef)'] }
 
 [workspace.package]
-version = "1.11.5"
+version = "1.12.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
@@ -84,6 +93,8 @@ opendal = { version = "0.57", default-features = false, features = [
     "services-s3",
 ] }
 opentelemetry = { version = "0.32", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic", "trace", "metrics"] }
+opentelemetry_sdk = { version = "0.32", features = ["rt-tokio"] }
 pin-project-lite = "0.2"
 pyo3 = { version = "0.29", features = ["abi3-py310", "multiple-pymethods"] }
 pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }

@@ -12,7 +12,7 @@ name = "liter-llm"
 # same fix already applied to the other vendored crates in vendor/git/
 # (surreal-memory, sycophancy-core). Values must stay in sync with
 # ../../Cargo.toml's `[workspace.package]` table when bumping upstream.
-version = "1.11.5"
+version = "1.12.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
@@ -46,11 +46,9 @@ native-http = [
 
 wasm-http = ["dep:reqwest", "dep:memchr", "dep:gloo-timers", "dep:web-time"]
 
-tracing = ["dep:tracing"]
+otel = ["dep:tracing-opentelemetry", "dep:opentelemetry"]
 
-otel = ["tracing", "dep:tracing-opentelemetry", "dep:opentelemetry"]
-
-tower = ["dep:tower", "dep:tower-http", "dep:futures-util", "tracing"]
+tower = ["dep:tower", "dep:tower-http", "dep:futures-util"]
 
 opendal-cache = ["dep:opendal", "tower"]
 
@@ -81,7 +79,6 @@ lite = ["native-http"]
 full = [
     "native-http",
     "tower",
-    "tracing",
     "otel",
     "bedrock",
     "tokenizer",
@@ -164,7 +161,7 @@ tower-http = { version = "0.7", features = [
     "catch-panic",
     "limit",
 ], optional = true }
-tracing = { version = "0.1", optional = true }
+tracing = "0.1"
 tracing-opentelemetry = { version = "0.33", optional = true }
 url = "2.5"
 web-time = { version = "1", optional = true }
@@ -189,6 +186,10 @@ serde_json = "1"
 serial_test = "4"
 tokio = { version = "1", features = ["full", "test-util", "macros"] }
 
+# ~keep Hardcoded (NOT `[lints] workspace = true`) for the same nested-workspace
+# ~keep vendoring reason as the [package]/[dependencies] fields above — must stay
+# ~keep byte-for-byte in sync with ../../Cargo.toml's [workspace.lints.clippy]/
+# ~keep [workspace.lints.rust] tables when bumping upstream.
 [lints.clippy]
 correctness = { level = "deny", priority = -1 }
 suspicious = { level = "deny", priority = -1 }
@@ -203,6 +204,11 @@ needless-pass-by-value = "allow"
 module-name-repetitions = "allow"
 missing-errors-doc = "allow"
 missing-panics-doc = "allow"
+# Diagnostics belong in `tracing`, not raw stdout/stderr writes. CLI data output and
+# build-script `cargo:` directives opt back in locally with `#[expect(clippy::print_stdout)]`. ~keep
+print_stdout = "deny"
+print_stderr = "deny"
+dbg_macro = "deny"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(alef)'] }

@@ -31,12 +31,8 @@ pub async fn run(args: McpArgs) -> Result<(), String> {
     use liter_llm_proxy::state::AppState;
     use rmcp::ServiceExt;
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .init();
+    // ~keep Hold the guard for the whole server so the OTLP providers flush on exit.
+    let _telemetry_guard = crate::telemetry::init("info");
 
     let config = if let Some(path) = &args.config {
         ProxyConfig::from_toml_file(path)?

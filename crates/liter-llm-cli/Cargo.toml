@@ -14,7 +14,16 @@ name = "liter-llm"
 path = "src/main.rs"
 
 [features]
-otel = ["liter-llm-proxy/otel"]
+# ~keep The CLI owns subscriber install (libraries emit only). `otel` adds the OTLP
+# ~keep export pipeline (SpanExporter + Sdk tracer/meter providers + tracing-opentelemetry
+# ~keep layer), activated at runtime by `OTEL_EXPORTER_OTLP_ENDPOINT`.
+otel = [
+    "liter-llm-proxy/otel",
+    "dep:opentelemetry",
+    "dep:opentelemetry-otlp",
+    "dep:opentelemetry_sdk",
+    "dep:tracing-opentelemetry",
+]
 
 # ~keep Off by default; etcd watch pulls transitive `protoc`/`prost-build`.
 etcd-watch = ["liter-llm-proxy/etcd-watch"]
@@ -29,14 +38,18 @@ default = []
 arc-swap = { workspace = true }
 axum = { workspace = true }
 clap = { workspace = true }
-liter-llm = { path = "../liter-llm", version = "1.11.5" }
-liter-llm-proxy = { path = "../liter-llm-proxy", version = "1.11.5" }
+liter-llm = { path = "../liter-llm", version = "1.12.0" }
+liter-llm-proxy = { path = "../liter-llm-proxy", version = "1.12.0" }
 mimalloc = { workspace = true, optional = true }
+opentelemetry = { workspace = true, optional = true }
+opentelemetry-otlp = { workspace = true, optional = true }
+opentelemetry_sdk = { workspace = true, optional = true }
 rmcp = { workspace = true }
 secrecy = { workspace = true }
 tikv-jemallocator = { workspace = true, optional = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+tracing-opentelemetry = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true }
 url = { workspace = true }
 

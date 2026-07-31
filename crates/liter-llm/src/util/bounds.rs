@@ -44,7 +44,6 @@ pub const CHUNK_ACCUMULATION_MAX_BYTES: usize = RESPONSE_BODY_MAX_BYTES;
 /// ```
 pub fn check_bound(context: &str, current_len: usize, incoming: usize, limit: usize) -> Result<()> {
     if current_len.saturating_add(incoming) > limit {
-        #[cfg(feature = "tracing")]
         tracing::warn!(
             context,
             current_len,

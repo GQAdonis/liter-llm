@@ -64,16 +64,13 @@ where
 /// provider `transform_response`) before deserializing into the canonical type.
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            http.method = "POST",
-            http.url = %url,
-            http.status_code = tracing::field::Empty,
-            http.retry_count = tracing::field::Empty,
-        )
+#[tracing::instrument(
+    skip_all,
+    fields(
+        http.method = "POST",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
     )
 )]
 pub async fn post_json_raw(
@@ -102,7 +99,6 @@ pub async fn post_json_raw(
     })
     .await?;
 
-    #[cfg(feature = "tracing")]
     {
         let span = tracing::Span::current();
         span.record("http.status_code", resp.status().as_u16());
@@ -119,16 +115,13 @@ pub async fn post_json_raw(
 /// text-to-speech audio).
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            http.method = "POST",
-            http.url = %url,
-            http.status_code = tracing::field::Empty,
-            http.retry_count = tracing::field::Empty,
-        )
+#[tracing::instrument(
+    skip_all,
+    fields(
+        http.method = "POST",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
     )
 )]
 pub async fn post_binary(
@@ -157,7 +150,6 @@ pub async fn post_binary(
     })
     .await?;
 
-    #[cfg(feature = "tracing")]
     {
         let span = tracing::Span::current();
         span.record("http.status_code", resp.status().as_u16());
@@ -175,15 +167,12 @@ pub async fn post_binary(
 ///
 /// `auth_header` is `Some((name, value))` when the provider requires
 /// authentication, or `None` when no auth header should be added.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            http.method = "POST",
-            http.url = %url,
-            http.status_code = tracing::field::Empty,
-        )
+#[tracing::instrument(
+    skip_all,
+    fields(
+        http.method = "POST",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
     )
 )]
 pub async fn post_multipart(
@@ -203,7 +192,6 @@ pub async fn post_multipart(
 
     let resp = builder.send().await?;
 
-    #[cfg(feature = "tracing")]
     {
         let span = tracing::Span::current();
         span.record("http.status_code", resp.status().as_u16());
@@ -229,16 +217,13 @@ pub async fn post_multipart(
 /// response before deserialization (e.g. GET /files/{id}, GET /batches/{id}).
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            http.method = "GET",
-            http.url = %url,
-            http.status_code = tracing::field::Empty,
-            http.retry_count = tracing::field::Empty,
-        )
+#[tracing::instrument(
+    skip_all,
+    fields(
+        http.method = "GET",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
     )
 )]
 pub async fn get_json_raw(
@@ -263,7 +248,6 @@ pub async fn get_json_raw(
     })
     .await?;
 
-    #[cfg(feature = "tracing")]
     {
         let span = tracing::Span::current();
         span.record("http.status_code", resp.status().as_u16());
@@ -279,16 +263,13 @@ pub async fn get_json_raw(
 /// Used for resource deletion endpoints (e.g. DELETE /files/{id}).
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            http.method = "DELETE",
-            http.url = %url,
-            http.status_code = tracing::field::Empty,
-            http.retry_count = tracing::field::Empty,
-        )
+#[tracing::instrument(
+    skip_all,
+    fields(
+        http.method = "DELETE",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
     )
 )]
 pub async fn delete_json(
@@ -313,7 +294,6 @@ pub async fn delete_json(
     })
     .await?;
 
-    #[cfg(feature = "tracing")]
     {
         let span = tracing::Span::current();
         span.record("http.status_code", resp.status().as_u16());
@@ -329,16 +309,13 @@ pub async fn delete_json(
 /// for downloading file contents).
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            http.method = "GET",
-            http.url = %url,
-            http.status_code = tracing::field::Empty,
-            http.retry_count = tracing::field::Empty,
-        )
+#[tracing::instrument(
+    skip_all,
+    fields(
+        http.method = "GET",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
     )
 )]
 pub async fn get_binary(
@@ -363,7 +340,6 @@ pub async fn get_binary(
     })
     .await?;
 
-    #[cfg(feature = "tracing")]
     {
         let span = tracing::Span::current();
         span.record("http.status_code", resp.status().as_u16());

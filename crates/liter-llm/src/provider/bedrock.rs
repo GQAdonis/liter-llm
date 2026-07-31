@@ -723,7 +723,6 @@ pub(crate) fn parse_bedrock_stream_event(event_type: &str, payload: &str) -> Res
                 .map(Some);
             }
 
-            #[cfg(feature = "tracing")]
             tracing::debug!(
                 content_block_index = index,
                 "Bedrock contentBlockDelta with unrecognized delta shape; skipping"

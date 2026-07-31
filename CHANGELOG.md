@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-07-31
+
+### Added
+
+- `liter-llm-cli` installs a real OTLP export pipeline under the `otel` feature: it builds an OTLP
+  span exporter + SDK tracer/meter providers, registers the W3C TraceContext propagator, and bridges
+  `tracing` spans (and the library's `gen_ai.*` metric instruments) to OpenTelemetry via a
+  `tracing-opentelemetry` layer. Export is activated at runtime by `OTEL_EXPORTER_OTLP_ENDPOINT`;
+  without it the CLI falls back to the console subscriber. Both the `api` proxy server and the `mcp`
+  server share this install path, and the server Docker image is built with `--features otel`.
+  (Previously the `otel` feature only compiled the OTel API with no exporter, so nothing was
+  exported standalone — the instruments only reached a collector when a host such as xberg-enterprise
+  installed the providers.)
+
+### Changed
+
+- Raw `println!`/`eprintln!`/`print!`/`eprint!`/`dbg!` are denied in production code across the
+  workspace (clippy `print_stdout`/`print_stderr`/`dbg_macro`); `tracing` is the sole diagnostic
+  surface. Genuinely non-diagnostic output opts back in per site with `#[expect(...)]` (the
+  interactive GitHub Copilot device-flow auth prompt and the CLI's top-level error report), and the
+  `catalog-gen` dev tool keeps its stdout/stderr contract. Language bindings regenerated with alef
+  0.48.12.
+- **The `tracing` Cargo feature is removed; `tracing` is now an always-on dependency.** Spans and
+  events compile unconditionally (near-zero cost with no subscriber installed), aligning with the
+  org feature-flag contract that tracing is never optional. `otel` remains the opt-in OTLP export
+  layer.
+
+### Fixed
+
+- Streaming no longer aborts on a trailing metadata-only SSE event that omits `id`. OpenAI-compatible
+  providers such as OpenCode Zen/Go (`https://opencode.ai/zen/go/v1`) emit an `inference-cost` event
+  with empty `choices` and no `id`/`object`/`created`/`model` immediately before `[DONE]`; these
+  header fields on `ChatCompletionChunk` are now `#[serde(default)]`, so the event decodes to an
+  empty chunk instead of failing with `missing field 'id'`. (#155)
+
 ## [1.11.5] - 2026-07-30
 
 ### Changed

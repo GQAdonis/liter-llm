@@ -6,7 +6,7 @@
 
     <groupId>io.xberg.literllm</groupId>
     <artifactId>liter-llm</artifactId>
-    <version>1.11.5</version>
+    <version>1.12.0</version>
     <packaging>jar</packaging>
 
     <name>liter-llm</name>
@@ -61,7 +61,7 @@
         <dependency>
             <groupId>org.jspecify</groupId>
             <artifactId>jspecify</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

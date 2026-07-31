@@ -187,7 +187,6 @@ impl VertexAdcCredentialProvider {
             .ok()?;
 
         if !response.status().is_success() {
-            #[cfg(feature = "tracing")]
             tracing::warn!(
                 status = response.status().as_u16(),
                 "metadata server returned non-success status; will try gcp_auth ADC fallback"
@@ -198,7 +197,6 @@ impl VertexAdcCredentialProvider {
         let body = response.text().await.ok()?;
         let parsed: MetadataTokenResponse = serde_json::from_str(&body).ok()?;
 
-        #[cfg(feature = "tracing")]
         tracing::info!("obtained access token from metadata server");
 
         Some(CachedToken {
@@ -228,7 +226,6 @@ impl VertexAdcCredentialProvider {
                 status: 401,
             })?;
 
-        #[cfg(feature = "tracing")]
         tracing::info!("obtained access token via gcp_auth ADC discovery");
 
         Ok(CachedToken {
@@ -245,7 +242,6 @@ impl VertexAdcCredentialProvider {
         }
 
         if self.use_gcp_auth_fallback {
-            #[cfg(feature = "tracing")]
             tracing::debug!("metadata server not available; trying gcp_auth ADC discovery");
             self.fetch_from_gcp_auth().await
         } else {
@@ -271,7 +267,6 @@ impl CredentialProvider for VertexAdcCredentialProvider {
                 if let Some(ref cached) = *guard
                     && cached.is_valid()
                 {
-                    #[cfg(feature = "tracing")]
                     tracing::debug!("returning cached Vertex AI ADC token");
                     return Ok(Credential::BearerToken(cached.token.clone()));
                 }
@@ -283,7 +278,6 @@ impl CredentialProvider for VertexAdcCredentialProvider {
             if let Some(ref cached) = *guard
                 && cached.is_valid()
             {
-                #[cfg(feature = "tracing")]
                 tracing::debug!("returning cached Vertex AI ADC token (post-lock check)");
                 return Ok(Credential::BearerToken(cached.token.clone()));
             }
