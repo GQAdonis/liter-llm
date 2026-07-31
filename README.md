@@ -276,14 +276,14 @@ See the [MCP server guide](https://docs.liter-llm.xberg.io/server/mcp-server/) a
 
 ### AI Coding Assistants
 
-Install the liter-llm plugin from the [`xberg-io/plugins`](https://github.com/xberg-io/plugins) marketplace. It ships the liter-llm agent skills (chat, streaming, tools, embeddings across 165 providers) and works with every major coding agent — expand your harness below.
+Install the liter-llm plugin from [`xberg-io/liter-llm`](https://github.com/xberg-io/liter-llm). It ships the liter-llm agent skills (chat, streaming, tools, embeddings across 165 providers) and works with every major coding agent — expand your harness below.
 
 <details open>
 <summary><strong>Claude Code</strong></summary>
 
 ```text
-/plugin marketplace add xberg-io/plugins
-/plugin install liter-llm@xberg
+/plugin marketplace add xberg-io/liter-llm
+/plugin install liter-llm@liter-llm
 ```
 
 </details>
@@ -292,7 +292,7 @@ Install the liter-llm plugin from the [`xberg-io/plugins`](https://github.com/xb
 <summary><strong>Codex CLI</strong></summary>
 
 ```text
-/plugins add https://github.com/xberg-io/plugins
+/plugins add https://github.com/xberg-io/liter-llm
 ```
 
 Then search for `liter-llm` and select **Install Plugin**.
@@ -302,7 +302,7 @@ Then search for `liter-llm` and select **Install Plugin**.
 <details>
 <summary><strong>Cursor</strong></summary>
 
-Settings → Plugins → Add from URL → `https://github.com/xberg-io/plugins`, then select **liter-llm**.
+Settings → Plugins → Add from URL → `https://github.com/xberg-io/liter-llm`, then select **liter-llm**.
 
 </details>
 
@@ -310,7 +310,7 @@ Settings → Plugins → Add from URL → `https://github.com/xberg-io/plugins`,
 <summary><strong>Gemini CLI</strong></summary>
 
 ```text
-gemini extensions install https://github.com/xberg-io/plugins
+gemini extensions install https://github.com/xberg-io/liter-llm
 ```
 
 </details>
@@ -319,8 +319,8 @@ gemini extensions install https://github.com/xberg-io/plugins
 <summary><strong>Factory Droid</strong></summary>
 
 ```text
-droid plugin marketplace add https://github.com/xberg-io/plugins
-droid plugin install liter-llm@xberg
+droid plugin marketplace add https://github.com/xberg-io/liter-llm
+droid plugin install liter-llm@liter-llm
 ```
 
 </details>
@@ -329,8 +329,8 @@ droid plugin install liter-llm@xberg
 <summary><strong>GitHub Copilot CLI</strong></summary>
 
 ```text
-copilot plugin marketplace add https://github.com/xberg-io/plugins
-copilot plugin install liter-llm@xberg
+copilot plugin marketplace add https://github.com/xberg-io/liter-llm
+copilot plugin install liter-llm@liter-llm
 ```
 
 </details>
@@ -338,7 +338,14 @@ copilot plugin install liter-llm@xberg
 <details>
 <summary><strong>opencode</strong></summary>
 
-Not yet published as an opencode package. Install via any harness above (self-hosted marketplace); opencode support is tracked in [`xberg-io/plugins`](https://github.com/xberg-io/plugins).
+Add the package to `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["@xberg-io/opencode-liter-llm"]
+}
+```
 
 </details>
 

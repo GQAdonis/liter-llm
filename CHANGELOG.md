@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.5] - 2026-07-30
+
+### Changed
+
+- Upgrade the MCP server to `rmcp` 3.0, adopting the MCP 2026-07-28 protocol
+  revision and its sessionless streamable-HTTP transport. The existing
+  `validate_api_key` middleware and per-request `KeyContext` auth model are
+  retained.
+
+## [1.11.4] - 2026-07-28
+
+### Fixed
+
+- **SSE streams no longer abort with "invalid UTF-8" when a provider splits a
+  multi-byte character across HTTP chunks.** The SSE parser now buffers the
+  trailing bytes of a codepoint that lands on a chunk boundary and reassembles it
+  with the next chunk, instead of treating the incomplete sequence as corruption
+  and terminating the stream. Common with CJK text, accented characters, emoji, or
+  any sufficiently long response. Genuinely malformed UTF-8 still errors. (#152)
+
+### Changed
+
+- Refresh the model catalog from models.dev (now 165 providers).
+- Refresh `Cargo.lock` to the latest compatible dependency versions.
+
+## [1.11.3] - 2026-07-27
+
+### Changed
+
+- Refresh the model catalog from models.dev.
+- Regenerate all language bindings on alef 0.48.4, which lowers the Maven
+  enforcer floor (fixes Java/Maven publishing) and generates the C#
+  `runtime.json` template (fixes C#/NuGet publishing).
+- Upgrade dependencies to their latest incompatible versions (base64
+  0.22 → 0.23).
+
+## [1.11.2] - 2026-07-26
+
+### Changed
+
+- Regenerate all language bindings on alef 0.48.2.
+- Update dependencies to their latest compatible versions.
+
+### Removed
+
+- Remove unused Java PMD ruleset and stale linter configuration.
+
+## [1.11.1] - 2026-07-26
+
+### Fixed
+
+- **`list_models()` on providers that omit `object`.** `ModelsListResponse.object`
+  is now `#[serde(default)]`, so listing models no longer fails with
+  `missing field 'object'` against OpenRouter and other OpenAI-compatible
+  providers that omit the top-level `"object": "list"` field from `/v1/models`.
+  (#149)
+
+### Changed
+
+- **Dependency upgrades.** pnpm 11.15 → 11.17, Jackson (databind/jdk8)
+  2.21.2 → 2.22.1, and a `sorbet-runtime` bump.
+
 ## [1.11.0] - 2026-07-23
 
 ### Added

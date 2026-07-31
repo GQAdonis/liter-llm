@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.42.1"
+alef_version = "0.48.4"
 languages = [
   "python",
   "node",
@@ -89,6 +89,34 @@ exclude = [
   "packages/go/include/*.h",
   "**/catalog.json",
   ".cargo/config.toml",
+  # xberg-baseline generic hygiene excludes (tool output, doc snippets, patches).
+  "docs-site/src/snippets/**",
+  "**/coverage/**",
+  "**/pkg/**",
+  "**/.next/**",
+  "**/*.min.js",
+  "**/vendored/**",
+  "**/testdata/**",
+  "**/*.diff",
+  "**/*.patch",
+  # ai-rulez-generated coding-agent plugin outputs: owned by `ai-rulez generate
+  # --plugin`, never reformatted by poly (would break BLAKE3 provenance). Sources
+  # under plugin/.ai-rulez/ + plugin/scripts/ stay poly-managed. ~keep
+  "plugin/.claude-plugin/**",
+  "plugin/.codex-plugin/**",
+  "plugin/.cursor-plugin/**",
+  "plugin/.factory-plugin/**",
+  "plugin/.opencode/**",
+  "plugin/.hermes/**",
+  "plugin/skills/**",
+  "plugin/.mcp.json",
+  "plugin/gemini-extension.json",
+  "plugin/kimi.plugin.json",
+  "plugin/package.json",
+  "plugin/.ai-rulez-generated.json",
+  ".claude-plugin/marketplace.json",
+  ".agents/plugins/marketplace.json",
+  ".ai-rulez-generated.json",
 ]
 
 [workspace.poly.uncomment]
@@ -1881,7 +1909,7 @@ name = "liter_llm_ffi"
 name = "LiterLlm"
 
 [crates.e2e.registry.packages.zig]
-hash = "liter_llm-1.11.0-ITuy7j8Hy2Yavk0BjGZ43I0Ix2GL"
+hash = "liter_llm-1.11.5-ITuy7j8Hy2Yavk0BjGZ43I0Ix2GL"
 
 [crates.e2e.registry.packages.homebrew]
 tap = "xberg-io/homebrew-tap"

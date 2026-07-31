@@ -3,10 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>LiterLlm</RootNamespace>
     <PackageId>XbergIo.LiterLlm</PackageId>
-    <Version>1.11.0</Version>
-    <AssemblyVersion>1.11.0.0</AssemblyVersion>
-    <FileVersion>1.11.0.0</FileVersion>
-    <InformationalVersion>1.11.0</InformationalVersion>
+    <Version>1.11.5</Version>
+    <AssemblyVersion>1.11.2.0</AssemblyVersion>
+    <FileVersion>1.11.2.0</FileVersion>
+    <InformationalVersion>1.11.5</InformationalVersion>
     <Description>Universal LLM API client with Rust-powered polyglot bindings.</Description>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/xberg-io/liter-llm</RepositoryUrl>
@@ -27,8 +27,20 @@
 
   <ItemGroup>
     <None Include="../../../LICENSE" Pack="true" PackagePath="/" />
-    <None Include="runtimes/**" Pack="true" PackagePath="runtimes/" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Thin meta-package: no runtimes/** payload here. Native closures ship in the
+         per-RID XbergIo.LiterLlm.runtime.<rid> packages (see ../LiterLlm.Runtime); this
+         package only carries the managed assembly plus runtime.json, which tells
+         NuGet's RID-fallback graph which runtime package to pull in for the
+         consumer's RID. runtime.json is rendered
+         from runtime.json.template by CI before pack; RequireRuntimeJson guards
+         against packing without it. -->
+    <None Include="runtime.json" Pack="true" PackagePath="/" Condition="Exists('runtime.json')" />
   </ItemGroup>
+
+  <Target Name="RequireRuntimeJson" BeforeTargets="Pack">
+    <Error Condition="!Exists('runtime.json')"
+           Text="packages/csharp/LiterLlm/runtime.json is missing. Render it from runtime.json.template (substituting {{VERSION}}) before packing LiterLlm.csproj." />
+  </Target>
 
   <ItemGroup>
     <Compile Include="../src/**/*.cs" />

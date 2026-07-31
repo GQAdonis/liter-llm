@@ -28,7 +28,7 @@ use self::errors::to_error_data;
 pub enum McpTransportKind {
     /// HTTP-based transports (`streamable_http`, SSE).
     ///
-    /// rmcp 1.7's `StreamableHttpService` injects the axum
+    /// rmcp 3.0's `StreamableHttpService` injects the axum
     /// `http::request::Parts` (including all request extensions) into
     /// `RequestContext.extensions` before calling any tool handler.  The
     /// `validate_api_key` axum middleware inserts a [`KeyContext`] into those
@@ -88,7 +88,7 @@ impl LiterLlmMcp {
 
     /// Resolve the [`KeyContext`] for a tool invocation.
     ///
-    /// For HTTP transports rmcp's `StreamableHttpService` puts the axum
+    /// For HTTP transports rmcp 3.0's `StreamableHttpService` puts the axum
     /// `http::request::Parts` into `RequestContext.extensions`.  The
     /// `validate_api_key` middleware inserts a [`KeyContext`] into the request
     /// extensions before rmcp wraps them, so we recover it from there.
@@ -334,24 +334,17 @@ impl ServerHandler for LiterLlmMcp {
                 .with_description("All built-in LLM providers")
                 .with_mime_type("application/json"),
         ];
-        Ok(ListResourcesResult {
-            resources,
-            next_cursor: None,
-            meta: None,
-        })
+        Ok(ListResourcesResult::with_all_items(resources))
     }
 
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
         _ctx: RequestContext<RoleServer>,
-    ) -> Result<ReadResourceResult, rmcp::ErrorData> {
+    ) -> Result<ReadResourceResponse, rmcp::ErrorData> {
         let models = self.service_pool.model_names();
         let json = resource_body(&request.uri, &models)?;
-        Ok(ReadResourceResult::new(vec![ResourceContents::text(
-            json,
-            &request.uri,
-        )]))
+        Ok(ReadResourceResult::new(vec![ResourceContents::text(json, &request.uri)]).into())
     }
 
     async fn list_resource_templates(
@@ -365,11 +358,7 @@ impl ServerHandler for LiterLlmMcp {
             ResourceTemplate::new("liter-llm://provider/{name}", "Provider Detail")
                 .with_description("Configuration for a single provider"),
         ];
-        Ok(ListResourceTemplatesResult {
-            resource_templates,
-            next_cursor: None,
-            meta: None,
-        })
+        Ok(ListResourceTemplatesResult::with_all_items(resource_templates))
     }
 
     async fn complete(

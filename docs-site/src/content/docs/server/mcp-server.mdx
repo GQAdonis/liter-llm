@@ -25,12 +25,14 @@ A prebuilt binary is also attached to every [GitHub release](https://github.com/
 
 ## Easiest: the liter-llm plugin
 
-To use the MCP server inside a coding agent (Claude Code, Cursor, Codex, Gemini CLI, Factory Droid, GitHub Copilot CLI), install the **liter-llm plugin** from the [`xberg-io/plugins`](https://github.com/xberg-io/plugins) marketplace. It auto-registers the `liter-llm` MCP server and resolves the binary for you on first run — no manual config:
+To use the MCP server inside a coding agent (Claude Code, Cursor, Codex, Gemini CLI, Factory Droid, GitHub Copilot CLI), install the **liter-llm plugin** from this repo's self-hosted marketplace ([`xberg-io/liter-llm`](https://github.com/xberg-io/liter-llm)). It auto-registers the `liter-llm` MCP server and resolves the binary for you on first run — no manual config:
 
 ```text
-/plugin marketplace add xberg-io/plugins
-/plugin install liter-llm@xberg
+/plugin marketplace add xberg-io/liter-llm
+/plugin install liter-llm@liter-llm
 ```
+
+See [AI Coding Assistants](/guides/ai-coding-assistants/) for the full per-agent install matrix (opencode, Hermes, and more).
 
 The rest of this page covers running and configuring the server directly.
 

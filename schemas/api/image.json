@@ -10,7 +10,9 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["image_url"],
+          "enum": [
+            "image_url"
+          ],
           "description": "The type of the content part.",
           "x-stainless-const": true
         },
@@ -25,14 +27,23 @@
             "detail": {
               "type": "string",
               "description": "Specifies the detail level of the image. Learn more in the [Vision guide](/docs/guides/vision#low-or-high-fidelity-image-understanding).",
-              "enum": ["auto", "low", "high"],
+              "enum": [
+                "auto",
+                "low",
+                "high"
+              ],
               "default": "auto"
             }
           },
-          "required": ["url"]
+          "required": [
+            "url"
+          ]
         }
       },
-      "required": ["type", "image_url"]
+      "required": [
+        "type",
+        "image_url"
+      ]
     },
     "CreateImageEditRequest": {
       "type": "object",
@@ -66,7 +77,11 @@
         },
         "background": {
           "type": "string",
-          "enum": ["transparent", "opaque", "auto"],
+          "enum": [
+            "transparent",
+            "opaque",
+            "auto"
+          ],
           "default": "auto",
           "example": "transparent",
           "nullable": true,
@@ -79,7 +94,13 @@
             },
             {
               "type": "string",
-              "enum": ["gpt-image-1.5", "dall-e-2", "gpt-image-1", "gpt-image-1-mini", "chatgpt-image-latest"],
+              "enum": [
+                "gpt-image-1.5",
+                "dall-e-2",
+                "gpt-image-1",
+                "gpt-image-1-mini",
+                "chatgpt-image-latest"
+              ],
               "x-stainless-const": true
             }
           ],
@@ -100,7 +121,14 @@
         },
         "size": {
           "type": "string",
-          "enum": ["256x256", "512x512", "1024x1024", "1536x1024", "1024x1536", "auto"],
+          "enum": [
+            "256x256",
+            "512x512",
+            "1024x1024",
+            "1536x1024",
+            "1024x1536",
+            "auto"
+          ],
           "default": "1024x1024",
           "example": "1024x1024",
           "nullable": true,
@@ -108,14 +136,21 @@
         },
         "response_format": {
           "type": "string",
-          "enum": ["url", "b64_json"],
+          "enum": [
+            "url",
+            "b64_json"
+          ],
           "example": "url",
           "nullable": true,
           "description": "The format in which the generated images are returned. Must be one of `url` or `b64_json`. URLs are only valid for 60 minutes after the image has been generated. This parameter is only supported for `dall-e-2` (default is `url` for `dall-e-2`), as GPT image models always return base64-encoded images."
         },
         "output_format": {
           "type": "string",
-          "enum": ["png", "jpeg", "webp"],
+          "enum": [
+            "png",
+            "jpeg",
+            "webp"
+          ],
           "default": "png",
           "example": "png",
           "nullable": true,
@@ -155,14 +190,23 @@
         },
         "quality": {
           "type": "string",
-          "enum": ["standard", "low", "medium", "high", "auto"],
+          "enum": [
+            "standard",
+            "low",
+            "medium",
+            "high",
+            "auto"
+          ],
           "default": "auto",
           "example": "high",
           "nullable": true,
           "description": "The quality of the image that will be generated for GPT image models. Defaults to `auto`.\n"
         }
       },
-      "required": ["prompt", "image"]
+      "required": [
+        "prompt",
+        "image"
+      ]
     },
     "CreateImageRequest": {
       "type": "object",
@@ -179,7 +223,13 @@
             },
             {
               "type": "string",
-              "enum": ["gpt-image-1.5", "dall-e-2", "dall-e-3", "gpt-image-1", "gpt-image-1-mini"]
+              "enum": [
+                "gpt-image-1.5",
+                "dall-e-2",
+                "dall-e-3",
+                "gpt-image-1",
+                "gpt-image-1-mini"
+              ]
             }
           ],
           "x-oaiTypeLabel": "string",
@@ -199,7 +249,14 @@
         },
         "quality": {
           "type": "string",
-          "enum": ["standard", "hd", "low", "medium", "high", "auto"],
+          "enum": [
+            "standard",
+            "hd",
+            "low",
+            "medium",
+            "high",
+            "auto"
+          ],
           "default": "auto",
           "example": "medium",
           "nullable": true,
@@ -207,7 +264,10 @@
         },
         "response_format": {
           "type": "string",
-          "enum": ["url", "b64_json"],
+          "enum": [
+            "url",
+            "b64_json"
+          ],
           "default": "url",
           "example": "url",
           "nullable": true,
@@ -215,7 +275,11 @@
         },
         "output_format": {
           "type": "string",
-          "enum": ["png", "jpeg", "webp"],
+          "enum": [
+            "png",
+            "jpeg",
+            "webp"
+          ],
           "default": "png",
           "example": "png",
           "nullable": true,
@@ -240,7 +304,16 @@
         },
         "size": {
           "type": "string",
-          "enum": ["auto", "1024x1024", "1536x1024", "1024x1536", "256x256", "512x512", "1792x1024", "1024x1792"],
+          "enum": [
+            "auto",
+            "1024x1024",
+            "1536x1024",
+            "1024x1536",
+            "256x256",
+            "512x512",
+            "1792x1024",
+            "1024x1792"
+          ],
           "default": "auto",
           "example": "1024x1024",
           "nullable": true,
@@ -248,7 +321,10 @@
         },
         "moderation": {
           "type": "string",
-          "enum": ["low", "auto"],
+          "enum": [
+            "low",
+            "auto"
+          ],
           "default": "auto",
           "example": "low",
           "nullable": true,
@@ -256,7 +332,11 @@
         },
         "background": {
           "type": "string",
-          "enum": ["transparent", "opaque", "auto"],
+          "enum": [
+            "transparent",
+            "opaque",
+            "auto"
+          ],
           "default": "auto",
           "example": "transparent",
           "nullable": true,
@@ -264,7 +344,10 @@
         },
         "style": {
           "type": "string",
-          "enum": ["vivid", "natural"],
+          "enum": [
+            "vivid",
+            "natural"
+          ],
           "default": "vivid",
           "example": "vivid",
           "nullable": true,
@@ -276,7 +359,9 @@
           "description": "A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse. [Learn more](/docs/guides/safety-best-practices#end-user-ids).\n"
         }
       },
-      "required": ["prompt"]
+      "required": [
+        "prompt"
+      ]
     },
     "CreateImageVariationRequest": {
       "type": "object",
@@ -293,7 +378,9 @@
             },
             {
               "type": "string",
-              "enum": ["dall-e-2"],
+              "enum": [
+                "dall-e-2"
+              ],
               "x-stainless-const": true
             }
           ],
@@ -314,7 +401,10 @@
         },
         "response_format": {
           "type": "string",
-          "enum": ["url", "b64_json"],
+          "enum": [
+            "url",
+            "b64_json"
+          ],
           "default": "url",
           "example": "url",
           "nullable": true,
@@ -322,7 +412,11 @@
         },
         "size": {
           "type": "string",
-          "enum": ["256x256", "512x512", "1024x1024"],
+          "enum": [
+            "256x256",
+            "512x512",
+            "1024x1024"
+          ],
           "default": "1024x1024",
           "example": "1024x1024",
           "nullable": true,
@@ -334,7 +428,9 @@
           "description": "A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse. [Learn more](/docs/guides/safety-best-practices#end-user-ids).\n"
         }
       },
-      "required": ["image"]
+      "required": [
+        "image"
+      ]
     },
     "Image": {
       "type": "object",
@@ -366,7 +462,10 @@
         }
       },
       "type": "object",
-      "required": ["text_tokens", "image_tokens"],
+      "required": [
+        "text_tokens",
+        "image_tokens"
+      ],
       "title": "Input usage details",
       "description": "The input tokens detailed information for the image generation."
     },
@@ -382,7 +481,10 @@
         }
       },
       "type": "object",
-      "required": ["image_tokens", "text_tokens"],
+      "required": [
+        "image_tokens",
+        "text_tokens"
+      ],
       "title": "Image generation output token details",
       "description": "The output token details for the image generation."
     },
@@ -408,7 +510,12 @@
         }
       },
       "type": "object",
-      "required": ["input_tokens", "total_tokens", "output_tokens", "input_tokens_details"],
+      "required": [
+        "input_tokens",
+        "total_tokens",
+        "output_tokens",
+        "input_tokens_details"
+      ],
       "title": "Image generation usage",
       "description": "For `gpt-image-1` only, the token usage information for the image generation."
     },
@@ -431,28 +538,45 @@
         "background": {
           "type": "string",
           "description": "The background parameter used for the image generation. Either `transparent` or `opaque`.",
-          "enum": ["transparent", "opaque"]
+          "enum": [
+            "transparent",
+            "opaque"
+          ]
         },
         "output_format": {
           "type": "string",
           "description": "The output format of the image generation. Either `png`, `webp`, or `jpeg`.",
-          "enum": ["png", "webp", "jpeg"]
+          "enum": [
+            "png",
+            "webp",
+            "jpeg"
+          ]
         },
         "size": {
           "type": "string",
           "description": "The size of the image generated. Either `1024x1024`, `1024x1536`, or `1536x1024`.",
-          "enum": ["1024x1024", "1024x1536", "1536x1024"]
+          "enum": [
+            "1024x1024",
+            "1024x1536",
+            "1536x1024"
+          ]
         },
         "quality": {
           "type": "string",
           "description": "The quality of the image generated. Either `low`, `medium`, or `high`.",
-          "enum": ["low", "medium", "high"]
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
         },
         "usage": {
           "$ref": "#/$defs/ImageGenUsage"
         }
       },
-      "required": ["created"],
+      "required": [
+        "created"
+      ],
       "x-oaiMeta": {
         "name": "The image generation response",
         "group": "images",
@@ -461,7 +585,10 @@
     },
     "InputFidelity": {
       "type": "string",
-      "enum": ["high", "low"],
+      "enum": [
+        "high",
+        "low"
+      ],
       "description": "Control how much effort the model will exert to match the style and features, especially facial features, of input images. This parameter is only supported for `gpt-image-1` and `gpt-image-1.5` and later models, unsupported for `gpt-image-1-mini`. Supports `high` and `low`. Defaults to `low`."
     },
     "PartialImages": {

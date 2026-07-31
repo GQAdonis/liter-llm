@@ -1,0 +1,20 @@
+{
+  "name": "liter-llm",
+  "interface": {
+    "displayName": "liter-llm"
+  },
+  "plugins": [
+    {
+      "name": "liter-llm",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "developer-tools"
+    }
+  ]
+}

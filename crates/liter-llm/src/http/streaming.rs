@@ -238,6 +238,11 @@ pin_project! {
         #[pin]
         inner: S,
         buffer: String,
+        // ~keep Trailing bytes of a multi-byte UTF-8 codepoint that was split
+        // across upstream chunks. Holds at most 3 bytes (a UTF-8 codepoint is <=4
+        // bytes and the valid prefix is always flushed into `buffer` immediately),
+        // so it cannot grow unbounded.
+        pending: Vec<u8>,
         cursor: usize,
         done: bool,
         parse_event: P,
@@ -259,6 +264,7 @@ where
         Self {
             inner,
             buffer: String::with_capacity(4096),
+            pending: Vec::new(),
             cursor: 0,
             done: false,
             parse_event,
@@ -335,6 +341,9 @@ where
                     this.buffer.clear();
                     *this.cursor = 0;
                 }
+                // ~keep Any bytes still pending at EOF are a truncated codepoint; drop
+                // them rather than aborting an otherwise-complete response.
+                this.pending.clear();
                 return Poll::Ready(None);
             }
 
@@ -349,20 +358,37 @@ where
 
             match this.inner.as_mut().poll_next(cx) {
                 Poll::Ready(Some(Ok(bytes))) => {
-                    if this.buffer.len() + bytes.len() > MAX_BUFFER_BYTES {
+                    if this.buffer.len() + this.pending.len() + bytes.len() > MAX_BUFFER_BYTES {
                         *this.done = true;
                         return Poll::Ready(Some(Err(LiterLlmError::Streaming {
                             message: format!("SSE buffer exceeded {MAX_BUFFER_BYTES} bytes; stream aborted"),
                         })));
                     }
-                    match std::str::from_utf8(&bytes) {
-                        Ok(s) => this.buffer.push_str(s),
+                    // ~keep Prepend any bytes left over from a codepoint that was
+                    // split across the previous chunk, then decode what is now valid.
+                    this.pending.extend_from_slice(&bytes);
+                    match std::str::from_utf8(this.pending) {
+                        Ok(s) => {
+                            this.buffer.push_str(s);
+                            this.pending.clear();
+                        }
                         Err(e) => {
-                            // ~keep Invalid UTF-8 corrupts the SSE stream; stop polling after this error.
-                            *this.done = true;
-                            return Poll::Ready(Some(Err(LiterLlmError::Streaming {
-                                message: format!("invalid UTF-8 in SSE stream: {e}"),
-                            })));
+                            let valid = e.valid_up_to();
+                            let complete_error = e.error_len().is_some();
+                            // SAFETY: `valid_up_to()` bytes are guaranteed to be valid UTF-8.
+                            this.buffer
+                                .push_str(unsafe { std::str::from_utf8_unchecked(&this.pending[..valid]) });
+                            if complete_error {
+                                // ~keep `error_len()` is `Some` only for genuinely
+                                // malformed UTF-8, not a codepoint split across a chunk
+                                // boundary; that corrupts the SSE stream, so stop polling.
+                                *this.done = true;
+                                return Poll::Ready(Some(Err(LiterLlmError::Streaming {
+                                    message: format!("invalid UTF-8 in SSE stream: {e}"),
+                                })));
+                            }
+                            // ~keep Incomplete trailing codepoint: keep the tail for the next chunk.
+                            this.pending.drain(..valid);
                         }
                     }
                 }
@@ -526,5 +552,77 @@ mod tests {
 
         let result = futures_util::StreamExt::next(&mut parser).await;
         assert!(result.is_none(), "cancelled stream should return None immediately");
+    }
+
+    /// Parse closure over the crate's chunk type for the boundary tests.
+    #[cfg(test)]
+    fn json_parse(data: &str) -> Result<Option<ChatCompletionChunk>> {
+        serde_json::from_str(data)
+            .map(Some)
+            .map_err(|e| LiterLlmError::Streaming { message: e.to_string() })
+    }
+
+    #[tokio::test]
+    async fn should_reassemble_multibyte_char_split_across_chunks() {
+        use crate::types::chat::{StreamChoice, StreamDelta};
+
+        // Content mixes CJK and an emoji so several codepoints are multi-byte.
+        let content = "你好，世界 🌍 café";
+        let chunk = ChatCompletionChunk {
+            id: "test-id".to_string(),
+            object: "chat.completion.chunk".to_string(),
+            created: 0,
+            model: "test-model".to_string(),
+            choices: vec![StreamChoice {
+                index: 0,
+                delta: StreamDelta {
+                    content: Some(content.to_string()),
+                    ..Default::default()
+                },
+                finish_reason: None,
+            }],
+            usage: None,
+            system_fingerprint: None,
+            service_tier: None,
+        };
+        let full = format!("data: {}\n\ndata: [DONE]\n\n", serde_json::to_string(&chunk).unwrap());
+        let bytes = full.into_bytes();
+
+        // Pick a split index that lands *inside* a multi-byte codepoint.
+        let split = (1..bytes.len())
+            .find(|&i| std::str::from_utf8(&bytes[..i]).is_err())
+            .expect("input contains multi-byte codepoints");
+
+        let inner = futures_util::stream::iter(vec![
+            Ok::<_, reqwest::Error>(Bytes::from(bytes[..split].to_vec())),
+            Ok::<_, reqwest::Error>(Bytes::from(bytes[split..].to_vec())),
+        ]);
+        let mut parser: Pin<Box<SseParser<_, _>>> = Box::pin(SseParser::new(inner, json_parse, None));
+
+        let result = futures_util::StreamExt::next(&mut parser)
+            .await
+            .expect("should yield one chunk")
+            .expect("split codepoint must not abort the stream");
+        assert_eq!(result.choices[0].delta.content.as_deref(), Some(content));
+
+        assert!(futures_util::StreamExt::next(&mut parser).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn should_error_on_genuinely_invalid_utf8() {
+        // A lone 0xFF is never valid UTF-8 anywhere in a sequence.
+        let inner = futures_util::stream::iter(vec![
+            Ok::<_, reqwest::Error>(Bytes::from_static(b"data: ")),
+            Ok::<_, reqwest::Error>(Bytes::from_static(&[0xFF])),
+            Ok::<_, reqwest::Error>(Bytes::from_static(b"\n\n")),
+        ]);
+        let mut parser: Pin<Box<SseParser<_, _>>> = Box::pin(SseParser::new(inner, json_parse, None));
+
+        match futures_util::StreamExt::next(&mut parser).await {
+            Some(Err(LiterLlmError::Streaming { message })) => {
+                assert!(message.contains("invalid UTF-8"), "unexpected message: {message}");
+            }
+            other => panic!("expected a Streaming UTF-8 error, got {other:?}"),
+        }
     }
 }

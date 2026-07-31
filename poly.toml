@@ -1,3 +1,7 @@
+extends = [
+  { id = "alef-poly-base", git = "https://github.com/xberg-io/alef.git", revision = "main", file = "poly-base.toml" },
+]
+
 [discovery]
 exclude = [
   "**/*.freezed.dart",
@@ -41,6 +45,30 @@ exclude = [
   "packages/go/include/*.h",
   "**/catalog.json",
   ".cargo/config.toml",
+  "docs-site/src/snippets/**",
+  "**/coverage/**",
+  "**/pkg/**",
+  "**/.next/**",
+  "**/*.min.js",
+  "**/vendored/**",
+  "**/testdata/**",
+  "**/*.diff",
+  "**/*.patch",
+  "plugin/.claude-plugin/**",
+  "plugin/.codex-plugin/**",
+  "plugin/.cursor-plugin/**",
+  "plugin/.factory-plugin/**",
+  "plugin/.opencode/**",
+  "plugin/.hermes/**",
+  "plugin/skills/**",
+  "plugin/.mcp.json",
+  "plugin/gemini-extension.json",
+  "plugin/kimi.plugin.json",
+  "plugin/package.json",
+  "plugin/.ai-rulez-generated.json",
+  ".claude-plugin/marketplace.json",
+  ".agents/plugins/marketplace.json",
+  ".ai-rulez-generated.json",
 ]
 
 [lint.markdown.rumdl]
@@ -48,44 +76,6 @@ disable = ["MD012", "MD013", "MD024", "MD033", "MD036", "MD041", "MD046", "MD051
 
 [fmt.markdown.rumdl]
 disable = ["MD012", "MD013", "MD024", "MD033", "MD036", "MD041", "MD046", "MD051", "MD076"]
-
-[lint.python.ruff]
-select = ["ALL"]
-ignore = [
-  "ANN401",
-  "ASYNC109",
-  "ASYNC110",
-  "BLE001",
-  "COM812",
-  "D100",
-  "D104",
-  "D107",
-  "D205",
-  "E501",
-  "EM",
-  "FBT",
-  "FIX",
-  "ISC001",
-  "PD011",
-  "PGH003",
-  "PLR2004",
-  "PLW0603",
-  "S104",
-  "S110",
-  "S603",
-  "TD",
-  "TRY",
-]
-mccabe_max_complexity = 15
-pydocstyle_convention = "google"
-pylint_max_args = 10
-pylint_max_branches = 15
-pylint_max_returns = 10
-
-[lint.php.mago]
-select = ["correctness", "security"]
-ignore = ["strict-assertions", "use-specific-assertions", "no-redundant-variable", "sensitive-parameter"]
-php_version = "8.2"
 
 [lint.typos.extend_words]
 Hashi = "Hashi"
@@ -327,6 +317,30 @@ lint = { exclude = [
   "packages/go/include/*.h",
   "**/catalog.json",
   ".cargo/config.toml",
+  "docs-site/src/snippets/**",
+  "**/coverage/**",
+  "**/pkg/**",
+  "**/.next/**",
+  "**/*.min.js",
+  "**/vendored/**",
+  "**/testdata/**",
+  "**/*.diff",
+  "**/*.patch",
+  "plugin/.claude-plugin/**",
+  "plugin/.codex-plugin/**",
+  "plugin/.cursor-plugin/**",
+  "plugin/.factory-plugin/**",
+  "plugin/.opencode/**",
+  "plugin/.hermes/**",
+  "plugin/skills/**",
+  "plugin/.mcp.json",
+  "plugin/gemini-extension.json",
+  "plugin/kimi.plugin.json",
+  "plugin/package.json",
+  "plugin/.ai-rulez-generated.json",
+  ".claude-plugin/marketplace.json",
+  ".agents/plugins/marketplace.json",
+  ".ai-rulez-generated.json",
 ] }
 fmt = { exclude = [
   "**/*.freezed.dart",
@@ -370,6 +384,30 @@ fmt = { exclude = [
   "packages/go/include/*.h",
   "**/catalog.json",
   ".cargo/config.toml",
+  "docs-site/src/snippets/**",
+  "**/coverage/**",
+  "**/pkg/**",
+  "**/.next/**",
+  "**/*.min.js",
+  "**/vendored/**",
+  "**/testdata/**",
+  "**/*.diff",
+  "**/*.patch",
+  "plugin/.claude-plugin/**",
+  "plugin/.codex-plugin/**",
+  "plugin/.cursor-plugin/**",
+  "plugin/.factory-plugin/**",
+  "plugin/.opencode/**",
+  "plugin/.hermes/**",
+  "plugin/skills/**",
+  "plugin/.mcp.json",
+  "plugin/gemini-extension.json",
+  "plugin/kimi.plugin.json",
+  "plugin/package.json",
+  "plugin/.ai-rulez-generated.json",
+  ".claude-plugin/marketplace.json",
+  ".agents/plugins/marketplace.json",
+  ".ai-rulez-generated.json",
 ] }
 file_safety = { exclude = [
   "**/*.freezed.dart",
@@ -413,13 +451,33 @@ file_safety = { exclude = [
   "packages/go/include/*.h",
   "**/catalog.json",
   ".cargo/config.toml",
+  "docs-site/src/snippets/**",
+  "**/coverage/**",
+  "**/pkg/**",
+  "**/.next/**",
+  "**/*.min.js",
+  "**/vendored/**",
+  "**/testdata/**",
+  "**/*.diff",
+  "**/*.patch",
+  "plugin/.claude-plugin/**",
+  "plugin/.codex-plugin/**",
+  "plugin/.cursor-plugin/**",
+  "plugin/.factory-plugin/**",
+  "plugin/.opencode/**",
+  "plugin/.hermes/**",
+  "plugin/skills/**",
+  "plugin/.mcp.json",
+  "plugin/gemini-extension.json",
+  "plugin/kimi.plugin.json",
+  "plugin/package.json",
+  "plugin/.ai-rulez-generated.json",
+  ".claude-plugin/marketplace.json",
+  ".agents/plugins/marketplace.json",
+  ".ai-rulez-generated.json",
 ] }
 cargo = true
 commit = { stages = ["commit-msg"] }
-
-[hooks.pre-commit.commands.pyrefly]
-run = "pyrefly check packages/python"
-files = "packages/python/**/*.py"
 
 [[hooks.sources]]
 id = "ai-rulez"

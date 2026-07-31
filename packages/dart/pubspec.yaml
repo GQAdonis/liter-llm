@@ -1,13 +1,13 @@
 name: liter_llm
 description: Universal LLM API client with Rust-powered polyglot bindings.
-version: 1.11.0
+version: 1.11.5
 repository: https://github.com/xberg-io/liter-llm
 environment:
   sdk: '>=3.11.0 <4.0.0'
 executables:
   download_libs:
 dependencies:
-  http: '^1.1.0'
+  http: '^1.2.0'
   # SHA-256 verification of downloaded native-library release assets.
   crypto: '^3.0.0'
   # FRB runtime is pure-Dart; works in both Flutter and server-Dart contexts.

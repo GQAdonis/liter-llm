@@ -40,6 +40,8 @@ includes:
     internal: true
   version:
     taskfile: .task/tools/version-sync.yml
+  plugin:
+    taskfile: .task/tools/plugin.yml
   tools:
     taskfile: .task/tools/general.yml
   test-apps:
