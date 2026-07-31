@@ -290,7 +290,10 @@ impl GithubCopilotCredentialProvider {
 
         // Device-flow auth instructions the user must read to complete OAuth; a `tracing`
         // event would be swallowed without a subscriber, breaking the interactive flow. ~keep
-        #[expect(clippy::print_stderr, reason = "interactive device-flow auth prompt, not a diagnostic")]
+        #[expect(
+            clippy::print_stderr,
+            reason = "interactive device-flow auth prompt, not a diagnostic"
+        )]
         {
             eprintln!(
                 "\nTo authenticate with GitHub Copilot, visit: {}\nand enter code: {}\n",

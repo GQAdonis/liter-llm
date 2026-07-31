@@ -47,9 +47,7 @@ pub fn init(default_filter: &str) -> TelemetryGuard {
 
 fn init_console(default_filter: &str) {
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter)),
-        )
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter)))
         .try_init();
 }
 
@@ -100,7 +98,10 @@ mod otel {
         let tracer = tracer_provider.tracer("liter-llm");
         opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
-        let metric_exporter = opentelemetry_otlp::MetricExporter::builder().with_tonic().with_endpoint(endpoint).build()?;
+        let metric_exporter = opentelemetry_otlp::MetricExporter::builder()
+            .with_tonic()
+            .with_endpoint(endpoint)
+            .build()?;
         let reader = PeriodicReader::builder(metric_exporter)
             .with_interval(std::time::Duration::from_secs(15))
             .build();
