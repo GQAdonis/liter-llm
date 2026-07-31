@@ -1,0 +1,45 @@
+name: Fork Vendored Deps Check
+
+# Fork-local addition (not upstreamed to xberg-io/liter-llm): crates/liter-llm's
+# [package] fields and several [dependencies]/[dev-dependencies] entries are
+# hardcoded instead of `*.workspace = true` so this crate can be vendored as a
+# nested path dependency (see the NOTE/~keep comments in
+# crates/liter-llm/Cargo.toml). Those hardcoded values silently drift from the
+# root [workspace.package]/[workspace.dependencies] tables whenever upstream
+# bumps a dependency, so this check catches the drift instead of letting it
+# surface as a broken `cargo build` after the next merge from upstream.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - crates/liter-llm/Cargo.toml
+      - scripts/check_vendored_deps.py
+      - .github/workflows/fork-vendored-deps-check.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - crates/liter-llm/Cargo.toml
+      - scripts/check_vendored_deps.py
+      - .github/workflows/fork-vendored-deps-check.yml
+  workflow_dispatch:
+
+concurrency:
+  group: fork-vendored-deps-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check vendored dep versions match workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check crates/liter-llm/Cargo.toml hardcoded fields are in sync
+        run: python3 scripts/check_vendored_deps.py
