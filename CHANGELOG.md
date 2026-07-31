@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-07-31
+
 ### Added
 
 - `liter-llm-cli` installs a real OTLP export pipeline under the `otel` feature: it builds an OTLP
