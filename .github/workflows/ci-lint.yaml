@@ -30,3 +30,8 @@ jobs:
     with:
       setup-rust: true
       setup-python: true
+      # poly's checkstyle project check runs `mvn checkstyle:check` on packages/java,
+      # whose checkstyle 13.9.0 + maven.compiler.release=25 need a JDK 21+ (runner
+      # default is 17). Match the binding's target JDK. ~keep
+      setup-java: true
+      java-version: "25"
