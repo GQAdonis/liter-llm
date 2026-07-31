@@ -3209,7 +3209,7 @@ name = "liter-llm-jni"
 version = "1.11.5"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.0",
  "futures-util",
  "jni",
  "liter-llm",
