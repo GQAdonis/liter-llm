@@ -879,4 +879,29 @@ mod tests {
         transform_openai_audio_response(&mut body).expect("transform must succeed");
         assert_eq!(body, original, "body must be unchanged when no audio field is present");
     }
+
+    #[test]
+    fn parse_stream_event_tolerates_trailing_metadata_event_without_id() {
+        // ~keep OpenCode Zen/Go emits an `inference-cost` event (no `id`, empty
+        // `choices`) right before `[DONE]`; the default parser must yield an empty
+        // chunk rather than aborting the stream with `missing field 'id'` (#155).
+        let payload = r#"{"choices":[],"x-opencode-type":"inference-cost","cost":"0.00001400","normalizedUsage":{"inputTokens":84,"outputTokens":8}}"#;
+        let chunk = OpenAiProvider
+            .parse_stream_event(payload)
+            .expect("trailing metadata event must not error")
+            .expect("event should decode to a chunk, not be skipped");
+        assert!(chunk.id.is_empty());
+        assert!(chunk.choices.is_empty());
+    }
+
+    #[test]
+    fn parse_stream_event_parses_normal_chunk_with_id() {
+        let payload = r#"{"id":"chatcmpl-1","object":"chat.completion.chunk","created":1700000000,"model":"gpt-4o","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}]}"#;
+        let chunk = OpenAiProvider
+            .parse_stream_event(payload)
+            .expect("valid chunk must parse")
+            .expect("valid chunk must yield Some");
+        assert_eq!(chunk.id, "chatcmpl-1");
+        assert_eq!(chunk.choices[0].delta.content.as_deref(), Some("hi"));
+    }
 }

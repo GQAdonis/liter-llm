@@ -225,13 +225,23 @@ pub struct Choice {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ChatCompletionChunk {
     /// Unique identifier for this stream.
+    ///
+    // ~keep `#[serde(default)]` on the header fields: OpenAI-compatible providers
+    // (e.g. OpenCode Zen/Go) emit a trailing metadata-only event — empty `choices`
+    // plus cost/usage — with no `id`/`object`/`created`/`model` right before
+    // `[DONE]`. Without defaults serde fails with `missing field 'id'` and aborts
+    // an otherwise-complete stream (#155). Defaults let it decode to an empty chunk.
+    #[serde(default)]
     pub id: String,
     /// Always `"chat.completion.chunk"` from OpenAI-compatible APIs.  Stored
     /// as a plain `String` so non-standard provider values do not fail parsing.
+    #[serde(default)]
     pub object: String,
     /// Unix timestamp of chunk creation.
+    #[serde(default)]
     pub created: u64,
     /// Model used to generate the chunk.
+    #[serde(default)]
     pub model: String,
     /// Streaming choices (delta updates).
     pub choices: Vec<StreamChoice>,
@@ -311,6 +321,22 @@ pub struct StreamFunctionCall {
 mod tests {
     use super::*;
     use crate::types::common::PromptTokensDetails;
+
+    #[test]
+    fn chat_completion_chunk_deserializes_without_id_field() {
+        // ~keep Trailing metadata-only event OpenCode Zen/Go emits before `[DONE]`
+        // (#155): no `id`/`object`/`created`/`model`, empty `choices`, extra
+        // `cost`/`x-opencode-type`/`normalizedUsage` fields serde must ignore.
+        let payload = r#"{"choices":[],"x-opencode-type":"inference-cost","cost":"0.00001400","normalizedUsage":{"inputTokens":84,"outputTokens":8,"reasoningTokens":8,"cacheReadTokens":0,"cacheWrite5mTokens":0,"cacheWrite1hTokens":0}}"#;
+        let chunk: ChatCompletionChunk =
+            serde_json::from_str(payload).expect("metadata event lacking `id` must not fail to parse");
+        assert_eq!(chunk.id, "");
+        assert_eq!(chunk.object, "");
+        assert_eq!(chunk.created, 0);
+        assert_eq!(chunk.model, "");
+        assert!(chunk.choices.is_empty());
+        assert!(chunk.usage.is_none());
+    }
 
     fn make_response(model: &str, usage: Usage) -> ChatCompletionResponse {
         ChatCompletionResponse {

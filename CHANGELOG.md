@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   org feature-flag contract that tracing is never optional. `otel` remains the opt-in OTLP export
   layer.
 
+### Fixed
+
+- Streaming no longer aborts on a trailing metadata-only SSE event that omits `id`. OpenAI-compatible
+  providers such as OpenCode Zen/Go (`https://opencode.ai/zen/go/v1`) emit an `inference-cost` event
+  with empty `choices` and no `id`/`object`/`created`/`model` immediately before `[DONE]`; these
+  header fields on `ChatCompletionChunk` are now `#[serde(default)]`, so the event decodes to an
+  empty chunk instead of failing with `missing field 'id'`. (#155)
+
 ## [1.11.5] - 2026-07-30
 
 ### Changed
