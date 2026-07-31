@@ -1,5 +1,6 @@
 mod allocator;
 mod commands;
+mod telemetry;
 
 use clap::Parser;
 use commands::Command;

@@ -12,7 +12,7 @@ COPY packages/ packages/
 RUN --mount=type=cache,id=cargo-registry-${TARGETARCH},target=/usr/local/cargo/registry \
     --mount=type=cache,id=cargo-git-${TARGETARCH},target=/usr/local/cargo/git \
     --mount=type=cache,id=cargo-target-${TARGETARCH},target=/build/target \
-    cargo build --release --package liter-llm-cli && \
+    cargo build --release --package liter-llm-cli --features otel && \
     cp target/release/liter-llm /usr/local/bin/liter-llm
 
 FROM cgr.dev/chainguard/glibc-dynamic@sha256:7ff79e2caef2b8a137ddaf9940fb790e91148482092363760d6661e4591fd54c

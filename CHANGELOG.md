@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `liter-llm-cli` installs a real OTLP export pipeline under the `otel` feature: it builds an OTLP
+  span exporter + SDK tracer/meter providers, registers the W3C TraceContext propagator, and bridges
+  `tracing` spans (and the library's `gen_ai.*` metric instruments) to OpenTelemetry via a
+  `tracing-opentelemetry` layer. Export is activated at runtime by `OTEL_EXPORTER_OTLP_ENDPOINT`;
+  without it the CLI falls back to the console subscriber. Both the `api` proxy server and the `mcp`
+  server share this install path, and the server Docker image is built with `--features otel`.
+  (Previously the `otel` feature only compiled the OTel API with no exporter, so nothing was
+  exported standalone — the instruments only reached a collector when a host such as xberg-enterprise
+  installed the providers.)
+
 ### Changed
 
 - Raw `println!`/`eprintln!`/`print!`/`eprint!`/`dbg!` are denied in production code across the

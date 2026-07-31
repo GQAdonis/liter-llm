@@ -53,12 +53,8 @@ pub struct ApiArgs {
 
 pub async fn run(args: ApiArgs) -> Result<(), String> {
     let filter = if args.debug { "debug" } else { "info" };
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(filter)),
-        )
-        .init();
+    // ~keep Hold the guard for the whole server so the OTLP providers flush on exit.
+    let _telemetry_guard = crate::telemetry::init(filter);
 
     let mut config = if let Some(path) = &args.config {
         ProxyConfig::from_toml_file(path)?
