@@ -9,6 +9,13 @@ authors.workspace = true
 description = "CLI for liter-llm — start an OpenAI-compatible proxy server or MCP tool server."
 keywords = ["llm", "proxy", "cli", "openai", "xberg"]
 
+# ~keep cargo-binstall support: release assets embed the version and use a `liter-llm-`
+# ~keep prefix, so pin the download URL and bin-dir explicitly.
+# ~keep See https://github.com/cargo-bins/cargo-binstall/blob/main/SUPPORT.md
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/liter-llm-{ version }-{ target }{ archive-suffix }"
+bin-dir = "liter-llm-{ version }-{ target }/{ bin }{ binary-ext }"
+
 [[bin]]
 name = "liter-llm"
 path = "src/main.rs"
