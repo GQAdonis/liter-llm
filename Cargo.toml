@@ -44,7 +44,7 @@ dbg_macro = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(alef)'] }
 
 [workspace.package]
-version = "1.12.0"
+version = "1.12.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
@@ -86,7 +86,7 @@ napi = { version = "3", features = ["napi4", "serde-json", "async"] }
 napi-build = "2"
 napi-derive = "3"
 notify = { version = "8", features = ["macos_kqueue"] }
-opendal = { version = "0.57", default-features = false, features = [
+opendal = { version = "0.58", default-features = false, features = [
     "services-memory",
     "services-redis",
     "services-fs",
@@ -102,7 +102,7 @@ rayon = "1"
 rb-sys = "0.9"
 # ~keep Async / HTTP: TLS-agnostic base only; each crate adds TLS features target-conditionally.
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form"] }
-rmcp = { version = "3.0", features = [
+rmcp = { version = "3.1", features = [
     "server",
     "macros",
     "transport-io",
