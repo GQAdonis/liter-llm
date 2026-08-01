@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/stretchr/testify v1.11.1
-	github.com/xberg-io/liter-llm/packages/go v1.12.1
+	github.com/xberg-io/liter-llm/packages/go v1.12.2
 )
 
 require (

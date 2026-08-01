@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-08-01
+
+### Added
+
+- `cargo binstall liter-llm-cli` support — prebuilt CLI binaries can now be installed
+  directly from GitHub Releases without compiling from source. Adds
+  `[package.metadata.binstall]` to the CLI crate plus a release-time `verify-binstall`
+  CI job that installs via `cargo binstall`, smoke-tests the binary, and gates
+  release-finalize.
+
+### Changed
+
+- Synced the model catalog from models.dev (#158).
+- Updated dependencies.
+
 ## [1.12.1] - 2026-08-01
 
 ### Added
