@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-08-01
+
+### Added
+
+- MiniMax now exposes region-specific endpoints (#157): the global region
+  (`https://api.minimax.io/v1` for the OpenAI protocol, `https://api.minimax.io/anthropic`
+  for the Anthropic protocol) and the China region (`https://api.minimaxi.com/v1`,
+  `https://api.minimaxi.com/anthropic`), each with its own docs root.
+
+### Changed
+
+- Regenerated the bundled model catalog, refreshing provider/model data and provenance.
+
+### Fixed
+
+- The ai-rulez-generated `plugin/.mcp.json` bundle is now committed instead of being
+  swept up by the broad `.mcp.json` gitignore rule, so a fresh CI checkout no longer
+  fails `ai-rulez verify --plugin` with a missing-file error.
+
 ## [1.12.0] - 2026-07-31
 
 ### Added
