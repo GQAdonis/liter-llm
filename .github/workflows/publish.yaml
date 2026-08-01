@@ -2537,6 +2537,19 @@ jobs:
           draft: "false"
           token: ${{ steps.app-token.outputs.token }}
 
+  verify-binstall:
+    name: Verify cargo-binstall install
+    needs: [prepare, upload-cli-binaries]
+    if: ${{ needs.prepare.outputs.release_homebrew == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.upload-cli-binaries.result == 'success' }}
+    uses: xberg-io/actions/.github/workflows/reusable-binstall-verify.yml@v1
+    with:
+      package-name: liter-llm-cli
+      binary-name: liter-llm
+      manifest-path: crates/liter-llm-cli
+      checkout-ref: ${{ needs.prepare.outputs.checkout_ref }}
+      smoke-command: |
+        liter-llm --version
+
   check-homebrew:
     name: Check Homebrew tap for formula
     needs: [prepare]
@@ -2750,6 +2763,7 @@ jobs:
       - trigger-pubdev
       - publish-zig
       - upload-swift-release
+      - verify-binstall
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15
