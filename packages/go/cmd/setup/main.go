@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	moduleVersion     = "1.12.2"
+	moduleVersion = "1.13.0"
 	repoURL           = "https://github.com/xberg-io/liter-llm"
 	assetPrefix       = "liter-llm"
 	ffiLibName        = "liter_llm_ffi"

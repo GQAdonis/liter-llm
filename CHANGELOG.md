@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-08-02
+
+### Added
+
+- Anthropic-compatible providers can now target a custom base URL (#159).
+  `anthropic/`-prefixed models with a `base_url` override route to the
+  Anthropic provider, so the Messages-API transforms (system extraction,
+  content blocks, tool use, thinking) work against Anthropic-compatible
+  endpoints such as DeepSeek's `https://api.deepseek.com/anthropic`.
+- `ReasoningEffort` gains `Minimal` and `Max` variants (#160), covering
+  DeepSeek's `max` thinking level and OpenAI's `minimal` level. Variants are
+  appended, so existing FFI integer discriminants are unchanged.
+
+### Changed
+
+- `extra_body` is now shallow-merged into the request body root for
+  OpenAI-compatible providers (#160), matching the OpenAI SDK. Top-level
+  fields such as DeepSeek's `thinking` switch reach the wire instead of being
+  sent as a literal `extra_body` object. The transport-controlled `stream`
+  flag cannot be overridden via `extra_body`.
+- Synced the model catalog from models.dev.
+- Upgraded dependencies (`cargo upgrade --incompatible`).
+
 ## [1.12.2] - 2026-08-01
 
 ### Added

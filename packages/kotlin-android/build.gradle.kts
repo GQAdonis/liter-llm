@@ -196,7 +196,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.xberg.literllm",
         artifactId = "liter-llm-android",
-        version = "1.12.2",
+        version = "1.13.0",
     )
 
     pom {
