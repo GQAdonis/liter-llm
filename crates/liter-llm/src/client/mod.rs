@@ -165,6 +165,50 @@ fn str_pair(pair: &(String, String)) -> (&str, &str) {
     (pair.0.as_str(), pair.1.as_str())
 }
 
+/// Shallow-merge a top-level `"extra_body"` key into `body`, OpenAI-Python-SDK
+/// style: `{**body, **extra_body}` — extra_body keys override identically
+/// named top-level keys.
+///
+/// Providers that consume `extra_body` themselves (Anthropic, Vertex,
+/// Bedrock) already strip it inside their own `transform_request`, so by the
+/// time this runs there is nothing left for them to merge; this only has an
+/// effect for OpenAI-compatible providers, which pass `extra_body` through
+/// unchanged. A non-object `extra_body` cannot be merged into the body root,
+/// so it is dropped with a warning rather than sent to the wire.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn merge_extra_body(body: &mut serde_json::Value) {
+    let Some(obj) = body.as_object_mut() else {
+        return;
+    };
+    let Some(extra_body) = obj.remove("extra_body") else {
+        return;
+    };
+    match extra_body {
+        serde_json::Value::Object(extra_fields) => {
+            obj.extend(extra_fields);
+        }
+        other => {
+            tracing::warn!(
+                extra_body_type = json_value_type_name(&other),
+                "ignoring non-object extra_body; it cannot be merged into the request body"
+            );
+        }
+    }
+}
+
+/// Human-readable JSON type name, used only for diagnostic tracing fields.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn json_value_type_name(value: &serde_json::Value) -> &'static str {
+    match value {
+        serde_json::Value::Null => "null",
+        serde_json::Value::Bool(_) => "boolean",
+        serde_json::Value::Number(_) => "number",
+        serde_json::Value::String(_) => "string",
+        serde_json::Value::Array(_) => "array",
+        serde_json::Value::Object(_) => "object",
+    }
+}
+
 /// Core LLM client trait.
 ///
 /// Provides unified access to LLM and multimodal APIs across 165 providers.
@@ -736,6 +780,15 @@ impl DefaultClient {
             }
         }
         prov.transform_request(&mut body)?;
+        merge_extra_body(&mut body);
+        // ~keep extra_body must never override `stream`: the transport path
+        // (post_json_raw vs post_stream) is chosen by the calling method, not the
+        // body, so a mismatched wire flag would desync request from response parsing.
+        if let Some(s) = stream
+            && let Some(obj) = body.as_object_mut()
+        {
+            obj.insert("stream".into(), serde_json::Value::Bool(s));
+        }
 
         // ~keep Serialize once so signing bytes and request body bytes are identical.
         let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body)?);
@@ -803,6 +856,11 @@ fn build_provider(config: &ClientConfig, model_hint: Option<&str>) -> Arc<dyn Pr
             && model.starts_with("azure/")
         {
             return Arc::new(provider::azure::AzureProvider::with_base_url(base_url.clone()));
+        }
+        if let Some(model) = model_hint
+            && model.starts_with("anthropic/")
+        {
+            return Arc::new(provider::anthropic::AnthropicProvider::with_base_url(base_url.clone()));
         }
         return Arc::new(OpenAiCompatibleProvider {
             name: "custom".into(),
@@ -1968,6 +2026,129 @@ mod build_provider_tests {
         let config = ClientConfigBuilder::new("test-key").build();
         let p = build_provider(&config, Some("azure/gpt-4o"));
         assert_eq!(p.name(), "azure");
+    }
+
+    #[test]
+    fn anthropic_model_with_per_model_base_url_uses_anthropic_provider() {
+        let config = ClientConfigBuilder::new("test-key")
+            .base_url("https://proxy.internal/anthropic/")
+            .build();
+        let p = build_provider(&config, Some("anthropic/claude-3-5-sonnet-20241022"));
+        assert_eq!(p.name(), "anthropic");
+        assert_eq!(p.base_url(), "https://proxy.internal/anthropic");
+    }
+
+    #[test]
+    fn default_anthropic_provider_uses_official_base_url() {
+        assert_eq!(
+            provider::anthropic::AnthropicProvider::new().base_url(),
+            "https://api.anthropic.com/v1"
+        );
+        assert_eq!(
+            provider::anthropic::AnthropicProvider::default().base_url(),
+            "https://api.anthropic.com/v1"
+        );
+    }
+
+    #[test]
+    fn extra_body_object_is_merged_and_overrides_existing_key() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("gpt-4"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            extra_body: Some(serde_json::json!({
+                "thinking": {"type": "enabled"},
+                "model": "extra-body-override"
+            })),
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("extra_body").is_none(),
+            "extra_body key must be removed from the final body"
+        );
+        assert_eq!(prepared.body_json["thinking"], serde_json::json!({"type": "enabled"}));
+        assert_eq!(
+            prepared.body_json["model"], "extra-body-override",
+            "extra_body keys must override identically named top-level keys"
+        );
+    }
+
+    #[test]
+    fn extra_body_cannot_override_the_transport_controlled_stream_flag() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("gpt-4"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            extra_body: Some(serde_json::json!({"stream": false})),
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(true))
+            .expect("prepare_request should not fail");
+
+        assert_eq!(
+            prepared.body_json["stream"],
+            serde_json::json!(true),
+            "the caller-selected stream flag must win over extra_body"
+        );
+    }
+
+    #[test]
+    fn extra_body_non_object_is_dropped_without_reaching_the_body() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("gpt-4"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            extra_body: Some(serde_json::json!(["not", "an", "object"])),
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("extra_body").is_none(),
+            "non-object extra_body must never reach the wire"
+        );
+    }
+
+    #[test]
+    fn anthropic_provider_leaves_no_extra_body_key_in_final_body() {
+        let client = DefaultClient::new(
+            ClientConfigBuilder::new("test-key").build(),
+            Some("claude-3-5-sonnet-20241022"),
+        )
+        .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "claude-3-5-sonnet-20241022".into(),
+            messages: vec![crate::types::Message::User(crate::types::UserMessage {
+                content: crate::types::UserContent::Text("Hi".into()),
+                name: None,
+            })],
+            max_tokens: Some(100),
+            extra_body: Some(serde_json::json!({"reasoning_effort": "high"})),
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("extra_body").is_none(),
+            "anthropic's own transform_request already strips extra_body"
+        );
+        assert_eq!(prepared.body_json["thinking"]["budget_tokens"], 16384);
     }
 
     /// When the resolved provider is Vertex AI and the caller supplied neither

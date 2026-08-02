@@ -748,7 +748,7 @@ pub(crate) fn detect_provider(model: &str) -> Option<Box<dyn Provider>> {
         return Some(Box::new(openai));
     }
 
-    let anthropic = anthropic::AnthropicProvider;
+    let anthropic = anthropic::AnthropicProvider::default();
     if anthropic.matches_model(model) {
         return Some(Box::new(anthropic));
     }

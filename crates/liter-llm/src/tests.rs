@@ -873,7 +873,7 @@ mod provider_tests {
     #[test]
     fn anthropic_extra_headers_contain_version() {
         use crate::provider::anthropic::AnthropicProvider;
-        let p = AnthropicProvider;
+        let p = AnthropicProvider::default();
         let extras = p.extra_headers();
         assert_eq!(extras.len(), 1);
         assert_eq!(extras[0].0, "anthropic-version");
@@ -892,7 +892,7 @@ mod provider_tests {
     #[test]
     fn anthropic_bare_model_not_stripped() {
         use crate::provider::anthropic::AnthropicProvider;
-        let p = AnthropicProvider;
+        let p = AnthropicProvider::default();
         assert_eq!(
             p.strip_model_prefix("claude-3-5-sonnet-20241022"),
             "claude-3-5-sonnet-20241022"

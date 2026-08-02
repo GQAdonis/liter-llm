@@ -39,7 +39,50 @@ const BETA_PDFS: &str = "pdfs-2024-09-25";
 /// - Model names start with `claude-` or are routed via the `anthropic/` prefix.
 /// - Chat endpoint is `/messages`, not `/chat/completions`.
 /// - Request and response JSON formats differ from OpenAI.
-pub struct AnthropicProvider;
+pub struct AnthropicProvider {
+    /// Anthropic API base URL, e.g. `https://api.anthropic.com/v1`.
+    ///
+    /// Defaults to the official Anthropic endpoint; overridable via
+    /// [`AnthropicProvider::with_base_url`] for proxies and self-hosted
+    /// gateways that speak the Anthropic Messages API (issue #159).
+    base_url: String,
+}
+
+/// Official Anthropic API base URL.
+const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com/v1";
+
+impl AnthropicProvider {
+    /// Construct an [`AnthropicProvider`] pointed at the official Anthropic API.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            base_url: DEFAULT_ANTHROPIC_BASE_URL.to_owned(),
+        }
+    }
+
+    /// Construct an [`AnthropicProvider`] with an explicit `base_url`.
+    ///
+    /// Used when a `[[models]]` config entry or client `base_url` override
+    /// pins a per-model Anthropic-compatible endpoint — e.g. a proxy or
+    /// self-hosted gateway (see issue #159). Trailing slashes are stripped.
+    /// Falls back to the official Anthropic URL if the trimmed string is empty.
+    #[must_use]
+    pub fn with_base_url(base_url: impl Into<String>) -> Self {
+        let trimmed = base_url.into().trim_end_matches('/').to_owned();
+        let base_url = if trimmed.is_empty() {
+            DEFAULT_ANTHROPIC_BASE_URL.to_owned()
+        } else {
+            trimmed
+        };
+        Self { base_url }
+    }
+}
+
+impl Default for AnthropicProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Provider for AnthropicProvider {
     fn name(&self) -> &str {
@@ -47,7 +90,7 @@ impl Provider for AnthropicProvider {
     }
 
     fn base_url(&self) -> &str {
-        "https://api.anthropic.com/v1"
+        &self.base_url
     }
 
     fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
@@ -244,10 +287,14 @@ impl Provider for AnthropicProvider {
             });
 
         if let Some(effort) = reasoning_effort {
+            // ~keep 1024 is Anthropic's documented minimum thinking budget_tokens, so
+            // "minimal" and "low" both floor there — the duplicate value is intentional.
             let budget_tokens: u64 = match effort.as_str() {
+                "minimal" => 1024,
                 "low" => 1024,
                 "medium" => 4096,
                 "high" => 16384,
+                "max" => 32768,
                 _ => 4096,
             };
             body["thinking"] = json!({
@@ -1132,7 +1179,25 @@ mod tests {
     use super::*;
 
     fn provider() -> AnthropicProvider {
-        AnthropicProvider
+        AnthropicProvider::default()
+    }
+
+    #[test]
+    fn new_and_default_use_official_anthropic_base_url() {
+        assert_eq!(AnthropicProvider::new().base_url(), "https://api.anthropic.com/v1");
+        assert_eq!(AnthropicProvider::default().base_url(), "https://api.anthropic.com/v1");
+    }
+
+    #[test]
+    fn with_base_url_trims_trailing_slash() {
+        let p = AnthropicProvider::with_base_url("https://proxy.internal/anthropic/");
+        assert_eq!(p.base_url(), "https://proxy.internal/anthropic");
+    }
+
+    #[test]
+    fn with_base_url_falls_back_to_official_url_when_empty() {
+        let p = AnthropicProvider::with_base_url("");
+        assert_eq!(p.base_url(), "https://api.anthropic.com/v1");
     }
 
     #[test]
@@ -2104,6 +2169,34 @@ mod tests {
             .expect("transform_request should not fail");
         assert_eq!(body["thinking"]["type"], "enabled");
         assert_eq!(body["thinking"]["budget_tokens"], 16384);
+    }
+
+    #[test]
+    fn transform_request_reasoning_effort_minimal_maps_to_1024_budget_tokens() {
+        let mut body = json!({
+            "model": "claude-sonnet-4-20250514",
+            "messages": [{"role": "user", "content": "Quick answer"}],
+            "reasoning_effort": "minimal"
+        });
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+        assert_eq!(body["thinking"]["type"], "enabled");
+        assert_eq!(body["thinking"]["budget_tokens"], 1024);
+    }
+
+    #[test]
+    fn transform_request_reasoning_effort_max_maps_to_32768_budget_tokens() {
+        let mut body = json!({
+            "model": "claude-sonnet-4-20250514",
+            "messages": [{"role": "user", "content": "Think as hard as possible"}],
+            "reasoning_effort": "max"
+        });
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+        assert_eq!(body["thinking"]["type"], "enabled");
+        assert_eq!(body["thinking"]["budget_tokens"], 32768);
     }
 
     #[test]

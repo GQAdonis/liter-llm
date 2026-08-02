@@ -76,6 +76,8 @@ pub enum ReasoningEffort {
     #[default]
     Medium,
     High,
+    Minimal,
+    Max,
 }
 
 /// Chat completion request (compatible with OpenAI and similar APIs).
@@ -137,7 +139,7 @@ pub struct ChatCompletionRequest {
     /// Random seed for reproducible outputs. Provider support varies.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seed: Option<i64>,
-    /// Reasoning effort level (low, medium, high) for extended-thinking models.
+    /// Reasoning effort level (minimal, low, medium, high, max) for extended-thinking models.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<ReasoningEffort>,
     /// Output modalities to request from the model.
@@ -336,6 +338,27 @@ mod tests {
         assert_eq!(chunk.model, "");
         assert!(chunk.choices.is_empty());
         assert!(chunk.usage.is_none());
+    }
+
+    #[test]
+    fn reasoning_effort_minimal_and_max_round_trip_through_serde() {
+        assert_eq!(
+            serde_json::to_value(ReasoningEffort::Minimal).expect("serialize should not fail"),
+            serde_json::json!("minimal")
+        );
+        assert_eq!(
+            serde_json::from_value::<ReasoningEffort>(serde_json::json!("minimal"))
+                .expect("deserialize should not fail"),
+            ReasoningEffort::Minimal
+        );
+        assert_eq!(
+            serde_json::to_value(ReasoningEffort::Max).expect("serialize should not fail"),
+            serde_json::json!("max")
+        );
+        assert_eq!(
+            serde_json::from_value::<ReasoningEffort>(serde_json::json!("max")).expect("deserialize should not fail"),
+            ReasoningEffort::Max
+        );
     }
 
     fn make_response(model: &str, usage: Usage) -> ChatCompletionResponse {

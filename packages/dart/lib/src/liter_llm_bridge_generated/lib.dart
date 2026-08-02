@@ -1336,7 +1336,7 @@ class ChatCompletionRequest {
   /// Random seed for reproducible outputs. Provider support varies.
   final PlatformInt64? seed;
 
-  /// Reasoning effort level (low, medium, high) for extended-thinking models.
+  /// Reasoning effort level (minimal, low, medium, high, max) for extended-thinking models.
   final ReasoningEffort? reasoningEffort;
 
   /// Output modalities to request from the model.
@@ -3563,7 +3563,7 @@ class RateLimitConfig {
 }
 
 /// Controls how much reasoning effort the model should use.
-enum ReasoningEffort { low, medium, high }
+enum ReasoningEffort { low, medium, high, minimal, max }
 
 /// Result of a [`refresh_catalog`] call.
 enum RefreshOutcome {
