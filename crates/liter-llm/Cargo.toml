@@ -42,6 +42,10 @@ opendal-cache = ["dep:opendal", "tower"]
 
 guardrail-cel = ["dep:cel-interpreter"]
 
+# ~keep Derives `utoipa::ToSchema` on `LlmConfig` and friends for OpenAPI generation.
+# ~keep Kept off `full`/`default` since it is a docs/schema-generation concern, not a runtime one.
+schema = ["dep:utoipa"]
+
 # ~keep Without `bedrock`, `BedrockProvider` still routes `bedrock/` model names
 # ~keep and strips the prefix, but sends unsigned requests for mock base URLs.
 bedrock = ["native-http", "dep:aws-credential-types", "dep:aws-sigv4"]
@@ -122,6 +126,7 @@ tower-http = { workspace = true, optional = true }
 tracing = { workspace = true }
 tracing-opentelemetry = { workspace = true, optional = true }
 url = { workspace = true }
+utoipa = { workspace = true, optional = true }
 web-time = { version = "1", optional = true }
 
 # ~keep Non-Windows uses rustls + ring to avoid aws-lc-sys as the bundled TLS provider.

@@ -72,8 +72,9 @@ pub mod util;
 pub mod vectorstore;
 
 pub use client::{
-    BatchClient, BoxFuture, BoxStream, ClientBuilder, ClientConfig, ClientConfigBuilder, FileClient, FileConfig,
-    LlmClient, LlmClientRaw, ResponseClient,
+    BatchClient, BedrockConfig, BoxFuture, BoxStream, ClientBuilder, ClientConfig, ClientConfigBuilder, FileClient,
+    FileConfig, LlmBudgetConfig, LlmCacheConfig, LlmClient, LlmClientRaw, LlmConfig, LlmProviderConfig,
+    LlmRateLimitConfig, ResponseClient,
 };
 // ~keep Batch polling helpers are binding-public and used by every language binding.
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]

@@ -5,6 +5,8 @@ pub mod config;
 /// On-disk client configuration schema (TOML / JSON / YAML).
 #[allow(missing_docs)]
 pub mod config_file;
+/// Canonical, binding-friendly [`LlmConfig`] and its conversion into [`ClientConfigBuilder`].
+pub mod llm_config;
 /// Tower-backed managed client wired with rate limit, cache, routing, etc.
 #[cfg(all(feature = "native-http", feature = "tower"))]
 pub mod managed;
@@ -44,6 +46,9 @@ use secrecy::ExposeSecret;
 pub use builder::{ClientBuilder, NoApiKey, NoProvider, WithApiKey, WithProvider};
 pub use config::{ClientConfig, ClientConfigBuilder};
 pub use config_file::FileConfig;
+pub use llm_config::{
+    BedrockConfig, LlmBudgetConfig, LlmCacheConfig, LlmConfig, LlmProviderConfig, LlmRateLimitConfig,
+};
 
 use crate::types::batch::BatchStatus;
 use std::time::Duration;
@@ -727,6 +732,9 @@ impl DefaultClient {
         if self.provider.matches_model(model) {
             return Arc::clone(&self.provider);
         }
+        if model.starts_with("bedrock/") {
+            return build_bedrock_provider(&self.config);
+        }
         if let Some(detected) = provider::detect_provider(model) {
             return Arc::from(detected);
         }
@@ -900,13 +908,31 @@ fn build_provider(config: &ClientConfig, model_hint: Option<&str>) -> Arc<dyn Pr
         });
     }
 
-    if let Some(model) = model_hint
-        && let Some(p) = provider::detect_provider(model)
-    {
-        return Arc::from(p);
+    if let Some(model) = model_hint {
+        if model.starts_with("bedrock/") {
+            return build_bedrock_provider(config);
+        }
+        if let Some(p) = provider::detect_provider(model) {
+            return Arc::from(p);
+        }
     }
 
     Arc::new(OpenAiProvider)
+}
+
+/// Build a [`provider::bedrock::BedrockProvider`] from `config`, threading
+/// through any explicit region, cross-region prefix, and credentials set on
+/// [`ClientConfig`]. Falls back to the environment for anything left unset,
+/// matching [`provider::bedrock::BedrockProvider::from_env`].
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn build_bedrock_provider(config: &ClientConfig) -> Arc<dyn Provider> {
+    Arc::new(provider::bedrock::BedrockProvider::from_config(
+        config.bedrock_region.clone(),
+        config.bedrock_cross_region_prefix.clone(),
+        config.bedrock_access_key_id.clone(),
+        config.bedrock_secret_access_key.clone(),
+        config.bedrock_session_token.clone(),
+    ))
 }
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]

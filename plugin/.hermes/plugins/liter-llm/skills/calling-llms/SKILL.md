@@ -6,7 +6,7 @@ description: Use when sending chat completions through liter-llm and routing to 
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
 Content-Hash: blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f
-Source-Hash: blake3:5906e33e3d4c7ee1bb966ed84795ee9cbfeebb93ce37facf6116c7e0cceca2b2
+Source-Hash: blake3:68df7efe580c1c04ccff4e46c8dfec6a2ffeef30e3c5f7d075efb4a2fe274eab
 Schema-Version: v1
 -->
 

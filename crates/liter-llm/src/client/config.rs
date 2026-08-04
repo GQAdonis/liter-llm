@@ -105,6 +105,28 @@ pub struct ClientConfig {
 
     /// HTTP transport configuration for connection pooling, DNS caching, and protocol selection.
     pub transport: TransportConfig,
+
+    /// AWS region for the Bedrock provider (`bedrock/` model prefix).
+    ///
+    /// When unset, resolution falls back to `AWS_DEFAULT_REGION`, then
+    /// `AWS_REGION`, then `us-east-1`.
+    pub bedrock_region: Option<String>,
+    /// Cross-region inference profile prefix for Bedrock (e.g. `"us"`).
+    ///
+    /// When unset, falls back to the `BEDROCK_CROSS_REGION` environment variable.
+    pub bedrock_cross_region_prefix: Option<String>,
+    /// Explicit AWS access key ID for Bedrock SigV4 signing.
+    ///
+    /// When unset, falls back to the `AWS_ACCESS_KEY_ID` environment variable.
+    pub bedrock_access_key_id: Option<String>,
+    /// Explicit AWS secret access key for Bedrock SigV4 signing.
+    ///
+    /// When unset, falls back to the `AWS_SECRET_ACCESS_KEY` environment variable.
+    pub bedrock_secret_access_key: Option<String>,
+    /// Explicit AWS session token for Bedrock SigV4 signing (temporary credentials).
+    ///
+    /// When unset, falls back to the `AWS_SESSION_TOKEN` environment variable.
+    pub bedrock_session_token: Option<String>,
 }
 
 #[cfg_attr(alef, alef(skip))]
@@ -120,6 +142,11 @@ impl ClientConfig {
             credential_provider: None,
             load_env: true,
             transport: TransportConfig::default(),
+            bedrock_region: None,
+            bedrock_cross_region_prefix: None,
+            bedrock_access_key_id: None,
+            bedrock_secret_access_key: None,
+            bedrock_session_token: None,
             #[cfg(feature = "tower")]
             cache_config: None,
             #[cfg(feature = "tower")]
@@ -166,6 +193,20 @@ impl std::fmt::Debug for ClientConfig {
             .field(
                 "credential_provider",
                 &self.credential_provider.as_ref().map(|_| "[configured]"),
+            )
+            .field("bedrock_region", &self.bedrock_region)
+            .field("bedrock_cross_region_prefix", &self.bedrock_cross_region_prefix)
+            .field(
+                "bedrock_access_key_id",
+                &self.bedrock_access_key_id.as_ref().map(|_| "[redacted]"),
+            )
+            .field(
+                "bedrock_secret_access_key",
+                &self.bedrock_secret_access_key.as_ref().map(|_| "[redacted]"),
+            )
+            .field(
+                "bedrock_session_token",
+                &self.bedrock_session_token.as_ref().map(|_| "[redacted]"),
             );
 
         #[cfg(feature = "tower")]
@@ -392,6 +433,37 @@ impl ClientConfigBuilder {
     /// and protocol selection.
     pub fn transport(mut self, config: TransportConfig) -> Self {
         self.config.transport = config;
+        self
+    }
+
+    /// Set the AWS region for the Bedrock provider (`bedrock/` model prefix).
+    ///
+    /// When unset, resolution falls back to `AWS_DEFAULT_REGION`, then
+    /// `AWS_REGION`, then `us-east-1`.
+    pub fn bedrock_region(mut self, region: impl Into<String>) -> Self {
+        self.config.bedrock_region = Some(region.into());
+        self
+    }
+
+    /// Set the cross-region inference profile prefix for Bedrock (e.g. `"us"`).
+    ///
+    /// When unset, falls back to the `BEDROCK_CROSS_REGION` environment variable.
+    pub fn bedrock_cross_region_prefix(mut self, prefix: impl Into<String>) -> Self {
+        self.config.bedrock_cross_region_prefix = Some(prefix.into());
+        self
+    }
+
+    /// Set explicit AWS credentials for Bedrock SigV4 signing, overriding
+    /// `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`.
+    pub fn bedrock_credentials(
+        mut self,
+        access_key_id: impl Into<String>,
+        secret_access_key: impl Into<String>,
+        session_token: Option<String>,
+    ) -> Self {
+        self.config.bedrock_access_key_id = Some(access_key_id.into());
+        self.config.bedrock_secret_access_key = Some(secret_access_key.into());
+        self.config.bedrock_session_token = session_token;
         self
     }
 

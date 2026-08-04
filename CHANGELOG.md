@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-08-04
+
+### Added
+
+- `LlmConfig`, a canonical, binding-friendly client configuration type
+  (`client::LlmConfig`, re-exported at the crate root). Unlike `ClientConfig`
+  and `FileConfig`, it is plain data (`String` / `Option<primitive>` /
+  `HashMap` / `Vec` / plain sub-structs — no secrets, no trait objects, no
+  `Duration`), derives `Serialize`/`Deserialize`, and is not excluded from
+  generated language bindings. Field-name parity with the fields
+  `model`, `api_key`, `base_url`, `timeout_secs`, `max_retries`, `temperature`,
+  `max_tokens`, `load_env`, and `headers`, plus additive support for custom
+  providers, cache, budget, rate-limit, cost tracking, tracing, cooldown,
+  health-check, and AWS Bedrock configuration. Convert to a runtime client via
+  `LlmConfig::into_client_builder`.
+- `schema` cargo feature: derives `utoipa::ToSchema` on `LlmConfig` and its
+  sub-structs for OpenAPI schema generation.
+- AWS Bedrock is now fully configurable instead of environment-only:
+  `ClientConfigBuilder::bedrock_region`, `bedrock_cross_region_prefix`, and
+  `bedrock_credentials` set the region, cross-region inference profile
+  prefix, and explicit AWS credentials on `ClientConfig`. `BedrockProvider`
+  gained `from_config` and builder methods (`with_cross_region_prefix`,
+  `with_credentials`) that fall back to the existing environment variables
+  (`AWS_DEFAULT_REGION`/`AWS_REGION`, `BEDROCK_CROSS_REGION`,
+  `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_SESSION_TOKEN`) when left
+  unset, so existing env-driven setups are unaffected.
+
 ## [1.14.0] - 2026-08-04
 
 ### Added

@@ -69,8 +69,10 @@ fn percent_encode_model(model: &str) -> String {
 /// - Routes `bedrock/` prefixed model names to the Bedrock runtime endpoint.
 /// - The model prefix is stripped before the model ID is sent in the request.
 /// - When the `bedrock` feature is enabled, every request is signed with
-///   AWS Signature Version 4 using credentials from the environment
-///   (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`).
+///   AWS Signature Version 4 using credentials from explicit config (see
+///   [`BedrockProvider::with_credentials`]) or, when unset, from the
+///   environment (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+///   `AWS_SESSION_TOKEN`).
 /// - When the `bedrock` feature is disabled, the provider is usable with a
 ///   `base_url` override (e.g. in tests against a mock server) without any
 ///   signing.
@@ -78,7 +80,7 @@ fn percent_encode_model(model: &str) -> String {
 /// # Region resolution
 ///
 /// The region is resolved in priority order:
-/// 1. Explicit value passed to [`BedrockProvider::with_region`].
+/// 1. Explicit value passed to [`BedrockProvider::new`] or [`BedrockProvider::from_config`].
 /// 2. `AWS_DEFAULT_REGION` environment variable.
 /// 3. `AWS_REGION` environment variable.
 /// 4. Hard-coded default: `us-east-1`.
@@ -98,6 +100,12 @@ pub struct BedrockProvider {
     /// construction time (e.g. `Some("us.")`) so we avoid reading the
     /// environment on every request.
     cross_region_prefix: Option<String>,
+    /// Explicit AWS access key ID, overriding `AWS_ACCESS_KEY_ID` when set.
+    access_key_id: Option<String>,
+    /// Explicit AWS secret access key, overriding `AWS_SECRET_ACCESS_KEY` when set.
+    secret_access_key: Option<String>,
+    /// Explicit AWS session token, overriding `AWS_SESSION_TOKEN` when set.
+    session_token: Option<String>,
 }
 
 impl BedrockProvider {
@@ -128,6 +136,9 @@ impl BedrockProvider {
             region,
             base_url,
             cross_region_prefix,
+            access_key_id: None,
+            secret_access_key: None,
+            session_token: None,
         }
     }
 
@@ -140,6 +151,64 @@ impl BedrockProvider {
             .or_else(|_| std::env::var("AWS_REGION"))
             .unwrap_or_else(|_| DEFAULT_REGION.to_owned());
         Self::new(region)
+    }
+
+    /// Construct from explicit, optional config values, falling back to the
+    /// environment for anything left unset.
+    ///
+    /// Region resolution order: `region` -> `AWS_DEFAULT_REGION` ->
+    /// `AWS_REGION` -> `us-east-1`. Credentials and the cross-region prefix
+    /// fall back to their respective environment variables at request time
+    /// (see [`BedrockProvider::with_credentials`] and
+    /// [`BedrockProvider::with_cross_region_prefix`]).
+    #[must_use]
+    pub fn from_config(
+        region: Option<String>,
+        cross_region_prefix: Option<String>,
+        access_key_id: Option<String>,
+        secret_access_key: Option<String>,
+        session_token: Option<String>,
+    ) -> Self {
+        let region = region
+            .or_else(|| std::env::var("AWS_DEFAULT_REGION").ok())
+            .or_else(|| std::env::var("AWS_REGION").ok())
+            .unwrap_or_else(|| DEFAULT_REGION.to_owned());
+        Self::new(region)
+            .with_cross_region_prefix(cross_region_prefix)
+            .with_credentials(access_key_id, secret_access_key, session_token)
+    }
+
+    /// Override the cross-region inference profile prefix (e.g. `"us"`).
+    ///
+    /// When `None`, the prefix cached from `BEDROCK_CROSS_REGION` at
+    /// construction time (if any) is left untouched.
+    #[must_use]
+    pub fn with_cross_region_prefix(mut self, prefix: Option<String>) -> Self {
+        if let Some(prefix) = prefix {
+            let prefix = if prefix.ends_with('.') {
+                prefix
+            } else {
+                format!("{prefix}.")
+            };
+            self.cross_region_prefix = Some(prefix);
+        }
+        self
+    }
+
+    /// Set explicit AWS credentials for SigV4 signing, overriding the
+    /// `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`
+    /// environment variables when present.
+    #[must_use]
+    pub fn with_credentials(
+        mut self,
+        access_key_id: Option<String>,
+        secret_access_key: Option<String>,
+        session_token: Option<String>,
+    ) -> Self {
+        self.access_key_id = access_key_id;
+        self.secret_access_key = secret_access_key;
+        self.session_token = session_token;
+        self
     }
 
     /// Return the AWS region this provider is configured for.
@@ -192,11 +261,13 @@ impl Provider for BedrockProvider {
     fn validate(&self) -> Result<()> {
         #[cfg(feature = "bedrock")]
         {
-            if std::env::var("AWS_ACCESS_KEY_ID").is_err() {
+            let has_credentials = self.access_key_id.is_some() || std::env::var("AWS_ACCESS_KEY_ID").is_ok();
+            if !has_credentials {
                 return Err(LiterLlmError::BadRequest {
                     message: "AWS Bedrock requires AWS credentials. \
-                              Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (and optionally \
-                              AWS_SESSION_TOKEN) in the environment."
+                              Set them explicitly via config or set AWS_ACCESS_KEY_ID and \
+                              AWS_SECRET_ACCESS_KEY (and optionally AWS_SESSION_TOKEN) in the \
+                              environment."
                         .into(),
                     status: 400,
                 });
@@ -598,7 +669,16 @@ impl Provider for BedrockProvider {
     fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Vec<(String, String)> {
         #[cfg(feature = "bedrock")]
         {
-            sigv4_sign(method, url, body, &self.region).unwrap_or_default()
+            sigv4_sign(
+                method,
+                url,
+                body,
+                &self.region,
+                self.access_key_id.as_deref(),
+                self.secret_access_key.as_deref(),
+                self.session_token.as_deref(),
+            )
+            .unwrap_or_default()
         }
 
         #[cfg(not(feature = "bedrock"))]
@@ -820,28 +900,49 @@ fn apply_cross_region_prefix(model: &str) -> String {
 
 /// Compute AWS SigV4 signing headers using the `aws-sigv4` crate.
 ///
-/// Reads credentials from the standard AWS environment variables:
-/// - `AWS_ACCESS_KEY_ID` (required)
-/// - `AWS_SECRET_ACCESS_KEY` (required)
-/// - `AWS_SESSION_TOKEN` (optional, for temporary credentials)
+/// Each credential falls back to the standard AWS environment variable when
+/// the corresponding explicit argument is `None`:
+/// - `access_key_id` -> `AWS_ACCESS_KEY_ID` (required)
+/// - `secret_access_key` -> `AWS_SECRET_ACCESS_KEY` (required)
+/// - `session_token` -> `AWS_SESSION_TOKEN` (optional, for temporary credentials)
 ///
 /// Returns a vector of `(header-name, header-value)` pairs to inject into the
 /// outgoing HTTP request.
 #[cfg(feature = "bedrock")]
-fn sigv4_sign(method: &str, url: &str, body: &[u8], region: &str) -> Result<Vec<(String, String)>> {
+fn sigv4_sign(
+    method: &str,
+    url: &str,
+    body: &[u8],
+    region: &str,
+    access_key_id: Option<&str>,
+    secret_access_key: Option<&str>,
+    session_token: Option<&str>,
+) -> Result<Vec<(String, String)>> {
     use aws_credential_types::Credentials;
     use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings, sign};
     use aws_sigv4::sign::v4::SigningParams;
 
-    let access_key = std::env::var("AWS_ACCESS_KEY_ID").map_err(|_| LiterLlmError::BadRequest {
-        message: "AWS_ACCESS_KEY_ID environment variable is required for Bedrock requests".into(),
-        status: 400,
-    })?;
-    let secret_key = std::env::var("AWS_SECRET_ACCESS_KEY").map_err(|_| LiterLlmError::BadRequest {
-        message: "AWS_SECRET_ACCESS_KEY environment variable is required for Bedrock requests".into(),
-        status: 400,
-    })?;
-    let session_token = std::env::var("AWS_SESSION_TOKEN").ok();
+    let access_key = access_key_id
+        .map(str::to_owned)
+        .or_else(|| std::env::var("AWS_ACCESS_KEY_ID").ok())
+        .ok_or_else(|| LiterLlmError::BadRequest {
+            message: "AWS access key ID is required for Bedrock requests: set it explicitly via config or \
+                      the AWS_ACCESS_KEY_ID environment variable"
+                .into(),
+            status: 400,
+        })?;
+    let secret_key = secret_access_key
+        .map(str::to_owned)
+        .or_else(|| std::env::var("AWS_SECRET_ACCESS_KEY").ok())
+        .ok_or_else(|| LiterLlmError::BadRequest {
+            message: "AWS secret access key is required for Bedrock requests: set it explicitly via config or \
+                      the AWS_SECRET_ACCESS_KEY environment variable"
+                .into(),
+            status: 400,
+        })?;
+    let session_token = session_token
+        .map(str::to_owned)
+        .or_else(|| std::env::var("AWS_SESSION_TOKEN").ok());
 
     let credentials = Credentials::new(access_key, secret_key, session_token, None, "env");
 
@@ -901,6 +1002,109 @@ mod tests {
         // ~keep SAFETY: env vars are process-global; `#[serial]` on callers prevents races.
         unsafe { std::env::remove_var("BEDROCK_BASE_URL") };
         BedrockProvider::new("us-east-1")
+    }
+
+    #[test]
+    #[serial]
+    fn from_config_prefers_explicit_region_over_env() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::set_var("AWS_DEFAULT_REGION", "us-west-2") };
+        unsafe { std::env::remove_var("BEDROCK_CROSS_REGION") };
+        let p = BedrockProvider::from_config(Some("eu-central-1".to_owned()), None, None, None, None);
+        assert_eq!(p.region(), "eu-central-1");
+        unsafe { std::env::remove_var("AWS_DEFAULT_REGION") };
+    }
+
+    #[test]
+    #[serial]
+    fn from_config_falls_back_to_env_region_when_unset() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_DEFAULT_REGION") };
+        unsafe { std::env::set_var("AWS_REGION", "ap-southeast-1") };
+        let p = BedrockProvider::from_config(None, None, None, None, None);
+        assert_eq!(p.region(), "ap-southeast-1");
+        unsafe { std::env::remove_var("AWS_REGION") };
+    }
+
+    #[test]
+    #[serial]
+    fn from_config_falls_back_to_default_region() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_DEFAULT_REGION") };
+        unsafe { std::env::remove_var("AWS_REGION") };
+        let p = BedrockProvider::from_config(None, None, None, None, None);
+        assert_eq!(p.region(), DEFAULT_REGION);
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(feature = "bedrock")]
+    fn with_credentials_overrides_env_for_signing() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        unsafe { std::env::remove_var("AWS_SECRET_ACCESS_KEY") };
+        unsafe { std::env::remove_var("AWS_SESSION_TOKEN") };
+        let headers = sigv4_sign(
+            "POST",
+            "https://bedrock-runtime.us-east-1.amazonaws.com/model/foo/converse",
+            b"{}",
+            "us-east-1",
+            Some("AKIAEXPLICIT"),
+            Some("explicit-secret"),
+            Some("explicit-token"),
+        )
+        .expect("signing should succeed with explicit credentials");
+        assert!(
+            headers
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case("authorization"))
+        );
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(feature = "bedrock")]
+    fn sigv4_sign_fails_without_any_credentials() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        unsafe { std::env::remove_var("AWS_SECRET_ACCESS_KEY") };
+        let result = sigv4_sign(
+            "POST",
+            "https://bedrock-runtime.us-east-1.amazonaws.com/model/foo/converse",
+            b"{}",
+            "us-east-1",
+            None,
+            None,
+            None,
+        );
+        assert!(result.is_err(), "signing without credentials should fail");
+    }
+
+    #[test]
+    #[serial]
+    fn validate_accepts_explicit_credentials_without_env() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        let p = BedrockProvider::from_config(
+            Some("us-east-1".to_owned()),
+            None,
+            Some("AKIAEXPLICIT".to_owned()),
+            Some("explicit-secret".to_owned()),
+            None,
+        );
+        assert!(p.validate().is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn with_cross_region_prefix_normalizes_trailing_dot() {
+        unsafe { std::env::remove_var("BEDROCK_CROSS_REGION") };
+        let p = BedrockProvider::new("us-east-1").with_cross_region_prefix(Some("us".to_owned()));
+        let url = p.build_url("/chat/completions", "anthropic.claude-3-sonnet-20240229-v1:0");
+        assert!(
+            url.contains("us.anthropic.claude-3-sonnet"),
+            "cross-region prefix should be applied: {url}"
+        );
     }
 
     #[test]

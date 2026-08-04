@@ -394,6 +394,11 @@ impl ClientBuilder<WithApiKey, WithProvider> {
             credential_provider: self.credential_provider,
             load_env: self.load_env,
             transport: self.transport,
+            bedrock_region: None,
+            bedrock_cross_region_prefix: None,
+            bedrock_access_key_id: None,
+            bedrock_secret_access_key: None,
+            bedrock_session_token: None,
             #[cfg(feature = "tower")]
             cache_config: self.cache_config,
             #[cfg(feature = "tower")]
