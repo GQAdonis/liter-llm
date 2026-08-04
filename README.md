@@ -178,7 +178,7 @@ See [Ruby README](packages/ruby/README.md) for full documentation.
 composer require xberg-io/liter-llm
 ```
 
-See [PHP README](packages/php/README.md) for full documentation.
+See [PHP README](crates/liter-llm-php/README.md) for full documentation.
 
 </details>
 

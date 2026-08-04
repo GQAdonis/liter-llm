@@ -588,9 +588,9 @@ check = "pnpm dlx oxlint crates/liter-llm-wasm"
 
 [crates.lint.php]
 precondition = "command -v php >/dev/null 2>&1 && command -v composer >/dev/null 2>&1"
-before = "cd packages/php && composer install --no-interaction --quiet"
-format = "cd packages/php && PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix src"
-check = "cd packages/php && PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix --dry-run src"
+before = "cd crates/liter-llm-php && composer install --no-interaction --quiet"
+format = "cd crates/liter-llm-php && PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix src"
+check = "cd crates/liter-llm-php && PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix --dry-run src"
 
 [crates.lint.go]
 precondition = "command -v golangci-lint >/dev/null 2>&1"
@@ -1877,6 +1877,9 @@ path = "../../packages/elixir"
 module = "io.xberg.literllm.android"
 path = "../../packages/kotlin-android"
 
+[crates.e2e.packages.php]
+path = "../../crates/liter-llm-php"
+
 [crates.e2e.registry]
 output = "test_apps"
 github_repo = "https://github.com/xberg-io/liter-llm"
@@ -2160,6 +2163,7 @@ basic_chat = "getting-started/basic_chat.md"
 streaming = "getting-started/streaming.md"
 
 [crates.readme.languages.php]
+output_path = "crates/liter-llm-php/README.md"
 template = "language_package.md"
 name = "PHP"
 package_name = "xberg-io/liter-llm"

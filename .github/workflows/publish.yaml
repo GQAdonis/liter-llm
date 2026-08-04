@@ -1059,6 +1059,13 @@ jobs:
           esac
           cp "target/${RUST_TGT}/release/libliterllm_jni.so" \
              "packages/kotlin-android/src/main/jniLibs/${{ matrix.abi }}/"
+          # Each matrix job builds only its own ABI, but every ABI directory's
+          # .gitkeep is checked into git, so the sibling ABI's directory also
+          # exists after checkout with no .so in it. Drop it so
+          # validateJniLibsForRelease only checks the ABI staged in this job.
+          for abi_dir in packages/kotlin-android/src/main/jniLibs/*/; do
+            [ "$(basename "$abi_dir")" = "${{ matrix.abi }}" ] || rm -rf "$abi_dir"
+          done
       - uses: actions/setup-java@v5
         with:
           distribution: temurin

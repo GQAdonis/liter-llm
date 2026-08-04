@@ -8,7 +8,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Liter\\Llm\\": "../../packages/php/src/"
+      "Liter\\Llm\\": "../../crates/liter-llm-php/src/"
     }
   },
   "autoload-dev": {
