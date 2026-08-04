@@ -12,6 +12,7 @@ use pin_project_lite::pin_project;
 
 use crate::error::{LiterLlmError, Result};
 use crate::http::request::with_retry;
+#[cfg(test)]
 use crate::types::ChatCompletionChunk;
 
 /// Maximum number of bytes buffered before declaring a streaming error.
@@ -72,8 +73,8 @@ fn pool_release(buf: BytesMut) {
 #[cfg(feature = "native-http")]
 pub use tokio_util::sync::CancellationToken;
 
-/// Send a streaming POST request and return an SSE stream of
-/// `ChatCompletionChunk`s.
+/// Send a streaming POST request and return an SSE stream of parsed items of
+/// type `T`.
 ///
 /// Before opening the stream, retries on 429 / 500 / 502 / 503 / 504 up to
 /// `max_retries` times honouring any `Retry-After` header.  Once the stream
@@ -86,9 +87,10 @@ pub use tokio_util::sync::CancellationToken;
 /// `extra_headers` carries provider-specific mandatory headers (e.g.
 /// `anthropic-version`) beyond the single auth header.
 ///
-/// `parse_event` translates a raw SSE `data:` payload string into a
-/// `ChatCompletionChunk`.  Pass the provider's `parse_stream_event` method
-/// to support non-OpenAI SSE formats.
+/// `parse_event` translates a raw SSE `data:` payload string into a `T`.
+/// Pass the provider's `parse_stream_event` method for chat completion
+/// streams, or an endpoint-specific parser (e.g. Responses API events) for
+/// other SSE-based endpoints.
 #[tracing::instrument(
     skip_all,
     fields(
@@ -98,7 +100,7 @@ pub use tokio_util::sync::CancellationToken;
         http.retry_count = tracing::field::Empty,
     )
 )]
-pub async fn post_stream<P>(
+pub async fn post_stream<P, T>(
     client: &reqwest::Client,
     url: &str,
     auth_header: Option<(&str, &str)>,
@@ -106,9 +108,10 @@ pub async fn post_stream<P>(
     body: Bytes,
     max_retries: u32,
     parse_event: P,
-) -> Result<crate::client::BoxStream<'static, Result<ChatCompletionChunk>>>
+) -> Result<crate::client::BoxStream<'static, Result<T>>>
 where
-    P: Fn(&str) -> Result<Option<ChatCompletionChunk>> + Send + 'static,
+    P: Fn(&str) -> Result<Option<T>> + Send + 'static,
+    T: Send + 'static,
 {
     let mut retry_count = 0u32;
 
@@ -156,7 +159,7 @@ where
         http.retry_count = tracing::field::Empty,
     )
 )]
-pub async fn post_stream_with_cancel<P>(
+pub async fn post_stream_with_cancel<P, T>(
     client: &reqwest::Client,
     url: &str,
     auth_header: Option<(&str, &str)>,
@@ -165,9 +168,10 @@ pub async fn post_stream_with_cancel<P>(
     max_retries: u32,
     parse_event: P,
     cancel: CancellationToken,
-) -> Result<crate::client::BoxStream<'static, Result<ChatCompletionChunk>>>
+) -> Result<crate::client::BoxStream<'static, Result<T>>>
 where
-    P: Fn(&str) -> Result<Option<ChatCompletionChunk>> + Send + 'static,
+    P: Fn(&str) -> Result<Option<T>> + Send + 'static,
+    T: Send + 'static,
 {
     let mut retry_count = 0u32;
 
@@ -207,13 +211,14 @@ type CancelField = Option<CancellationToken>;
 type CancelField = Option<std::convert::Infallible>;
 
 pin_project! {
-    /// Wraps a `bytes::Bytes` stream and yields parsed `ChatCompletionChunk`s.
+    /// Wraps a `bytes::Bytes` stream and yields parsed items of type `T`.
     ///
     /// The `P` type parameter is the parse function used to translate a raw
-    /// SSE `data:` payload string into a `ChatCompletionChunk`.  This allows
-    /// non-OpenAI SSE formats (e.g. Anthropic, Vertex) to plug in their own
-    /// event parsers without duplicating the byte-buffering and line-splitting
-    /// logic.
+    /// SSE `data:` payload string into a `T`.  This allows different SSE
+    /// payload shapes (chat completion chunks, non-OpenAI chat formats such
+    /// as Anthropic/Vertex, or unrelated event types such as Responses API
+    /// events) to plug in their own event parsers without duplicating the
+    /// byte-buffering and line-splitting logic.
     ///
     /// # Buffer strategy
     ///
@@ -226,7 +231,7 @@ pin_project! {
     /// Acquiring a buffer on construction and returning it on drop would pin
     /// ~4 KiB per idle stream with no benefit since no parsing occurs until
     /// the first byte arrives.
-    struct SseParser<S, P> {
+    struct SseParser<S, P, T> {
         #[pin]
         inner: S,
         buffer: String,
@@ -239,18 +244,21 @@ pin_project! {
         done: bool,
         parse_event: P,
         cancel: CancelField,
+        // ~keep `fn() -> T` marker keeps `SseParser` Send/Sync regardless of `T`,
+        // since the parser never actually stores a `T`; it only produces one per item.
+        _marker: std::marker::PhantomData<fn() -> T>,
     }
 
-    impl<S, P> PinnedDrop for SseParser<S, P> {
+    impl<S, P, T> PinnedDrop for SseParser<S, P, T> {
         fn drop(this: Pin<&mut Self>) {
             let _ = this;
         }
     }
 }
 
-impl<S, P> SseParser<S, P>
+impl<S, P, T> SseParser<S, P, T>
 where
-    P: Fn(&str) -> Result<Option<ChatCompletionChunk>>,
+    P: Fn(&str) -> Result<Option<T>>,
 {
     fn new(inner: S, parse_event: P, cancel: CancelField) -> Self {
         Self {
@@ -261,16 +269,17 @@ where
             done: false,
             parse_event,
             cancel,
+            _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<S, P> Stream for SseParser<S, P>
+impl<S, P, T> Stream for SseParser<S, P, T>
 where
     S: Stream<Item = std::result::Result<Bytes, reqwest::Error>>,
-    P: Fn(&str) -> Result<Option<ChatCompletionChunk>>,
+    P: Fn(&str) -> Result<Option<T>>,
 {
-    type Item = Result<ChatCompletionChunk>;
+    type Item = Result<T>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
@@ -531,7 +540,7 @@ mod tests {
         let token = CancellationToken::new();
         let token_clone = token.clone();
 
-        let mut parser: Pin<Box<SseParser<_, _>>> = Box::pin(SseParser::new(
+        let mut parser: Pin<Box<SseParser<_, _, _>>> = Box::pin(SseParser::new(
             InfiniteStream,
             |_data: &str| -> Result<Option<ChatCompletionChunk>> { Ok(None) },
             Some(token_clone),
@@ -586,7 +595,7 @@ mod tests {
             Ok::<_, reqwest::Error>(Bytes::from(bytes[..split].to_vec())),
             Ok::<_, reqwest::Error>(Bytes::from(bytes[split..].to_vec())),
         ]);
-        let mut parser: Pin<Box<SseParser<_, _>>> = Box::pin(SseParser::new(inner, json_parse, None));
+        let mut parser: Pin<Box<SseParser<_, _, _>>> = Box::pin(SseParser::new(inner, json_parse, None));
 
         let result = futures_util::StreamExt::next(&mut parser)
             .await
@@ -605,7 +614,7 @@ mod tests {
             Ok::<_, reqwest::Error>(Bytes::from_static(&[0xFF])),
             Ok::<_, reqwest::Error>(Bytes::from_static(b"\n\n")),
         ]);
-        let mut parser: Pin<Box<SseParser<_, _>>> = Box::pin(SseParser::new(inner, json_parse, None));
+        let mut parser: Pin<Box<SseParser<_, _, _>>> = Box::pin(SseParser::new(inner, json_parse, None));
 
         match futures_util::StreamExt::next(&mut parser).await {
             Some(Err(LiterLlmError::Streaming { message })) => {

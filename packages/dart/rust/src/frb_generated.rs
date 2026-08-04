@@ -4442,6 +4442,7 @@ const _: fn() = || {
         let _: Option<f64> = CreateResponseRequest.temperature;
         let _: Option<i64> = CreateResponseRequest.max_output_tokens;
         let _: Option<String> = CreateResponseRequest.metadata;
+        let _: Option<bool> = CreateResponseRequest.stream;
     }
     {
         let CreateSpeechRequest = None::<crate::CreateSpeechRequest>.unwrap();
@@ -5676,6 +5677,7 @@ impl SseDecode for crate::CreateResponseRequest {
         let mut var_temperature = <Option<f64>>::sse_decode(deserializer);
         let mut var_maxOutputTokens = <Option<i64>>::sse_decode(deserializer);
         let mut var_metadata = <Option<String>>::sse_decode(deserializer);
+        let mut var_stream = <Option<bool>>::sse_decode(deserializer);
         return crate::CreateResponseRequest {
             model: var_model,
             input: var_input,
@@ -5684,6 +5686,7 @@ impl SseDecode for crate::CreateResponseRequest {
             temperature: var_temperature,
             max_output_tokens: var_maxOutputTokens,
             metadata: var_metadata,
+            stream: var_stream,
         };
     }
 }
@@ -8769,6 +8772,7 @@ impl flutter_rust_bridge::IntoDart for FrbWrapper<crate::CreateResponseRequest> 
             self.0.temperature.into_into_dart().into_dart(),
             self.0.max_output_tokens.into_into_dart().into_dart(),
             self.0.metadata.into_into_dart().into_dart(),
+            self.0.stream.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -10887,6 +10891,7 @@ impl SseEncode for crate::CreateResponseRequest {
         <Option<f64>>::sse_encode(self.temperature, serializer);
         <Option<i64>>::sse_encode(self.max_output_tokens, serializer);
         <Option<String>>::sse_encode(self.metadata, serializer);
+        <Option<bool>>::sse_encode(self.stream, serializer);
     }
 }
 

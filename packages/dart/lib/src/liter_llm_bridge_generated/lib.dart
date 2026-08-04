@@ -1724,6 +1724,11 @@ class CreateResponseRequest {
   /// Optional metadata.
   final String? metadata;
 
+  /// Whether to stream the response.
+  ///
+  /// Managed by the client layer — do not set directly.
+  final bool? stream;
+
   const CreateResponseRequest({
     required this.model,
     required this.input,
@@ -1732,6 +1737,7 @@ class CreateResponseRequest {
     this.temperature,
     this.maxOutputTokens,
     this.metadata,
+    this.stream,
   });
 
   @override
@@ -1742,7 +1748,8 @@ class CreateResponseRequest {
       tools.hashCode ^
       temperature.hashCode ^
       maxOutputTokens.hashCode ^
-      metadata.hashCode;
+      metadata.hashCode ^
+      stream.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1755,7 +1762,8 @@ class CreateResponseRequest {
           tools == other.tools &&
           temperature == other.temperature &&
           maxOutputTokens == other.maxOutputTokens &&
-          metadata == other.metadata;
+          metadata == other.metadata &&
+          stream == other.stream;
 }
 
 /// Request to generate speech audio from text.

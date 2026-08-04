@@ -4260,6 +4260,13 @@ uint64_t literllm_create_response_request_max_output_tokens(const LITERLLMCreate
 char *literllm_create_response_request_metadata(const LITERLLMCreateResponseRequest *ptr);
 
 /**
+ * Get the `stream` field from a `CreateResponseRequest`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_create_response_request_stream(const LITERLLMCreateResponseRequest *ptr);
+
+/**
  * Create a `ResponseTool` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.

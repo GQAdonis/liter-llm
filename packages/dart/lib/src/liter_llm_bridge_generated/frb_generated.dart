@@ -5854,8 +5854,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CreateResponseRequest dco_decode_create_response_request(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
     return CreateResponseRequest(
       model: dco_decode_String(arr[0]),
       input: dco_decode_String(arr[1]),
@@ -5864,6 +5864,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       temperature: dco_decode_opt_box_autoadd_f_64(arr[4]),
       maxOutputTokens: dco_decode_opt_box_autoadd_i_64(arr[5]),
       metadata: dco_decode_opt_String(arr[6]),
+      stream: dco_decode_opt_box_autoadd_bool(arr[7]),
     );
   }
 
@@ -8551,6 +8552,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_temperature = sse_decode_opt_box_autoadd_f_64(deserializer);
     var var_maxOutputTokens = sse_decode_opt_box_autoadd_i_64(deserializer);
     var var_metadata = sse_decode_opt_String(deserializer);
+    var var_stream = sse_decode_opt_box_autoadd_bool(deserializer);
     return CreateResponseRequest(
       model: var_model,
       input: var_input,
@@ -8559,6 +8561,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       temperature: var_temperature,
       maxOutputTokens: var_maxOutputTokens,
       metadata: var_metadata,
+      stream: var_stream,
     );
   }
 
@@ -11727,6 +11730,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_box_autoadd_f_64(self.temperature, serializer);
     sse_encode_opt_box_autoadd_i_64(self.maxOutputTokens, serializer);
     sse_encode_opt_String(self.metadata, serializer);
+    sse_encode_opt_box_autoadd_bool(self.stream, serializer);
   }
 
   @protected

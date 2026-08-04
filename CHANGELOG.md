@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-08-04
+
+### Added
+
+- Streaming support for the Responses API: `create_response_stream` on the
+  `ResponseClient` trait plus a `ResponseStreamEvent` type and a `stream` field
+  on `CreateResponseRequest`, reusing the SSE machinery so Responses
+  tool-calling apps get progressive output and streaming tool-call arguments
+  (#162). Available in the Rust core crate; the language bindings are unchanged
+  this release (the streaming event types are core-crate-only).
+
+### Changed
+
+- Regenerated all language bindings on alef 0.51.2.
+
+### Fixed
+
+- Ruby binding no longer publishes generated types into the global `Object`
+  namespace (the `Parser` collision with the `parser` gem); types stay
+  namespaced under the binding module (tree-sitter-language-pack #173, via
+  alef 0.51.1).
+
 ## [1.13.0] - 2026-08-02
 
 ### Added

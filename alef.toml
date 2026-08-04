@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.49.0"
+alef_version = "0.51.2"
 languages = [
   "python",
   "node",
@@ -503,10 +503,22 @@ types = [
   "ManagedClient",
   "ModelPricing",
   "PricingTier",
+  # ~keep streaming Responses API (#162) is core-crate-only this release; its event
+  # types have no auto-bindable surface (hand-written serde, newtype variants), so they
+  # stay out of the binding surface alongside DefaultClient.create_response_stream
+  "ResponseStreamEvent",
+  "ResponseOutputTextDelta",
+  "ResponseFunctionCallArgumentsDelta",
+  "ResponseOutputItemEvent",
+  "ResponseWebSearchCallEvent",
+  "ResponseCompletedEvent",
+  "UnknownResponseStreamEvent",
 ]
 methods = [
   "DefaultClient.chat_raw",
   "DefaultClient.chat_stream_raw",
+  # ~keep streaming return type (BoxStream) is not auto-bindable, so this stays core-crate-only for now (like chat_stream_raw)
+  "DefaultClient.create_response_stream",
   "DefaultClient.embed_raw",
   "DefaultClient.image_generate_raw",
   "DefaultClient.transcribe_raw",
@@ -1909,7 +1921,7 @@ name = "liter_llm_ffi"
 name = "LiterLlm"
 
 [crates.e2e.registry.packages.zig]
-hash = "liter_llm-1.13.0-ITuy7j8Hy2Yavk0BjGZ43I0Ix2GL"
+hash = "liter_llm-1.14.0-ITuy7j8Hy2Yavk0BjGZ43I0Ix2GL"
 
 [crates.e2e.registry.packages.homebrew]
 tap = "xberg-io/homebrew-tap"

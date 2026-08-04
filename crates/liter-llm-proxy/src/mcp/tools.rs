@@ -690,6 +690,7 @@ impl LiterLlmMcp {
             temperature: None,
             max_output_tokens: None,
             metadata: None,
+            stream: None,
         };
 
         let client = self

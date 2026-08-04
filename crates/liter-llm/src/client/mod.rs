@@ -25,7 +25,7 @@ use crate::types::moderation::{ModerationRequest, ModerationResponse};
 use crate::types::ocr::{OcrRequest, OcrResponse};
 use crate::types::raw::{RawExchange, RawStreamExchange};
 use crate::types::rerank::{RerankRequest, RerankResponse};
-use crate::types::responses::{CreateResponseRequest, ResponseObject};
+use crate::types::responses::{CreateResponseRequest, ResponseObject, ResponseStreamEvent};
 use crate::types::search::{SearchRequest, SearchResponse};
 use crate::types::{
     ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, EmbeddingRequest, EmbeddingResponse,
@@ -517,6 +517,21 @@ pub trait ResponseClient: Send + Sync {
     /// Create a new response.
     fn create_response(&self, req: CreateResponseRequest) -> BoxFuture<'_, Result<ResponseObject>>;
 
+    /// Create a new response and stream its SSE events as they arrive.
+    ///
+    /// Returns a stream of `ResponseStreamEvent` items. The stream terminates
+    /// when a terminal event (`response.completed`, `response.incomplete`, or
+    /// `response.failed`) is yielded and the underlying connection closes.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`create_response`](Self::create_response).
+    /// Stream errors are returned as `Err` items in the stream itself.
+    fn create_response_stream(
+        &self,
+        req: CreateResponseRequest,
+    ) -> BoxFuture<'_, Result<BoxStream<'static, Result<ResponseStreamEvent>>>>;
+
     /// Retrieve a response by ID.
     fn retrieve_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>>;
 
@@ -530,6 +545,21 @@ pub trait ResponseClient: Send + Sync {
 pub trait ResponseClient {
     /// Create a new response.
     fn create_response(&self, req: CreateResponseRequest) -> BoxFuture<'_, Result<ResponseObject>>;
+
+    /// Create a new response and stream its SSE events as they arrive.
+    ///
+    /// Returns a stream of `ResponseStreamEvent` items. The stream terminates
+    /// when a terminal event (`response.completed`, `response.incomplete`, or
+    /// `response.failed`) is yielded and the underlying connection closes.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`create_response`](Self::create_response).
+    /// Stream errors are returned as `Err` items in the stream itself.
+    fn create_response_stream(
+        &self,
+        req: CreateResponseRequest,
+    ) -> BoxFuture<'_, Result<BoxStream<'static, Result<ResponseStreamEvent>>>>;
 
     /// Retrieve a response by ID.
     fn retrieve_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>>;
@@ -1932,6 +1962,23 @@ impl DefaultClient {
     }
 }
 
+/// Parse a single Responses API SSE `data:` payload into a [`ResponseStreamEvent`].
+///
+/// Unlike [`Provider::parse_stream_event`], this is not provider-specific:
+/// the Responses API streaming event shape is uniform across providers that
+/// support it. Unrecognized `type` values decode into
+/// [`ResponseStreamEvent::Unknown`] rather than failing (see
+/// `ResponseStreamEvent`'s `Deserialize` impl), so this only returns `Err`
+/// for payloads that are not valid JSON at all.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn parse_response_stream_event(data: &str) -> Result<Option<ResponseStreamEvent>> {
+    serde_json::from_str::<ResponseStreamEvent>(data)
+        .map(Some)
+        .map_err(|e| LiterLlmError::Streaming {
+            message: format!("failed to parse Responses SSE data: {e}"),
+        })
+}
+
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 impl ResponseClient for DefaultClient {
     fn create_response(&self, req: CreateResponseRequest) -> BoxFuture<'_, Result<ResponseObject>> {
@@ -1948,6 +1995,36 @@ impl ResponseClient for DefaultClient {
             let raw = http::request::post_json_raw(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries)
                 .await?;
             serde_json::from_value::<ResponseObject>(raw).map_err(LiterLlmError::from)
+        })
+    }
+
+    fn create_response_stream(
+        &self,
+        mut req: CreateResponseRequest,
+    ) -> BoxFuture<'_, Result<BoxStream<'static, Result<ResponseStreamEvent>>>> {
+        Box::pin(async move {
+            // ~keep Force streaming on the wire regardless of what the caller set.
+            req.stream = Some(true);
+
+            let url = self.provider.build_stream_url(self.provider.responses_path(), "");
+            let body_bytes = bytes::Bytes::from(serde_json::to_vec(&req)?);
+            let body_json = serde_json::to_value(&req)?;
+
+            let auth_header = self.resolve_auth_header().await?;
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
+            let auth = auth_header.as_ref().map(str_pair);
+
+            http::streaming::post_stream(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                body_bytes,
+                self.config.max_retries,
+                parse_response_stream_event,
+            )
+            .await
         })
     }
 

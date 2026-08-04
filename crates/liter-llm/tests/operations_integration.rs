@@ -486,6 +486,7 @@ async fn create_response_should_send_post_with_json_body() {
         temperature: None,
         max_output_tokens: None,
         metadata: None,
+        stream: None,
     };
     let result = client.create_response(req).await;
     assert!(result.is_ok(), "create_response should succeed: {result:?}");
@@ -608,6 +609,115 @@ async fn batch_create_with_metadata_should_serialize_metadata() {
     let requests = mock.requests();
     let body: serde_json::Value = serde_json::from_str(&requests[0].body).unwrap();
     assert_eq!(body["metadata"]["run_id"], "test-run-42");
+}
+
+#[tokio::test]
+async fn create_response_stream_should_yield_ordered_events_and_terminate_on_completed() {
+    use futures_util::StreamExt;
+    use liter_llm::types::responses::ResponseStreamEvent;
+
+    let sse_body = concat!(
+        "data: {\"type\":\"response.output_item.added\",\"output_index\":0,",
+        "\"item\":{\"type\":\"message\",\"id\":\"msg_1\"}}\n\n",
+        "data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_1\",",
+        "\"output_index\":0,\"content_index\":0,\"delta\":\"Hello\"}\n\n",
+        "data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_1\",",
+        "\"output_index\":0,\"content_index\":0,\"delta\":\" world\"}\n\n",
+        "data: {\"type\":\"response.output_item.done\",\"output_index\":0,",
+        "\"item\":{\"type\":\"message\",\"id\":\"msg_1\"}}\n\n",
+        "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp-001\",",
+        "\"object\":\"response\",\"created_at\":1700000000,\"model\":\"gpt-4\",",
+        "\"status\":\"completed\",\"output\":[]}}\n\n",
+    );
+
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "POST".into(),
+        path_prefix: "/responses".into(),
+        status: 200,
+        body: sse_body.to_string(),
+    }]);
+    let client = build_client(&mock);
+
+    let req = CreateResponseRequest {
+        model: "gpt-4".into(),
+        input: serde_json::json!("What is the capital of France?"),
+        instructions: None,
+        tools: None,
+        temperature: None,
+        max_output_tokens: None,
+        metadata: None,
+        stream: None,
+    };
+
+    let mut stream = client
+        .create_response_stream(req)
+        .await
+        .expect("stream should open successfully");
+
+    let mut events = Vec::new();
+    while let Some(event) = stream.next().await {
+        events.push(event.expect("each SSE event should parse successfully"));
+    }
+
+    assert_eq!(events.len(), 5, "expected exactly 5 SSE events, got {events:?}");
+
+    match &events[0] {
+        ResponseStreamEvent::OutputItemAdded(added) => {
+            assert_eq!(added.output_index, 0);
+            assert_eq!(added.item.item_type, "message");
+        }
+        other => panic!("expected OutputItemAdded as event 0, got {other:?}"),
+    }
+
+    match &events[1] {
+        ResponseStreamEvent::OutputTextDelta(delta) => {
+            assert_eq!(delta.delta, "Hello");
+            assert_eq!(delta.item_id, "msg_1");
+            assert_eq!(delta.output_index, 0);
+            assert_eq!(delta.content_index, 0);
+        }
+        other => panic!("expected OutputTextDelta as event 1, got {other:?}"),
+    }
+
+    match &events[2] {
+        ResponseStreamEvent::OutputTextDelta(delta) => {
+            assert_eq!(delta.delta, " world");
+        }
+        other => panic!("expected OutputTextDelta as event 2, got {other:?}"),
+    }
+
+    match &events[3] {
+        ResponseStreamEvent::OutputItemDone(done) => {
+            assert_eq!(done.output_index, 0);
+            assert_eq!(done.item.item_type, "message");
+        }
+        other => panic!("expected OutputItemDone as event 3, got {other:?}"),
+    }
+
+    match &events[4] {
+        ResponseStreamEvent::Completed(completed) => {
+            assert_eq!(completed.response.id, "resp-001");
+            assert_eq!(completed.response.status, "completed");
+        }
+        other => panic!("expected Completed as event 4, got {other:?}"),
+    }
+
+    // ~keep The mock server closes the connection after the terminal event; the
+    // stream must end cleanly with no further items rather than hanging or erroring.
+    assert!(
+        stream.next().await.is_none(),
+        "stream should terminate cleanly after response.completed"
+    );
+
+    let requests = mock.requests();
+    assert_eq!(requests[0].method, "POST");
+    assert_eq!(requests[0].path, "/responses");
+    let body: serde_json::Value = serde_json::from_str(&requests[0].body).unwrap();
+    assert_eq!(
+        body["stream"],
+        serde_json::Value::Bool(true),
+        "stream must be forced to true on the wire"
+    );
 }
 
 #[tokio::test]

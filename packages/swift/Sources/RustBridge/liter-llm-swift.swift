@@ -7268,8 +7268,8 @@ public class CreateResponseRequest: CreateResponseRequestRefMut {
     }
 }
 extension CreateResponseRequest {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ input: GenericIntoRustString, _ instructions: Optional<GenericIntoRustString>, _ tools: Optional<RustVec<ResponseTool>>, _ temperature: Optional<Double>, _ max_output_tokens: Optional<UInt64>, _ metadata: Optional<GenericIntoRustString>) {
-        self.init(ptr: __swift_bridge__$CreateResponseRequest$new({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = input.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let rustString = optionalStringIntoRustString(instructions) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let val = tools { val.isOwned = false; return val.ptr } else { return nil } }(), temperature.intoFfiRepr(), max_output_tokens.intoFfiRepr(), { if let rustString = optionalStringIntoRustString(metadata) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()))
+    public convenience init<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ input: GenericIntoRustString, _ instructions: Optional<GenericIntoRustString>, _ tools: Optional<RustVec<ResponseTool>>, _ temperature: Optional<Double>, _ max_output_tokens: Optional<UInt64>, _ metadata: Optional<GenericIntoRustString>, _ stream: Optional<Bool>) {
+        self.init(ptr: __swift_bridge__$CreateResponseRequest$new({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = input.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let rustString = optionalStringIntoRustString(instructions) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let val = tools { val.isOwned = false; return val.ptr } else { return nil } }(), temperature.intoFfiRepr(), max_output_tokens.intoFfiRepr(), { if let rustString = optionalStringIntoRustString(metadata) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), stream.intoFfiRepr()))
     }
 }
 public class CreateResponseRequestRefMut: CreateResponseRequestRef {
@@ -7311,6 +7311,10 @@ extension CreateResponseRequestRef {
 
     public func metadata() -> Optional<RustString> {
         { let val = __swift_bridge__$CreateResponseRequest$metadata(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
+    public func stream() -> Optional<Bool> {
+        __swift_bridge__$CreateResponseRequest$stream(ptr).intoSwiftRepr()
     }
 }
 extension CreateResponseRequest: Vectorizable {
