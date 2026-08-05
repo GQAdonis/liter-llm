@@ -157,26 +157,8 @@ pub fn count_request_tokens(model: &str, req: &ChatCompletionRequest) -> Result<
 
     for msg in &req.messages {
         match msg {
-            Message::System(m) => match &m.content {
-                UserContent::Text(t) => total += encode(t)?,
-                UserContent::Parts(parts) => {
-                    for part in parts {
-                        if let Some(text) = content_part_text(part) {
-                            total += encode(text)?;
-                        }
-                    }
-                }
-            },
-            Message::User(m) => match &m.content {
-                UserContent::Text(t) => total += encode(t)?,
-                UserContent::Parts(parts) => {
-                    for part in parts {
-                        if let Some(text) = content_part_text(part) {
-                            total += encode(text)?;
-                        }
-                    }
-                }
-            },
+            Message::System(m) => total += user_content_token_count(&m.content, &encode)?,
+            Message::User(m) => total += user_content_token_count(&m.content, &encode)?,
             Message::Assistant(m) => {
                 match &m.content {
                     Some(AssistantContent::Text(t)) => total += encode(t)?,
@@ -197,7 +179,7 @@ pub fn count_request_tokens(model: &str, req: &ChatCompletionRequest) -> Result<
                     }
                 }
             }
-            Message::Tool(m) => total += encode(&m.content)?,
+            Message::Tool(m) => total += user_content_token_count(&m.content, &encode)?,
             Message::Developer(m) => total += encode(&m.content)?,
             Message::Function(m) => total += encode(&m.content)?,
         }
@@ -206,6 +188,26 @@ pub fn count_request_tokens(model: &str, req: &ChatCompletionRequest) -> Result<
     total += req.messages.len() * 4;
 
     Ok(total)
+}
+
+/// Token count of a [`UserContent`] value: the whole string for `Text`, or the
+/// sum of every `ContentPart::Text` part for `Parts` (image/document/audio parts
+/// carry no textual content and are not counted).
+///
+/// Shared by system, user, and tool messages — all three carry `UserContent`.
+fn user_content_token_count(content: &UserContent, encode: &impl Fn(&str) -> Result<usize>) -> Result<usize> {
+    match content {
+        UserContent::Text(t) => encode(t),
+        UserContent::Parts(parts) => {
+            let mut total = 0usize;
+            for part in parts {
+                if let Some(text) = content_part_text(part) {
+                    total += encode(text)?;
+                }
+            }
+            Ok(total)
+        }
+    }
 }
 
 #[cfg(test)]

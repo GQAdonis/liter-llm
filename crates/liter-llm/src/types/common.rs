@@ -370,8 +370,13 @@ impl AssistantMessage {
 /// Tool execution result returned to the model.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ToolMessage {
-    /// Result of the tool execution.
-    pub content: String,
+    /// Result of the tool execution as plain text or an array of content parts
+    /// (text, images, documents, audio), mirroring [`UserMessage::content`].
+    ///
+    /// `#[serde(untagged)]` on [`UserContent`] means a bare JSON string still
+    /// deserialises into `Text`, so tool results persisted before this field
+    /// carried structured content continue to round-trip.
+    pub content: UserContent,
     /// ID of the tool call this result responds to.
     pub tool_call_id: String,
     /// Optional tool/function name.
@@ -459,6 +464,32 @@ impl Message {
             refusal: None,
             function_call: None,
             reasoning_content: None,
+        })
+    }
+
+    /// Build a tool-result message.
+    ///
+    /// `content` accepts anything convertible to [`UserContent`] — a plain
+    /// string via `.into()`, or `UserContent::Parts(vec![...])` for a
+    /// multimodal result (e.g. a tool that returns a screenshot).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use liter_llm::types::{Message, ContentPart, UserContent};
+    ///
+    /// let text_result = Message::tool_result("call_123", "72°F, sunny");
+    ///
+    /// let image_result = Message::tool_result(
+    ///     "call_456",
+    ///     UserContent::Parts(vec![ContentPart::image_png(b"\x89PNG")]),
+    /// );
+    /// ```
+    pub fn tool_result(tool_call_id: impl Into<String>, content: impl Into<UserContent>) -> Self {
+        Self::Tool(ToolMessage {
+            content: content.into(),
+            tool_call_id: tool_call_id.into(),
+            name: None,
         })
     }
 }
@@ -875,6 +906,67 @@ mod tests {
             panic!("expected system")
         };
         assert_eq!(s.content, UserContent::Text("You are a helpful assistant.".into()));
+    }
+
+    /// Critical backward-compatibility test: persisted/serialized tool messages from
+    /// before `ToolMessage::content` became `UserContent` are a bare JSON string.
+    /// `UserContent`'s `#[serde(untagged)]` must still parse that into `Text`.
+    #[test]
+    fn tool_message_content_deserializes_from_bare_string_back_compat() {
+        let json = r#"{"role":"tool","tool_call_id":"call_789","content":"15°C, sunny"}"#;
+        let msg: Message = serde_json::from_str(json).expect("bare string content must deserialise");
+        let Message::Tool(t) = msg else {
+            panic!("expected tool message, got: {msg:?}")
+        };
+        assert_eq!(t.content, UserContent::Text("15°C, sunny".into()));
+        assert_eq!(t.tool_call_id, "call_789");
+        assert_eq!(t.name, None);
+    }
+
+    #[test]
+    fn tool_message_content_parts_round_trip() {
+        let msg = Message::Tool(ToolMessage {
+            content: UserContent::Parts(vec![
+                ContentPart::text("Here is a screenshot:"),
+                ContentPart::image_data_url("data:image/png;base64,aGk="),
+            ]),
+            tool_call_id: "call_screenshot".into(),
+            name: Some("take_screenshot".into()),
+        });
+        let json = serde_json::to_string(&msg).expect("serialization should not fail");
+        assert_eq!(
+            json,
+            r#"{"role":"tool","content":[{"type":"text","text":"Here is a screenshot:"},{"type":"image_url","image_url":{"url":"data:image/png;base64,aGk="}}],"tool_call_id":"call_screenshot","name":"take_screenshot"}"#
+        );
+        let parsed: Message = serde_json::from_str(&json).expect("deserialization should not fail");
+        assert_eq!(msg, parsed);
+    }
+
+    #[test]
+    fn message_tool_result_helper_builds_text_tool_message() {
+        let msg = Message::tool_result("call_123", "72°F, sunny");
+        let Message::Tool(t) = msg else {
+            panic!("expected tool message")
+        };
+        assert_eq!(t.content, UserContent::Text("72°F, sunny".into()));
+        assert_eq!(t.tool_call_id, "call_123");
+        assert_eq!(t.name, None);
+    }
+
+    #[test]
+    fn message_tool_result_helper_builds_parts_tool_message() {
+        let msg = Message::tool_result(
+            "call_456",
+            UserContent::Parts(vec![ContentPart::image_data_url("data:image/png;base64,aGk=")]),
+        );
+        let Message::Tool(t) = msg else {
+            panic!("expected tool message")
+        };
+        assert_eq!(
+            t.content,
+            UserContent::Parts(vec![ContentPart::image_data_url("data:image/png;base64,aGk=")])
+        );
+        assert_eq!(t.tool_call_id, "call_456");
     }
 
     #[test]

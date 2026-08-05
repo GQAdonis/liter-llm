@@ -827,26 +827,7 @@ fn convert_message_to_anthropic(msg: Value) -> Value {
             let raw_id = msg.get("tool_call_id").and_then(|v| v.as_str()).unwrap_or("");
             let tool_use_id = sanitize_tool_call_id(raw_id);
 
-            let result_content = match msg.get("content") {
-                Some(Value::Array(arr)) => arr
-                    .iter()
-                    .map(|part| {
-                        let part_type = part.get("type").and_then(|t| t.as_str()).unwrap_or("text");
-                        match part_type {
-                            "image_url" => {
-                                let url = part.pointer("/image_url/url").and_then(|u| u.as_str()).unwrap_or("");
-                                convert_image_url_to_anthropic_source(url)
-                            }
-                            _ => {
-                                let text = part.get("text").and_then(|t| t.as_str()).unwrap_or("");
-                                json!({"type": "text", "text": text})
-                            }
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-                Some(Value::String(s)) => vec![json!({"type": "text", "text": s})],
-                _ => vec![json!({"type": "text", "text": ""})],
-            };
+            let result_content = convert_tool_result_content_to_anthropic(msg.get("content"));
 
             let mut tool_result_block = json!({
                 "type": "tool_result",
@@ -945,6 +926,37 @@ fn convert_user_content_to_anthropic(content: Option<&Value>) -> Value {
         }
         Some(other) => json!([{"type": "text", "text": other.to_string()}]),
     }
+}
+
+/// Convert a `ToolMessage::content` value (plain string or content-part array) to
+/// Anthropic `tool_result` content blocks.
+///
+/// Reuses [`convert_user_content_to_anthropic`] for the text/image mapping —
+/// Anthropic's `tool_result.content` accepts `TextBlockParam | ImageBlockParam`,
+/// the same blocks a user turn emits for those two part types. Unlike a user
+/// turn, Anthropic's API does not accept a `document` (or any other) block
+/// inside `tool_result`, so any such part degrades to a text block instead of
+/// being silently dropped. ~keep
+fn convert_tool_result_content_to_anthropic(content: Option<&Value>) -> Value {
+    let Value::Array(blocks) = convert_user_content_to_anthropic(content) else {
+        return json!([{"type": "text", "text": ""}]);
+    };
+
+    let blocks: Vec<Value> = blocks
+        .into_iter()
+        .map(|block| match block.get("type").and_then(|t| t.as_str()) {
+            Some("text") | Some("image") => block,
+            other => {
+                tracing::warn!(
+                    block_type = other.unwrap_or("unknown"),
+                    "anthropic tool_result: unsupported content block degraded to text"
+                );
+                json!({"type": "text", "text": "[unsupported content in tool result]"})
+            }
+        })
+        .collect();
+
+    json!(blocks)
 }
 
 /// Map an OpenAI `tool_choice` value to Anthropic format.
@@ -1859,6 +1871,73 @@ mod tests {
         assert_eq!(result_content.len(), 2);
         assert_eq!(result_content[0]["type"], "text");
         assert_eq!(result_content[1]["type"], "image");
+    }
+
+    /// Asserts the exact serialized JSON shape of an Anthropic `tool_result` image
+    /// block, using the typed `Message`/`ToolMessage` API end to end (not a raw
+    /// JSON fixture) to prove the public Rust surface reaches the provider intact.
+    #[test]
+    fn transform_request_tool_result_image_part_maps_to_exact_anthropic_block() {
+        use crate::types::{ContentPart, Message, ToolMessage, UserContent};
+
+        let messages = vec![Message::Tool(ToolMessage {
+            content: UserContent::Parts(vec![ContentPart::image_data_url("data:image/png;base64,abc123")]),
+            tool_call_id: "call_img".into(),
+            name: None,
+        })];
+        let mut body = serde_json::to_value(&messages).expect("messages must serialise");
+        body = json!({"model": "claude-3-5-sonnet-20241022", "messages": body});
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        let messages = body["messages"].as_array().expect("messages should be an array");
+        assert_eq!(
+            messages[0],
+            json!({
+                "role": "user",
+                "content": [{
+                    "type": "tool_result",
+                    "tool_use_id": "call_img",
+                    "content": [{
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": "abc123"
+                        }
+                    }]
+                }]
+            })
+        );
+    }
+
+    #[test]
+    fn transform_request_tool_result_document_part_degrades_to_text() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{
+                "role": "tool",
+                "tool_call_id": "call_doc",
+                "content": [{"type": "document", "document": {
+                    "data": "JVBERi0xLjQ=",
+                    "media_type": "application/pdf"
+                }}]
+            }]
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        let messages = body["messages"].as_array().expect("messages should be an array");
+        let result_content = messages[0]["content"][0]["content"]
+            .as_array()
+            .expect("content should be an array");
+        assert_eq!(result_content.len(), 1);
+        assert_eq!(result_content[0]["type"], "text");
+        assert_eq!(result_content[0]["text"], "[unsupported content in tool result]");
     }
 
     #[test]

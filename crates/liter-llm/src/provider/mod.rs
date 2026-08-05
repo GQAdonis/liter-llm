@@ -868,6 +868,41 @@ mod tests {
         );
     }
 
+    /// `OpenAiProvider::transform_request` is a no-op — the wire body is exactly what
+    /// serde produces from the typed `Message`/`ToolMessage` API. Asserts the exact
+    /// serialized JSON shape of a `Parts` tool result: OpenAI's chat-completions
+    /// `content` array accepts `image_url` parts inside a tool message verbatim.
+    #[test]
+    fn openai_tool_result_image_part_serializes_to_exact_content_array() {
+        use crate::types::{ContentPart, Message, ToolMessage, UserContent};
+
+        let message = Message::Tool(ToolMessage {
+            content: UserContent::Parts(vec![
+                ContentPart::text("Here is a screenshot:"),
+                ContentPart::image_data_url("data:image/png;base64,abc123"),
+            ]),
+            tool_call_id: "call_shot".into(),
+            name: None,
+        });
+        let mut body = json!({"model": "gpt-4o", "messages": [message]});
+
+        OpenAiProvider
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(
+            body["messages"][0],
+            json!({
+                "role": "tool",
+                "content": [
+                    {"type": "text", "text": "Here is a screenshot:"},
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc123"}}
+                ],
+                "tool_call_id": "call_shot"
+            })
+        );
+    }
+
     #[test]
     fn transform_response_audio_message_hoisted() {
         let mut body = json!({

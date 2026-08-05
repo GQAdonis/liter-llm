@@ -526,6 +526,7 @@ mod serde_tests {
         let json = serde_json::to_string(&msg).expect("serialization should not fail");
         let parsed: Message = serde_json::from_str(&json).expect("deserialization should not fail");
         if let Message::Tool(t) = parsed {
+            assert_eq!(t.content, UserContent::Text(r#"{"result": "sunny"}"#.into()));
             assert_eq!(t.tool_call_id, "call_456");
             assert_eq!(t.name.as_deref(), Some("get_weather"));
         } else {

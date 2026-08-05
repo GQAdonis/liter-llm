@@ -26,6 +26,67 @@ fn format_from_media_type(media_type: &str) -> &str {
     media_type.split('/').nth(1).unwrap_or("pdf")
 }
 
+/// Convert OpenAI-format message content (plain string or content-part array) to
+/// Bedrock Converse content blocks (`text` / `image` / `document`).
+///
+/// Shared by both user messages and tool results: Converse's `toolResult.content`
+/// accepts the same block shapes as a user turn's `content`, so this is reused
+/// rather than duplicated for the `"tool"` role. ~keep
+fn convert_content_to_bedrock_blocks(content: Option<&serde_json::Value>) -> Vec<serde_json::Value> {
+    use serde_json::json;
+
+    if let Some(text) = content.and_then(|c| c.as_str()) {
+        vec![json!({"text": text})]
+    } else if let Some(array) = content.and_then(|c| c.as_array()) {
+        array
+            .iter()
+            .filter_map(|part| {
+                let part_type = part.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                match part_type {
+                    "text" => {
+                        let text = part.get("text").and_then(|t| t.as_str()).unwrap_or("");
+                        Some(json!({"text": text}))
+                    }
+                    "image_url" => {
+                        let url = part.pointer("/image_url/url").and_then(|u| u.as_str()).unwrap_or("");
+                        if let Some(data_part) = url.strip_prefix("data:") {
+                            let mut iter = data_part.splitn(2, ';');
+                            let media_type = iter.next().unwrap_or("image/jpeg");
+                            let b64 = iter.next().and_then(|s| s.strip_prefix("base64,")).unwrap_or("");
+                            Some(json!({
+                                "image": {
+                                    "format": media_type.split('/').nth(1).unwrap_or("jpeg"),
+                                    "source": {"bytes": b64}
+                                }
+                            }))
+                        } else {
+                            Some(json!({"text": url}))
+                        }
+                    }
+                    "document" => {
+                        let data = part.pointer("/document/data").and_then(|d| d.as_str()).unwrap_or("");
+                        let media_type = part
+                            .pointer("/document/media_type")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("application/pdf");
+                        let format = format_from_media_type(media_type);
+                        Some(json!({
+                            "document": {
+                                "name": "doc",
+                                "format": format,
+                                "source": {"bytes": data}
+                            }
+                        }))
+                    }
+                    _ => None,
+                }
+            })
+            .collect()
+    } else {
+        vec![json!({"text": ""})]
+    }
+}
+
 /// Determine the DNS suffix for a given AWS region.
 ///
 /// - Standard/GovCloud regions: `amazonaws.com`
@@ -356,57 +417,7 @@ impl Provider for BedrockProvider {
                     }
                 }
                 "user" => {
-                    let parts = if let Some(text) = content.and_then(|c| c.as_str()) {
-                        vec![json!({"text": text})]
-                    } else if let Some(array) = content.and_then(|c| c.as_array()) {
-                        array
-                            .iter()
-                            .filter_map(|part| {
-                                let part_type = part.get("type").and_then(|t| t.as_str()).unwrap_or("");
-                                match part_type {
-                                    "text" => {
-                                        let text = part.get("text").and_then(|t| t.as_str()).unwrap_or("");
-                                        Some(json!({"text": text}))
-                                    }
-                                    "image_url" => {
-                                        let url = part.pointer("/image_url/url").and_then(|u| u.as_str()).unwrap_or("");
-                                        if let Some(data_part) = url.strip_prefix("data:") {
-                                            let mut iter = data_part.splitn(2, ';');
-                                            let media_type = iter.next().unwrap_or("image/jpeg");
-                                            let b64 = iter.next().and_then(|s| s.strip_prefix("base64,")).unwrap_or("");
-                                            Some(json!({
-                                                "image": {
-                                                    "format": media_type.split('/').nth(1).unwrap_or("jpeg"),
-                                                    "source": {"bytes": b64}
-                                                }
-                                            }))
-                                        } else {
-                                            Some(json!({"text": url}))
-                                        }
-                                    }
-                                    "document" => {
-                                        let data =
-                                            part.pointer("/document/data").and_then(|d| d.as_str()).unwrap_or("");
-                                        let media_type = part
-                                            .pointer("/document/media_type")
-                                            .and_then(|m| m.as_str())
-                                            .unwrap_or("application/pdf");
-                                        let format = format_from_media_type(media_type);
-                                        Some(json!({
-                                            "document": {
-                                                "name": "doc",
-                                                "format": format,
-                                                "source": {"bytes": data}
-                                            }
-                                        }))
-                                    }
-                                    _ => None,
-                                }
-                            })
-                            .collect()
-                    } else {
-                        vec![json!({"text": ""})]
-                    };
+                    let parts = convert_content_to_bedrock_blocks(content);
                     converse_messages.push(json!({"role": "user", "content": parts}));
                 }
                 "assistant" => {
@@ -439,7 +450,10 @@ impl Provider for BedrockProvider {
                 }
                 "tool" => {
                     let tool_call_id = msg.get("tool_call_id").and_then(|t| t.as_str()).unwrap_or("");
-                    let result_text = content.and_then(|c| c.as_str()).unwrap_or("");
+                    // toolResult.content accepts the same text/image/document block shapes as a
+                    // user turn's content, so a `ToolMessage::content` of `UserContent::Parts`
+                    // reaches Bedrock natively via the shared block conversion. ~keep
+                    let result_content = convert_content_to_bedrock_blocks(content);
                     let is_error = msg.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
                     let status = if is_error { "error" } else { "success" };
                     converse_messages.push(json!({
@@ -447,7 +461,7 @@ impl Provider for BedrockProvider {
                         "content": [{
                             "toolResult": {
                                 "toolUseId": tool_call_id,
-                                "content": [{"text": result_text}],
+                                "content": result_content,
                                 "status": status
                             }
                         }]
@@ -1315,6 +1329,53 @@ mod tests {
         let tool_result = &tool_result_msg["content"][0]["toolResult"];
         assert_eq!(tool_result["toolUseId"], "call_abc");
         assert_eq!(tool_result["status"], "success");
+    }
+
+    /// Regression test: before the shared `convert_content_to_bedrock_blocks` helper,
+    /// a `Parts` tool result silently dropped to an empty string because the "tool"
+    /// arm only read `content.as_str()`. This asserts the image part now reaches
+    /// Bedrock as a native `image` content block instead of being lost.
+    #[test]
+    #[serial]
+    fn transform_request_tool_result_image_part_maps_to_bedrock_image_block() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [
+                {"role": "user", "content": "Take a screenshot"},
+                {
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [{
+                        "id": "call_shot",
+                        "type": "function",
+                        "function": {"name": "take_screenshot", "arguments": "{}"}
+                    }]
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_shot",
+                    "content": [
+                        {"type": "text", "text": "Here is the screenshot"},
+                        {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc123"}}
+                    ]
+                }
+            ]
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        let messages = body["messages"].as_array().expect("messages should be an array");
+        let tool_result_msg = &messages[2];
+        let result_content = tool_result_msg["content"][0]["toolResult"]["content"]
+            .as_array()
+            .expect("toolResult content should be an array");
+        assert_eq!(result_content.len(), 2);
+        assert_eq!(result_content[0], json!({"text": "Here is the screenshot"}));
+        assert_eq!(
+            result_content[1],
+            json!({"image": {"format": "png", "source": {"bytes": "abc123"}}})
+        );
     }
 
     #[test]
