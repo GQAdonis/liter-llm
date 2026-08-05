@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-08-05
+
+### Added
+
+- Tool results can carry multimodal content. `ToolMessage.content` was `String`,
+  so a tool returning an image had to describe it in prose or smuggle it through
+  a separate user turn. It is now `UserContent` — the same untagged
+  text-or-parts type user messages already use — with `Message::tool_result()`
+  for the common text case, so existing `ToolMessage { content: "…".into() }`
+  call sites keep working and a plain JSON string still deserializes ([#165]).
+
+### Fixed
+
+- Bedrock no longer silently drops non-text content parts. Converting a
+  multi-part message kept only the text and discarded images without a trace;
+  conversion is now shared with the other providers and warns on any part it
+  cannot represent. This bug predates the change above.
+- Go and Ruby bindings compile again. `LlmConfig.providers` was generated as both
+  a struct field and a method — `field and method with the same name Providers`
+  in Go, a duplicate method definition plus an RBS `DuplicatedMethodDefinition`
+  in Ruby. Fixed upstream in alef 0.55.0, which also regenerates Swift and C#.
+- The nightly model-catalog sync no longer reports failure after doing its job.
+  It opened and merged the PR correctly, then died on `gh pr merge --auto`, which
+  GitHub rejects once the PR is already mergeable ("clean status") — so the job
+  went red on roughly every other run.
+- CI runs poly's whole-project lint phase. It was skipped entirely because the
+  shared validate job could install only Rust, Python and Java, so golangci-lint,
+  rubocop, steep, dart-analyze and credo ran in the git hooks and never in CI —
+  which is why the Go and Ruby breakage above reached `main` unnoticed.
+
+### Changed
+
+- **Python:** `config.providers` is an attribute again rather than a bound
+  method. The generated getter was shadowed by a same-named method wrapper, so
+  the attribute the type stub and the constructor keyword both promised did not
+  exist at runtime. Any caller written against the accidental
+  `config.providers()` spelling must drop the parentheses.
+
+[#165]: https://github.com/xberg-io/liter-llm/issues/165
+
 ## [1.15.0] - 2026-08-04
 
 ### Added
