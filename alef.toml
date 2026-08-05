@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.51.2"
+alef_version = "0.55.0"
 languages = [
   "python",
   "node",
@@ -541,6 +541,10 @@ methods = [
   "InMemoryBudgetLedger.export_csv",
   "DefaultRetryPolicy.classify",
   "IdempotencyEntry.fmt",
+  # ~keep Returns ClientConfigBuilder, itself excluded above, so the binding surface
+  # ~keep sanitizes the return type to String and trips alef's lossy_sanitized_surface
+  # ~keep hard error. Core-crate-only until the builder itself is bindable.
+  "LlmConfig.into_client_builder",
   "KeywordClassifier.new",
   "EmbeddingSimilarityClassifier.new",
   "LlmClassifier.new",
@@ -2282,6 +2286,9 @@ streaming = "getting-started/streaming.md"
 
 [crates.readme.languages.kotlin_android]
 name = "Kotlin (Android)"
+# ~keep Without this the README snippets fall back to the language key, and no
+# ~keep highlighter knows `kotlin_android`; alef 0.53+ makes that a hard error.
+snippet_language = "kotlin"
 template = "language_package.md"
 output_path = "packages/kotlin-android/README.md"
 package_manager = ["gradle", "maven"]

@@ -35,3 +35,11 @@ jobs:
       # default is 17). Match the binding's target JDK. ~keep
       setup-java: true
       java-version: "25"
+      # The remaining whole-project checks poly runs (golangci-lint, rubocop, steep,
+      # dart-analyze, credo) each need their own toolchain. Without them this job used
+      # to skip poly's workspace phase entirely, so those five linters ran only in the
+      # git hooks — CI never saw them. ~keep
+      setup-go: true
+      setup-ruby: true
+      setup-dart: true
+      setup-elixir: true

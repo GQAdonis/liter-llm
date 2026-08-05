@@ -99,7 +99,7 @@ Install via one of the supported package managers:
 **Gradle:**
 
 ```gradle
-implementation 'io.xberg.literllm:liter-llm-android:1.14.0'
+implementation 'io.xberg.literllm:liter-llm-android:1.15.0'
 ```
 
 **Maven:**
@@ -108,7 +108,7 @@ implementation 'io.xberg.literllm:liter-llm-android:1.14.0'
 <dependency>
     <groupId>io.xberg.literllm</groupId>
     <artifactId>liter-llm-android</artifactId>
-    <version>1.14.0</version>
+    <version>1.15.0</version>
 </dependency>
 ```
 
@@ -122,7 +122,20 @@ implementation 'io.xberg.literllm:liter-llm-android:1.14.0'
 
 Send a message to any provider using the `provider/model` prefix:
 
-<!-- snippet not found: getting-started/basic_chat.md -->
+```kotlin
+import io.xberg.literllm.android.*
+import kotlinx.coroutines.runBlocking
+
+fun main() = runBlocking {
+    val client = LiterLlm.createClient(System.getenv("OPENAI_API_KEY") ?: "")
+    val request = ChatCompletionRequest(
+        model = "openai/gpt-4o",
+        messages = listOf(Message.User(UserMessage(content = UserContent.of("Hello!"))))
+    )
+    val response = client.chat(request)
+    println(response.choices[0].message.content)
+}
+```
 
 ### Common Use Cases
 

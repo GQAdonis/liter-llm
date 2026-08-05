@@ -334,14 +334,6 @@ enabled = true
 ]
 "templates/readme/**/*.md" = ["MD057"]
 
-# Skip poly's whole-project lint phase in `poly lint`: the shared CI validate job
-# only installs Rust/Python/Java, so the other whole-workspace linters (credo,
-# dart-analyze, golangci-lint, rubocop, steep) cannot run there. They run via the
-# git pre-commit hooks and each language's dedicated CI job. Equivalent to always
-# passing `poly lint --no-workspace`. ~keep
-[lint]
-workspace = false
-
 [hooks]
 stages = ["pre-commit"]
 
@@ -586,7 +578,7 @@ workspace = true
 files = "packages/dart/**/*.dart"
 
 [hooks.pre-commit.commands.credo]
-run = "mix credo --strict"
+run = "mix deps.get && mix credo --strict"
 root = "packages/elixir"
 workspace = true
 files = "packages/elixir/**/*.{ex,exs}"

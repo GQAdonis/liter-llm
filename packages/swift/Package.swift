@@ -14,14 +14,14 @@ import Foundation
 let rustTargetDir = (#filePath as NSString).deletingLastPathComponent.appending("/../../target")
 
 // Resolve the static archive for a Rust crate explicitly, preferring `release` over `debug`.
-// `crates/liter-llm-ffi` and `packages/swift/rust` both build `crate-type = ["cdylib",
-// "staticlib"]`, so `target/{release,debug}` holds both `lib<name>.a` and `lib<name>.dylib`.
-// A bare `.linkedLibrary("<name>")` / `-l<name>` lets the linker pick between them, and ld64
-// prefers the `.dylib` when both sit in the same search directory — but that dylib was built
-// with `-undefined dynamic_lookup` and does not itself define the swift-bridge glue symbols
-// (e.g. `__swift_bridge__$AssistantContent$_free`), so the link silently succeeds while the
-// resulting binary fails to resolve those symbols at dlopen/runtime. Passing the archive's
-// resolved absolute path forces static linking unambiguously.
+// `crates/liter-llm-swift` and the FFI crate both build `crate-type = ["cdylib", "staticlib"]`,
+// so `target/{release,debug}` holds both `lib<name>.a` and `lib<name>.dylib`. A bare
+// `.linkedLibrary("<name>")` / `-l<name>` lets the linker pick between them, and ld64 prefers
+// the `.dylib` when both sit in the same search directory — but that dylib was built with
+// `-undefined dynamic_lookup` and does not itself define the swift-bridge glue symbols (e.g.
+// `__swift_bridge__$<Type>$_free`), so the link silently succeeds while the resulting binary
+// fails to resolve those symbols at dlopen/runtime. Passing the archive's resolved absolute
+// path forces static linking unambiguously.
 func resolvedStaticLib(_ name: String) -> String {
   let release = "\(rustTargetDir)/release/lib\(name).a"
   let debug = "\(rustTargetDir)/debug/lib\(name).a"

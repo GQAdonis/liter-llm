@@ -9,7 +9,7 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'lib.freezed.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `IntentPrototype`, `SingleflightResult`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// Create a new LLM client with simple scalar configuration.
 ///
@@ -561,6 +561,26 @@ Future<ResponseOutputItem> createResponseOutputItemFromJson({
 Future<ResponseUsage> createResponseUsageFromJson({required String json}) =>
     RustLib.instance.api.crateCreateResponseUsageFromJson(json: json);
 
+Future<LlmConfig> createLlmConfigFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateLlmConfigFromJson(json: json);
+
+Future<LlmCacheConfig> createLlmCacheConfigFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateLlmCacheConfigFromJson(json: json);
+
+Future<LlmBudgetConfig> createLlmBudgetConfigFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateLlmBudgetConfigFromJson(json: json);
+
+Future<LlmRateLimitConfig> createLlmRateLimitConfigFromJson({
+  required String json,
+}) => RustLib.instance.api.crateCreateLlmRateLimitConfigFromJson(json: json);
+
+Future<LlmProviderConfig> createLlmProviderConfigFromJson({
+  required String json,
+}) => RustLib.instance.api.crateCreateLlmProviderConfigFromJson(json: json);
+
+Future<BedrockConfig> createBedrockConfigFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateBedrockConfigFromJson(json: json);
+
 Future<WaitForBatchConfig> createWaitForBatchConfigFromJson({
   required String json,
 }) => RustLib.instance.api.crateCreateWaitForBatchConfigFromJson(json: json);
@@ -1048,6 +1068,56 @@ enum BatchStatus {
 
   /// Job has been cancelled.
   cancelled,
+}
+
+/// AWS Bedrock configuration.
+///
+/// All fields are optional; anything left unset falls back to the standard
+/// AWS environment variables (`AWS_DEFAULT_REGION` / `AWS_REGION`,
+/// `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`,
+/// `BEDROCK_CROSS_REGION`).
+class BedrockConfig {
+  /// AWS region (e.g. `"us-east-1"`).
+  final String? region;
+
+  /// Cross-region inference profile prefix (e.g. `"us"`).
+  final String? crossRegionPrefix;
+
+  /// Explicit AWS access key ID.
+  final String? accessKeyId;
+
+  /// Explicit AWS secret access key.
+  final String? secretAccessKey;
+
+  /// Explicit AWS session token (temporary credentials).
+  final String? sessionToken;
+
+  const BedrockConfig({
+    this.region,
+    this.crossRegionPrefix,
+    this.accessKeyId,
+    this.secretAccessKey,
+    this.sessionToken,
+  });
+
+  @override
+  int get hashCode =>
+      region.hashCode ^
+      crossRegionPrefix.hashCode ^
+      accessKeyId.hashCode ^
+      secretAccessKey.hashCode ^
+      sessionToken.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BedrockConfig &&
+          runtimeType == other.runtimeType &&
+          region == other.region &&
+          crossRegionPrefix == other.crossRegionPrefix &&
+          accessKeyId == other.accessKeyId &&
+          secretAccessKey == other.secretAccessKey &&
+          sessionToken == other.sessionToken;
 }
 
 /// Configuration for budget enforcement.
@@ -2632,6 +2702,272 @@ sealed class LiterLlmError with _$LiterLlmError {
   /// `error.status_code` against the expected HTTP status.
   Future<PlatformInt64> statusCode() =>
       RustLib.instance.api.crateLiterLlmErrorStatusCode(that: this);
+}
+
+/// Budget enforcement configuration.
+class LlmBudgetConfig {
+  /// Global spend limit in USD.
+  final double? globalLimit;
+
+  /// Per-model spend limits in USD, keyed by model name.
+  final Map<String, double>? modelLimits;
+
+  /// Enforcement mode: `"hard"` (reject over-budget requests) or `"soft"` (log only).
+  final String? enforcement;
+
+  const LlmBudgetConfig({this.globalLimit, this.modelLimits, this.enforcement});
+
+  @override
+  int get hashCode =>
+      globalLimit.hashCode ^ modelLimits.hashCode ^ enforcement.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmBudgetConfig &&
+          runtimeType == other.runtimeType &&
+          globalLimit == other.globalLimit &&
+          modelLimits == other.modelLimits &&
+          enforcement == other.enforcement;
+}
+
+/// Response cache configuration.
+class LlmCacheConfig {
+  /// Maximum number of cached entries.
+  final PlatformInt64? maxEntries;
+
+  /// Cache entry time-to-live, in seconds.
+  final PlatformInt64? ttlSeconds;
+
+  /// Cache backend name (e.g. `"memory"`, or an `opendal` scheme).
+  final String? backend;
+
+  /// Backend-specific configuration key/value pairs.
+  final Map<String, String>? backendConfig;
+
+  const LlmCacheConfig({
+    this.maxEntries,
+    this.ttlSeconds,
+    this.backend,
+    this.backendConfig,
+  });
+
+  @override
+  int get hashCode =>
+      maxEntries.hashCode ^
+      ttlSeconds.hashCode ^
+      backend.hashCode ^
+      backendConfig.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmCacheConfig &&
+          runtimeType == other.runtimeType &&
+          maxEntries == other.maxEntries &&
+          ttlSeconds == other.ttlSeconds &&
+          backend == other.backend &&
+          backendConfig == other.backendConfig;
+}
+
+/// Canonical configuration for an LLM client.
+///
+/// All fields except `model` are optional so that partially-specified
+/// configs (e.g. from environment-driven defaults) round-trip cleanly.
+/// Convert to a runtime client configuration via
+/// [`LlmConfig::into_client_builder`].
+///
+/// `temperature` and `max_tokens` are request-time parameters rather than
+/// client-level settings; they are carried on this struct for callers to
+/// read when building individual requests, and are intentionally **not**
+/// mapped by [`LlmConfig::into_client_builder`].
+class LlmConfig {
+  /// Model identifier (e.g. `"gpt-4o"`, `"bedrock/anthropic.claude-3-sonnet-20240229-v1:0"`).
+  final String model;
+
+  /// API key for authentication.
+  final String? apiKey;
+
+  /// Override base URL. When set, all requests go here and provider
+  /// auto-detection is skipped.
+  final String? baseUrl;
+
+  /// Request timeout, in seconds.
+  final PlatformInt64? timeoutSecs;
+
+  /// Maximum number of retries on 429 / 5xx responses.
+  final PlatformInt64? maxRetries;
+
+  /// Sampling temperature for requests built from this config.
+  final double? temperature;
+
+  /// Maximum number of tokens to generate for requests built from this config.
+  final PlatformInt64? maxTokens;
+
+  /// Automatically load the API key from the provider's environment variable
+  /// when no explicit key is provided (default: `true`).
+  final bool? loadEnv;
+
+  /// Extra headers sent on every request.
+  final Map<String, String>? headers;
+
+  /// Custom provider configurations, in addition to the built-in providers.
+  final List<LlmProviderConfig>? providers;
+
+  /// Response cache configuration.
+  final LlmCacheConfig? cache;
+
+  /// Budget enforcement configuration.
+  final LlmBudgetConfig? budget;
+
+  /// Per-model rate limiting configuration.
+  final LlmRateLimitConfig? rateLimit;
+
+  /// Enable per-request cost tracking.
+  final bool? costTracking;
+
+  /// Enable OpenTelemetry-compatible tracing spans.
+  final bool? tracing;
+
+  /// Cooldown duration after transient errors, in seconds.
+  final PlatformInt64? cooldownSecs;
+
+  /// Background health check interval, in seconds.
+  final PlatformInt64? healthCheckSecs;
+
+  /// AWS Bedrock configuration (region, credentials, cross-region routing).
+  final BedrockConfig? bedrock;
+
+  const LlmConfig({
+    required this.model,
+    this.apiKey,
+    this.baseUrl,
+    this.timeoutSecs,
+    this.maxRetries,
+    this.temperature,
+    this.maxTokens,
+    this.loadEnv,
+    this.headers,
+    this.providers,
+    this.cache,
+    this.budget,
+    this.rateLimit,
+    this.costTracking,
+    this.tracing,
+    this.cooldownSecs,
+    this.healthCheckSecs,
+    this.bedrock,
+  });
+
+  @override
+  int get hashCode =>
+      model.hashCode ^
+      apiKey.hashCode ^
+      baseUrl.hashCode ^
+      timeoutSecs.hashCode ^
+      maxRetries.hashCode ^
+      temperature.hashCode ^
+      maxTokens.hashCode ^
+      loadEnv.hashCode ^
+      headers.hashCode ^
+      providers.hashCode ^
+      cache.hashCode ^
+      budget.hashCode ^
+      rateLimit.hashCode ^
+      costTracking.hashCode ^
+      tracing.hashCode ^
+      cooldownSecs.hashCode ^
+      healthCheckSecs.hashCode ^
+      bedrock.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmConfig &&
+          runtimeType == other.runtimeType &&
+          model == other.model &&
+          apiKey == other.apiKey &&
+          baseUrl == other.baseUrl &&
+          timeoutSecs == other.timeoutSecs &&
+          maxRetries == other.maxRetries &&
+          temperature == other.temperature &&
+          maxTokens == other.maxTokens &&
+          loadEnv == other.loadEnv &&
+          headers == other.headers &&
+          providers == other.providers &&
+          cache == other.cache &&
+          budget == other.budget &&
+          rateLimit == other.rateLimit &&
+          costTracking == other.costTracking &&
+          tracing == other.tracing &&
+          cooldownSecs == other.cooldownSecs &&
+          healthCheckSecs == other.healthCheckSecs &&
+          bedrock == other.bedrock;
+}
+
+/// A custom provider configuration entry.
+class LlmProviderConfig {
+  /// Provider name, used to key model prefix matching.
+  final String name;
+
+  /// Base URL for the provider's OpenAI-compatible API.
+  final String baseUrl;
+
+  /// Header name used to carry the API key (defaults to `Authorization` when unset).
+  final String? authHeader;
+
+  /// Model name prefixes routed to this provider (e.g. `["my-provider/"]`).
+  final List<String> modelPrefixes;
+
+  const LlmProviderConfig({
+    required this.name,
+    required this.baseUrl,
+    this.authHeader,
+    required this.modelPrefixes,
+  });
+
+  @override
+  int get hashCode =>
+      name.hashCode ^
+      baseUrl.hashCode ^
+      authHeader.hashCode ^
+      modelPrefixes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmProviderConfig &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          baseUrl == other.baseUrl &&
+          authHeader == other.authHeader &&
+          modelPrefixes == other.modelPrefixes;
+}
+
+/// Per-model rate limiting configuration.
+class LlmRateLimitConfig {
+  /// Requests per minute limit.
+  final PlatformInt64? rpm;
+
+  /// Tokens per minute limit.
+  final PlatformInt64? tpm;
+
+  /// Rate limit window, in seconds.
+  final PlatformInt64? windowSeconds;
+
+  const LlmRateLimitConfig({this.rpm, this.tpm, this.windowSeconds});
+
+  @override
+  int get hashCode => rpm.hashCode ^ tpm.hashCode ^ windowSeconds.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmRateLimitConfig &&
+          runtimeType == other.runtimeType &&
+          rpm == other.rpm &&
+          tpm == other.tpm &&
+          windowSeconds == other.windowSeconds;
 }
 
 @freezed
@@ -4285,8 +4621,13 @@ enum ToolChoiceMode {
 
 /// Tool execution result returned to the model.
 class ToolMessage {
-  /// Result of the tool execution.
-  final String content;
+  /// Result of the tool execution as plain text or an array of content parts
+  /// (text, images, documents, audio), mirroring [`UserMessage::content`].
+  ///
+  /// `#[serde(untagged)]` on [`UserContent`] means a bare JSON string still
+  /// deserialises into `Text`, so tool results persisted before this field
+  /// carried structured content continue to round-trip.
+  final UserContent content;
 
   /// ID of the tool call this result responds to.
   final String toolCallId;

@@ -67,6 +67,15 @@ typedef struct LITERLLMBatchRequestCounts LITERLLMBatchRequestCounts;
  */
 typedef struct LITERLLMBatchStatus LITERLLMBatchStatus;
 /**
+ * AWS Bedrock configuration.
+ *
+ * All fields are optional; anything left unset falls back to the standard
+ * AWS environment variables (`AWS_DEFAULT_REGION` / `AWS_REGION`,
+ * `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`,
+ * `BEDROCK_CROSS_REGION`).
+ */
+typedef struct LITERLLMBedrockConfig LITERLLMBedrockConfig;
+/**
  * Configuration for budget enforcement.
  */
 typedef struct LITERLLMBudgetConfig LITERLLMBudgetConfig;
@@ -284,6 +293,36 @@ typedef struct LITERLLMJsonSchemaFormat LITERLLMJsonSchemaFormat;
  * All errors that can occur when using `liter-llm`.
  */
 typedef struct LITERLLMLiterLlmError LITERLLMLiterLlmError;
+/**
+ * Budget enforcement configuration.
+ */
+typedef struct LITERLLMLlmBudgetConfig LITERLLMLlmBudgetConfig;
+/**
+ * Response cache configuration.
+ */
+typedef struct LITERLLMLlmCacheConfig LITERLLMLlmCacheConfig;
+/**
+ * Canonical configuration for an LLM client.
+ *
+ * All fields except `model` are optional so that partially-specified
+ * configs (e.g. from environment-driven defaults) round-trip cleanly.
+ * Convert to a runtime client configuration via
+ * `LlmConfig.into_client_builder`.
+ *
+ * `temperature` and `max_tokens` are request-time parameters rather than
+ * client-level settings; they are carried on this struct for callers to
+ * read when building individual requests, and are intentionally **not**
+ * mapped by `LlmConfig.into_client_builder`.
+ */
+typedef struct LITERLLMLlmConfig LITERLLMLlmConfig;
+/**
+ * A custom provider configuration entry.
+ */
+typedef struct LITERLLMLlmProviderConfig LITERLLMLlmProviderConfig;
+/**
+ * Per-model rate limiting configuration.
+ */
+typedef struct LITERLLMLlmRateLimitConfig LITERLLMLlmRateLimitConfig;
 /**
  * A chat message in a conversation.
  */
@@ -1033,7 +1072,7 @@ void literllm_tool_message_free(LITERLLMToolMessage *ptr);
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_tool_message_content(const LITERLLMToolMessage *ptr);
+LITERLLMUserContent *literllm_tool_message_content(const LITERLLMToolMessage *ptr);
 
 /**
  * Get the `tool_call_id` field from a `ToolMessage`.
@@ -4462,6 +4501,403 @@ uint64_t literllm_response_usage_output_tokens(const LITERLLMResponseUsage *ptr)
  * Pointer must be a valid handle returned by this library.
  */
 uint64_t literllm_response_usage_total_tokens(const LITERLLMResponseUsage *ptr);
+
+/**
+ * Create a `LlmConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_config_free`.
+ */
+LITERLLMLlmConfig *literllm_llm_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `ptr` must be a valid, non-null pointer returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_config_to_json(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Free a `LlmConfig` handle.
+ * # Safety
+ * Pointer must have been returned by this library, or be null.
+ */
+void literllm_llm_config_free(LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `model` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_model(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `api_key` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_api_key(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `base_url` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_base_url(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `timeout_secs` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_config_timeout_secs(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `max_retries` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_llm_config_max_retries(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `temperature` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_llm_config_temperature(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `max_tokens` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_config_max_tokens(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `load_env` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_llm_config_load_env(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `headers` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_headers(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `providers` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_providers(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `cache` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMLlmCacheConfig *literllm_llm_config_cache(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `budget` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMLlmBudgetConfig *literllm_llm_config_budget(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `rate_limit` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMLlmRateLimitConfig *literllm_llm_config_rate_limit(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `cost_tracking` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_llm_config_cost_tracking(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `tracing` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_llm_config_tracing(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `cooldown_secs` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_config_cooldown_secs(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `health_check_secs` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_config_health_check_secs(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Get the `bedrock` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMBedrockConfig *literllm_llm_config_bedrock(const LITERLLMLlmConfig *ptr);
+
+/**
+ * Create a `LlmCacheConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_cache_config_free`.
+ */
+LITERLLMLlmCacheConfig *literllm_llm_cache_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmCacheConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `ptr` must be a valid, non-null pointer returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_cache_config_to_json(const LITERLLMLlmCacheConfig *ptr);
+
+/**
+ * Free a `LlmCacheConfig` handle.
+ * # Safety
+ * Pointer must have been returned by this library, or be null.
+ */
+void literllm_llm_cache_config_free(LITERLLMLlmCacheConfig *ptr);
+
+/**
+ * Get the `max_entries` field from a `LlmCacheConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uintptr_t literllm_llm_cache_config_max_entries(const LITERLLMLlmCacheConfig *ptr);
+
+/**
+ * Get the `ttl_seconds` field from a `LlmCacheConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_cache_config_ttl_seconds(const LITERLLMLlmCacheConfig *ptr);
+
+/**
+ * Get the `backend` field from a `LlmCacheConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_cache_config_backend(const LITERLLMLlmCacheConfig *ptr);
+
+/**
+ * Get the `backend_config` field from a `LlmCacheConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_cache_config_backend_config(const LITERLLMLlmCacheConfig *ptr);
+
+/**
+ * Create a `LlmBudgetConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_budget_config_free`.
+ */
+LITERLLMLlmBudgetConfig *literllm_llm_budget_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmBudgetConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `ptr` must be a valid, non-null pointer returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_budget_config_to_json(const LITERLLMLlmBudgetConfig *ptr);
+
+/**
+ * Free a `LlmBudgetConfig` handle.
+ * # Safety
+ * Pointer must have been returned by this library, or be null.
+ */
+void literllm_llm_budget_config_free(LITERLLMLlmBudgetConfig *ptr);
+
+/**
+ * Get the `global_limit` field from a `LlmBudgetConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_llm_budget_config_global_limit(const LITERLLMLlmBudgetConfig *ptr);
+
+/**
+ * Get the `model_limits` field from a `LlmBudgetConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_budget_config_model_limits(const LITERLLMLlmBudgetConfig *ptr);
+
+/**
+ * Get the `enforcement` field from a `LlmBudgetConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_budget_config_enforcement(const LITERLLMLlmBudgetConfig *ptr);
+
+/**
+ * Create a `LlmRateLimitConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_rate_limit_config_free`.
+ */
+LITERLLMLlmRateLimitConfig *literllm_llm_rate_limit_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmRateLimitConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `ptr` must be a valid, non-null pointer returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_rate_limit_config_to_json(const LITERLLMLlmRateLimitConfig *ptr);
+
+/**
+ * Free a `LlmRateLimitConfig` handle.
+ * # Safety
+ * Pointer must have been returned by this library, or be null.
+ */
+void literllm_llm_rate_limit_config_free(LITERLLMLlmRateLimitConfig *ptr);
+
+/**
+ * Get the `rpm` field from a `LlmRateLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_llm_rate_limit_config_rpm(const LITERLLMLlmRateLimitConfig *ptr);
+
+/**
+ * Get the `tpm` field from a `LlmRateLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_rate_limit_config_tpm(const LITERLLMLlmRateLimitConfig *ptr);
+
+/**
+ * Get the `window_seconds` field from a `LlmRateLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_rate_limit_config_window_seconds(const LITERLLMLlmRateLimitConfig *ptr);
+
+/**
+ * Create a `LlmProviderConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_provider_config_free`.
+ */
+LITERLLMLlmProviderConfig *literllm_llm_provider_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmProviderConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `ptr` must be a valid, non-null pointer returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_provider_config_to_json(const LITERLLMLlmProviderConfig *ptr);
+
+/**
+ * Free a `LlmProviderConfig` handle.
+ * # Safety
+ * Pointer must have been returned by this library, or be null.
+ */
+void literllm_llm_provider_config_free(LITERLLMLlmProviderConfig *ptr);
+
+/**
+ * Get the `name` field from a `LlmProviderConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_provider_config_name(const LITERLLMLlmProviderConfig *ptr);
+
+/**
+ * Get the `base_url` field from a `LlmProviderConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_provider_config_base_url(const LITERLLMLlmProviderConfig *ptr);
+
+/**
+ * Get the `auth_header` field from a `LlmProviderConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_provider_config_auth_header(const LITERLLMLlmProviderConfig *ptr);
+
+/**
+ * Get the `model_prefixes` field from a `LlmProviderConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_provider_config_model_prefixes(const LITERLLMLlmProviderConfig *ptr);
+
+/**
+ * Create a `BedrockConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_bedrock_config_free`.
+ */
+LITERLLMBedrockConfig *literllm_bedrock_config_from_json(const char *json);
+
+/**
+ * Serialize a `BedrockConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `ptr` must be a valid, non-null pointer returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_bedrock_config_to_json(const LITERLLMBedrockConfig *ptr);
+
+/**
+ * Free a `BedrockConfig` handle.
+ * # Safety
+ * Pointer must have been returned by this library, or be null.
+ */
+void literllm_bedrock_config_free(LITERLLMBedrockConfig *ptr);
+
+/**
+ * Get the `region` field from a `BedrockConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_bedrock_config_region(const LITERLLMBedrockConfig *ptr);
+
+/**
+ * Get the `cross_region_prefix` field from a `BedrockConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_bedrock_config_cross_region_prefix(const LITERLLMBedrockConfig *ptr);
+
+/**
+ * Get the `access_key_id` field from a `BedrockConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_bedrock_config_access_key_id(const LITERLLMBedrockConfig *ptr);
+
+/**
+ * Get the `secret_access_key` field from a `BedrockConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_bedrock_config_secret_access_key(const LITERLLMBedrockConfig *ptr);
+
+/**
+ * Get the `session_token` field from a `BedrockConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_bedrock_config_session_token(const LITERLLMBedrockConfig *ptr);
 
 /**
  * Create a `WaitForBatchConfig` from a JSON string. Returns null on failure.
