@@ -421,8 +421,12 @@ jobs:
           - label: linux-arm64-gnu
             runner: ubuntu-24.04-arm
             napi_target: aarch64-unknown-linux-gnu
+          # ~keep Cross-compiled from the arm64 image on purpose: the Intel
+          # runners this used to target are being retired and now queue for
+          # hours, wedging the whole release. Apple ships both slices, so
+          # x86_64-apple-darwin builds natively here with no extra toolchain.
           - label: darwin-x64
-            runner: macos-13
+            runner: macos-latest
             napi_target: x86_64-apple-darwin
           - label: darwin-arm64
             runner: macos-latest
