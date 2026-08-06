@@ -117,7 +117,14 @@ defmodule LiterLlm do
   @spec count_request_tokens(String.t(), String.t() | nil) ::
           {:ok, non_neg_integer()} | {:error, atom, String.t()}
   def count_request_tokens(model, req) do
-    LiterLlm.Native.count_request_tokens(model, (cond do is_nil(req) -> nil; is_binary(req) -> req; true -> Jason.encode!(req) end))
+    LiterLlm.Native.count_request_tokens(
+      model,
+      cond do
+        is_nil(req) -> nil
+        is_binary(req) -> req
+        true -> Jason.encode!(req)
+      end
+    )
   end
 
   @doc "Assert that `current_len + incoming` does not exceed `limit`."
@@ -154,7 +161,13 @@ defmodule LiterLlm do
   @doc "Refresh the runtime catalog overlay per `config`."
   @spec refresh_catalog(String.t() | nil) :: {:ok, map()} | {:error, atom, String.t()}
   def refresh_catalog(config) do
-    LiterLlm.Native.refresh_catalog_async((cond do is_nil(config) -> nil; is_binary(config) -> config; true -> Jason.encode!(config) end))
+    LiterLlm.Native.refresh_catalog_async(
+      cond do
+        is_nil(config) -> nil
+        is_binary(config) -> config
+        true -> Jason.encode!(config)
+      end
+    )
   end
 
   @doc "Returns the canonical HTTP status code associated with this error."

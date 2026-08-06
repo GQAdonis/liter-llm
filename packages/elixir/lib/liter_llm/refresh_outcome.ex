@@ -18,6 +18,7 @@ defmodule LiterLlm.RefreshOutcome do
   @doc "The on-disk cache was fresh (age < `ttl_seconds`); the overlay was installed from the cached file without a network request."
   @spec from_cache() :: t()
   def from_cache, do: @from_cache
+
   @doc "The catalog was fetched over the network, the cache file was (best-effort) refreshed, and the overlay was installed from the fetched catalog."
   @spec fetched() :: t()
   def fetched, do: @fetched
