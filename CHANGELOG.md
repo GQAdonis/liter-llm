@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Dart: the native loader downloads and caches the library again on a cold cache. It only read
+  the versioned cache and then threw a `StateError`, even though `nativeDownloadAndCacheLibrary()`
+  was defined and exported for exactly that case. The loader also now searches for the
+  `_dart`-suffixed cdylib that is actually built, opens every candidate by absolute path (a
+  hardened runtime rejects a relative `dlopen`), and names the real environment variable in its
+  error message instead of printing the identifier `$nativeLibDirEnv` literally. Fixed upstream in
+  alef 0.55.6.
+
+  Behavior change: an unresolvable native now throws a descriptive `StateError` naming the asset
+  URL and the download command, where it previously returned `null` and let flutter_rust_bridge
+  attempt its own relative-path `dlopen`.
+
+### Added
+
+- Dart: `AssistantContent.text()` is generated again. `untagged_union_text_types =
+  ["AssistantContent"]` has been configured in `alef.toml` all along, but the extension was absent
+  from the committed bindings — the post-build step that injects it only runs when `lib.dart` is
+  already on disk, so an earlier regen had silently skipped it.
+
 ## [1.16.0] - 2026-08-05
 
 ### Added
