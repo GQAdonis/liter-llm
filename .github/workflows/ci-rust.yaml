@@ -86,3 +86,14 @@ jobs:
         if: runner.os == 'Linux'
         run: task rust:format:check
         shell: bash
+
+      - name: Install alef (Linux only)
+        if: runner.os == 'Linux'
+        uses: xberg-io/actions/install-alef@v1
+
+      # ~keep `alef verify` prints "Stale bindings detected" but exits 0 without --exit-code,
+      # so nothing in CI noticed generated files drifting from alef.toml.
+      - name: Verify binding freshness (Linux only)
+        if: runner.os == 'Linux'
+        run: alef verify --exit-code
+        shell: bash
