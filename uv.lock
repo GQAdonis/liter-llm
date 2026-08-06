@@ -109,9 +109,9 @@ wheels = [
 ]
 
 [[package]]
-name = "liter-llm"
-version = "1.2.2"
-source = { virtual = "." }
+name = "liter-llm-workspace"
+version = "0.0.0"
+source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [

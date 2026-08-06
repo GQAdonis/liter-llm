@@ -1,30 +1,23 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=69"]
+
 [project]
-name = "liter-llm"
-version = "1.2.2"
-description = "A universal LM API client with polyglot bindings — fast, type-safe, compiled"
-readme = "README.md"
-keywords = ["ai", "api-client", "llm", "openai", "xberg"]
-license = "MIT"
-authors = [{ name = "Na'aman Hirschfeld", email = "naaman@xberg.io" }]
+name = "liter-llm-workspace"
+version = "0.0.0"
+description = "Workspace-only metadata for tooling."
 requires-python = ">=3.10"
 classifiers = [
-  "Development Status :: 3 - Alpha",
-  "Intended Audience :: Developers",
-  "Natural Language :: English",
-  "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
-  "Programming Language :: Python :: Implementation :: CPython",
-  "Typing :: Typed",
 ]
-urls.documentation = "https://github.com/xberg-io/liter-llm#readme"
-urls.homepage = "https://github.com/xberg-io/liter-llm"
-urls.issues = "https://github.com/xberg-io/liter-llm/issues"
-urls.repository = "https://github.com/xberg-io/liter-llm"
+
+[tool.setuptools]
+packages = []
 
 [dependency-groups]
 dev = [
