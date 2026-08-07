@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.55.7"
+alef_version = "0.57.1"
 languages = [
   "python",
   "node",
@@ -18,9 +18,6 @@ languages = [
   "jni",
 ]
 extra_clippy_allows = ["single_match", "collapsible_match"]
-
-[workspace.format]
-enabled = false
 
 [workspace.docs]
 reference_output = "docs-site/src/content/docs/reference"
