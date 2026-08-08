@@ -84,20 +84,18 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR: ${{ steps.cpr.outputs.pull-request-number }}
-        # ~keep `gh pr merge --auto` fails with "Pull request is in clean status"
-        # ~keep when the PR is already mergeable — GitHub only lets auto-merge be
-        # ~keep armed while something is still blocking the merge. The catalog PR
-        # ~keep reaches that state whenever `catalog-verify` has already finished,
-        # ~keep so the job went red on roughly every other nightly run even though
-        # ~keep the PR was created and merged correctly. Fall back to merging now.
+        # ~keep `gh pr merge --auto` can fail for reasons that still leave a
+        # ~keep direct squash merge possible: "Pull request is in clean status"
+        # ~keep (already mergeable — GitHub only lets auto-merge be armed while
+        # ~keep something is still blocking the merge) or "Branch does not have
+        # ~keep required protected branch rules (enablePullRequestAutoMerge)"
+        # ~keep (auto-merge isn't enabled on the repo/branch at all). Retry with
+        # ~keep a direct merge on any `--auto` failure, and only fail the step
+        # ~keep if that direct merge also fails.
         run: |
           if ! output="$(gh pr merge "$PR" --auto --squash 2>&1)"; then
             echo "$output"
-            if grep -q "clean status" <<<"$output"; then
-              echo "PR is already mergeable; merging directly."
-              gh pr merge "$PR" --squash
-            else
-              exit 1
-            fi
+            echo "Auto-merge unavailable; attempting a direct merge."
+            gh pr merge "$PR" --squash
           fi
         shell: bash
