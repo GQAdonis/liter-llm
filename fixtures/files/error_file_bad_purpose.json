@@ -4,7 +4,7 @@
   "category": "files",
   "tags": ["error-handling", "files"],
   "skip": {
-    "languages": ["rust", "python", "kotlin"],
+    "languages": ["rust", "python", "kotlin_android"],
     "reason": "Rust/Python/Kotlin's FilePurpose enum rejects invalid values at deserialization (Jackson in Kotlin) before reaching the HTTP layer"
   },
   "call": "create_file",

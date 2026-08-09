@@ -39,7 +39,6 @@
       "elixir",
       "wasm",
       "c",
-      "kotlin",
       "kotlin_android",
       "swift",
       "dart",
