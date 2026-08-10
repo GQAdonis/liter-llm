@@ -1,3 +1,12 @@
+---
+id: legacy_toml_mcp_http
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```bash title="HTTP transport launch"
 liter-llm mcp \
   --transport http \

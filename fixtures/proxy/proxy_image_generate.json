@@ -1,6 +1,11 @@
 {
   "id": "proxy_image_generate",
   "description": "Image generation request routed through the proxy",
+  "docs": {
+    "topic": "proxy",
+    "stem": "proxy-image-generate",
+    "title": "Image generation request routed through the proxy"
+  },
   "category": "proxy",
   "tags": ["proxy", "image"],
   "call": "image_generate",

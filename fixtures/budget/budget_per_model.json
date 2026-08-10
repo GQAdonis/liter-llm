@@ -1,6 +1,11 @@
 {
   "id": "budget_per_model",
   "description": "Tests per-model budget limit",
+  "docs": {
+    "topic": "budget",
+    "stem": "budget-per-model",
+    "title": "Tests per-model budget limit"
+  },
   "category": "budget",
   "tags": ["budget"],
   "skip": {

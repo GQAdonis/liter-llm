@@ -1,6 +1,11 @@
 {
   "id": "empty_response_body",
   "description": "200 OK response with an empty JSON object body, missing required fields",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "empty-response-body",
+    "title": "200 OK response with an empty JSON object body, missing required fields"
+  },
   "category": "error-handling",
   "tags": ["error-handling", "edge-case"],
   "call": "chat",

@@ -1,6 +1,11 @@
 {
   "id": "local_provider_vllm",
   "description": "vLLM local provider routes requests via vllm/ model prefix with no auth",
+  "docs": {
+    "topic": "configuration",
+    "stem": "local-provider-vllm",
+    "title": "vLLM local provider routes requests via vllm/ model prefix with no auth"
+  },
   "category": "configuration",
   "tags": ["configuration", "local", "vllm"],
   "call": "chat",

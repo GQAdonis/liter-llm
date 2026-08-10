@@ -1,3 +1,12 @@
+---
+id: legacy_typescript_guides_chat_multiturn
+language: typescript
+target: typescript
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```typescript

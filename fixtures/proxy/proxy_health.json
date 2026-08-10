@@ -1,6 +1,11 @@
 {
   "id": "proxy_health",
   "description": "Health check verifying proxy connectivity via list models",
+  "docs": {
+    "topic": "proxy",
+    "stem": "proxy-health",
+    "title": "Health check verifying proxy connectivity via list models"
+  },
   "category": "proxy",
   "tags": ["proxy", "health"],
   "call": "list_models",

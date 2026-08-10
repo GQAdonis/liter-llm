@@ -1,6 +1,11 @@
 {
   "id": "edge_image_b64_response",
   "description": "Image generation returning base64-encoded data instead of URL",
+  "docs": {
+    "topic": "image-generate",
+    "stem": "edge-image-b64-response",
+    "title": "Image generation returning base64-encoded data instead of URL"
+  },
   "category": "image-generate",
   "tags": ["edge-case", "image"],
   "call": "image_generate",

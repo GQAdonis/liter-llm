@@ -1,6 +1,11 @@
 {
   "id": "embed_encoding_format",
   "description": "Embedding request with explicit encoding_format of float returns float array embeddings",
+  "docs": {
+    "topic": "embed",
+    "stem": "embed-encoding-format",
+    "title": "Embedding request with explicit encoding_format of float returns float array embeddings"
+  },
   "category": "embed",
   "tags": ["embed"],
   "call": "embed",

@@ -1,3 +1,12 @@
+---
+id: legacy_ruby_getting_started_streaming
+language: ruby
+target: ruby
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```ruby
 # frozen_string_literal: true
 

@@ -1,3 +1,12 @@
+---
+id: legacy_php_usage_multimodal
+language: php
+target: php
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```php
 <?php
 

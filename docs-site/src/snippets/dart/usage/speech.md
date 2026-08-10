@@ -1,3 +1,12 @@
+---
+id: legacy_dart_usage_speech
+language: dart
+target: dart
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```dart

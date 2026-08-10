@@ -1,3 +1,12 @@
+---
+id: legacy_swift_getting_started_basic_chat
+language: swift
+target: swift
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```swift

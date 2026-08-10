@@ -1,3 +1,12 @@
+---
+id: legacy_python_usage_rerank
+language: python
+target: python
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```python

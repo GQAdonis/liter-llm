@@ -1,6 +1,11 @@
 {
   "id": "smoke_image_basic",
   "description": "Basic image generation with a text prompt",
+  "docs": {
+    "topic": "image-generate",
+    "stem": "smoke-image-basic",
+    "title": "Basic image generation with a text prompt"
+  },
   "category": "image-generate",
   "tags": ["smoke", "image"],
   "call": "image_generate",

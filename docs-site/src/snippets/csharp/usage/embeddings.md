@@ -1,3 +1,12 @@
+---
+id: legacy_csharp_usage_embeddings
+language: csharp
+target: csharp
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```csharp

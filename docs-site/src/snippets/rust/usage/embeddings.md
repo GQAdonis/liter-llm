@@ -1,3 +1,12 @@
+---
+id: legacy_rust_usage_embeddings
+language: rust
+target: rust
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```rust
 use liter_llm::{
     ClientConfigBuilder, DefaultClient, EmbeddingInput, EmbeddingRequest, LlmClient,

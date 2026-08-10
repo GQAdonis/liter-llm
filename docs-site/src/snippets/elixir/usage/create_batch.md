@@ -1,3 +1,12 @@
+---
+id: legacy_elixir_usage_create_batch
+language: elixir
+target: elixir
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```elixir

@@ -1,6 +1,11 @@
 {
   "id": "edge_chat_max_tokens",
   "description": "Chat request with max_tokens=1 terminates with length finish_reason",
+  "docs": {
+    "topic": "chat",
+    "stem": "edge-chat-max-tokens",
+    "title": "Chat request with max_tokens=1 terminates with length finish_reason"
+  },
   "category": "chat",
   "tags": ["chat", "edge-case"],
   "call": "chat",

@@ -1,3 +1,12 @@
+---
+id: legacy_ruby_usage_create_response
+language: ruby
+target: ruby
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```ruby

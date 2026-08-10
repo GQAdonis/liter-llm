@@ -1,3 +1,12 @@
+---
+id: legacy_rust_getting_started_streaming
+language: rust
+target: rust
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```rust
 use futures::StreamExt;
 use liter_llm::{

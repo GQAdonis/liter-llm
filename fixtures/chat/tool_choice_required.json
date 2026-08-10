@@ -1,6 +1,11 @@
 {
   "id": "tool_choice_required",
   "description": "Chat request with tool_choice set to required forces the model to call a tool",
+  "docs": {
+    "topic": "chat",
+    "stem": "tool-choice-required",
+    "title": "Chat request with tool_choice set to required forces the model to call a tool"
+  },
   "category": "chat",
   "tags": ["chat", "tool-calling"],
   "call": "chat",

@@ -1,6 +1,11 @@
 {
   "id": "stream_with_tool_calls",
   "description": "Streaming chat completion where the assistant responds with a tool call across multiple chunks",
+  "docs": {
+    "topic": "streaming",
+    "stem": "stream-with-tool-calls",
+    "title": "Streaming chat completion where the assistant responds with a tool call across multiple chunks"
+  },
   "category": "streaming",
   "tags": ["streaming", "tool-calling"],
   "call": "chat_stream",

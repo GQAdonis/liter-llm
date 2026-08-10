@@ -1,3 +1,12 @@
+---
+id: legacy_rust_usage_chat_multiturn
+language: rust
+target: rust
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```rust
 use liter_llm::{
     ChatCompletionRequest, ClientConfigBuilder, DefaultClient, LlmClient,

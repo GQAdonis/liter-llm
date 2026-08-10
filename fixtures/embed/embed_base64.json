@@ -1,6 +1,11 @@
 {
   "id": "embed_base64",
   "description": "Embedding request with encoding_format base64 decodes to a float array embedding",
+  "docs": {
+    "topic": "embed",
+    "stem": "embed-base64",
+    "title": "Embedding request with encoding_format base64 decodes to a float array embedding"
+  },
   "category": "embed",
   "tags": ["embed"],
   "call": "embed",

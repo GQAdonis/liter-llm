@@ -1,3 +1,12 @@
+---
+id: legacy_toml_server_keys
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```toml
 [[keys]]
 key = "vk-team-frontend"

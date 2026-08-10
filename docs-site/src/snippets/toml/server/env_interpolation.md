@@ -1,3 +1,12 @@
+---
+id: legacy_toml_server_env_interpolation
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```toml
 # Any ${VAR} pattern in a string value is replaced with the env var at load time.
 # Unknown variables expand to an empty string.

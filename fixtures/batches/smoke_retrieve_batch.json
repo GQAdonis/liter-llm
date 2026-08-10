@@ -1,6 +1,11 @@
 {
   "id": "smoke_retrieve_batch",
   "description": "Retrieve the status of a batch job",
+  "docs": {
+    "topic": "batches",
+    "stem": "smoke-retrieve-batch",
+    "title": "Retrieve the status of a batch job"
+  },
   "category": "batches",
   "tags": ["smoke", "batches"],
   "call": "retrieve_batch",

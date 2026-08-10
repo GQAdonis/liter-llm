@@ -1,3 +1,12 @@
+---
+id: legacy_kotlin_guides_stream_collect
+language: kotlin
+target: kotlin
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```kotlin

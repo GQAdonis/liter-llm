@@ -1,0 +1,23 @@
+---
+id: fixture_java_local_provider_vllm
+language: java
+target: java
+level: typecheck
+requires: []
+side_effect: safe
+---
+
+```java title="Java"
+import io.xberg.literllm.*;
+
+public final class Example {
+    public static void main(String[] args) throws Exception {
+        var requestJson = "{\"messages\":[{\"content\":\"Hello\",\"role\":\"user\"}],\"model\":\"vllm/meta-llama/Llama-3.2-1B\"}";
+var request = JsonUtil.fromJson(requestJson, ChatCompletionRequest.class);
+        var baseUrl = System.getenv().getOrDefault("MOCK_SERVER_URL", "") + "/fixtures/local_provider_vllm";
+        var client = LiterLlm.createClient("test-key", baseUrl, null, null, null);
+        var result = client.chat(request);
+    }
+}
+
+```

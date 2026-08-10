@@ -1,3 +1,12 @@
+---
+id: legacy_rust_usage_ocr
+language: rust
+target: rust
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```rust

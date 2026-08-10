@@ -1,6 +1,11 @@
 {
   "id": "cache_hit",
   "description": "Tests that identical chat requests return cached response",
+  "docs": {
+    "topic": "cache",
+    "stem": "cache-hit",
+    "title": "Tests that identical chat requests return cached response"
+  },
   "category": "cache",
   "tags": ["cache"],
   "call": "chat",

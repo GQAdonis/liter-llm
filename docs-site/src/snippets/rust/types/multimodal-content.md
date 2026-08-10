@@ -1,0 +1,24 @@
+---
+id: fixture_rust_multimodal_content
+language: rust
+target: rust
+level: typecheck
+requires: []
+side_effect: safe
+---
+
+```rust title="Rust"
+use liter_llm::BatchClient;
+use liter_llm::FileClient;
+use liter_llm::LlmClient;
+use liter_llm::ResponseClient;
+
+#[tokio::main]
+async fn main() {
+    let request_json: serde_json::Value = serde_json::from_str(r#"{"max_tokens":100,"messages":[{"content":[{"text":"What is in this image?","type":"text"},{"image_url":{"detail":"low","url":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png"},"type":"image_url"}],"role":"user"}],"model":"gpt-4o"}"#).unwrap();
+    let request = serde_json::from_value(request_json).unwrap();
+    let client = liter_llm::create_client("test-key".to_string(), None, None, None, None).unwrap();
+    let _ = client.chat(request).await;
+}
+
+```

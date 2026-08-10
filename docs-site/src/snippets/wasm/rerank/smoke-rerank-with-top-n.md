@@ -1,0 +1,20 @@
+---
+id: fixture_wasm_smoke_rerank_with_top_n
+language: typescript
+target: wasm
+level: typecheck
+requires: []
+side_effect: safe
+---
+
+```typescript title="WebAssembly"
+import { WasmRerankRequest, createClient } from "@xberg-io/liter-llm-wasm";
+async function main() {
+  const request: WasmRerankRequest = (() => { const _u0 = WasmRerankRequest.default(); _u0.documents = ["Python is a programming language.", "Cats are cute animals.", "Python was created by Guido van Rossum.", "The sun is a star."]; _u0.model = "rerank-v3.5"; _u0.query = "What is Python?"; _u0.topN = 2; return _u0; })();
+  const client = createClient("your-api-key");
+  const result = await client.rerank(request);
+}
+
+void main();
+
+```

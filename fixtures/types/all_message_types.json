@@ -1,6 +1,11 @@
 {
   "id": "all_message_types",
   "description": "Request with all message role types (system, user, assistant, tool) to verify round-trip serialization",
+  "docs": {
+    "topic": "types",
+    "stem": "all-message-types",
+    "title": "Request with all message role types (system, user, assistant, tool) to verify round-trip serialization"
+  },
   "category": "types",
   "tags": ["types"],
   "call": "chat",

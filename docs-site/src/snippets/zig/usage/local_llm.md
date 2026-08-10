@@ -1,3 +1,12 @@
+---
+id: legacy_zig_usage_local_llm
+language: zig
+target: zig
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```zig

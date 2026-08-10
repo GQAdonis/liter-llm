@@ -4118,6 +4118,11 @@ fn wire__crate__encode_data_url_impl(
         },
     )
 }
+#[cfg(any(all(feature = "native-http", not(target_os = "windows")),all(feature = "native-http", target_os = "windows")))]
+#[cfg(any(
+    all(feature = "native-http", not(target_os = "windows")),
+    all(feature = "native-http", target_os = "windows")
+))]
 fn wire__crate__ensure_crypto_provider_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -8575,6 +8580,11 @@ fn pde_ffi_dispatcher_primary_impl(
         126 => wire__crate__create_wait_for_batch_config_from_json_impl(port, ptr, rust_vec_len, data_len),
         127 => wire__crate__decode_data_url_impl(port, ptr, rust_vec_len, data_len),
         128 => wire__crate__encode_data_url_impl(port, ptr, rust_vec_len, data_len),
+        #[cfg(any(all(feature = "native-http", not(target_os = "windows")),all(feature = "native-http", target_os = "windows")))]
+        #[cfg(any(
+            all(feature = "native-http", not(target_os = "windows")),
+            all(feature = "native-http", target_os = "windows")
+        ))]
         129 => wire__crate__ensure_crypto_provider_impl(port, ptr, rust_vec_len, data_len),
         130 => wire__crate__install_catalog_overlay_from_str_impl(port, ptr, rust_vec_len, data_len),
         131 => wire__crate__liter_llm_error_error_type_impl(port, ptr, rust_vec_len, data_len),

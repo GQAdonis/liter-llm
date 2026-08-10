@@ -1,6 +1,11 @@
 {
   "id": "smoke_image_with_size",
   "description": "Image generation with explicit size parameter",
+  "docs": {
+    "topic": "image-generate",
+    "stem": "smoke-image-with-size",
+    "title": "Image generation with explicit size parameter"
+  },
   "category": "image-generate",
   "tags": ["smoke", "image"],
   "call": "image_generate",

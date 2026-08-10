@@ -1,6 +1,11 @@
 {
   "id": "proxy_auth_missing",
   "description": "401 Unauthorized when no API key is provided through the proxy",
+  "docs": {
+    "topic": "proxy",
+    "stem": "proxy-auth-missing",
+    "title": "401 Unauthorized when no API key is provided through the proxy"
+  },
   "category": "proxy",
   "tags": ["proxy", "error-handling"],
   "call": "chat",

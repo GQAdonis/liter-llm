@@ -1,3 +1,12 @@
+---
+id: legacy_java_usage_stream_collect
+language: java
+target: java
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```java

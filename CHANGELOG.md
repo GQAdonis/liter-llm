@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Documentation examples are generated from every E2E fixture across the configured binding-language matrix, keeping
+  examples correlated with executable coverage and making missing target renderers visible during generation.
 - Dart: the native loader downloads and caches the library again on a cold cache. It only read
   the versioned cache and then threw a `StateError`, even though `nativeDownloadAndCacheLibrary()`
   was defined and exported for exactly that case. The loader also now searches for the

@@ -1,3 +1,12 @@
+---
+id: legacy_kotlin_getting_started_streaming
+language: kotlin
+target: kotlin
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```kotlin

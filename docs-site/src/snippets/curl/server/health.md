@@ -1,3 +1,12 @@
+---
+id: legacy_curl_server_health
+language: bash
+target: bash
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```bash
 # Liveness probe: returns 200 as long as the process is running.
 curl -fsS http://localhost:4000/health/liveness

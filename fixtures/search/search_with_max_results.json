@@ -1,6 +1,11 @@
 {
   "id": "search_with_max_results",
   "description": "Search request with max_results parameter limiting response count",
+  "docs": {
+    "topic": "search",
+    "stem": "search-with-max-results",
+    "title": "Search request with max_results parameter limiting response count"
+  },
   "category": "search",
   "tags": ["search", "edge-case"],
   "call": "search",

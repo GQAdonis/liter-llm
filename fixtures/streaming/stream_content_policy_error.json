@@ -1,6 +1,11 @@
 {
   "id": "stream_content_policy_error",
   "description": "400 Bad Request error on stream due to content policy violation",
+  "docs": {
+    "topic": "streaming",
+    "stem": "stream-content-policy-error",
+    "title": "400 Bad Request error on stream due to content policy violation"
+  },
   "category": "streaming",
   "tags": ["streaming", "error-handling"],
   "call": "chat_stream",

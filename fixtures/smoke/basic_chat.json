@@ -1,6 +1,11 @@
 {
   "id": "basic_chat",
   "description": "Basic chat completion with a single user message",
+  "docs": {
+    "topic": "smoke",
+    "stem": "basic-chat",
+    "title": "Basic chat completion with a single user message"
+  },
   "category": "smoke",
   "tags": ["smoke"],
   "call": "chat",

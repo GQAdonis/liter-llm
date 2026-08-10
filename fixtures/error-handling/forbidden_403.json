@@ -1,6 +1,11 @@
 {
   "id": "forbidden_403",
   "description": "403 Forbidden error when the API key does not have access to the requested resource",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "forbidden-403",
+    "title": "403 Forbidden error when the API key does not have access to the requested resource"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

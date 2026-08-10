@@ -1,3 +1,12 @@
+---
+id: legacy_php_usage_stream_collect
+language: php
+target: php
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```php
 <?php
 

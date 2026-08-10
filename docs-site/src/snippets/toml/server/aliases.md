@@ -1,3 +1,12 @@
+---
+id: legacy_toml_server_aliases
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```toml
 # Any model matching "anthropic/*" uses the shared Anthropic key.
 [[aliases]]

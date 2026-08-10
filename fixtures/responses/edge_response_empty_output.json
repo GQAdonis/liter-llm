@@ -1,6 +1,11 @@
 {
   "id": "edge_response_empty_output",
   "description": "Response completes with empty output items",
+  "docs": {
+    "topic": "responses",
+    "stem": "edge-response-empty-output",
+    "title": "Response completes with empty output items"
+  },
   "category": "responses",
   "tags": ["edge-case", "responses"],
   "call": "create_response",

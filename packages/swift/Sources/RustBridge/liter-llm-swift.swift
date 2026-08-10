@@ -1324,11 +1324,6 @@ public class AssistantMessage: AssistantMessageRefMut {
         }
     }
 }
-extension AssistantMessage {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ content: Optional<AssistantContent>, _ name: Optional<GenericIntoRustString>, _ tool_calls: Optional<RustVec<ToolCall>>, _ refusal: Optional<GenericIntoRustString>, _ function_call: Optional<FunctionCall>, _ reasoning_content: Optional<GenericIntoRustString>) {
-        self.init(ptr: __swift_bridge__$AssistantMessage$new({ if let val = content { val.isOwned = false; return val.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(name) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let val = tool_calls { val.isOwned = false; return val.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(refusal) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let val = function_call { val.isOwned = false; return val.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(reasoning_content) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()))
-    }
-}
 public class AssistantMessageRefMut: AssistantMessageRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
@@ -2505,11 +2500,6 @@ public class ChatCompletionRequest: ChatCompletionRequestRefMut {
         }
     }
 }
-extension ChatCompletionRequest {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ messages: RustVec<Message>, _ temperature: Optional<Double>, _ top_p: Optional<Double>, _ n: Optional<UInt32>, _ stream: Optional<Bool>, _ stop: Optional<StopSequence>, _ max_tokens: Optional<UInt64>, _ presence_penalty: Optional<Double>, _ frequency_penalty: Optional<Double>, _ logit_bias: GenericIntoRustString, _ user: Optional<GenericIntoRustString>, _ tools: Optional<RustVec<ChatCompletionTool>>, _ tool_choice: Optional<ToolChoice>, _ parallel_tool_calls: Optional<Bool>, _ response_format: Optional<ResponseFormat>, _ stream_options: Optional<StreamOptions>, _ seed: Optional<Int64>, _ reasoning_effort: Optional<ReasoningEffort>, _ modalities: Optional<RustVec<Modality>>, _ extra_body: Optional<GenericIntoRustString>) {
-        self.init(ptr: __swift_bridge__$ChatCompletionRequest$new({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let val = messages; val.isOwned = false; return val.ptr }(), temperature.intoFfiRepr(), top_p.intoFfiRepr(), n.intoFfiRepr(), stream.intoFfiRepr(), { if let val = stop { val.isOwned = false; return val.ptr } else { return nil } }(), max_tokens.intoFfiRepr(), presence_penalty.intoFfiRepr(), frequency_penalty.intoFfiRepr(), { let rustString = logit_bias.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let rustString = optionalStringIntoRustString(user) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let val = tools { val.isOwned = false; return val.ptr } else { return nil } }(), { if let val = tool_choice { val.isOwned = false; return val.ptr } else { return nil } }(), parallel_tool_calls.intoFfiRepr(), { if let val = response_format { val.isOwned = false; return val.ptr } else { return nil } }(), { if let val = stream_options { val.isOwned = false; return val.ptr } else { return nil } }(), seed.intoFfiRepr(), { if let val = reasoning_effort { val.isOwned = false; return val.ptr } else { return nil } }(), { if let val = modalities { val.isOwned = false; return val.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(extra_body) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()))
-    }
-}
 public class ChatCompletionRequestRefMut: ChatCompletionRequestRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
@@ -2571,8 +2561,8 @@ extension ChatCompletionRequestRef {
         { let val = __swift_bridge__$ChatCompletionRequest$user(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
     }
 
-    public func tools() -> Optional<RustVec<ChatCompletionTool>> {
-        { let val = __swift_bridge__$ChatCompletionRequest$tools(ptr); if val != nil { return RustVec(ptr: val!) } else { return nil } }()
+    public func tools() -> RustString {
+        RustString(ptr: __swift_bridge__$ChatCompletionRequest$tools(ptr))
     }
 
     public func toolChoice() -> Optional<RustString> {
@@ -3165,11 +3155,6 @@ public class StreamDelta: StreamDeltaRefMut {
         if isOwned {
             __swift_bridge__$StreamDelta$_free(ptr)
         }
-    }
-}
-extension StreamDelta {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ role: Optional<GenericIntoRustString>, _ content: Optional<GenericIntoRustString>, _ tool_calls: Optional<RustVec<StreamToolCall>>, _ function_call: Optional<StreamFunctionCall>, _ refusal: Optional<GenericIntoRustString>, _ reasoning_content: Optional<GenericIntoRustString>) {
-        self.init(ptr: __swift_bridge__$StreamDelta$new({ if let rustString = optionalStringIntoRustString(role) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(content) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let val = tool_calls { val.isOwned = false; return val.ptr } else { return nil } }(), { if let val = function_call { val.isOwned = false; return val.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(refusal) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(reasoning_content) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()))
     }
 }
 public class StreamDeltaRefMut: StreamDeltaRef {
@@ -4329,11 +4314,6 @@ public class TranscriptionResponse: TranscriptionResponseRefMut {
         }
     }
 }
-extension TranscriptionResponse {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ text: GenericIntoRustString, _ language: Optional<GenericIntoRustString>, _ duration: Optional<Double>, _ segments: Optional<RustVec<TranscriptionSegment>>) {
-        self.init(ptr: __swift_bridge__$TranscriptionResponse$new({ let rustString = text.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let rustString = optionalStringIntoRustString(language) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), duration.intoFfiRepr(), { if let val = segments { val.isOwned = false; return val.ptr } else { return nil } }()))
-    }
-}
 public class TranscriptionResponseRefMut: TranscriptionResponseRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
@@ -5395,11 +5375,6 @@ public class SearchRequest: SearchRequestRefMut {
         }
     }
 }
-extension SearchRequest {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ query: GenericIntoRustString, _ max_results: Optional<UInt32>, _ search_domain_filter: Optional<RustVec<GenericIntoRustString>>, _ country: Optional<GenericIntoRustString>) {
-        self.init(ptr: __swift_bridge__$SearchRequest$new({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = query.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), max_results.intoFfiRepr(), { if let val = search_domain_filter { val.isOwned = false; return val.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(country) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()))
-    }
-}
 public class SearchRequestRefMut: SearchRequestRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
@@ -5425,8 +5400,8 @@ extension SearchRequestRef {
         __swift_bridge__$SearchRequest$max_results(ptr).intoSwiftRepr()
     }
 
-    public func searchDomainFilter() -> Optional<RustVec<RustString>> {
-        { let val = __swift_bridge__$SearchRequest$search_domain_filter(ptr); if val != nil { return RustVec(ptr: val!) } else { return nil } }()
+    public func searchDomainFilter() -> RustString {
+        RustString(ptr: __swift_bridge__$SearchRequest$search_domain_filter(ptr))
     }
 
     public func country() -> Optional<RustString> {
@@ -5672,11 +5647,6 @@ public class OcrRequest: OcrRequestRefMut {
         }
     }
 }
-extension OcrRequest {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ document: OcrDocument, _ pages: Optional<RustVec<UInt32>>, _ include_image_base64: Optional<Bool>) {
-        self.init(ptr: __swift_bridge__$OcrRequest$new({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), {document.isOwned = false; return document.ptr;}(), { if let val = pages { val.isOwned = false; return val.ptr } else { return nil } }(), include_image_base64.intoFfiRepr()))
-    }
-}
 public class OcrRequestRefMut: OcrRequestRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
@@ -5698,8 +5668,8 @@ extension OcrRequestRef {
         RustString(ptr: __swift_bridge__$OcrRequest$document(ptr))
     }
 
-    public func pages() -> Optional<RustVec<UInt32>> {
-        { let val = __swift_bridge__$OcrRequest$pages(ptr); if val != nil { return RustVec(ptr: val!) } else { return nil } }()
+    public func pages() -> RustString {
+        RustString(ptr: __swift_bridge__$OcrRequest$pages(ptr))
     }
 
     public func includeImageBase64() -> Optional<Bool> {
@@ -7306,11 +7276,6 @@ public class CreateResponseRequest: CreateResponseRequestRefMut {
         }
     }
 }
-extension CreateResponseRequest {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ input: GenericIntoRustString, _ instructions: Optional<GenericIntoRustString>, _ tools: Optional<RustVec<ResponseTool>>, _ temperature: Optional<Double>, _ max_output_tokens: Optional<UInt64>, _ metadata: Optional<GenericIntoRustString>, _ stream: Optional<Bool>) {
-        self.init(ptr: __swift_bridge__$CreateResponseRequest$new({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = input.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let rustString = optionalStringIntoRustString(instructions) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let val = tools { val.isOwned = false; return val.ptr } else { return nil } }(), temperature.intoFfiRepr(), max_output_tokens.intoFfiRepr(), { if let rustString = optionalStringIntoRustString(metadata) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), stream.intoFfiRepr()))
-    }
-}
 public class CreateResponseRequestRefMut: CreateResponseRequestRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
@@ -7336,8 +7301,8 @@ extension CreateResponseRequestRef {
         { let val = __swift_bridge__$CreateResponseRequest$instructions(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
     }
 
-    public func tools() -> Optional<RustVec<ResponseTool>> {
-        { let val = __swift_bridge__$CreateResponseRequest$tools(ptr); if val != nil { return RustVec(ptr: val!) } else { return nil } }()
+    public func tools() -> RustString {
+        RustString(ptr: __swift_bridge__$CreateResponseRequest$tools(ptr))
     }
 
     public func temperature() -> Optional<Double> {
@@ -7803,11 +7768,6 @@ public class LlmConfig: LlmConfigRefMut {
         }
     }
 }
-extension LlmConfig {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ api_key: Optional<GenericIntoRustString>, _ base_url: Optional<GenericIntoRustString>, _ timeout_secs: Optional<UInt64>, _ max_retries: Optional<UInt32>, _ temperature: Optional<Double>, _ max_tokens: Optional<UInt64>, _ load_env: Optional<Bool>, _ headers: GenericIntoRustString, _ providers: Optional<RustVec<LlmProviderConfig>>, _ cache: Optional<LlmCacheConfig>, _ budget: Optional<LlmBudgetConfig>, _ rate_limit: Optional<LlmRateLimitConfig>, _ cost_tracking: Optional<Bool>, _ tracing: Optional<Bool>, _ cooldown_secs: Optional<UInt64>, _ health_check_secs: Optional<UInt64>, _ bedrock: Optional<BedrockConfig>) {
-        self.init(ptr: __swift_bridge__$LlmConfig$new({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let rustString = optionalStringIntoRustString(api_key) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(base_url) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), timeout_secs.intoFfiRepr(), max_retries.intoFfiRepr(), temperature.intoFfiRepr(), max_tokens.intoFfiRepr(), load_env.intoFfiRepr(), { let rustString = headers.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let val = providers { val.isOwned = false; return val.ptr } else { return nil } }(), { if let val = cache { val.isOwned = false; return val.ptr } else { return nil } }(), { if let val = budget { val.isOwned = false; return val.ptr } else { return nil } }(), { if let val = rate_limit { val.isOwned = false; return val.ptr } else { return nil } }(), cost_tracking.intoFfiRepr(), tracing.intoFfiRepr(), cooldown_secs.intoFfiRepr(), health_check_secs.intoFfiRepr(), { if let val = bedrock { val.isOwned = false; return val.ptr } else { return nil } }()))
-    }
-}
 public class LlmConfigRefMut: LlmConfigRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
@@ -7857,8 +7817,8 @@ extension LlmConfigRef {
         RustString(ptr: __swift_bridge__$LlmConfig$headers(ptr))
     }
 
-    public func providers() -> Optional<RustVec<LlmProviderConfig>> {
-        { let val = __swift_bridge__$LlmConfig$providers(ptr); if val != nil { return RustVec(ptr: val!) } else { return nil } }()
+    public func providers() -> RustString {
+        RustString(ptr: __swift_bridge__$LlmConfig$providers(ptr))
     }
 
     public func cache() -> Optional<LlmCacheConfig> {
@@ -7956,11 +7916,6 @@ public class LlmCacheConfig: LlmCacheConfigRefMut {
         }
     }
 }
-extension LlmCacheConfig {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ max_entries: Optional<UInt>, _ ttl_seconds: Optional<UInt64>, _ backend: Optional<GenericIntoRustString>, _ backend_config: GenericIntoRustString) {
-        self.init(ptr: __swift_bridge__$LlmCacheConfig$new(max_entries.intoFfiRepr(), ttl_seconds.intoFfiRepr(), { if let rustString = optionalStringIntoRustString(backend) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), { let rustString = backend_config.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
-    }
-}
 public class LlmCacheConfigRefMut: LlmCacheConfigRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
@@ -8051,11 +8006,6 @@ public class LlmBudgetConfig: LlmBudgetConfigRefMut {
         if isOwned {
             __swift_bridge__$LlmBudgetConfig$_free(ptr)
         }
-    }
-}
-extension LlmBudgetConfig {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ global_limit: Optional<Double>, _ model_limits: GenericIntoRustString, _ enforcement: Optional<GenericIntoRustString>) {
-        self.init(ptr: __swift_bridge__$LlmBudgetConfig$new(global_limit.intoFfiRepr(), { let rustString = model_limits.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let rustString = optionalStringIntoRustString(enforcement) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()))
     }
 }
 public class LlmBudgetConfigRefMut: LlmBudgetConfigRef {
@@ -8839,12 +8789,12 @@ extension ProviderConfigRef {
         { let val = __swift_bridge__$ProviderConfig$auth(ptr); if val != nil { return AuthConfig(ptr: val!) } else { return nil } }()
     }
 
-    public func endpoints() -> Optional<RustVec<RustString>> {
-        { let val = __swift_bridge__$ProviderConfig$endpoints(ptr); if val != nil { return RustVec(ptr: val!) } else { return nil } }()
+    public func endpoints() -> RustString {
+        RustString(ptr: __swift_bridge__$ProviderConfig$endpoints(ptr))
     }
 
-    public func modelPrefixes() -> Optional<RustVec<RustString>> {
-        { let val = __swift_bridge__$ProviderConfig$model_prefixes(ptr); if val != nil { return RustVec(ptr: val!) } else { return nil } }()
+    public func modelPrefixes() -> RustString {
+        RustString(ptr: __swift_bridge__$ProviderConfig$model_prefixes(ptr))
     }
 
     public func paramMappings() -> RustString {
@@ -9266,11 +9216,6 @@ public class BudgetConfig: BudgetConfigRefMut {
         if isOwned {
             __swift_bridge__$BudgetConfig$_free(ptr)
         }
-    }
-}
-extension BudgetConfig {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ global_limit: Optional<Double>, _ model_limits: GenericIntoRustString, _ enforcement: Enforcement) {
-        self.init(ptr: __swift_bridge__$BudgetConfig$new(global_limit.intoFfiRepr(), { let rustString = model_limits.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), {enforcement.isOwned = false; return enforcement.ptr;}()))
     }
 }
 public class BudgetConfigRefMut: BudgetConfigRef {

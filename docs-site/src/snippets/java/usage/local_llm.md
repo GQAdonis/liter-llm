@@ -1,3 +1,12 @@
+---
+id: legacy_java_usage_local_llm
+language: java
+target: java
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```java

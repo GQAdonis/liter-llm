@@ -1,3 +1,12 @@
+---
+id: legacy_typescript_guides_embeddings
+language: typescript
+target: typescript
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```typescript

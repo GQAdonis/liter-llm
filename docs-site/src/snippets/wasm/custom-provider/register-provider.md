@@ -1,0 +1,20 @@
+---
+id: fixture_wasm_register_provider
+language: typescript
+target: wasm
+level: typecheck
+requires: []
+side_effect: safe
+---
+
+```typescript title="WebAssembly"
+import { WasmChatCompletionRequest, createClient } from "@xberg-io/liter-llm-wasm";
+async function main() {
+  const request: WasmChatCompletionRequest = (() => { const _u0 = WasmChatCompletionRequest.default(); _u0.messages = [{ content: "Hello", role: "user" }]; _u0.model = "my-model-v1"; return _u0; })();
+  const client = createClient("your-api-key");
+  const result = await client.chat(request);
+}
+
+void main();
+
+```

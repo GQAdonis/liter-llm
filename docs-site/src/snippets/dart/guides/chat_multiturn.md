@@ -1,3 +1,12 @@
+---
+id: legacy_dart_guides_chat_multiturn
+language: dart
+target: dart
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```dart

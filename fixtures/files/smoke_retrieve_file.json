@@ -1,6 +1,11 @@
 {
   "id": "smoke_retrieve_file",
   "description": "Retrieve metadata for an uploaded file",
+  "docs": {
+    "topic": "files",
+    "stem": "smoke-retrieve-file",
+    "title": "Retrieve metadata for an uploaded file"
+  },
   "category": "files",
   "tags": ["smoke", "files"],
   "call": "retrieve_file",

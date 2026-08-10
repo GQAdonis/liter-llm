@@ -1,3 +1,12 @@
+---
+id: legacy_curl_server_audio_speech
+language: bash
+target: bash
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```bash
 curl http://localhost:4000/v1/audio/speech \
   -H "Authorization: Bearer $LITER_LLM_MASTER_KEY" \

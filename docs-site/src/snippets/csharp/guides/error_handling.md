@@ -1,3 +1,12 @@
+---
+id: legacy_csharp_guides_error_handling
+language: csharp
+target: csharp
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```csharp

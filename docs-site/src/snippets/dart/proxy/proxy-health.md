@@ -1,0 +1,18 @@
+---
+id: fixture_dart_proxy_health
+language: dart
+target: dart
+level: typecheck
+requires: []
+side_effect: safe
+---
+
+```dart title="Dart"
+import 'package:liter_llm/liter_llm.dart';
+Future<void> main() async {
+  final _mockUrl = _fixtureUrl("proxy_health");
+      final _client = await LiterLlmBridge.createClient('test-key', baseUrl: _mockUrl);
+  final result = await _client.listModels();
+}
+
+```

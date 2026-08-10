@@ -1,3 +1,12 @@
+---
+id: legacy_toml_mcp_stdio
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```toml title="liter-llm-proxy.toml"
 [mcp]
 stdio_trust_local = true

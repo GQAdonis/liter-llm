@@ -1,3 +1,12 @@
+---
+id: legacy_java_getting_started_streaming
+language: java
+target: java
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```java

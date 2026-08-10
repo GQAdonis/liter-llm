@@ -1,6 +1,11 @@
 {
   "id": "edge_chat_temperature_zero",
   "description": "Chat request with temperature=0 for deterministic responses",
+  "docs": {
+    "topic": "chat",
+    "stem": "edge-chat-temperature-zero",
+    "title": "Chat request with temperature=0 for deterministic responses"
+  },
   "category": "chat",
   "tags": ["chat", "edge-case"],
   "call": "chat",

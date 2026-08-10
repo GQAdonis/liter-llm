@@ -1,6 +1,11 @@
 {
   "id": "smoke_chat_gemini",
   "description": "Basic chat completion against real Google Gemini API",
+  "docs": {
+    "topic": "smoke",
+    "stem": "smoke-chat-gemini",
+    "title": "Basic chat completion against real Google Gemini API"
+  },
   "category": "smoke",
   "tags": ["smoke", "gemini", "chat"],
   "call": "chat",

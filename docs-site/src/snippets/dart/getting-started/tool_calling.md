@@ -1,3 +1,12 @@
+---
+id: legacy_dart_getting_started_tool_calling
+language: dart
+target: dart
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```dart

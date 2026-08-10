@@ -3,6 +3,9 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+import 'package:liter_llm/src/native_loader.dart';
+import 'dart:core' as _DartCore;
+import 'dart:core';
 import '../native_loader.dart';
 import 'dart:ffi';
 import 'dart:isolate';
@@ -117,7 +120,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
       final rid = computeRid();
       if (rid != null) {
         final packageRoot = await Isolate.resolvePackageUri(
-          Uri.parse('package:liter_llm/liter_llm.dart'),
+          _DartCore.Uri.parse('package:liter_llm/liter_llm.dart'),
         );
         if (packageRoot != null) {
           final ridDir = packageRoot.resolve('src/native/$rid/');
@@ -133,7 +136,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
       // Check legacy package-installed location as fallback.
       final packageRoot = await Isolate.resolvePackageUri(
-        Uri.parse('package:liter_llm/liter_llm.dart'),
+        _DartCore.Uri.parse('package:liter_llm/liter_llm.dart'),
       );
       if (packageRoot != null) {
         final libDir = packageRoot.resolve('src/liter_llm_bridge_generated/');

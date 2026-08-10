@@ -1,0 +1,19 @@
+---
+id: fixture_node_ocr_url_document
+language: typescript
+target: node
+level: typecheck
+requires: []
+side_effect: safe
+---
+
+```typescript title="TypeScript"
+import { createClient } from "@xberg-io/liter-llm";
+async function main() {
+  const client = createClient("your-api-key");
+  const result = await client.ocr({ document: { type: "document_url", url: "https://example.com/doc.pdf" }, model: "mistral/mistral-ocr-latest" });
+}
+
+void main();
+
+```

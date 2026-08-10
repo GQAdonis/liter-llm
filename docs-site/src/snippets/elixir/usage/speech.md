@@ -1,3 +1,12 @@
+---
+id: legacy_elixir_usage_speech
+language: elixir
+target: elixir
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```elixir

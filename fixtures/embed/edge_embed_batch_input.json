@@ -1,6 +1,11 @@
 {
   "id": "edge_embed_batch_input",
   "description": "Embedding request with multiple inputs returns multiple embedding objects",
+  "docs": {
+    "topic": "embed",
+    "stem": "edge-embed-batch-input",
+    "title": "Embedding request with multiple inputs returns multiple embedding objects"
+  },
   "category": "embed",
   "tags": ["embed", "edge-case"],
   "call": "embed",

@@ -1,6 +1,11 @@
 {
   "id": "error_image_rate_limit",
   "description": "429 Rate limit exceeded for image generation",
+  "docs": {
+    "topic": "image-generate",
+    "stem": "error-image-rate-limit",
+    "title": "429 Rate limit exceeded for image generation"
+  },
   "category": "image-generate",
   "tags": ["error-handling", "image"],
   "call": "image_generate",

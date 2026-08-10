@@ -1,6 +1,11 @@
 {
   "id": "azure_embed",
   "description": "Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged",
+  "docs": {
+    "topic": "providers",
+    "stem": "azure-embed",
+    "title": "Embedding request via Azure OpenAI using the azure/ provider prefix — response follows the standard OpenAI embeddings shape that Azure returns unchanged"
+  },
   "category": "smoke",
   "tags": ["smoke", "azure"],
   "call": "embed",

@@ -1,6 +1,11 @@
 {
   "id": "smoke_response_with_tools",
   "description": "Response that includes tool call output items",
+  "docs": {
+    "topic": "responses",
+    "stem": "smoke-response-with-tools",
+    "title": "Response that includes tool call output items"
+  },
   "category": "responses",
   "tags": ["smoke", "responses"],
   "call": "create_response",

@@ -1,6 +1,11 @@
 {
   "id": "edge_speech_long_input",
   "description": "Speech generation with a very long input text",
+  "docs": {
+    "topic": "speech",
+    "stem": "edge-speech-long-input",
+    "title": "Speech generation with a very long input text"
+  },
   "category": "speech",
   "tags": ["edge-case", "speech"],
   "call": "speech",

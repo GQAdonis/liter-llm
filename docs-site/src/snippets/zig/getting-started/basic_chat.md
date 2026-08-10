@@ -1,3 +1,12 @@
+---
+id: legacy_zig_getting_started_basic_chat
+language: zig
+target: zig
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```zig

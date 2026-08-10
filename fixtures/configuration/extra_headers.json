@@ -1,6 +1,11 @@
 {
   "id": "extra_headers",
   "description": "Client configured with extra custom headers successfully completes a chat request",
+  "docs": {
+    "topic": "configuration",
+    "stem": "extra-headers",
+    "title": "Client configured with extra custom headers successfully completes a chat request"
+  },
   "category": "configuration",
   "tags": ["configuration"],
   "call": "chat",

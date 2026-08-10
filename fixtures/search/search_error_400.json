@@ -1,6 +1,11 @@
 {
   "id": "search_error_400",
   "description": "400 Bad Request error when search query is empty",
+  "docs": {
+    "topic": "search",
+    "stem": "search-error-400",
+    "title": "400 Bad Request error when search query is empty"
+  },
   "category": "search",
   "tags": ["search", "error-handling"],
   "call": "search",

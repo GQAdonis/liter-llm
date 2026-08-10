@@ -1,3 +1,12 @@
+---
+id: legacy_kotlin_usage_speech
+language: kotlin
+target: kotlin
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```kotlin

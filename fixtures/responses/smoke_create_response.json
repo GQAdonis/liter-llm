@@ -1,6 +1,11 @@
 {
   "id": "smoke_create_response",
   "description": "Create a basic response using the Responses API",
+  "docs": {
+    "topic": "responses",
+    "stem": "smoke-create-response",
+    "title": "Create a basic response using the Responses API"
+  },
   "category": "responses",
   "tags": ["smoke", "responses"],
   "call": "create_response",

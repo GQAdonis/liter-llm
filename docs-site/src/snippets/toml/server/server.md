@@ -1,3 +1,12 @@
+---
+id: legacy_toml_server_server
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```toml
 [server]
 host = "0.0.0.0"

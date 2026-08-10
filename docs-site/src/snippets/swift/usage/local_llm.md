@@ -1,3 +1,12 @@
+---
+id: legacy_swift_usage_local_llm
+language: swift
+target: swift
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```swift

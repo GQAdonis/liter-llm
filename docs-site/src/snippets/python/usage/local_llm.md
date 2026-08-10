@@ -1,3 +1,12 @@
+---
+id: legacy_python_usage_local_llm
+language: python
+target: python
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```python
 import asyncio
 

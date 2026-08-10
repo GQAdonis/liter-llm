@@ -1,3 +1,12 @@
+---
+id: legacy_php_usage_chat_multiturn
+language: php
+target: php
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```php
 <?php
 

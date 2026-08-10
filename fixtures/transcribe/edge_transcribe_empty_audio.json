@@ -1,6 +1,11 @@
 {
   "id": "edge_transcribe_empty_audio",
   "description": "Transcription of a silent or empty audio file returns empty text",
+  "docs": {
+    "topic": "transcribe",
+    "stem": "edge-transcribe-empty-audio",
+    "title": "Transcription of a silent or empty audio file returns empty text"
+  },
   "category": "transcribe",
   "tags": ["edge-case", "transcribe"],
   "call": "transcribe",

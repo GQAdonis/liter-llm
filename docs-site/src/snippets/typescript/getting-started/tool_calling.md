@@ -1,3 +1,12 @@
+---
+id: legacy_typescript_getting_started_tool_calling
+language: typescript
+target: typescript
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```typescript

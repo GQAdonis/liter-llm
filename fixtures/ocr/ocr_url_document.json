@@ -1,6 +1,11 @@
 {
   "id": "ocr_url_document",
   "description": "OCR request with a document URL input",
+  "docs": {
+    "topic": "ocr",
+    "stem": "ocr-url-document",
+    "title": "OCR request with a document URL input"
+  },
   "category": "ocr",
   "tags": ["ocr", "smoke"],
   "call": "ocr",

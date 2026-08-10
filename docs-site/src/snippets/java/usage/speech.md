@@ -1,3 +1,12 @@
+---
+id: legacy_java_usage_speech
+language: java
+target: java
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```java

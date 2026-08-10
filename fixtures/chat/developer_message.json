@@ -1,6 +1,11 @@
 {
   "id": "developer_message",
   "description": "Chat request that includes a developer role message alongside user messages",
+  "docs": {
+    "topic": "chat",
+    "stem": "developer-message",
+    "title": "Chat request that includes a developer role message alongside user messages"
+  },
   "category": "chat",
   "tags": ["chat"],
   "call": "chat",

@@ -1,3 +1,12 @@
+---
+id: legacy_rust_usage_local_llm
+language: rust
+target: rust
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```rust
 use liter_llm::{
     ChatCompletionRequest, ClientConfigBuilder, DefaultClient, LlmClient,

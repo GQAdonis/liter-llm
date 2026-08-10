@@ -1,0 +1,22 @@
+---
+id: fixture_python_smoke_cancel_batch
+language: python
+target: python
+level: typecheck
+requires: []
+side_effect: safe
+---
+
+```python title="Python"
+import asyncio
+import os
+from liter_llm import create_client
+
+async def main() -> None:
+    client = create_client(api_key="test-key")
+    batch_id = "batch-def456"
+    _ = await client.cancel_batch(batch_id)
+
+asyncio.run(main())
+
+```

@@ -1,6 +1,11 @@
 {
   "id": "smoke_cancel_response",
   "description": "Cancel an in-progress response",
+  "docs": {
+    "topic": "responses",
+    "stem": "smoke-cancel-response",
+    "title": "Cancel an in-progress response"
+  },
   "category": "responses",
   "tags": ["smoke", "responses"],
   "call": "cancel_response",

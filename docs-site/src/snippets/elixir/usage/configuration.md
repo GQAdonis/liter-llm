@@ -1,3 +1,12 @@
+---
+id: legacy_elixir_usage_configuration
+language: elixir
+target: elixir
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```elixir
 # LiterLlm.create_client(api_key, base_url \\ nil, timeout_secs \\ nil,
 #                        max_retries \\ nil, model_hint \\ nil)

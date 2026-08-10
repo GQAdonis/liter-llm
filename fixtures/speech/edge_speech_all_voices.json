@@ -1,6 +1,11 @@
 {
   "id": "edge_speech_all_voices",
   "description": "Text-to-speech with specific voice selection",
+  "docs": {
+    "topic": "speech",
+    "stem": "edge-speech-all-voices",
+    "title": "Text-to-speech with specific voice selection"
+  },
   "category": "speech",
   "tags": ["speech", "edge-case"],
   "call": "speech",

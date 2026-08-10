@@ -1,6 +1,11 @@
 {
   "id": "smoke_list_files",
   "description": "List all uploaded files",
+  "docs": {
+    "topic": "files",
+    "stem": "smoke-list-files",
+    "title": "List all uploaded files"
+  },
   "category": "files",
   "tags": ["smoke", "files"],
   "call": "list_files",

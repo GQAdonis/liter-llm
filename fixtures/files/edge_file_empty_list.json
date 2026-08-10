@@ -1,6 +1,11 @@
 {
   "id": "edge_file_empty_list",
   "description": "List files when no files have been uploaded",
+  "docs": {
+    "topic": "files",
+    "stem": "edge-file-empty-list",
+    "title": "List files when no files have been uploaded"
+  },
   "category": "files",
   "tags": ["edge-case", "files"],
   "call": "list_files",

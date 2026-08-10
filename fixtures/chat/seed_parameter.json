@@ -1,6 +1,12 @@
 {
   "id": "seed_parameter",
   "description": "Chat request with seed parameter for deterministic output; response includes system_fingerprint",
+  "docs": {
+    "topic": "chat",
+    "stem": "seed-parameter",
+    "title": "Deterministic chat with a seed",
+    "side_effects": "network"
+  },
   "category": "chat",
   "tags": ["chat"],
   "call": "chat",

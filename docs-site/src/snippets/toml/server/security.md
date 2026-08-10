@@ -1,3 +1,12 @@
+---
+id: legacy_toml_server_security
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```toml title="liter-llm-proxy.toml"
 [security]
 outbound_policy = "deny_private"

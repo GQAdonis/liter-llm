@@ -1,3 +1,12 @@
+---
+id: legacy_php_getting_started_basic_chat
+language: php
+target: php
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```php
 <?php
 

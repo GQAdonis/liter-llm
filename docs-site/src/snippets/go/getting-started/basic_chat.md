@@ -1,3 +1,12 @@
+---
+id: legacy_go_getting_started_basic_chat
+language: go
+target: go
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```go
 package main
 

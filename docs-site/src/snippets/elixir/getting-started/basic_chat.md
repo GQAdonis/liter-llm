@@ -1,3 +1,12 @@
+---
+id: legacy_elixir_getting_started_basic_chat
+language: elixir
+target: elixir
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```elixir
 {:ok, client} = LiterLlm.create_client(System.get_env("OPENAI_API_KEY"))
 

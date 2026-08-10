@@ -1,3 +1,12 @@
+---
+id: legacy_wasm_getting_started_streaming
+language: typescript
+target: wasm
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```typescript

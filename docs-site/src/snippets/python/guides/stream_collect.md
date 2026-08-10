@@ -1,3 +1,12 @@
+---
+id: legacy_python_guides_stream_collect
+language: python
+target: python
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```python
 import asyncio
 import os

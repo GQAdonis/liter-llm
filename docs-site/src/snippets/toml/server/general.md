@@ -1,3 +1,12 @@
+---
+id: legacy_toml_server_general
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```toml
 [general]
 master_key = "${LITER_LLM_MASTER_KEY}"

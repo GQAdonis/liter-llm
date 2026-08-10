@@ -1,3 +1,12 @@
+---
+id: legacy_python_getting_started_tool_calling
+language: python
+target: python
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```python
 import asyncio
 import json

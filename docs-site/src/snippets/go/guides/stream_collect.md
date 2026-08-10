@@ -1,3 +1,12 @@
+---
+id: legacy_go_guides_stream_collect
+language: go
+target: go
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```go
 package main
 

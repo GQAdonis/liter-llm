@@ -1,3 +1,12 @@
+---
+id: legacy_python_guides_embeddings
+language: python
+target: python
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```python
 import asyncio
 import os

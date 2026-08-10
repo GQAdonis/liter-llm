@@ -1,6 +1,11 @@
 {
   "id": "vertex_error_auth",
   "description": "Google Vertex AI returns 401 Unauthorized when the OAuth2 token is missing, expired, or the service account lacks aiplatform.endpoints.predict permission — verifies the error is mapped to Authentication",
+  "docs": {
+    "topic": "providers",
+    "stem": "vertex-error-auth",
+    "title": "Google Vertex AI returns 401 Unauthorized when the OAuth2 token is missing, expired, or the service account lacks aiplatform.endpoints.predict permission — verifies the error is mapped to Authentication"
+  },
   "category": "error-handling",
   "tags": ["error-handling", "vertex_ai"],
   "call": "chat",

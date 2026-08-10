@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.57.1"
+alef_version = "0.60.0"
 languages = [
   "python",
   "node",
@@ -39,6 +39,90 @@ outputs = [".codex/skills", ".agents/skills", ".claude/skills"]
 
 [workspace.docs.snippets]
 dirs = ["docs-site/src/snippets"]
+docs_dirs = [
+  "docs-site/src/content/docs/guides",
+  "docs-site/src/content/docs/concepts",
+  "docs-site/src/content/docs/getting-started",
+  "docs-site/src/content/docs/server",
+  "docs-site/src/content/docs/usage",
+  "docs-site/src/content/docs/reference",
+]
+require_frontmatter = true
+validation_level = "typecheck"
+strict = true
+report_output = ".alef/snippet-validation.json"
+
+[workspace.docs.snippets.sessions.rust]
+cwd = "."
+manifest = "crates/liter-llm/Cargo.toml"
+env = { CARGO_BUILD_JOBS = "4", CARGO_TARGET_DIR = "target/snippet-validation" }
+
+[workspace.docs.snippets.sessions.python]
+cwd = "packages/python"
+manifest = "packages/python/pyproject.toml"
+env = { PYTHONPATH = "." }
+
+[workspace.docs.snippets.sessions.typescript]
+cwd = "e2e/node"
+manifest = "e2e/node/tsconfig.json"
+env = { NODE_PATH = "node_modules" }
+
+[workspace.docs.snippets.sessions.wasm]
+cwd = "e2e/wasm"
+manifest = "e2e/wasm/tsconfig.json"
+env = { NODE_PATH = "node_modules" }
+
+[workspace.docs.snippets.sessions.ruby]
+cwd = "packages/ruby"
+manifest = "packages/ruby/liter_llm.gemspec"
+env = { RUBYLIB = "lib" }
+
+[workspace.docs.snippets.sessions.php]
+cwd = "packages/php"
+env = { COMPOSER_VENDOR_DIR = "vendor" }
+
+[workspace.docs.snippets.sessions.c]
+cwd = "crates/liter-llm-ffi/include"
+env = { CPATH = "." }
+
+[workspace.docs.snippets.sessions.go]
+cwd = "packages/go"
+manifest = "packages/go/go.mod"
+env = { CGO_ENABLED = "1" }
+
+[workspace.docs.snippets.sessions.java]
+cwd = "packages/java"
+env = { CLASSPATH = "target/classes" }
+
+[workspace.docs.snippets.sessions.csharp]
+cwd = "packages/csharp"
+manifest = "packages/csharp/LiterLlm/LiterLlm.csproj"
+env = { DOTNET_CLI_TELEMETRY_OPTOUT = "1" }
+
+[workspace.docs.snippets.sessions.elixir]
+cwd = "packages/elixir"
+manifest = "packages/elixir/mix.exs"
+env = { MIX_ENV = "dev" }
+
+[workspace.docs.snippets.sessions.dart]
+cwd = "packages/dart"
+manifest = "packages/dart/pubspec.yaml"
+env = { PUB_ENVIRONMENT = "alef_snippet_validation" }
+
+[workspace.docs.snippets.sessions.kotlin-android]
+cwd = "packages/kotlin-android"
+manifest = "packages/kotlin-android/build.gradle.kts"
+env = { GRADLE_USER_HOME = ".gradle" }
+
+[workspace.docs.snippets.sessions.swift]
+cwd = "packages/swift"
+manifest = "packages/swift/Package.swift"
+env = { SWIFTPM_ENABLE_PLUGINS = "0" }
+
+[workspace.docs.snippets.sessions.zig]
+cwd = "packages/zig"
+manifest = "packages/zig/build.zig"
+env = { ZIG_GLOBAL_CACHE_DIR = ".zig-cache" }
 
 [workspace.generated_header]
 issues_url = "https://github.com/xberg-io/liter-llm/issues"
@@ -787,6 +871,26 @@ result_fields = [
   "content",
 ]
 fields_method_calls = ["status_code"]
+
+[crates.e2e.snippets]
+output = "docs-site/src/snippets"
+languages = [
+  "rust",
+  "python",
+  "node",
+  "ruby",
+  "php",
+  "c",
+  "go",
+  "java",
+  "csharp",
+  "elixir",
+  "wasm",
+  "dart",
+  "kotlin_android",
+  "swift",
+  "zig",
+]
 
 [crates.e2e.error_field_aliases]
 status_code = "status_code"

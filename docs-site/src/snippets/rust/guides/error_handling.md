@@ -1,3 +1,12 @@
+---
+id: legacy_rust_guides_error_handling
+language: rust
+target: rust
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```rust
 use liter_llm::{
     ChatCompletionRequest, ClientConfigBuilder, DefaultClient, LiterLlmError, LlmClient, Message,

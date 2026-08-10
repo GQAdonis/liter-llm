@@ -1,3 +1,12 @@
+---
+id: legacy_typescript_usage_image_generate
+language: typescript
+target: typescript
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```typescript

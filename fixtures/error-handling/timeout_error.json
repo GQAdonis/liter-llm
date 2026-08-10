@@ -1,6 +1,11 @@
 {
   "id": "timeout_error",
   "description": "408 Request Timeout error when the API request takes too long to complete",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "timeout-error",
+    "title": "408 Request Timeout error when the API request takes too long to complete"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

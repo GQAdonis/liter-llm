@@ -1,6 +1,11 @@
 {
   "id": "error_transcribe_bad_format",
   "description": "400 Bad Request when audio format is unsupported",
+  "docs": {
+    "topic": "transcribe",
+    "stem": "error-transcribe-bad-format",
+    "title": "400 Bad Request when audio format is unsupported"
+  },
   "category": "transcribe",
   "tags": ["error-handling", "transcribe"],
   "call": "transcribe",

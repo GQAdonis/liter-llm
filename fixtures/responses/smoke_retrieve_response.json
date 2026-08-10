@@ -1,6 +1,11 @@
 {
   "id": "smoke_retrieve_response",
   "description": "Retrieve a previously created response",
+  "docs": {
+    "topic": "responses",
+    "stem": "smoke-retrieve-response",
+    "title": "Retrieve a previously created response"
+  },
   "category": "responses",
   "tags": ["smoke", "responses"],
   "call": "retrieve_response",

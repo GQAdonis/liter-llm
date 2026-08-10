@@ -1,6 +1,11 @@
 {
   "id": "single_tool_call",
   "description": "Chat request with a tool definition; assistant responds with a tool call",
+  "docs": {
+    "topic": "tool-calling",
+    "stem": "single-tool-call",
+    "title": "Chat request with a tool definition; assistant responds with a tool call"
+  },
   "category": "tool-calling",
   "tags": ["tool-calling"],
   "call": "chat",

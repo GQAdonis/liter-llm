@@ -1,3 +1,12 @@
+---
+id: legacy_toml_server_models
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```toml
 [[models]]
 name = "gpt-4o"

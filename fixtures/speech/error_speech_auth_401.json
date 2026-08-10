@@ -1,6 +1,11 @@
 {
   "id": "error_speech_auth_401",
   "description": "401 Unauthorized for speech generation with invalid API key",
+  "docs": {
+    "topic": "speech",
+    "stem": "error-speech-auth-401",
+    "title": "401 Unauthorized for speech generation with invalid API key"
+  },
   "category": "speech",
   "tags": ["error-handling", "speech"],
   "call": "speech",

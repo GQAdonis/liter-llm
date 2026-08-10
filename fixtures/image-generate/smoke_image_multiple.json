@@ -1,6 +1,11 @@
 {
   "id": "smoke_image_multiple",
   "description": "Image generation requesting multiple images",
+  "docs": {
+    "topic": "image-generate",
+    "stem": "smoke-image-multiple",
+    "title": "Image generation requesting multiple images"
+  },
   "category": "image-generate",
   "tags": ["smoke", "image"],
   "call": "image_generate",

@@ -1,3 +1,12 @@
+---
+id: legacy_php_usage_ocr
+language: php
+target: php
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```php

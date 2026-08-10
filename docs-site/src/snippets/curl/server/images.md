@@ -1,3 +1,12 @@
+---
+id: legacy_curl_server_images
+language: bash
+target: bash
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```bash
 curl http://localhost:4000/v1/images/generations \
   -H "Authorization: Bearer $LITER_LLM_MASTER_KEY" \

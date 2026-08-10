@@ -1,6 +1,11 @@
 {
   "id": "basic_list_models",
   "description": "List available models from the API",
+  "docs": {
+    "topic": "smoke",
+    "stem": "basic-list-models",
+    "title": "List available models from the API"
+  },
   "category": "smoke",
   "tags": ["smoke"],
   "call": "list_models",

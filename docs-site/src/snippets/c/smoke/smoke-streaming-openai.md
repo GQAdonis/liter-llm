@@ -1,0 +1,48 @@
+---
+id: fixture_c_smoke_streaming_openai
+language: c
+target: c
+level: typecheck
+requires: []
+side_effect: safe
+---
+
+```c title="C"
+#include <assert.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "liter_llm.h"
+
+int main(void) {
+    if (getenv("OPENAI_API_KEY") == NULL) { return; }
+    LITERLLMChatCompletionRequest* chat_completion_request_handle = literllm_chat_completion_request_from_json("{\"max_tokens\":50,\"messages\":[{\"content\":\"Count from 1 to 5.\",\"role\":\"user\"}],\"model\":\"openai/gpt-4o-mini\"}");
+    LITERLLMDefaultClient* client = literllm_create_client("test-key", NULL, (uint64_t)-1, (uint32_t)-1, NULL);
+    LITERLLMLiterllmDefaultClientChatStreamStreamHandle* stream_handle = literllm_default_client_chat_stream_start(client, chat_completion_request_handle);
+    size_t chunks_count = 0;
+    char* stream_content = (char*)malloc(1);
+    stream_content[0] = '\0';
+    size_t stream_content_len = 0;
+    int stream_complete = 0;
+    int no_chunks_after_done = 1;
+
+    while (1) {
+        LITERLLMChatCompletionChunk* result = literllm_default_client_chat_stream_next(stream_handle);
+        if (result == NULL) {
+            if (literllm_last_error_code() == 0) { stream_complete = 1; }
+            break;
+        }
+        chunks_count++;
+        literllm_chat_completion_chunk_free(result);
+    }
+    literllm_default_client_chat_stream_free(stream_handle);
+
+    free(stream_content);
+    literllm_chat_completion_request_free(chat_completion_request_handle);
+    literllm_default_client_free(client);
+    /* suppress unused */ (void)no_chunks_after_done; (void)stream_complete; (void)chunks_count; (void)stream_content_len;
+    return EXIT_SUCCESS;
+}
+
+```

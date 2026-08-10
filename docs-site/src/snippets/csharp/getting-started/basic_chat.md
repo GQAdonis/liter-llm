@@ -1,3 +1,12 @@
+---
+id: legacy_csharp_getting_started_basic_chat
+language: csharp
+target: csharp
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```csharp

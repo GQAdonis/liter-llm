@@ -1,6 +1,11 @@
 {
   "id": "cache_miss_ttl",
   "description": "Tests that cache expires after TTL",
+  "docs": {
+    "topic": "cache",
+    "stem": "cache-miss-ttl",
+    "title": "Tests that cache expires after TTL"
+  },
   "category": "cache",
   "tags": ["cache"],
   "call": "chat",

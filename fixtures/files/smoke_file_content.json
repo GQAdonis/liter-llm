@@ -1,6 +1,11 @@
 {
   "id": "smoke_file_content",
   "description": "Retrieve the content of an uploaded file",
+  "docs": {
+    "topic": "files",
+    "stem": "smoke-file-content",
+    "title": "Retrieve the content of an uploaded file"
+  },
   "category": "files",
   "tags": ["smoke", "files"],
   "skip": {

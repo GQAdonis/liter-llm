@@ -1,3 +1,12 @@
+---
+id: legacy_toml_server_budget
+language: toml
+target: toml
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```toml
 [budget]
 global_limit = 1000.0

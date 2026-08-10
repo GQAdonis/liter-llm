@@ -1,3 +1,12 @@
+---
+id: legacy_go_usage_create_file
+language: go
+target: go
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```go

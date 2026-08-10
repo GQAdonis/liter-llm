@@ -1,3 +1,12 @@
+---
+id: legacy_ruby_usage_tool_calling
+language: ruby
+target: ruby
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```ruby
 # frozen_string_literal: true
 

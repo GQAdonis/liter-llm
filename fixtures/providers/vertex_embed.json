@@ -1,6 +1,11 @@
 {
   "id": "vertex_embed",
   "description": "Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape",
+  "docs": {
+    "topic": "providers",
+    "stem": "vertex-embed",
+    "title": "Embedding request via Google Vertex AI using the vertex_ai/ provider prefix and the text-embedding-005 model — response follows the standard OpenAI embeddings shape"
+  },
   "category": "smoke",
   "tags": ["smoke", "vertex_ai", "embed"],
   "call": "embed",

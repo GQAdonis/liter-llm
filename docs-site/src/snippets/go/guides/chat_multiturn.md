@@ -1,3 +1,12 @@
+---
+id: legacy_go_guides_chat_multiturn
+language: go
+target: go
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```go
 package main
 

@@ -1,6 +1,11 @@
 {
   "id": "basic_embed",
   "description": "Basic embedding request for a single input string",
+  "docs": {
+    "topic": "smoke",
+    "stem": "basic-embed",
+    "title": "Basic embedding request for a single input string"
+  },
   "category": "smoke",
   "tags": ["smoke"],
   "call": "embed",

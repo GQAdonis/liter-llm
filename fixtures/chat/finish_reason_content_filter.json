@@ -1,6 +1,11 @@
 {
   "id": "finish_reason_content_filter",
   "description": "Chat response stopped by content filter with finish_reason of content_filter and null content",
+  "docs": {
+    "topic": "chat",
+    "stem": "finish-reason-content-filter",
+    "title": "Chat response stopped by content filter with finish_reason of content_filter and null content"
+  },
   "category": "chat",
   "tags": ["chat"],
   "call": "chat",

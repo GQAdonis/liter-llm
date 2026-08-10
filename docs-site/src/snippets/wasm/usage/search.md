@@ -1,3 +1,12 @@
+---
+id: legacy_wasm_usage_search
+language: typescript
+target: wasm
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```typescript

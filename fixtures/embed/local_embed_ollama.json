@@ -1,6 +1,11 @@
 {
   "id": "local_embed_ollama",
   "description": "Embedding request via Ollama local provider with all-minilm model",
+  "docs": {
+    "topic": "embed",
+    "stem": "local-embed-ollama",
+    "title": "Embedding request via Ollama local provider with all-minilm model"
+  },
   "category": "embed",
   "tags": ["embed", "local", "ollama"],
   "call": "embed",

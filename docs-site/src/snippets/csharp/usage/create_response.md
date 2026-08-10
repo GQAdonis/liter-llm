@@ -1,3 +1,12 @@
+---
+id: legacy_csharp_usage_create_response
+language: csharp
+target: csharp
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```csharp

@@ -1,6 +1,11 @@
 {
   "id": "register_provider",
   "description": "Tests that a custom provider can be registered and routes requests",
+  "docs": {
+    "topic": "custom-provider",
+    "stem": "register-provider",
+    "title": "Tests that a custom provider can be registered and routes requests"
+  },
   "category": "custom_provider",
   "tags": ["custom_provider"],
   "call": "chat",

@@ -1,6 +1,11 @@
 {
   "id": "local_provider_ollama",
   "description": "Ollama local provider routes requests via ollama/ model prefix with no auth",
+  "docs": {
+    "topic": "configuration",
+    "stem": "local-provider-ollama",
+    "title": "Ollama local provider routes requests via ollama/ model prefix with no auth"
+  },
   "category": "configuration",
   "tags": ["configuration", "local", "ollama"],
   "call": "chat",

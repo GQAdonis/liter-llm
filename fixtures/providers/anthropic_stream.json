@@ -1,6 +1,11 @@
 {
   "id": "anthropic_stream",
   "description": "Streaming chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) yielding multiple SSE chunks",
+  "docs": {
+    "topic": "providers",
+    "stem": "anthropic-stream",
+    "title": "Streaming chat completion via the Anthropic provider (claude-3-5-sonnet-20241022) yielding multiple SSE chunks"
+  },
   "category": "streaming",
   "tags": ["streaming", "anthropic"],
   "call": "chat_stream",

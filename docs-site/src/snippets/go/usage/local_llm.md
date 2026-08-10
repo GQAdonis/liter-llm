@@ -1,3 +1,12 @@
+---
+id: legacy_go_usage_local_llm
+language: go
+target: go
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```go
 package main
 

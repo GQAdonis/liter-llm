@@ -1,3 +1,12 @@
+---
+id: legacy_typescript_usage_create_batch
+language: typescript
+target: typescript
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```typescript

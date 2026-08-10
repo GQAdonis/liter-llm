@@ -1,3 +1,12 @@
+---
+id: legacy_csharp_usage_create_batch
+language: csharp
+target: csharp
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```csharp

@@ -1,6 +1,11 @@
 {
   "id": "service_unavailable_502",
   "description": "502 Bad Gateway error when the upstream service is unavailable",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "service-unavailable-502",
+    "title": "502 Bad Gateway error when the upstream service is unavailable"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

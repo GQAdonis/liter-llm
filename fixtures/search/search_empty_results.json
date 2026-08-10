@@ -1,6 +1,11 @@
 {
   "id": "search_empty_results",
   "description": "Web search with a query that returns no results",
+  "docs": {
+    "topic": "search",
+    "stem": "search-empty-results",
+    "title": "Web search with a query that returns no results"
+  },
   "category": "search",
   "tags": ["search", "edge-case"],
   "call": "search",

@@ -1,6 +1,11 @@
 {
   "id": "error_file_bad_purpose",
   "description": "400 Bad Request when uploading a file with invalid purpose",
+  "docs": {
+    "topic": "files",
+    "stem": "error-file-bad-purpose",
+    "title": "400 Bad Request when uploading a file with invalid purpose"
+  },
   "category": "files",
   "tags": ["error-handling", "files"],
   "skip": {

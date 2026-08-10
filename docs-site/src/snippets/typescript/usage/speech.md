@@ -1,3 +1,12 @@
+---
+id: legacy_typescript_usage_speech
+language: typescript
+target: typescript
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```typescript

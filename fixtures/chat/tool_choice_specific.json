@@ -1,6 +1,11 @@
 {
   "id": "tool_choice_specific",
   "description": "Chat request with tool_choice specifying a particular function to call",
+  "docs": {
+    "topic": "chat",
+    "stem": "tool-choice-specific",
+    "title": "Chat request with tool_choice specifying a particular function to call"
+  },
   "category": "chat",
   "tags": ["chat", "tool-calling"],
   "call": "chat",
