@@ -25,16 +25,20 @@
 //! ```
 
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use futures_core::Stream;
 use tower::Layer;
 use tower::Service;
 
-use crate::client::BoxFuture;
+use crate::client::{BoxFuture, BoxStream};
 use crate::error::{LiterLlmError, Result};
 use crate::guardrail::registry::GuardrailRegistry;
 use crate::guardrail::{GuardrailContext, GuardrailDecision, GuardrailStage};
+use crate::types::ChatCompletionChunk;
 
 use super::types::{LlmRequest, LlmResponse};
 
@@ -73,6 +77,147 @@ fn response_to_guardrail_json(response: &LlmResponse) -> Result<Option<serde_jso
         }))),
         LlmResponse::ChatStream(_) => Ok(None),
     }
+}
+
+/// Extract the inspectable text of a single streamed chunk by joining the
+/// `content` delta of every choice in the chunk.
+///
+/// Returns an empty string for chunks that carry no textual delta (e.g. a
+/// role-only first chunk, a tool-call delta, or a trailing usage-only
+/// chunk) — callers should treat an empty result as "nothing to inspect".
+fn chunk_text(chunk: &ChatCompletionChunk) -> String {
+    chunk
+        .choices
+        .iter()
+        .filter_map(|choice| choice.delta.content.as_deref())
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+/// Run the `OutputChunk` guardrail stage against a single streamed chunk.
+///
+/// ~keep `GuardrailContext::chunk` is a single `&str`, not per-choice, so a
+/// ~keep `Mutate` decision replaces the `content` delta of every choice in the
+/// ~keep chunk with the same redacted text. This matches the common `n == 1`
+/// ~keep streaming case; multi-choice (`n > 1`) streams are guarded jointly.
+async fn apply_output_chunk_guardrail(
+    mut chunk: ChatCompletionChunk,
+    registry: &GuardrailRegistry,
+    request_json: &serde_json::Value,
+    metadata: &HashMap<String, String>,
+) -> Result<ChatCompletionChunk> {
+    let text = chunk_text(&chunk);
+    if text.is_empty() {
+        return Ok(chunk);
+    }
+
+    let ctx = GuardrailContext {
+        request: request_json,
+        response: None,
+        chunk: Some(&text),
+        metadata,
+    };
+
+    match registry.run_stage(GuardrailStage::OutputChunk, &ctx).await {
+        GuardrailDecision::Block { reason, code } => Err(LiterLlmError::HookRejected {
+            message: format!("guardrail blocked output chunk [code={code}]: {reason}"),
+        }),
+        GuardrailDecision::Mutate { new_payload } => {
+            let replacement = new_payload.as_str().unwrap_or_default().to_owned();
+            for choice in &mut chunk.choices {
+                if choice.delta.content.is_some() {
+                    choice.delta.content = Some(replacement.clone());
+                }
+            }
+            Ok(chunk)
+        }
+        GuardrailDecision::Allow => Ok(chunk),
+    }
+}
+
+/// `Stream` adapter that runs the `OutputChunk` guardrail stage over each
+/// chunk of a `ChatStream` response as it is polled.
+///
+/// # Blocking policy
+///
+/// ~keep A blocked chunk terminates the stream: the block is yielded once as
+/// ~keep `Err(HookRejected)`, and every subsequent poll returns `None` rather
+/// ~keep than continuing to yield later chunks. Chunks already handed to the
+/// ~keep caller cannot be recalled — but this at minimum guarantees no further
+/// ~keep content, blocked or not, reaches the caller after a violation is
+/// ~keep detected, which mirrors the fail-closed policy this layer already
+/// ~keep applies to the non-streaming `Output` stage. Emitting a redacted
+/// ~keep replacement chunk and continuing was considered and rejected: it
+/// ~keep would let the stream keep running past a detected violation on the
+/// ~keep hope that only that one chunk was bad, silently downgrading a
+/// ~keep "block" decision to a "redact" decision the guardrail never made.
+struct GuardedChunkStream {
+    inner: BoxStream<'static, Result<ChatCompletionChunk>>,
+    registry: Arc<GuardrailRegistry>,
+    request_json: Arc<serde_json::Value>,
+    metadata: Arc<HashMap<String, String>>,
+    pending: Option<Pin<Box<dyn Future<Output = Result<ChatCompletionChunk>> + Send>>>,
+    blocked: bool,
+}
+
+impl Stream for GuardedChunkStream {
+    type Item = Result<ChatCompletionChunk>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+
+        if this.blocked {
+            return Poll::Ready(None);
+        }
+
+        loop {
+            if let Some(fut) = this.pending.as_mut() {
+                return match fut.as_mut().poll(cx) {
+                    Poll::Ready(result) => {
+                        this.pending = None;
+                        if result.is_err() {
+                            this.blocked = true;
+                        }
+                        Poll::Ready(Some(result))
+                    }
+                    Poll::Pending => Poll::Pending,
+                };
+            }
+
+            match this.inner.as_mut().poll_next(cx) {
+                Poll::Ready(Some(Ok(chunk))) => {
+                    let registry = Arc::clone(&this.registry);
+                    let request_json = Arc::clone(&this.request_json);
+                    let metadata = Arc::clone(&this.metadata);
+                    this.pending = Some(Box::pin(async move {
+                        apply_output_chunk_guardrail(chunk, &registry, &request_json, &metadata).await
+                    }));
+                }
+                Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(e))),
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+    }
+}
+
+/// Wrap a `ChatStream` response so each chunk is passed through the
+/// `OutputChunk` guardrail stage as it is polled. See [`GuardedChunkStream`]
+/// for the blocking policy.
+fn guard_output_chunk_stream(
+    stream: BoxStream<'static, Result<ChatCompletionChunk>>,
+    registry: Arc<GuardrailRegistry>,
+    request_json: Arc<serde_json::Value>,
+    metadata: Arc<HashMap<String, String>>,
+) -> BoxStream<'static, Result<ChatCompletionChunk>> {
+    Box::pin(GuardedChunkStream {
+        inner: stream,
+        registry,
+        request_json,
+        metadata,
+        pending: None,
+        blocked: false,
+    })
 }
 
 /// Tower [`Layer`] that enforces guardrail checks around an inner service.
@@ -159,7 +304,7 @@ where
 
         Box::pin(async move {
             let request_json = match serde_json::to_value(&req) {
-                Ok(v) => v,
+                Ok(v) => Arc::new(v),
                 Err(e) => {
                     return Err(LiterLlmError::InternalError {
                         message: format!("guardrail: failed to serialize request: {e}"),
@@ -189,12 +334,22 @@ where
 
             let response = inner_fut.await?;
 
+            // ~keep ChatStream: no aggregate body exists yet at this point to run an
+            // ~keep Output-stage guardrail against — instead, each chunk is passed
+            // ~keep through the OutputChunk stage as it is polled, via
+            // ~keep guard_output_chunk_stream. See GuardedChunkStream's doc comment
+            // ~keep for the mid-stream blocking policy.
+            if let LlmResponse::ChatStream(stream) = response {
+                let guarded = guard_output_chunk_stream(
+                    stream,
+                    Arc::clone(&registry),
+                    Arc::clone(&request_json),
+                    Arc::clone(&metadata),
+                );
+                return Ok(LlmResponse::ChatStream(guarded));
+            }
+
             let Some(response_json) = response_to_guardrail_json(&response)? else {
-                // ~keep ChatStream: no aggregate body exists yet at this point to
-                // ~keep run an Output-stage guardrail against. GuardrailStage::OutputChunk
-                // ~keep is defined for per-chunk inspection but is not yet wired up by
-                // ~keep the streaming path, so streamed responses currently bypass
-                // ~keep output guardrails entirely — tracked separately, out of scope here.
                 return Ok(response);
             };
 
@@ -476,5 +631,198 @@ mod tests {
             result.is_err(),
             "a response body that cannot be serialized must fail closed (Err), not silently pass through"
         );
+    }
+
+    // --- OutputChunk streaming guardrail tests ---------------------------
+
+    use crate::guardrail::builtin::{OnMatch, RegexGuardrail};
+    use crate::types::{ChatCompletionChunk, StreamChoice, StreamDelta};
+    use futures_util::StreamExt as _;
+
+    /// Build a chunk carrying the given `content` in choice 0's delta.
+    fn content_chunk(content: &str) -> Result<ChatCompletionChunk> {
+        Ok(ChatCompletionChunk {
+            id: "chunk".into(),
+            object: "chat.completion.chunk".into(),
+            created: 0,
+            model: "test-model".into(),
+            choices: vec![StreamChoice {
+                index: 0,
+                delta: StreamDelta {
+                    content: Some(content.to_owned()),
+                    ..Default::default()
+                },
+                finish_reason: None,
+            }],
+            usage: None,
+            system_fingerprint: None,
+            service_tier: None,
+        })
+    }
+
+    /// A stream that yields a fixed, owned sequence of chunk results.
+    struct VecChunkStream {
+        items: std::collections::VecDeque<Result<ChatCompletionChunk>>,
+    }
+
+    impl futures_core::Stream for VecChunkStream {
+        type Item = Result<ChatCompletionChunk>;
+        fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            Poll::Ready(self.items.pop_front())
+        }
+    }
+
+    /// A `RegexGuardrail` registered at `OutputChunk` only, blocking on the word "SECRET".
+    fn blocking_output_chunk_registry() -> GuardrailRegistry {
+        let mut registry = GuardrailRegistry::new();
+        static STAGES: &[GuardrailStage] = &[GuardrailStage::OutputChunk];
+        registry.register(Arc::new(RegexGuardrail::new(
+            "block-secret",
+            regex::Regex::new("SECRET").expect("valid regex"),
+            OnMatch::Block {
+                code: 1042,
+                reason_prefix: "secret leaked".into(),
+            },
+            STAGES,
+        )));
+        registry
+    }
+
+    /// Regression test for the core bug this fix addresses: before wiring
+    /// `OutputChunk` into the streaming path, a guardrail that blocks a phrase
+    /// in a normal completion did nothing when the same content was streamed,
+    /// because `GuardrailStage::OutputChunk` was never invoked. A chunk
+    /// carrying the blocked phrase must now surface as `Err(HookRejected)`
+    /// when the caller polls the `ChatStream`.
+    #[tokio::test]
+    async fn guardrail_output_chunk_stage_blocks_streamed_phrase() {
+        let registry = blocking_output_chunk_registry();
+
+        let inner = CannedService {
+            build: Arc::new(|| {
+                let stream: crate::client::BoxStream<'static, Result<ChatCompletionChunk>> = Box::pin(VecChunkStream {
+                    items: std::collections::VecDeque::from([
+                        content_chunk("hello "),
+                        content_chunk("this is SECRET data"),
+                    ]),
+                });
+                LlmResponse::ChatStream(stream)
+            }),
+        };
+
+        let mut svc = GuardrailLayer::with_registry(Arc::new(registry)).layer(inner);
+        let response = svc
+            .call(LlmRequest::Chat(chat_req("gpt-4")))
+            .await
+            .expect("ChatStream response itself must not be rejected up front");
+
+        let LlmResponse::ChatStream(mut stream) = response else {
+            panic!("expected ChatStream response");
+        };
+
+        let first = stream.next().await.expect("first chunk must be yielded").expect(
+            "first chunk contains no blocked phrase and must pass through \
+             the OutputChunk guardrail unchanged",
+        );
+        assert_eq!(first.choices[0].delta.content.as_deref(), Some("hello "));
+
+        let second = stream.next().await.expect("second chunk must be yielded");
+        assert!(
+            matches!(second, Err(LiterLlmError::HookRejected { .. })),
+            "chunk containing the blocked phrase must surface as HookRejected, got {second:?}"
+        );
+    }
+
+    /// After a chunk is blocked, no further chunks may be yielded — even if
+    /// the underlying (already fully buffered, see `LlmService` module docs)
+    /// stream still has more items queued up. This proves the chosen
+    /// mid-stream blocking policy (terminate) actually terminates, rather
+    /// than merely erroring on the offending chunk and continuing.
+    #[tokio::test]
+    async fn guardrail_output_chunk_stage_terminates_stream_after_block() {
+        let registry = blocking_output_chunk_registry();
+
+        let inner = CannedService {
+            build: Arc::new(|| {
+                let stream: crate::client::BoxStream<'static, Result<ChatCompletionChunk>> = Box::pin(VecChunkStream {
+                    items: std::collections::VecDeque::from([
+                        content_chunk("this is SECRET data"),
+                        content_chunk("more content after the violation"),
+                    ]),
+                });
+                LlmResponse::ChatStream(stream)
+            }),
+        };
+
+        let mut svc = GuardrailLayer::with_registry(Arc::new(registry)).layer(inner);
+        let response = svc
+            .call(LlmRequest::Chat(chat_req("gpt-4")))
+            .await
+            .expect("ChatStream response itself must not be rejected up front");
+
+        let LlmResponse::ChatStream(mut stream) = response else {
+            panic!("expected ChatStream response");
+        };
+
+        let first = stream
+            .next()
+            .await
+            .expect("blocked chunk must still be yielded once, as an Err");
+        assert!(matches!(first, Err(LiterLlmError::HookRejected { .. })));
+
+        let second = stream.next().await;
+        assert!(
+            second.is_none(),
+            "stream must terminate after a block, not yield the remaining queued chunk; got {second:?}"
+        );
+    }
+
+    /// A `Mutate` decision at `OutputChunk` must redact the chunk's content
+    /// in place while allowing the stream to continue, distinguishing it
+    /// from a `Block` decision.
+    #[tokio::test]
+    async fn guardrail_output_chunk_stage_mutate_redacts_and_continues() {
+        let mut registry = GuardrailRegistry::new();
+        static STAGES: &[GuardrailStage] = &[GuardrailStage::OutputChunk];
+        registry.register(Arc::new(RegexGuardrail::new(
+            "redact-secret",
+            regex::Regex::new("SECRET").expect("valid regex"),
+            OnMatch::Redact {
+                replacement: "[REDACTED]".into(),
+            },
+            STAGES,
+        )));
+
+        let inner = CannedService {
+            build: Arc::new(|| {
+                let stream: crate::client::BoxStream<'static, Result<ChatCompletionChunk>> = Box::pin(VecChunkStream {
+                    items: std::collections::VecDeque::from([content_chunk("this is SECRET data")]),
+                });
+                LlmResponse::ChatStream(stream)
+            }),
+        };
+
+        let mut svc = GuardrailLayer::with_registry(Arc::new(registry)).layer(inner);
+        let response = svc
+            .call(LlmRequest::Chat(chat_req("gpt-4")))
+            .await
+            .expect("call must succeed");
+
+        let LlmResponse::ChatStream(mut stream) = response else {
+            panic!("expected ChatStream response");
+        };
+
+        let first = stream
+            .next()
+            .await
+            .expect("chunk must be yielded")
+            .expect("mutate decision must not error");
+        assert_eq!(
+            first.choices[0].delta.content.as_deref(),
+            Some("this is [REDACTED] data"),
+            "matched text must be redacted in place"
+        );
+
+        assert!(stream.next().await.is_none(), "stream must end after the single chunk");
     }
 }

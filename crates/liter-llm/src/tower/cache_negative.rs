@@ -268,7 +268,7 @@ where
             let result = fut.await;
             if let Err(ref err) = result
                 && let Some(window) = policy.cache_for(err)
-                && let Some((key, body)) = key_and_body
+                && let Some((key, body, _tenant_id)) = key_and_body
             {
                 let expires_at = Instant::now() + window;
                 // ~keep LiterLlmError is not cloneable; cache only a display-string error for later callers.
@@ -335,7 +335,7 @@ mod tests {
         assert!(hit.is_none(), "non-transient error must not be cached");
 
         // ~keep Must match the key CacheLayer/NegativeCacheLayer's default ExactHashStrategy actually writes.
-        let (key, body) =
+        let (key, body, _tenant_id) =
             strategy_key(&ExactHashStrategy, &LlmRequest::Chat(chat_req("gpt-4"))).expect("chat request is cacheable");
         let hit = store.get(key, &body).await;
         assert!(hit.is_none(), "non-transient error must not be stored");
@@ -359,7 +359,7 @@ mod tests {
         assert!(first.is_err(), "first call should propagate the upstream error");
 
         // ~keep Must match the key CacheLayer/NegativeCacheLayer's default ExactHashStrategy actually writes.
-        let (key, serialized) =
+        let (key, serialized, _tenant_id) =
             strategy_key(&ExactHashStrategy, &LlmRequest::Chat(req_body.clone())).expect("chat request is cacheable");
 
         let cached = store.get(key, &serialized).await;

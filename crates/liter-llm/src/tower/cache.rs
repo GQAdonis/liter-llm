@@ -753,7 +753,16 @@ impl<S> CacheService<S> {
 /// on key derivation or an error cached by the negative-cache layer becomes
 /// permanently unreadable by the success-path reader (a different hash space
 /// is equivalent to a different, disjoint cache).
-pub(crate) fn strategy_key(strategy: &dyn CacheKeyStrategy, req: &LlmRequest) -> Option<(u64, String)> {
+///
+/// ~keep The returned `tenant_id` is the third tuple element so that the
+/// ~keep exact-hash tier (which folds it into the returned key) and the
+/// ~keep semantic tier (which uses it to scope `VectorStore::search` /
+/// ~keep `VectorMetadata::tenant_id`) read tenant identity from one place.
+/// ~keep Previously the semantic tier derived nothing at all here and wrote
+/// ~keep `tenant_id: None` unconditionally, letting one tenant's semantically
+/// ~keep similar prompt be served another tenant's cached response even
+/// ~keep though the exact tier was correctly isolated.
+pub(crate) fn strategy_key(strategy: &dyn CacheKeyStrategy, req: &LlmRequest) -> Option<(u64, String, Option<String>)> {
     let req_tenant = req.tenant_id().map(|t| t.as_ref().to_owned());
     let (model, messages_json, params_json, tenant_id, system_prompt) = match &req.kind {
         LlmRequestKind::Chat(r) => {
@@ -815,7 +824,8 @@ pub(crate) fn strategy_key(strategy: &dyn CacheKeyStrategy, req: &LlmRequest) ->
         tenant_id: tenant_id.as_deref(),
         system_prompt: system_prompt.as_deref(),
     };
-    Some(strategy.key_for(&input))
+    let (key, body) = strategy.key_for(&input);
+    Some((key, body, tenant_id))
 }
 
 impl<S> Service<LlmRequest> for CacheService<S>
@@ -864,7 +874,7 @@ where
 
         Box::pin(async move {
             if decision.use_exact
-                && let Some((k, ref body)) = key_and_body
+                && let Some((k, ref body, _)) = key_and_body
                 && let Some(cached) = store.get(k, body).await
             {
                 #[cfg(feature = "otel")]
@@ -879,12 +889,12 @@ where
 
             if decision.use_semantic
                 && let (Some(ep), Some(vs)) = (&embedding_provider, &vector_store)
-                && let Some((_, ref body)) = key_and_body
+                && let Some((_, ref body, ref tenant_id)) = key_and_body
             {
                 let maybe_cached = async {
                     let query_vec = ep.embed(body).await.ok()?;
                     let best = vs
-                        .search(&query_vec, 1, decision.similarity_threshold)
+                        .search(&query_vec, 1, decision.similarity_threshold, tenant_id.as_deref())
                         .await
                         .into_iter()
                         .next()?;
@@ -907,7 +917,7 @@ where
             record_cache_state(CacheState::Miss);
             let resp = fut.await?;
 
-            if let Some((k, body)) = key_and_body {
+            if let Some((k, body, tenant_id)) = key_and_body {
                 let cached = match &resp {
                     LlmResponse::Chat(r) => Some(CachedResponse::Chat(r.clone())),
                     LlmResponse::Embed(r) => Some(CachedResponse::Embed(r.clone())),
@@ -926,11 +936,21 @@ where
                         let metadata = crate::vectorstore::VectorMetadata {
                             cache_key: k,
                             original_request_body: body.clone(),
-                            tenant_id: None,
+                            tenant_id,
                             inserted_at: std::time::SystemTime::now(),
                             extra: HashMap::new(),
                         };
-                        let _ = vs.upsert(format!("{k}"), vec, metadata).await;
+                        // ~keep A failed upsert leaves the semantic tier silently blind to this
+                        // ~keep entry (the exact tier still has it) rather than corrupting state,
+                        // ~keep so it is safe to continue — but it must not be silent, or a
+                        // ~keep completely broken vector store looks identical to a working one.
+                        if let Err(error) = vs.upsert(format!("{k}"), vec, metadata).await {
+                            tracing::warn!(
+                                cache_key = k,
+                                %error,
+                                "semantic cache: vector store upsert failed; entry will not be searchable"
+                            );
+                        }
                     }
                 }
             }
@@ -1221,6 +1241,71 @@ mod tests {
             call_count.load(Ordering::SeqCst),
             0,
             "semantic hit must short-circuit upstream without calling it"
+        );
+    }
+
+    /// Regression test for the semantic-tier tenant-isolation bug: the
+    /// semantic tier used to write every `VectorMetadata` with
+    /// `tenant_id: None` regardless of the request's actual tenant, and
+    /// `VectorStore::search` had no tenant parameter to filter on even if the
+    /// metadata had been populated correctly. Since `TenantScopedStrategy`
+    /// already gives tenant A and tenant B disjoint *exact*-key hashes for an
+    /// otherwise identical request, an exact-tier miss for tenant B's request
+    /// must fall through to a semantic-tier *miss* too — it must not surface
+    /// tenant A's entry just because the (exact-tier-agnostic) embedding
+    /// vector matches. `NoOpEmbeddingProvider` returns the zero vector for
+    /// every input, so with `similarity_threshold: 0.0` every entry matches
+    /// on vector similarity alone — only the tenant filter can prevent the
+    /// cross-tenant hit here, which is exactly what this test isolates.
+    #[tokio::test]
+    async fn semantic_cache_tier_does_not_leak_across_tenants() {
+        use crate::cache_key::TenantScopedStrategy;
+        use crate::embedding::NoOpEmbeddingProvider;
+        use crate::tower::cache_policy::StandardCachePolicy;
+        use crate::vectorstore::InMemoryVectorStore;
+
+        let config = CacheConfig {
+            max_entries: 20,
+            ttl: Duration::from_secs(60),
+            backend: CacheBackend::default(),
+        };
+
+        let vs: Arc<dyn VectorStore> = Arc::new(InMemoryVectorStore::new(1));
+        let ep: Arc<dyn crate::embedding::EmbeddingProvider> = Arc::new(NoOpEmbeddingProvider { dim: 1 });
+        let policy = Arc::new(StandardCachePolicy {
+            semantic_ttl: Some(Duration::from_secs(60)),
+            similarity_threshold: 0.0,
+            ..Default::default()
+        });
+
+        let layer = CacheLayer::new(config)
+            .with_key_strategy(Arc::new(TenantScopedStrategy))
+            .with_policy(policy)
+            .with_semantic_cache(ep, vs);
+
+        let client = MockClient::ok();
+        let call_count = Arc::clone(&client.call_count);
+        let inner = LlmService::new(client);
+        let mut svc = layer.layer(inner);
+
+        let mut req_a = chat_req("gpt-4");
+        req_a.user = Some("tenant:acme".into());
+
+        let mut req_b = chat_req("gpt-4");
+        req_b.user = Some("tenant:globex".into());
+
+        svc.call(LlmRequest::Chat(req_a)).await.unwrap();
+        assert_eq!(
+            call_count.load(Ordering::SeqCst),
+            1,
+            "tenant A's first call must miss and populate both cache tiers"
+        );
+
+        svc.call(LlmRequest::Chat(req_b)).await.unwrap();
+        assert_eq!(
+            call_count.load(Ordering::SeqCst),
+            2,
+            "tenant B must not receive tenant A's semantically-matched cached response"
         );
     }
 

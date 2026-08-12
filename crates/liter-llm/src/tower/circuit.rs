@@ -144,6 +144,18 @@ struct CircuitInner {
     probe_in_flight: AtomicBool,
 }
 
+/// Recover a poisoned `open_since` mutex instead of panicking.
+///
+/// ~keep A panic while another caller holds this lock (e.g. inside a custom
+/// ~keep `CircuitPolicy` extension point) must not permanently wedge every
+/// ~keep future request through this circuit breaker in the Open state.
+fn lock_open_since(mutex: &Mutex<Option<Instant>>) -> std::sync::MutexGuard<'_, Option<Instant>> {
+    mutex.lock().unwrap_or_else(|poisoned| {
+        tracing::warn!("circuit breaker: open_since mutex was poisoned; recovering");
+        poisoned.into_inner()
+    })
+}
+
 /// Circuit breaker with exponential backoff.
 ///
 /// Opens after `failure_threshold` consecutive failures.  After
@@ -213,7 +225,7 @@ impl ExponentialBackoffCircuit {
     /// driving the timer-based Open → HalfOpen transition on the request path.
     fn maybe_half_open(&self) -> bool {
         let backoff = self.current_backoff();
-        let guard = self.inner.open_since.lock().expect("open_since mutex poisoned");
+        let guard = lock_open_since(&self.inner.open_since);
         if let Some(open_at) = *guard
             && open_at.elapsed() >= backoff
         {
@@ -267,7 +279,7 @@ impl CircuitPolicy for ExponentialBackoffCircuit {
             let backoff = self.current_backoff();
             let open_count = self.open_count.fetch_add(1, Ordering::Relaxed) + 1;
             {
-                let mut guard = self.inner.open_since.lock().expect("open_since mutex poisoned");
+                let mut guard = lock_open_since(&self.inner.open_since);
                 *guard = Some(Instant::now());
             }
             // ~keep Release the probe slot when reopening; a fresh cooldown is now in effect.

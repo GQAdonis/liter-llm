@@ -511,13 +511,23 @@ where
                         _ => None,
                     };
                     if let Some(cached_resp) = cached {
-                        let _ = store.store_response(&key, cached_resp).await;
-                    } else {
-                        let _ = store.remove(&key).await;
+                        if let Err(error) = store.store_response(&key, cached_resp).await {
+                            // ~keep The caller still gets its real response either way; a failed
+                            // ~keep write only means the idempotency guarantee is lost for the next
+                            // ~keep caller with this key, which must not fail silently.
+                            tracing::warn!(
+                                %error,
+                                "idempotency: failed to persist response; duplicate requests with this key may re-run"
+                            );
+                        }
+                    } else if let Err(error) = store.remove(&key).await {
+                        tracing::warn!(%error, "idempotency: failed to remove non-cacheable placeholder entry");
                     }
                 }
                 Err(_) => {
-                    let _ = store.remove(&key).await;
+                    if let Err(error) = store.remove(&key).await {
+                        tracing::warn!(%error, "idempotency: failed to remove placeholder entry after inner failure");
+                    }
                 }
             }
             guard.disarm();

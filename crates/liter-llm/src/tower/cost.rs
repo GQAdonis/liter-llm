@@ -153,6 +153,7 @@ where
 
     fn call(&mut self, req: LlmRequest) -> Self::Future {
         let model = req.model().map(ToOwned::to_owned);
+        let operation = req.operation_name();
         let fut = self.inner.call(req);
 
         Box::pin(async move {
@@ -165,12 +166,12 @@ where
                 LlmResponse::ChatStream(stream) => {
                     let model_for_completion = model.clone();
                     let wrapped = observe_stream_usage(stream, move |usage| {
-                        record_cost_for_usage(model_for_completion.as_deref(), usage.as_ref(), &span);
+                        record_cost_for_usage(model_for_completion.as_deref(), usage.as_ref(), operation, &span);
                     });
                     Ok(LlmResponse::ChatStream(wrapped))
                 }
                 other => {
-                    record_cost(&model, &other, &span);
+                    record_cost(&model, &other, operation, &span);
                     Ok(other)
                 }
             }
@@ -180,15 +181,15 @@ where
 
 /// Extract usage from the response and record an estimated cost on `span` as
 /// `gen_ai.usage.cost`.
-fn record_cost(model: &Option<String>, resp: &LlmResponse, span: &tracing::Span) {
-    record_cost_for_usage(model.as_deref(), resp.usage(), span);
+fn record_cost(model: &Option<String>, resp: &LlmResponse, operation: &str, span: &tracing::Span) {
+    record_cost_for_usage(model.as_deref(), resp.usage(), operation, span);
 }
 
 /// Compute and record an estimated cost from an already-extracted `(model,
 /// usage)` pair. Shared by the non-streaming path (`record_cost`, usage
 /// available immediately) and the `ChatStream` completion callback (usage
 /// only known once the stream has been fully consumed).
-fn record_cost_for_usage(model: Option<&str>, usage: Option<&Usage>, span: &tracing::Span) {
+fn record_cost_for_usage(model: Option<&str>, usage: Option<&Usage>, operation: &str, span: &tracing::Span) {
     let Some(model_name) = model else { return };
     let Some(usage) = usage else { return };
 
@@ -197,6 +198,14 @@ fn record_cost_for_usage(model: Option<&str>, usage: Option<&Usage>, span: &trac
         cost::completion_cost_with_cache(model_name, usage.prompt_tokens, cached, usage.completion_tokens)
     {
         span.record("gen_ai.usage.cost", usd);
+
+        #[cfg(feature = "otel")]
+        {
+            // ~keep `model` here may carry a "provider/model" prefix (e.g. "openai/gpt-4"),
+            // ~keep matching the convention MetricsService uses for the `gen_ai.system` label.
+            let system = model_name.split_once('/').map_or("", |(prefix, _)| prefix);
+            crate::tower::metrics::record_cost_usd(system, model_name, operation, usd);
+        }
     }
 }
 

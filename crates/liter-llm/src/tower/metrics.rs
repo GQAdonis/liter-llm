@@ -55,6 +55,15 @@ mod inner {
 
     use std::sync::Arc;
 
+    // ~keep This module's Meter/Instruments/attribute-cache statics are process-global
+    // ~keep state, which the repo's no-global-state convention otherwise forbids. True
+    // ~keep dependency injection would mean every Tower layer that records a metric
+    // ~keep (CacheLayer, CircuitLayer, the budget ledger, hedge, realtime sessions, ...)
+    // ~keep carries an `Arc<Instruments>` handle and every one of their public
+    // ~keep constructors accepts (or is given a setter for) it — a breaking change to
+    // ~keep the public API of roughly a dozen types across this crate. This mirrors how
+    // ~keep `opentelemetry::global` itself works (a single process-wide meter
+    // ~keep provider), so it is left as-is here rather than half-migrated.
     static METER: OnceLock<Meter> = OnceLock::new();
 
     /// Initialise the global `Meter` used by all [`MetricsLayer`] instances.
@@ -92,8 +101,8 @@ mod inner {
     struct Instruments {
         op_duration: Histogram<f64>,
         token_usage: Histogram<u64>,
-        /// Cost histogram — populated by callers via [`record_cost_usd`].
-        #[allow(dead_code)]
+        /// Cost histogram — populated by [`record_cost_usd`], called from
+        /// [`crate::tower::cost::CostTrackingService`] once a completion's cost is known.
         cost_usd: Histogram<f64>,
         cache_hit: Counter<u64>,
         cache_miss: Counter<u64>,
@@ -177,6 +186,17 @@ mod inner {
         }
     }
 
+    /// Upper bound on distinct (system, model) label pairs cached by
+    /// [`BASE_ATTRS_CACHE`] and [`TOKEN_ATTRS_CACHE`].
+    ///
+    /// ~keep Without a cap, a long-running proxy that sees unbounded label
+    /// ~keep cardinality (e.g. per-tenant or freeform model strings from
+    /// ~keep untrusted callers) grows these caches forever — an unbounded
+    /// ~keep memory leak. `DashMap` has no built-in LRU, so the eviction
+    /// ~keep policy on hitting the cap is a full clear: crude, but O(1) and
+    /// ~keep correct, and cache misses only cost a few `KeyValue` clones.
+    const MAX_METRICS_ATTR_CACHE_ENTRIES: usize = 4096;
+
     /// Cached base attributes keyed by (system, model) to avoid repeated clones
     /// on every request.
     type BaseAttrsKey = (Arc<str>, Arc<str>);
@@ -223,9 +243,28 @@ mod inner {
             .into_boxed_slice(),
         );
 
+        evict_if_at_cap(cache, "base_attrs");
         cache.entry(key).or_insert_with(|| Arc::clone(&attrs));
 
         attrs
+    }
+
+    /// Clear `cache` and log a warning if it has reached
+    /// [`MAX_METRICS_ATTR_CACHE_ENTRIES`], so an unbounded label-cardinality
+    /// source degrades to "occasional cache misses" instead of unbounded
+    /// memory growth.
+    fn evict_if_at_cap<K, V>(cache: &DashMap<K, V>, cache_name: &'static str)
+    where
+        K: Eq + std::hash::Hash,
+    {
+        if cache.len() >= MAX_METRICS_ATTR_CACHE_ENTRIES {
+            tracing::warn!(
+                cache = cache_name,
+                cap = MAX_METRICS_ATTR_CACHE_ENTRIES,
+                "metrics: attribute cache reached its label-cardinality cap; evicting all cached entries"
+            );
+            cache.clear();
+        }
     }
 
     /// Retrieve or build cached token-type attributes for the given base attributes.
@@ -259,6 +298,7 @@ mod inner {
             output: Arc::clone(&output_arc),
         };
 
+        evict_if_at_cap(cache, "token_attrs");
         cache.entry(key).or_insert_with(|| CachedTokenAttrs {
             input: Arc::clone(&input_arc),
             output: Arc::clone(&output_arc),
@@ -455,6 +495,24 @@ mod inner {
         if let Some(instr) = instruments() {
             instr.retry_attempt.add(
                 1,
+                &[
+                    KeyValue::new("gen_ai.system", system.to_owned()),
+                    KeyValue::new("gen_ai.request.model", model.to_owned()),
+                    KeyValue::new("gen_ai.operation.name", operation.to_owned()),
+                ],
+            );
+        }
+    }
+
+    /// Record the estimated USD cost of a completion.
+    ///
+    /// Call from [`crate::tower::cost::CostTrackingService`] once a
+    /// completion's cost has been computed. Emits `gen_ai.client.cost.usd`.
+    /// If the meter has not been initialized, this call is a no-op.
+    pub fn record_cost_usd(system: &str, model: &str, operation: &str, cost_usd: f64) {
+        if let Some(instr) = instruments() {
+            instr.cost_usd.record(
+                cost_usd,
                 &[
                     KeyValue::new("gen_ai.system", system.to_owned()),
                     KeyValue::new("gen_ai.request.model", model.to_owned()),
@@ -771,6 +829,10 @@ mod inner {
     /// No-op retry-attempt helper.
     #[inline]
     pub fn record_retry_attempt(_system: &str, _model: &str, _operation: &str) {}
+
+    /// No-op cost helper.
+    #[inline]
+    pub fn record_cost_usd(_system: &str, _model: &str, _operation: &str, _cost_usd: f64) {}
 
     /// No-op budget-spend helper.
     #[allow(clippy::too_many_arguments)]
