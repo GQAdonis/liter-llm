@@ -178,6 +178,13 @@ impl KeyStore {
         };
         let master_bytes = master.expose_secret().as_bytes();
         let token_bytes = token.as_bytes();
+        // ~keep An empty master key matches an empty token: ct_eq on two zero-length slices is
+        // ~keep EQUAL, and `Authorization: Bearer ` strips to "". Config load already rejects an
+        // ~keep empty master key, but this is the actual comparison, so it refuses independently
+        // ~keep rather than trusting a caller upstream to have validated.
+        if master_bytes.is_empty() || token_bytes.is_empty() {
+            return false;
+        }
         master_bytes.ct_eq(token_bytes).into()
     }
 
@@ -202,6 +209,13 @@ impl KeyStore {
     /// deployments (n ≤ 10 000) this completes in < 1 ms.
     pub fn get(&self, token: &str) -> Option<VirtualKeyConfig> {
         let token_bytes = token.as_bytes();
+        // ~keep Same empty-slice equality hazard as `is_master_key`: a virtual key that
+        // ~keep interpolated to "" would be matched by an empty bearer token. Rejecting on the
+        // ~keep INCOMING token costs no constant-time property — its length is attacker-known,
+        // ~keep so branching on it leaks nothing about the stored keys.
+        if token_bytes.is_empty() {
+            return None;
+        }
         let mut found: Option<VirtualKeyConfig> = None;
 
         for entry in self.keys.iter() {
@@ -457,6 +471,48 @@ mod tests {
         assert!(
             store.is_master_key("sk-new-master"),
             "new master key must match after reload"
+        );
+    }
+
+    /// An empty master key must authenticate NOBODY.
+    ///
+    /// `subtle::ct_eq` on two zero-length byte slices compares EQUAL, and
+    /// `interpolate_env_vars` turns an unset `${VAR}` into `""`, so the
+    /// documented `master_key = "${LITER_LLM_MASTER_KEY}"` idiom with the
+    /// variable unset would otherwise promote every caller to master. The
+    /// empty token is reachable from the wire: `Authorization: Bearer `
+    /// strips to `""`.
+    #[test]
+    fn empty_master_key_authenticates_nobody() {
+        let store = KeyStore::from_config(Some(SecretString::from(String::new())), &[]);
+
+        assert!(
+            !store.is_master_key(""),
+            "an empty master key must not match an empty token — this is a full auth bypass"
+        );
+        assert!(
+            !store.is_master_key("anything"),
+            "an empty master key must match nothing"
+        );
+    }
+
+    /// An empty bearer token must never match a real master key either.
+    #[test]
+    fn empty_token_never_matches_a_configured_master_key() {
+        let store = KeyStore::from_config(Some(SecretString::from("sk-real-master".to_string())), &[]);
+
+        assert!(!store.is_master_key(""), "empty token must not match a real master key");
+    }
+
+    /// The same zero-length equality hazard applies to virtual-key lookup.
+    #[test]
+    fn empty_token_does_not_resolve_a_virtual_key() {
+        let empty_key = sample_key_config("", vec![]);
+        let store = KeyStore::from_config(Some(SecretString::from("sk-master".to_string())), &[empty_key]);
+
+        assert!(
+            store.get("").is_none(),
+            "an empty token must not resolve a virtual key whose token interpolated away"
         );
     }
 }

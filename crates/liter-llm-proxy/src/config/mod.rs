@@ -22,7 +22,7 @@ pub use server::ServerConfig;
 use std::collections::HashMap;
 use std::path::Path;
 
-use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 
 fn default_timeout() -> u64 {
@@ -291,7 +291,42 @@ fn parse_with_env_interpolation(raw: &str) -> Result<ProxyConfig, String> {
     let expanded = interpolate_env_vars(raw);
     let config: ProxyConfig = toml::from_str(&expanded).map_err(|e| format!("invalid TOML config: {e}"))?;
     validate_routing_keys(&expanded)?;
+    validate_secrets_non_empty(&config)?;
     Ok(config)
+}
+
+/// Reject credentials that interpolated away to the empty string.
+///
+/// `interpolate_env_vars` substitutes an unset `${VAR}` with `""`, and the
+/// documented idiom for every secret in this file is `key = "${SOME_VAR}"`.
+/// An empty master key is not a weak key, it is a total authentication bypass:
+/// `KeyStore::is_master_key` compares with `ct_eq`, two zero-length byte slices
+/// compare EQUAL, and `Authorization: Bearer ` (trailing space) strips to `""`
+/// — so any unauthenticated caller is promoted to master. Fail at load rather
+/// than serve in that state. ~keep
+fn validate_secrets_non_empty(config: &ProxyConfig) -> Result<(), String> {
+    if config
+        .general
+        .master_key
+        .as_ref()
+        .is_some_and(|k| k.expose_secret().is_empty())
+    {
+        return Err(
+            "[general] master_key is set but empty — an unset ${VAR} interpolates to \"\", and an empty master key \
+             authenticates every request. Set the variable or remove the key."
+                .to_string(),
+        );
+    }
+    for key in &config.keys {
+        if key.key.is_empty() {
+            return Err(format!(
+                "virtual key '{}' has an empty token — an unset ${{VAR}} interpolates to \"\". Set the variable or \
+                 remove the key.",
+                key.description.as_deref().unwrap_or("<no description>")
+            ));
+        }
+    }
+    Ok(())
 }
 
 impl ProxyConfig {
@@ -482,6 +517,56 @@ duration_secs = 60
         assert_eq!(health.probe_model.as_deref(), Some("openai/gpt-4o-mini"));
 
         assert_eq!(config.cooldown.expect("cooldown should be present").duration_secs, 60);
+    }
+
+    /// A `master_key` whose `${VAR}` is unset interpolates to `""`, and an
+    /// empty master key authenticates every caller. Refuse to load rather than
+    /// start a proxy that is open to the world.
+    #[test]
+    fn rejects_master_key_that_interpolated_to_empty() {
+        let toml = r#"
+[general]
+master_key = "${SURELY_NONEXISTENT_MASTER_KEY_VAR_98765}"
+"#;
+        let Err(err) = ProxyConfig::from_toml_str(toml) else {
+            panic!("an empty master key must be rejected — it authenticates every request");
+        };
+        assert!(
+            err.contains("master_key") && err.contains("empty"),
+            "error must name the offending key and why: {err}"
+        );
+    }
+
+    /// Same hazard one level down: a virtual key token that interpolated away.
+    #[test]
+    fn rejects_virtual_key_that_interpolated_to_empty() {
+        let toml = r#"
+[general]
+master_key = "sk-real-master"
+
+[[keys]]
+key = "${SURELY_NONEXISTENT_VIRTUAL_KEY_VAR_98765}"
+description = "billing-team"
+"#;
+        let Err(err) = ProxyConfig::from_toml_str(toml) else {
+            panic!("an empty virtual key token must be rejected");
+        };
+        assert!(
+            err.contains("billing-team"),
+            "error must identify WHICH key is empty so an operator can fix it: {err}"
+        );
+    }
+
+    /// The guard must not reject a legitimately absent master key — a proxy
+    /// with only virtual keys configured is a supported deployment.
+    #[test]
+    fn absent_master_key_is_still_allowed() {
+        let toml = r#"
+[general]
+default_timeout_secs = 30
+"#;
+        let config = ProxyConfig::from_toml_str(toml).expect("a config with no master key must still load");
+        assert!(config.general.master_key.is_none());
     }
 
     #[test]
