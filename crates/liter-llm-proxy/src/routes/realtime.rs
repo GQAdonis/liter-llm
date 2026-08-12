@@ -91,7 +91,7 @@ pub async fn realtime_websocket(
     if !key_ctx.can_access_model(&model) {
         let err = ProxyError::forbidden(format!(
             "key '{}' is not allowed to access model '{model}'",
-            key_ctx.key_id
+            key_ctx.redacted_id()
         ));
         return err.into_response();
     }

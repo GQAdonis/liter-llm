@@ -50,7 +50,7 @@ pub(crate) async fn dispatch(
     if !key_ctx.can_access_model(model) {
         return Err(ProxyError::forbidden(format!(
             "key '{}' is not allowed to access model '{model}'",
-            key_ctx.key_id
+            key_ctx.redacted_id()
         )));
     }
     let request = request.with_tenant_id(key_ctx.tenant_id.clone());

@@ -40,6 +40,8 @@ full = [
 default = ["proxy"]
 
 [dependencies]
+ahash = { workspace = true }
+
 arc-swap = { workspace = true }
 
 aws-config = { workspace = true, optional = true }

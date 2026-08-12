@@ -3215,7 +3215,7 @@ name = "liter-llm-jni"
 version = "1.16.0"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.0",
  "futures-util",
  "jni",
  "liter-llm",
@@ -3253,6 +3253,7 @@ dependencies = [
 name = "liter-llm-proxy"
 version = "1.16.0"
 dependencies = [
+ "ahash 0.8.12",
  "arc-swap",
  "aws-config",
  "aws-sdk-secretsmanager",

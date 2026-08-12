@@ -16,8 +16,24 @@ use crate::config::VirtualKeyConfig;
 /// from virtual-key traffic without a special-case enum.
 pub const MASTER_TENANT_ID: &str = "master";
 
+/// Fixed seeds for [`KeyContext::redacted_id`].
+///
+/// Compile-time constants so the redacted identifier is stable across
+/// restarts and across every replica of the proxy — an operator correlating
+/// log lines needs the same key to hash to the same value everywhere. ~keep
+const REDACTED_ID_SEEDS: [u64; 4] = [
+    0x6c69_7465_725f_6c6c,
+    0x6d5f_7072_6f78_795f,
+    0x6b65_795f_7265_6461,
+    0x6374_6564_5f69_6400,
+];
+
 /// Context injected into request extensions after successful auth.
-#[derive(Debug, Clone)]
+///
+/// `Debug` is implemented by hand: `key_id` is the virtual key token itself,
+/// so a derived `Debug` would print the caller's live credential into any span
+/// or log line that captured this value. ~keep
+#[derive(Clone)]
 pub struct KeyContext {
     pub key_id: String,
     pub allowed_models: Option<Vec<String>>,
@@ -82,12 +98,52 @@ impl KeyContext {
         }
     }
 
+    /// A stable, non-reversible identifier for this key, safe to log and to
+    /// return in an error body.
+    ///
+    /// ~keep `key_id` holds the virtual key token — the live credential the
+    /// ~keep caller authenticates with. Formatting it into a 403 body put that
+    /// ~keep credential into every access log, reverse proxy and error tracker
+    /// ~keep on the response path, and into the client's own logs. Use this
+    /// ~keep anywhere the identity is being reported rather than compared.
+    pub fn redacted_id(&self) -> String {
+        if self.is_master {
+            return "master".to_owned();
+        }
+
+        // ~keep `with_seeds`, not `generate_with`: the latter folds in a per-call
+        // ~keep random component, so the same key hashed twice would not match and
+        // ~keep the identifier would be useless for correlating log lines.
+        let state = ahash::RandomState::with_seeds(
+            REDACTED_ID_SEEDS[0],
+            REDACTED_ID_SEEDS[1],
+            REDACTED_ID_SEEDS[2],
+            REDACTED_ID_SEEDS[3],
+        );
+        let digest = state.hash_one(self.key_id.as_str());
+        format!("vk-{digest:016x}")
+    }
+
     /// Returns true if this key is allowed to access the given model.
     pub fn can_access_model(&self, model: &str) -> bool {
         match &self.allowed_models {
             None => true,
             Some(models) => models.iter().any(|m| m == model),
         }
+    }
+}
+
+impl std::fmt::Debug for KeyContext {
+    /// ~keep Both `key_id` and `tenant_id` hold the virtual key token, so
+    /// ~keep neither may be printed. A derived `Debug` leaked the caller's live
+    /// ~keep credential into any span or log that captured this value.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyContext")
+            .field("key_id", &self.redacted_id())
+            .field("allowed_models", &self.allowed_models)
+            .field("is_master", &self.is_master)
+            .field("tenant_id", &"<redacted>")
+            .finish()
     }
 }
 
@@ -502,6 +558,68 @@ mod tests {
         let store = KeyStore::from_config(Some(SecretString::from("sk-real-master".to_string())), &[]);
 
         assert!(!store.is_master_key(""), "empty token must not match a real master key");
+    }
+
+    /// `key_id` and `tenant_id` both hold the virtual key token, so neither
+    /// may appear in anything the proxy hands back or writes out.  These were
+    /// formatted verbatim into 403 bodies, putting the caller's live
+    /// credential into every access log, reverse proxy and error tracker on
+    /// the response path.
+    #[test]
+    fn redacted_id_never_contains_the_key() {
+        let secret = "sk-vk-super-secret-token";
+        let ctx = KeyContext::from_config(&sample_key_config(secret, vec![]));
+
+        let redacted = ctx.redacted_id();
+
+        assert!(
+            !redacted.contains(secret),
+            "redacted id must not embed the key: {redacted}"
+        );
+        assert!(
+            !redacted.contains("super-secret"),
+            "redacted id must not embed any part of the key: {redacted}"
+        );
+        assert!(redacted.starts_with("vk-"), "got {redacted}");
+    }
+
+    /// The redacted id has to be stable, or it is useless for correlating
+    /// log lines across replicas and restarts.
+    #[test]
+    fn redacted_id_is_stable_for_the_same_key() {
+        let config = sample_key_config("sk-vk-stable", vec![]);
+
+        assert_eq!(
+            KeyContext::from_config(&config).redacted_id(),
+            KeyContext::from_config(&config).redacted_id()
+        );
+        assert_ne!(
+            KeyContext::from_config(&config).redacted_id(),
+            KeyContext::from_config(&sample_key_config("sk-vk-other", vec![])).redacted_id(),
+            "distinct keys must not collapse to the same identifier"
+        );
+    }
+
+    /// The master key is a well-known constant, not a per-tenant secret.
+    #[test]
+    fn redacted_id_reports_master_plainly() {
+        assert_eq!(KeyContext::master().redacted_id(), "master");
+    }
+
+    /// A derived `Debug` printed the token; any `?key_ctx` in a span or log
+    /// line would have leaked it.
+    #[test]
+    fn debug_output_never_contains_the_key() {
+        let secret = "sk-vk-super-secret-token";
+        let ctx = KeyContext::from_config(&sample_key_config(secret, vec!["gpt-4".into()]));
+
+        let rendered = format!("{ctx:?}");
+
+        assert!(!rendered.contains(secret), "Debug must not print the key: {rendered}");
+        assert!(
+            rendered.contains("<redacted>"),
+            "tenant_id must be redacted too, since it holds the same token: {rendered}"
+        );
     }
 
     /// The same zero-length equality hazard applies to virtual-key lookup.
