@@ -31,8 +31,8 @@
   <a href="https://github.com/xberg-io/liter-llm/tree/main/packages/go">
     <img src="https://img.shields.io/github/v/tag/xberg-io/liter-llm?label=Go&color=007ec6" alt="Go" />
   </a>
-  <a href="https://www.nuget.org/packages/LiterLlm">
-    <img src="https://img.shields.io/nuget/v/LiterLlm?label=C%23&color=007ec6" alt="C#" />
+  <a href="https://www.nuget.org/packages/XbergIo.LiterLlm">
+    <img src="https://img.shields.io/nuget/v/XbergIo.LiterLlm?label=C%23&color=007ec6" alt="C#" />
   </a>
   <a href="https://packagist.org/packages/xberg-io/liter-llm">
     <img src="https://img.shields.io/packagist/v/xberg-io/liter-llm?label=PHP&color=007ec6" alt="PHP" />
