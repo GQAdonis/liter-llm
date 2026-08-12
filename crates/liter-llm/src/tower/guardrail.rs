@@ -4,7 +4,8 @@
 //! guardrails at three lifecycle points:
 //!
 //! - **`Input`** — before forwarding the request to the inner service. A
-//!   `Block` decision returns [`LiterLlmError::HookRejected`] immediately.
+//!   `Block` decision returns [`LiterLlmError::HookRejected`] immediately;
+//!   `Mutate` rewrites the request that is forwarded.
 //! - **`Output`** — after the inner service returns a non-streaming response.
 //!   A `Block` decision returns an error; `Mutate` replaces the response JSON.
 //! - **`OutputChunk`** — for each streaming chunk. A `Block` decision
@@ -40,7 +41,7 @@ use crate::guardrail::registry::GuardrailRegistry;
 use crate::guardrail::{GuardrailContext, GuardrailDecision, GuardrailStage};
 use crate::types::ChatCompletionChunk;
 
-use super::types::{LlmRequest, LlmResponse};
+use super::types::{LlmRequest, LlmRequestKind, LlmResponse};
 
 /// Serialize a guardrail-inspectable response body, failing closed.
 ///
@@ -53,6 +54,76 @@ fn serialize_for_guardrail<T: serde::Serialize>(value: &T) -> Result<serde_json:
     serde_json::to_value(value).map_err(|e| LiterLlmError::InternalError {
         message: format!("guardrail: failed to serialize response for output-stage inspection: {e}"),
     })
+}
+
+/// Build the JSON payload the `Input` guardrail stage inspects.
+///
+/// `LlmRequest` serializes as its `kind` alone, so this is the provider
+/// payload only — `tenant_id` and `idempotency_key` are never shown to a
+/// guardrail and so can never be rewritten by one. ~keep
+fn request_to_guardrail_json(request: &LlmRequest) -> Result<serde_json::Value> {
+    serde_json::to_value(request).map_err(|e| LiterLlmError::InternalError {
+        message: format!("guardrail: failed to serialize request: {e}"),
+    })
+}
+
+/// Apply an `Input`-stage `Mutate` decision to the request.
+///
+/// ~keep Fails closed. Forwarding the original request when the replacement
+/// ~keep cannot be applied is how a redaction guardrail comes to leak exactly
+/// ~keep the content it was installed to remove, so a payload that does not
+/// ~keep deserialize aborts the request instead.
+///
+/// ~keep The operation type is pinned to the original: a guardrail may rewrite
+/// ~keep the payload of the call being made, not turn a chat completion into a
+/// ~keep different operation. `tenant_id` and `idempotency_key` are carried
+/// ~keep over from the original for the same reason.
+fn apply_request_mutation(request: LlmRequest, new_payload: serde_json::Value) -> Result<LlmRequest> {
+    let mutated: LlmRequestKind = serde_json::from_value(new_payload).map_err(|e| LiterLlmError::InternalError {
+        message: format!("guardrail: Input stage Mutate payload is not a valid request: {e}"),
+    })?;
+
+    if std::mem::discriminant(&mutated) != std::mem::discriminant(&request.kind) {
+        return Err(LiterLlmError::InternalError {
+            message: "guardrail: Input stage Mutate payload changed the operation type".to_owned(),
+        });
+    }
+
+    Ok(LlmRequest {
+        kind: mutated,
+        tenant_id: request.tenant_id,
+        idempotency_key: request.idempotency_key,
+    })
+}
+
+/// Apply an `Output`-stage `Mutate` decision to the response.
+///
+/// Deserializes into the same variant the original response carried, and fails
+/// closed for the same reason as [`apply_request_mutation`]. ~keep
+fn apply_response_mutation(response: LlmResponse, new_payload: serde_json::Value) -> Result<LlmResponse> {
+    fn parse<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Result<T> {
+        serde_json::from_value(value).map_err(|e| LiterLlmError::InternalError {
+            message: format!("guardrail: Output stage Mutate payload is not a valid response: {e}"),
+        })
+    }
+
+    match response {
+        LlmResponse::Chat(_) => parse(new_payload).map(LlmResponse::Chat),
+        LlmResponse::Embed(_) => parse(new_payload).map(LlmResponse::Embed),
+        LlmResponse::ListModels(_) => parse(new_payload).map(LlmResponse::ListModels),
+        LlmResponse::ImageGenerate(_) => parse(new_payload).map(LlmResponse::ImageGenerate),
+        LlmResponse::Transcribe(_) => parse(new_payload).map(LlmResponse::Transcribe),
+        LlmResponse::Moderate(_) => parse(new_payload).map(LlmResponse::Moderate),
+        LlmResponse::Rerank(_) => parse(new_payload).map(LlmResponse::Rerank),
+        LlmResponse::Search(_) => parse(new_payload).map(LlmResponse::Search),
+        LlmResponse::Ocr(_) => parse(new_payload).map(LlmResponse::Ocr),
+        // ~keep Speech is inspected as a synthetic {"byte_len": N} summary rather than
+        // ~keep the audio itself, so there is no payload a guardrail could rewrite;
+        // ~keep ChatStream is guarded per-chunk and never reaches the Output stage.
+        LlmResponse::Speech(_) | LlmResponse::ChatStream(_) => Err(LiterLlmError::InternalError {
+            message: "guardrail: Output stage Mutate is not supported for this response type".to_owned(),
+        }),
+    }
 }
 
 /// Build the JSON payload the `Output` guardrail stage inspects for a given
@@ -286,7 +357,7 @@ impl<S: Clone> Clone for GuardrailService<S> {
 
 impl<S> Service<LlmRequest> for GuardrailService<S>
 where
-    S: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Send + 'static,
+    S: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Clone + Send + 'static,
     S::Future: Send + 'static,
 {
     type Response = LlmResponse;
@@ -297,20 +368,18 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: LlmRequest) -> Self::Future {
+    fn call(&mut self, mut req: LlmRequest) -> Self::Future {
         let registry = Arc::clone(&self.registry);
         let metadata = Arc::clone(&self.metadata);
-        let inner_fut = self.inner.call(req.clone());
+
+        // ~keep The Input stage can rewrite the request, so the inner call must be made
+        // ~keep inside the future, after that decision is known. Consume the polled-ready
+        // ~keep instance and leave a fresh standby clone, matching BudgetLedgerService.
+        let standby = self.inner.clone();
+        let mut inner = std::mem::replace(&mut self.inner, standby);
 
         Box::pin(async move {
-            let request_json = match serde_json::to_value(&req) {
-                Ok(v) => Arc::new(v),
-                Err(e) => {
-                    return Err(LiterLlmError::InternalError {
-                        message: format!("guardrail: failed to serialize request: {e}"),
-                    });
-                }
-            };
+            let request_json = Arc::new(request_to_guardrail_json(&req)?);
 
             let input_ctx = GuardrailContext {
                 request: &request_json,
@@ -320,19 +389,22 @@ where
             };
 
             let input_decision = registry.run_stage(GuardrailStage::Input, &input_ctx).await;
-            match input_decision {
+            let request_json = match input_decision {
                 GuardrailDecision::Block { reason, code } => {
                     return Err(LiterLlmError::HookRejected {
                         message: format!("guardrail blocked [code={code}]: {reason}"),
                     });
                 }
-                GuardrailDecision::Mutate { .. } => {
-                    tracing::debug!("guardrail: Input stage Mutate decision; proceeding with original request");
+                GuardrailDecision::Mutate { new_payload } => {
+                    req = apply_request_mutation(req, new_payload)?;
+                    // ~keep Re-serialize so the later stages inspect the request that was
+                    // ~keep actually sent rather than the pre-mutation original.
+                    Arc::new(request_to_guardrail_json(&req)?)
                 }
-                GuardrailDecision::Allow => {}
-            }
+                GuardrailDecision::Allow => request_json,
+            };
 
-            let response = inner_fut.await?;
+            let response = inner.call(req).await?;
 
             // ~keep ChatStream: no aggregate body exists yet at this point to run an
             // ~keep Output-stage guardrail against — instead, each chunk is passed
@@ -365,10 +437,7 @@ where
                 GuardrailDecision::Block { reason, code } => Err(LiterLlmError::HookRejected {
                     message: format!("guardrail blocked output [code={code}]: {reason}"),
                 }),
-                GuardrailDecision::Mutate { .. } => {
-                    tracing::debug!("guardrail: Output stage Mutate decision; returning original response");
-                    Ok(response)
-                }
+                GuardrailDecision::Mutate { new_payload } => apply_response_mutation(response, new_payload),
                 GuardrailDecision::Allow => Ok(response),
             }
         })
@@ -389,9 +458,10 @@ mod tests {
     use crate::guardrail::builtin::DenyListGuardrail;
     use crate::guardrail::registry::GuardrailRegistry;
     use crate::tower::service::LlmService;
-    use crate::tower::tests_common::{MockClient, chat_req};
+    use crate::tower::tests_common::{MockClient, chat_req, make_chat_response};
     use crate::tower::types::LlmRequest;
     use crate::types::audio::{CreateSpeechRequest, CreateTranscriptionRequest, TranscriptionResponse};
+    use crate::types::common::{AssistantContent, Message, UserMessage};
     use crate::types::image::{CreateImageRequest, ImagesResponse};
     use crate::types::moderation::{ModerationRequest, ModerationResponse};
     use crate::types::ocr::{OcrRequest, OcrResponse};
@@ -824,5 +894,229 @@ mod tests {
         );
 
         assert!(stream.next().await.is_none(), "stream must end after the single chunk");
+    }
+
+    /// Records the request it was called with so a test can assert on what
+    /// actually reached the inner service.
+    #[derive(Clone)]
+    struct RecordingService {
+        seen: Arc<std::sync::Mutex<Option<LlmRequest>>>,
+    }
+
+    impl Service<LlmRequest> for RecordingService {
+        type Response = LlmResponse;
+        type Error = LiterLlmError;
+        type Future = BoxFuture<'static, Result<LlmResponse>>;
+
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, req: LlmRequest) -> Self::Future {
+            *self.seen.lock().expect("lock") = Some(req);
+            Box::pin(async move { Ok(LlmResponse::Chat(make_chat_response("gpt-4"))) })
+        }
+    }
+
+    /// The text of the single user message on a recorded chat request.
+    fn recorded_prompt(request: &LlmRequest) -> String {
+        let LlmRequestKind::Chat(chat) = &request.kind else {
+            panic!("expected a Chat request");
+        };
+        serde_json::to_string(&chat.messages).expect("messages must serialize")
+    }
+
+    /// A `Mutate` decision at the `Input` stage must rewrite the request that
+    /// reaches the inner service.  It previously logged at DEBUG and forwarded
+    /// the *original* request, so a redaction guardrail sent the provider
+    /// exactly the content it was installed to strip.
+    #[tokio::test]
+    async fn guardrail_input_stage_mutate_rewrites_the_forwarded_request() {
+        let mut registry = GuardrailRegistry::new();
+        static STAGES: &[GuardrailStage] = &[GuardrailStage::Input];
+        registry.register(Arc::new(RegexGuardrail::new(
+            "redact-secret",
+            regex::Regex::new("SECRET").expect("valid regex"),
+            OnMatch::Redact {
+                replacement: "[REDACTED]".into(),
+            },
+            STAGES,
+        )));
+
+        let seen = Arc::new(std::sync::Mutex::new(None));
+        let inner = RecordingService {
+            seen: Arc::clone(&seen),
+        };
+
+        let mut chat = chat_req("gpt-4");
+        chat.messages = vec![Message::User(UserMessage {
+            content: "my password is SECRET".into(),
+            name: None,
+        })];
+
+        let mut svc = GuardrailLayer::with_registry(Arc::new(registry)).layer(inner);
+        svc.call(LlmRequest::Chat(chat)).await.expect("call must succeed");
+
+        let forwarded = seen
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("inner service must be called");
+        let prompt = recorded_prompt(&forwarded);
+
+        assert!(
+            prompt.contains("[REDACTED]"),
+            "the mutated request must reach the inner service; got {prompt}"
+        );
+        assert!(
+            !prompt.contains("SECRET"),
+            "the original unredacted content must not reach the inner service; got {prompt}"
+        );
+    }
+
+    /// An `Input`-stage `Mutate` must not be able to rewrite the tenant a
+    /// request is scoped to.  `LlmRequest` serializes as its payload alone, so
+    /// the guardrail never sees `tenant_id` — this pins that the surrounding
+    /// code carries it over rather than reading it back from the payload.
+    #[tokio::test]
+    async fn guardrail_input_stage_mutate_preserves_tenant_scope() {
+        let mut registry = GuardrailRegistry::new();
+        static STAGES: &[GuardrailStage] = &[GuardrailStage::Input];
+        registry.register(Arc::new(RegexGuardrail::new(
+            "redact-secret",
+            regex::Regex::new("SECRET").expect("valid regex"),
+            OnMatch::Redact {
+                replacement: "[REDACTED]".into(),
+            },
+            STAGES,
+        )));
+
+        let seen = Arc::new(std::sync::Mutex::new(None));
+        let inner = RecordingService {
+            seen: Arc::clone(&seen),
+        };
+
+        let mut chat = chat_req("gpt-4");
+        chat.messages = vec![Message::User(UserMessage {
+            content: "my password is SECRET".into(),
+            name: None,
+        })];
+
+        let mut svc = GuardrailLayer::with_registry(Arc::new(registry)).layer(inner);
+        svc.call(
+            LlmRequest::Chat(chat)
+                .with_tenant_id("tenant-A")
+                .with_idempotency_key("idem-1"),
+        )
+        .await
+        .expect("call must succeed");
+
+        let forwarded = seen
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("inner service must be called");
+
+        assert_eq!(
+            forwarded.tenant_id().map(|t| t.as_ref().to_owned()),
+            Some("tenant-A".to_owned()),
+            "tenant must survive an Input-stage mutation"
+        );
+        assert_eq!(
+            forwarded.idempotency_key.as_deref(),
+            Some("idem-1"),
+            "idempotency key must survive an Input-stage mutation"
+        );
+    }
+
+    /// A `Mutate` decision at the `Output` stage must rewrite the response the
+    /// caller receives.  It previously returned the original response, so a
+    /// redaction guardrail handed the caller the unredacted body.
+    #[tokio::test]
+    async fn guardrail_output_stage_mutate_rewrites_the_returned_response() {
+        let mut registry = GuardrailRegistry::new();
+        static STAGES: &[GuardrailStage] = &[GuardrailStage::Output];
+        registry.register(Arc::new(RegexGuardrail::new(
+            "redact-secret",
+            regex::Regex::new("SECRET").expect("valid regex"),
+            OnMatch::Redact {
+                replacement: "[REDACTED]".into(),
+            },
+            STAGES,
+        )));
+
+        let inner = CannedService {
+            build: Arc::new(|| {
+                let mut resp = make_chat_response("gpt-4");
+                resp.choices[0].message.content = Some("the answer is SECRET".into());
+                LlmResponse::Chat(resp)
+            }),
+        };
+
+        let mut svc = GuardrailLayer::with_registry(Arc::new(registry)).layer(inner);
+        let response = svc
+            .call(LlmRequest::Chat(chat_req("gpt-4")))
+            .await
+            .expect("call must succeed");
+
+        let LlmResponse::Chat(chat) = response else {
+            panic!("expected a Chat response");
+        };
+        let Some(AssistantContent::Text(text)) = &chat.choices[0].message.content else {
+            panic!("expected text content on the returned response");
+        };
+        assert_eq!(
+            text, "the answer is [REDACTED]",
+            "the mutated response must be what the caller receives"
+        );
+    }
+
+    /// A `Mutate` payload that cannot be applied must fail the call rather than
+    /// fall through to the original.  Silently forwarding the unmutated request
+    /// is the exact failure mode this whole path exists to prevent, so a
+    /// malformed rewrite has to fail closed.
+    #[tokio::test]
+    async fn guardrail_input_stage_inapplicable_mutate_fails_closed() {
+        struct GarbageMutate;
+
+        impl Guardrail for GarbageMutate {
+            fn name(&self) -> &'static str {
+                "garbage-mutate"
+            }
+
+            fn supported_stages(&self) -> &'static [GuardrailStage] {
+                static STAGES: &[GuardrailStage] = &[GuardrailStage::Input];
+                STAGES
+            }
+
+            fn check<'a>(
+                &'a self,
+                _stage: GuardrailStage,
+                _ctx: &'a GuardrailContext<'a>,
+            ) -> Pin<Box<dyn Future<Output = GuardrailDecision> + Send + 'a>> {
+                Box::pin(async {
+                    GuardrailDecision::Mutate {
+                        new_payload: serde_json::json!({ "NotAVariant": 1 }),
+                    }
+                })
+            }
+        }
+
+        let mut registry = GuardrailRegistry::new();
+        registry.register(Arc::new(GarbageMutate));
+
+        let seen = Arc::new(std::sync::Mutex::new(None));
+        let inner = RecordingService {
+            seen: Arc::clone(&seen),
+        };
+
+        let mut svc = GuardrailLayer::with_registry(Arc::new(registry)).layer(inner);
+        let result = svc.call(LlmRequest::Chat(chat_req("gpt-4"))).await;
+
+        assert!(result.is_err(), "an inapplicable Mutate must fail the call");
+        assert!(
+            seen.lock().expect("lock").is_none(),
+            "the original request must not be forwarded when the mutation cannot be applied"
+        );
     }
 }
