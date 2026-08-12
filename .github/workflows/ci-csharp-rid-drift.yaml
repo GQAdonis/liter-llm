@@ -1,0 +1,44 @@
+name: CI C# RID Drift
+
+# LiterLlm.csproj's <RuntimeIdentifiers> and publish.yaml's build-ffi matrix
+# both need to name the same RID set: the csproj declares which native
+# assets the NuGet package promises, the matrix is what actually builds
+# them. They drifted apart twice (macos-x86_64, then win-arm64) with no
+# check catching it. scripts/ci/check_csharp_rid_drift.py parses both files
+# and fails on any mismatch. Triggers list every file the check reads,
+# plus this workflow and the script itself, so the gate cannot itself go
+# stale the way ci-plugin.yaml's Cargo.toml-less filter once did.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/csharp/LiterLlm/LiterLlm.csproj"
+      - ".github/workflows/publish.yaml"
+      - ".github/workflows/ci-csharp-rid-drift.yaml"
+      - "scripts/ci/check_csharp_rid_drift.py"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/csharp/LiterLlm/LiterLlm.csproj"
+      - ".github/workflows/publish.yaml"
+      - ".github/workflows/ci-csharp-rid-drift.yaml"
+      - "scripts/ci/check_csharp_rid_drift.py"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-csharp-rid-drift-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rid-drift:
+    name: RID declared vs. built
+    if: github.repository == 'xberg-io/liter-llm' && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check RuntimeIdentifiers against build-ffi matrix
+        run: python3 scripts/ci/check_csharp_rid_drift.py

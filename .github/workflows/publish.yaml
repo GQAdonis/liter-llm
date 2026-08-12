@@ -883,6 +883,17 @@ jobs:
             runner: windows-latest
             target: x86_64-pc-windows-msvc
             rid: win-x64
+          # ~keep Cross-compiled from the x64 image on purpose: GitHub has no
+          # win-arm64 hosted runner, but MSVC's ARM64 cross-linker ships on
+          # windows-latest and build-node-native already proves this triple
+          # links cleanly here (win32-arm64-msvc napi target, same runner).
+          # Without this leg, LiterLlm.csproj's RuntimeIdentifiers and
+          # runtime.json.template both declare win-arm64 support that is
+          # never actually built.
+          - label: windows-arm64
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            rid: win-arm64
     steps:
       - uses: actions/checkout@v6
         with:
@@ -931,6 +942,7 @@ jobs:
             ["macos-arm64"]="aarch64-apple-darwin"
             ["macos-x86_64"]="x86_64-apple-darwin"
             ["windows-x86_64"]="x86_64-pc-windows-msvc"
+            ["windows-arm64"]="aarch64-pc-windows-msvc"
           )
           TRIPLE="${triple_map[$LABEL]}"
           STAGE_DIR="liter_llm_ffi-v${VERSION}-${TRIPLE}"
@@ -1040,7 +1052,7 @@ jobs:
           merge-multiple: true
       - name: Stage native libs for C#
         run: |
-          for rid in linux-x64 linux-arm64 osx-arm64 osx-x64 win-x64; do
+          for rid in linux-x64 linux-arm64 osx-arm64 osx-x64 win-x64 win-arm64; do
             dest="packages/csharp/LiterLlm/runtimes/${rid}/native"
             mkdir -p "$dest"
             find "ffi-artifacts/${rid}" -type f -print0 | xargs -0 -I{} cp {} "$dest/"
