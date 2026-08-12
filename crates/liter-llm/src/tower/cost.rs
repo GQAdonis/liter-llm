@@ -20,15 +20,89 @@
 //!     .service(LlmService::new(client));
 //! ```
 
+use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use futures_core::Stream;
 use tower::Layer;
 use tower::Service;
 
 use super::types::{LlmRequest, LlmResponse};
-use crate::client::BoxFuture;
+use crate::client::{BoxFuture, BoxStream};
 use crate::cost;
 use crate::error::{LiterLlmError, Result};
+use crate::types::{ChatCompletionChunk, Usage};
+
+/// Wrap a `ChatStream` response so that `on_complete` runs once, with the last
+/// [`Usage`] value observed across all chunks (`None` if the stream never
+/// carried usage), when the stream is exhausted.
+///
+/// # Why this closes the streaming-accounting gap
+///
+/// [`LlmResponse::usage`][super::types::LlmResponse::usage] always returns
+/// `None` for the `ChatStream` variant — usage is only known once the stream
+/// has been fully consumed (typically arriving on the final chunk, when the
+/// caller set `stream_options.include_usage`). Accounting layers that only
+/// inspect `resp.usage()` immediately after the inner service returns
+/// (budget enforcement, cost tracking, rate limiting) therefore silently
+/// skip every streamed request.
+///
+/// [`super::service::LlmService`] fully buffers `ChatStream` responses before
+/// returning them (see its module docs), so wrapping the already-buffered
+/// stream here adds no additional buffering — only a `poll_next` hook that
+/// watches for a `usage` field and fires `on_complete` when the stream ends.
+///
+/// `on_complete` runs synchronously inside `poll_next`; callers that need to
+/// perform async work (e.g. writing to a remote [`crate::tower::budget::BudgetLedger`])
+/// must spawn their own task rather than block here.
+pub(crate) fn observe_stream_usage<F>(
+    stream: BoxStream<'static, Result<ChatCompletionChunk>>,
+    on_complete: F,
+) -> BoxStream<'static, Result<ChatCompletionChunk>>
+where
+    F: FnOnce(Option<Usage>) + Send + 'static,
+{
+    Box::pin(UsageObservingStream {
+        inner: stream,
+        last_usage: None,
+        on_complete: Some(Box::new(on_complete)),
+    })
+}
+
+/// `Stream` adapter backing [`observe_stream_usage`].
+///
+/// All fields are `Unpin` (`BoxStream` is `Pin<Box<..>>`, which is always
+/// `Unpin`; `Option<Usage>` and `Option<Box<dyn FnOnce..>>` are both `Unpin`),
+/// so `poll_next` can use `self.get_mut()` without pin-projection machinery.
+struct UsageObservingStream {
+    inner: BoxStream<'static, Result<ChatCompletionChunk>>,
+    last_usage: Option<Usage>,
+    on_complete: Option<Box<dyn FnOnce(Option<Usage>) + Send>>,
+}
+
+impl Stream for UsageObservingStream {
+    type Item = Result<ChatCompletionChunk>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        match this.inner.as_mut().poll_next(cx) {
+            Poll::Ready(Some(Ok(chunk))) => {
+                if chunk.usage.is_some() {
+                    this.last_usage.clone_from(&chunk.usage);
+                }
+                Poll::Ready(Some(Ok(chunk)))
+            }
+            Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
+            Poll::Ready(None) => {
+                if let Some(cb) = this.on_complete.take() {
+                    cb(this.last_usage.take());
+                }
+                Poll::Ready(None)
+            }
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
 
 /// Tower [`Layer`] that records estimated USD cost on the current tracing span.
 ///
@@ -83,23 +157,46 @@ where
 
         Box::pin(async move {
             let resp = fut.await?;
-            record_cost(&model, &resp);
-            Ok(resp)
+            // ~keep Capture the span while still inside the caller's instrumented scope (e.g. TracingLayer's
+            // ~keep `gen_ai` span); the ChatStream branch below records onto this handle after that scope exits.
+            let span = tracing::Span::current();
+
+            match resp {
+                LlmResponse::ChatStream(stream) => {
+                    let model_for_completion = model.clone();
+                    let wrapped = observe_stream_usage(stream, move |usage| {
+                        record_cost_for_usage(model_for_completion.as_deref(), usage.as_ref(), &span);
+                    });
+                    Ok(LlmResponse::ChatStream(wrapped))
+                }
+                other => {
+                    record_cost(&model, &other, &span);
+                    Ok(other)
+                }
+            }
         })
     }
 }
 
-/// Extract usage from the response and record an estimated cost on the current
-/// tracing span as `gen_ai.usage.cost`.
-fn record_cost(model: &Option<String>, resp: &LlmResponse) {
+/// Extract usage from the response and record an estimated cost on `span` as
+/// `gen_ai.usage.cost`.
+fn record_cost(model: &Option<String>, resp: &LlmResponse, span: &tracing::Span) {
+    record_cost_for_usage(model.as_deref(), resp.usage(), span);
+}
+
+/// Compute and record an estimated cost from an already-extracted `(model,
+/// usage)` pair. Shared by the non-streaming path (`record_cost`, usage
+/// available immediately) and the `ChatStream` completion callback (usage
+/// only known once the stream has been fully consumed).
+fn record_cost_for_usage(model: Option<&str>, usage: Option<&Usage>, span: &tracing::Span) {
     let Some(model_name) = model else { return };
-    let Some(usage) = resp.usage() else { return };
+    let Some(usage) = usage else { return };
 
     let cached = usage.prompt_tokens_details.as_ref().map_or(0, |d| d.cached_tokens);
     if let Some(usd) =
         cost::completion_cost_with_cache(model_name, usage.prompt_tokens, cached, usage.completion_tokens)
     {
-        tracing::Span::current().record("gen_ai.usage.cost", usd);
+        span.record("gen_ai.usage.cost", usd);
     }
 }
 
@@ -396,5 +493,92 @@ mod tests {
             .await
             .expect_err("should propagate inner error");
         assert!(matches!(err, LiterLlmError::Timeout));
+    }
+
+    /// A stream that yields a fixed sequence of items then ends.
+    struct VecStream<T> {
+        items: std::collections::VecDeque<T>,
+    }
+
+    impl<T: Unpin> Stream for VecStream<T> {
+        type Item = T;
+        fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            Poll::Ready(self.items.pop_front())
+        }
+    }
+
+    fn chunk(usage: Option<Usage>) -> Result<ChatCompletionChunk> {
+        Ok(ChatCompletionChunk {
+            id: "chunk".into(),
+            object: "chat.completion.chunk".into(),
+            created: 0,
+            model: "gpt-4".into(),
+            choices: vec![],
+            usage,
+            system_fingerprint: None,
+            service_tier: None,
+        })
+    }
+
+    /// Regression for the "streaming bypasses accounting" bug: `LlmResponse::usage()`
+    /// always returns `None` for `ChatStream`, so any layer that only inspects the
+    /// immediate response silently skips every streamed request. `observe_stream_usage`
+    /// must still surface the usage carried on the final chunk to its completion callback.
+    #[tokio::test]
+    async fn observe_stream_usage_reports_usage_from_final_chunk() {
+        use futures_util::StreamExt as _;
+
+        let usage = Usage {
+            prompt_tokens: 100,
+            completion_tokens: 50,
+            total_tokens: 150,
+            prompt_tokens_details: None,
+        };
+
+        let inner: BoxStream<'static, Result<ChatCompletionChunk>> = Box::pin(VecStream {
+            items: std::collections::VecDeque::from([chunk(None), chunk(None), chunk(Some(usage.clone()))]),
+        });
+
+        let observed = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let observed_for_cb = std::sync::Arc::clone(&observed);
+        let mut wrapped = super::observe_stream_usage(inner, move |u| {
+            *observed_for_cb.lock().expect("test mutex must not be poisoned") = Some(u);
+        });
+
+        let mut yielded = 0;
+        while wrapped.next().await.is_some() {
+            yielded += 1;
+        }
+
+        assert_eq!(yielded, 3, "all chunks must still be yielded to the caller");
+        let recorded = observed.lock().expect("test mutex must not be poisoned").clone();
+        assert_eq!(
+            recorded,
+            Some(Some(usage)),
+            "on_complete must fire exactly once with the usage from the final chunk"
+        );
+    }
+
+    /// When no chunk carries usage, `on_complete` must still fire (exactly once)
+    /// with `None`, so callers can distinguish "stream observed, no usage reported"
+    /// from "callback never ran".
+    #[tokio::test]
+    async fn observe_stream_usage_reports_none_when_no_chunk_has_usage() {
+        use futures_util::StreamExt as _;
+
+        let inner: BoxStream<'static, Result<ChatCompletionChunk>> = Box::pin(VecStream {
+            items: std::collections::VecDeque::from([chunk(None), chunk(None)]),
+        });
+
+        let observed = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let observed_for_cb = std::sync::Arc::clone(&observed);
+        let mut wrapped = super::observe_stream_usage(inner, move |u| {
+            observed_for_cb.lock().expect("test mutex must not be poisoned").push(u);
+        });
+
+        while wrapped.next().await.is_some() {}
+
+        let recorded = observed.lock().expect("test mutex must not be poisoned").clone();
+        assert_eq!(recorded, vec![None], "on_complete must fire exactly once, with None");
     }
 }

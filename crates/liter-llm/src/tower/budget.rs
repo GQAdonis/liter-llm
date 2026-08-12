@@ -56,10 +56,12 @@ use std::time::{Duration, SystemTime};
 use dashmap::DashMap;
 use tower::{Layer, Service};
 
-use super::types::{LlmRequest, LlmResponse};
+use super::cost::observe_stream_usage;
+use super::types::{LlmRequest, LlmRequestKind, LlmResponse};
 use crate::client::BoxFuture;
 use crate::cost;
 use crate::error::{LiterLlmError, Result};
+use crate::types::Usage;
 
 /// The dimension along which a budget rejection was triggered.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -609,6 +611,225 @@ pub fn should_hedge<L: BudgetLedger>(
     true
 }
 
+/// Derive the OpenTelemetry GenAI `gen_ai.system` provider prefix from a
+/// model identifier (e.g. `"openai"` from `"openai/gpt-4o"`), matching the
+/// convention [`crate::tower::tracing::TracingService`] uses. Returns `""`
+/// when the model has no `<provider>/` prefix.
+pub(crate) fn provider_of(model: &str) -> &str {
+    model.split_once('/').map_or("", |(prefix, _)| prefix)
+}
+
+/// Extract the end-user identifier from a `Chat`/`ChatStream`/`Embed`
+/// request's `user` field.
+///
+/// Returns `None` for request kinds that carry no `user` field (image,
+/// audio, moderation, etc.) or when the field is unset.
+pub(crate) fn user_id_of(req: &LlmRequest) -> Option<&str> {
+    match &req.kind {
+        LlmRequestKind::Chat(r) | LlmRequestKind::ChatStream(r) => r.user.as_deref(),
+        LlmRequestKind::Embed(r) => r.user.as_deref(),
+        _ => None,
+    }
+}
+
+/// Tower [`Layer`] that enforces and records spend via a pluggable
+/// [`BudgetLedger`], adding per-tenant / per-user / per-API-key budget
+/// dimensions on top of what [`BudgetLayer`] provides.
+///
+/// # Why this layer exists
+///
+/// [`BudgetLedger`] (and its default [`InMemoryBudgetLedger`] implementation)
+/// is a fully-built, independently tested trait for multi-dimensional spend
+/// tracking — but nothing in the Tower stack ever constructed a `Service`
+/// around it: [`BudgetLayer`] only ever touches the simpler [`BudgetState`]
+/// atomic counters, which track just the global and per-model dimensions.
+/// `BudgetLedgerLayer` is the missing wiring. Compose it alongside (or
+/// instead of) [`BudgetLayer`] to get tenant/user-scoped enforcement and
+/// recording.
+///
+/// # Context extraction
+///
+/// - `model` / `provider` come from [`LlmRequest::model`] (`provider` is the
+///   `<provider>/` prefix, see [`provider_of`]).
+/// - `tenant_id` comes from [`LlmRequest::tenant_id`].
+/// - `user_id` comes from the `user` field on `Chat`/`ChatStream`/`Embed`
+///   requests (see [`user_id_of`]).
+/// - `api_key_id` is always `None` — [`LlmRequest`] does not currently carry
+///   an API-key identifier anywhere in its public surface. This dimension is
+///   therefore inert (never checked, never recorded) until a caller extends
+///   `LlmRequest` (or a wrapping layer) with one.
+///
+/// # Streaming
+///
+/// Like [`BudgetLayer`], the pre-flight check applies uniformly to every
+/// request kind. Post-response recording uses
+/// [`observe_stream_usage`][crate::tower::cost::observe_stream_usage] so
+/// `ChatStream` responses are recorded once the stream completes instead of
+/// being silently skipped — recording happens on a spawned task since
+/// [`BudgetLedger::record`] is async but the stream's completion callback is
+/// synchronous.
+#[cfg_attr(alef, alef(skip))]
+pub struct BudgetLedgerLayer<L: BudgetLedger> {
+    ledger: Arc<L>,
+    enforcement: Enforcement,
+}
+
+impl<L: BudgetLedger> BudgetLedgerLayer<L> {
+    /// Create a new layer backed by `ledger`.
+    #[must_use]
+    pub fn new(ledger: Arc<L>, enforcement: Enforcement) -> Self {
+        Self { ledger, enforcement }
+    }
+}
+
+impl<L: BudgetLedger, S> Layer<S> for BudgetLedgerLayer<L> {
+    type Service = BudgetLedgerService<L, S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        BudgetLedgerService {
+            inner,
+            ledger: Arc::clone(&self.ledger),
+            enforcement: self.enforcement,
+        }
+    }
+}
+
+/// Tower service produced by [`BudgetLedgerLayer`].
+#[cfg_attr(alef, alef(skip))]
+pub struct BudgetLedgerService<L: BudgetLedger, S> {
+    inner: S,
+    ledger: Arc<L>,
+    enforcement: Enforcement,
+}
+
+impl<L: BudgetLedger, S: Clone> Clone for BudgetLedgerService<L, S> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            ledger: Arc::clone(&self.ledger),
+            enforcement: self.enforcement,
+        }
+    }
+}
+
+impl<L, S> Service<LlmRequest> for BudgetLedgerService<L, S>
+where
+    L: BudgetLedger,
+    S: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = LlmResponse;
+    type Error = LiterLlmError;
+    type Future = BoxFuture<'static, Result<LlmResponse>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, req: LlmRequest) -> Self::Future {
+        let model = req.model().unwrap_or("unknown").to_owned();
+        let provider = provider_of(&model).to_owned();
+        let tenant_id = req.tenant_id().map(|t| t.as_ref().to_owned());
+        let user_id = user_id_of(&req).map(str::to_owned);
+        let ledger = Arc::clone(&self.ledger);
+        let enforcement = self.enforcement;
+
+        // ~keep The pre-flight check is async (ledger-backed), so it must run inside the returned future,
+        // ~keep before `inner.call(req)`. Consume the polled-ready instance and leave a fresh standby clone,
+        // ~keep matching the Tower contract other layers in this crate follow (e.g. CacheService, HedgeService).
+        let standby = self.inner.clone();
+        let mut inner = std::mem::replace(&mut self.inner, standby);
+
+        Box::pin(async move {
+            let check_ctx = CostCheckContext {
+                model: &model,
+                provider: &provider,
+                tenant_id: tenant_id.as_deref(),
+                user_id: user_id.as_deref(),
+                api_key_id: None,
+                timestamp: SystemTime::now(),
+            };
+
+            if enforcement == Enforcement::Hard
+                && let BudgetVerdict::Reject { reason, dimension } = ledger.check(&check_ctx).await
+            {
+                let model_field = match &dimension {
+                    BudgetDimension::Model(m) => Some(m.clone()),
+                    _ => None,
+                };
+                return Err(LiterLlmError::BudgetExceeded {
+                    message: reason,
+                    model: model_field,
+                });
+            }
+
+            let resp = inner.call(req).await?;
+
+            match resp {
+                LlmResponse::ChatStream(stream) => {
+                    let ledger_for_completion = Arc::clone(&ledger);
+                    let model_c = model.clone();
+                    let provider_c = provider.clone();
+                    let tenant_c = tenant_id.clone();
+                    let user_c = user_id.clone();
+                    let wrapped = observe_stream_usage(stream, move |usage| {
+                        let Some(usage) = usage else { return };
+                        let Some(usd) = cost::completion_cost(&model_c, usage.prompt_tokens, usage.completion_tokens)
+                        else {
+                            return;
+                        };
+                        // ~keep BudgetLedger::record is async but this callback runs synchronously inside
+                        // ~keep poll_next; spawn so recording never blocks the caller draining the stream.
+                        // ~keep Guard against "no current runtime" if the stream is drained outside Tokio (matches
+                        // ~keep the tokio::runtime::Handle::try_current() convention used by hooks.rs's CancellationGuard).
+                        let record = async move {
+                            let ctx = CostRecordContext {
+                                model: &model_c,
+                                provider: &provider_c,
+                                tenant_id: tenant_c.as_deref(),
+                                user_id: user_c.as_deref(),
+                                api_key_id: None,
+                                cost_usd: usd,
+                                tokens_in: usage.prompt_tokens,
+                                tokens_out: usage.completion_tokens,
+                                timestamp: SystemTime::now(),
+                            };
+                            ledger_for_completion.record(&ctx).await;
+                        };
+                        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                            handle.spawn(record);
+                        } else {
+                            tracing::warn!(
+                                "budget ledger: no Tokio runtime available to record streamed usage; spend was not recorded"
+                            );
+                        }
+                    });
+                    Ok(LlmResponse::ChatStream(wrapped))
+                }
+                other => {
+                    if let Some(usage) = other.usage()
+                        && let Some(usd) = cost::completion_cost(&model, usage.prompt_tokens, usage.completion_tokens)
+                    {
+                        let ctx = CostRecordContext {
+                            model: &model,
+                            provider: &provider,
+                            tenant_id: tenant_id.as_deref(),
+                            user_id: user_id.as_deref(),
+                            api_key_id: None,
+                            cost_usd: usd,
+                            tokens_in: usage.prompt_tokens,
+                            tokens_out: usage.completion_tokens,
+                            timestamp: SystemTime::now(),
+                        };
+                        ledger.record(&ctx).await;
+                    }
+                    Ok(other)
+                }
+            }
+        })
+    }
+}
+
 /// How budget limits are enforced.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Enforcement {
@@ -793,18 +1014,49 @@ where
         Box::pin(async move {
             let resp = fut.await?;
 
-            if let Some(usage) = resp.usage()
-                && let Some(usd) = cost::completion_cost(&model, usage.prompt_tokens, usage.completion_tokens)
-            {
-                state.record(&model, usd);
-
-                if config.enforcement == Enforcement::Soft {
-                    emit_soft_warnings(&config, &state, &model);
+            match resp {
+                // ~keep LlmResponse::usage() always returns None for ChatStream (usage isn't known until the
+                // ~keep stream completes), so recording must happen in the stream's completion callback instead.
+                LlmResponse::ChatStream(stream) => {
+                    let model_for_completion = model.clone();
+                    let state_for_completion = Arc::clone(&state);
+                    let config_for_completion = config.clone();
+                    let wrapped = observe_stream_usage(stream, move |usage| {
+                        record_usage(
+                            &config_for_completion,
+                            &state_for_completion,
+                            &model_for_completion,
+                            usage.as_ref(),
+                        );
+                    });
+                    Ok(LlmResponse::ChatStream(wrapped))
+                }
+                other => {
+                    record_usage(&config, &state, &model, other.usage());
+                    Ok(other)
                 }
             }
-
-            Ok(resp)
         })
+    }
+}
+
+/// Compute the cost of `usage` and record it against `state`, emitting soft
+/// enforcement warnings if configured. No-op when `usage` is `None` or the
+/// model has no pricing data.
+///
+/// Shared by the non-streaming response path (usage known immediately) and
+/// the `ChatStream` completion callback (usage only known once the stream is
+/// fully consumed).
+fn record_usage(config: &BudgetConfig, state: &BudgetState, model: &str, usage: Option<&Usage>) {
+    let Some(usage) = usage else { return };
+    let Some(usd) = cost::completion_cost(model, usage.prompt_tokens, usage.completion_tokens) else {
+        return;
+    };
+
+    state.record(model, usd);
+
+    if config.enforcement == Enforcement::Soft {
+        emit_soft_warnings(config, state, model);
     }
 }
 
@@ -1451,6 +1703,110 @@ mod tests {
         assert!(
             result,
             "hedging should be allowed when user spend + 2×cost is well below 90% of budget"
+        );
+    }
+
+    /// A minimal inner `Service` that returns a `ChatStream` response carrying
+    /// usage on its final chunk, so `BudgetService`'s streaming-accounting path
+    /// can be exercised without pulling in the full `LlmClient` mock surface.
+    #[derive(Clone)]
+    struct StreamingUsageService {
+        prompt_tokens: u64,
+        completion_tokens: u64,
+    }
+
+    fn usage_chunk(model: &str, usage: Option<Usage>) -> crate::types::ChatCompletionChunk {
+        crate::types::ChatCompletionChunk {
+            id: "chunk".into(),
+            object: "chat.completion.chunk".into(),
+            created: 0,
+            model: model.into(),
+            choices: vec![],
+            usage,
+            system_fingerprint: None,
+            service_tier: None,
+        }
+    }
+
+    struct ChunkStream(std::collections::VecDeque<crate::types::ChatCompletionChunk>);
+
+    impl futures_core::Stream for ChunkStream {
+        type Item = Result<crate::types::ChatCompletionChunk>;
+        fn poll_next(
+            mut self: std::pin::Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Option<Self::Item>> {
+            std::task::Poll::Ready(self.0.pop_front().map(Ok))
+        }
+    }
+
+    impl tower::Service<LlmRequest> for StreamingUsageService {
+        type Response = LlmResponse;
+        type Error = LiterLlmError;
+        type Future = BoxFuture<'static, Result<LlmResponse>>;
+
+        fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<()>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, req: LlmRequest) -> Self::Future {
+            let model = req.model().unwrap_or("gpt-4").to_owned();
+            let usage = Usage {
+                prompt_tokens: self.prompt_tokens,
+                completion_tokens: self.completion_tokens,
+                total_tokens: self.prompt_tokens + self.completion_tokens,
+                prompt_tokens_details: None,
+            };
+            Box::pin(async move {
+                let chunks =
+                    std::collections::VecDeque::from([usage_chunk(&model, None), usage_chunk(&model, Some(usage))]);
+                let stream: crate::client::BoxStream<'static, Result<crate::types::ChatCompletionChunk>> =
+                    Box::pin(ChunkStream(chunks));
+                Ok(LlmResponse::ChatStream(stream))
+            })
+        }
+    }
+
+    /// Regression for the "streaming bypasses budget accounting" bug:
+    /// `LlmResponse::usage()` always returns `None` for `ChatStream`, so a
+    /// naive post-response check (`resp.usage()`) never sees the tokens a
+    /// streamed call actually consumed, and `BudgetState` is never updated —
+    /// a caller could stream unlimited tokens through a budget-limited
+    /// endpoint at zero recorded cost.
+    #[tokio::test]
+    async fn budget_service_records_cost_for_streamed_response() {
+        use futures_util::StreamExt as _;
+
+        let state = Arc::new(BudgetState::new());
+        let config = BudgetConfig {
+            global_limit: Some(1000.0),
+            enforcement: Enforcement::Hard,
+            ..Default::default()
+        };
+        let layer = BudgetLayer::new(config, Arc::clone(&state));
+        let mut svc = layer.layer(StreamingUsageService {
+            prompt_tokens: 1000,
+            completion_tokens: 500,
+        });
+
+        let resp = svc
+            .call(LlmRequest::ChatStream(chat_req("gpt-4")))
+            .await
+            .expect("streamed call should succeed");
+        let LlmResponse::ChatStream(mut stream) = resp else {
+            panic!("expected a ChatStream response");
+        };
+
+        // Drain the stream fully so the completion callback (which records cost) fires.
+        while stream.next().await.is_some() {}
+
+        assert!(
+            state.global_spend() > 0.0,
+            "cost of a streamed response must be recorded in global spend"
+        );
+        assert!(
+            state.model_spend("gpt-4") > 0.0,
+            "cost of a streamed response must be recorded per-model"
         );
     }
 }

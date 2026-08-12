@@ -358,6 +358,81 @@ impl<I: Clone, S: IdempotencyStore> Clone for IdempotencyService<I, S> {
     }
 }
 
+/// RAII guard that releases an in-flight idempotency placeholder if the
+/// writer's future is dropped (cancelled) before it finalises the entry via
+/// `store_response` or `remove`.
+///
+/// # Why this exists
+///
+/// `try_insert` writes a placeholder entry (`response: None`) that blocks
+/// every other caller with the same key behind `IdempotencyInFlight` until
+/// either the writer finalises it or the full TTL (24h by default) elapses.
+/// Before this guard, a cancelled writer future — client disconnect, a
+/// request timeout, an aborted hedge loser (see
+/// [`crate::tower::hedge::HedgeService`]), or any other future drop — never
+/// reached the `store_response`/`remove` call, leaving the placeholder stuck
+/// for the full TTL. Every other caller with that key would receive
+/// `IdempotencyInFlight` for up to 24 hours even though no request was
+/// actually still running.
+///
+/// The guard is created immediately after this caller wins the insertion
+/// race and is disarmed only after the entry has actually been finalised
+/// (success, failure, or non-cacheable response), so it also cleans up a
+/// cancellation that happens mid-finalisation.
+struct IdempotencyInFlightGuard<S: IdempotencyStore> {
+    store: Arc<S>,
+    key: String,
+    disarmed: bool,
+}
+
+impl<S: IdempotencyStore> IdempotencyInFlightGuard<S> {
+    fn new(store: Arc<S>, key: String) -> Self {
+        Self {
+            store,
+            key,
+            disarmed: false,
+        }
+    }
+
+    /// Prevent the guard from removing the entry on drop.
+    ///
+    /// Call this only after the entry has been finalised (via
+    /// `store_response` or `remove`) so a genuine cancellation between
+    /// insertion and finalisation is still caught.
+    fn disarm(&mut self) {
+        self.disarmed = true;
+    }
+}
+
+impl<S: IdempotencyStore> Drop for IdempotencyInFlightGuard<S> {
+    fn drop(&mut self) {
+        if self.disarmed {
+            return;
+        }
+
+        let store = Arc::clone(&self.store);
+        let key = std::mem::take(&mut self.key);
+
+        // ~keep IdempotencyStore::remove is async; Drop is sync, so spawn a best-effort cleanup task —
+        // ~keep same tokio::runtime::Handle::try_current() convention as hooks.rs's CancellationGuard.
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                if let Err(e) = store.remove(&key).await {
+                    tracing::warn!(
+                        error = %e,
+                        "idempotency: failed to release in-flight entry after cancellation"
+                    );
+                }
+            });
+        } else {
+            tracing::warn!(
+                "idempotency: no Tokio runtime available to release in-flight entry after cancellation; \
+                 entry will remain blocked until its TTL expires"
+            );
+        }
+    }
+}
+
 impl<I, S> Service<LlmRequest> for IdempotencyService<I, S>
 where
     I: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Clone + Send + 'static,
@@ -420,6 +495,11 @@ where
                 return Err(LiterLlmError::IdempotencyInFlight { key: raw_key.clone() });
             }
 
+            // ~keep This caller is the writer from this point on; guard against the future being
+            // ~keep dropped (cancelled) before the entry below is finalised, so a stuck IdempotencyInFlight
+            // ~keep placeholder never survives past this call — see IdempotencyInFlightGuard's docs.
+            let mut guard = IdempotencyInFlightGuard::new(Arc::clone(&store), key.clone());
+
             let result = inner.call(request).await;
 
             match &result {
@@ -440,6 +520,7 @@ where
                     let _ = store.remove(&key).await;
                 }
             }
+            guard.disarm();
 
             result
         })
@@ -772,6 +853,102 @@ mod tests {
             call_count_b.load(Ordering::SeqCst),
             1,
             "inner NOT called on tenant B repeat"
+        );
+    }
+
+    /// Regression for "idempotency key stuck in-flight for 24h if the request
+    /// is cancelled": before `IdempotencyInFlightGuard` existed, aborting the
+    /// writer's future (client disconnect, timeout, hedge-loser cancellation,
+    /// ...) while it awaited `inner.call()` left the placeholder entry
+    /// (`response: None`) in the store. Every subsequent caller with the same
+    /// key would receive `IdempotencyInFlight` for the full TTL — 24h by
+    /// default — even though no request was actually still running.
+    ///
+    /// This test aborts the writer's task mid-flight, then polls a second
+    /// caller with the same key: it must eventually stop seeing
+    /// `IdempotencyInFlight` and succeed, proving the guard released the
+    /// placeholder instead of leaving it stuck for the TTL.
+    #[tokio::test]
+    async fn cancelled_writer_releases_in_flight_placeholder() {
+        use std::sync::atomic::AtomicUsize;
+
+        /// First call pends forever (to be aborted); every later call
+        /// succeeds immediately, so a released placeholder is observable
+        /// without the test itself hanging.
+        #[derive(Clone)]
+        struct PendingThenOkService {
+            call_count: Arc<AtomicUsize>,
+        }
+
+        impl tower::Service<LlmRequest> for PendingThenOkService {
+            type Response = LlmResponse;
+            type Error = LiterLlmError;
+            type Future = crate::client::BoxFuture<'static, crate::error::Result<LlmResponse>>;
+
+            fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> std::task::Poll<crate::error::Result<()>> {
+                std::task::Poll::Ready(Ok(()))
+            }
+
+            fn call(&mut self, _req: LlmRequest) -> Self::Future {
+                let attempt = self.call_count.fetch_add(1, Ordering::SeqCst);
+                Box::pin(async move {
+                    if attempt == 0 {
+                        std::future::pending::<()>().await;
+                        unreachable!("first attempt must be aborted before completing");
+                    }
+                    Ok(LlmResponse::Chat(crate::tower::tests_common::make_chat_response(
+                        "gpt-4",
+                    )))
+                })
+            }
+        }
+
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let inner_client = PendingThenOkService {
+            call_count: Arc::clone(&call_count),
+        };
+        let layer = IdempotencyLayer::with_ttl(InMemoryIdempotencyStore::new(), Duration::from_secs(24 * 60 * 60));
+        let svc = layer.layer(inner_client);
+
+        let mut svc_for_writer = svc.clone();
+        let handle = tokio::spawn(async move {
+            let _ = svc_for_writer.call(req_with_key("gpt-4", "cancel-key")).await;
+        });
+
+        // Wait until the writer has won try_insert and is parked inside inner.call().
+        for _ in 0..200 {
+            if call_count.load(Ordering::SeqCst) >= 1 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+        assert_eq!(
+            call_count.load(Ordering::SeqCst),
+            1,
+            "writer must have reached inner.call before it is aborted"
+        );
+
+        handle.abort();
+        let _ = handle.await;
+
+        let mut svc2 = svc;
+        let mut released = false;
+        for _ in 0..200 {
+            match svc2.call(req_with_key("gpt-4", "cancel-key")).await {
+                Err(LiterLlmError::IdempotencyInFlight { .. }) => {
+                    tokio::time::sleep(Duration::from_millis(2)).await;
+                }
+                Ok(_) => {
+                    released = true;
+                    break;
+                }
+                Err(other) => panic!("unexpected error while polling for release: {other:?}"),
+            }
+        }
+
+        assert!(
+            released,
+            "cancelled writer must release the in-flight placeholder, not block callers for the full TTL"
         );
     }
 }

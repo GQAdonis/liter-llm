@@ -28,6 +28,18 @@
 //!   `NegativeCacheLayer` has already decided whether to store the error.
 //! - **Upstream service**: the actual LLM provider.
 //!
+//! # `NegativeCacheLayer` and `CacheLayer` must share a key strategy
+//!
+//! Both layers read and write the same [`CacheStore`], so they must derive
+//! identical `(u64, String)` keys for the same request — otherwise an error
+//! written by `NegativeCacheLayer` lands in a key space `CacheLayer` never
+//! looks up, making the negative-cache entry permanently unreachable. The
+//! default constructors on both layers agree (both default to
+//! [`ExactHashStrategy`]); if you call
+//! [`CacheLayer::with_key_strategy`], pass the *same* strategy instance (via
+//! [`CacheLayer::key_strategy`]) into
+//! [`crate::tower::cache_negative::NegativeCacheLayer::with_key_strategy`].
+//!
 //! Using `ServiceBuilder`:
 //!
 //! ```rust,ignore
@@ -49,7 +61,6 @@
 use std::cell::Cell;
 use std::collections::{HashMap, VecDeque};
 use std::future::Future;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::pin::Pin;
 use std::sync::{Arc, OnceLock, RwLock};
 use std::task::{Context, Poll};
@@ -469,16 +480,22 @@ impl CacheStore for InMemoryStore {
     fn get(&self, key: u64, request_body: &str) -> Pin<Box<dyn Future<Output = Option<CachedResponse>> + Send + '_>> {
         // ~keep Perform synchronous cache read/expiry/hit-count work under one write lock to avoid TOCTOU.
         // ~keep Sharded locks are the upgrade path if this single-lock path becomes contentious.
-        let hit = self.inner.write().ok().and_then(|mut cache| {
-            // ~keep Check validity first; `get_if_valid` handles expiry inline.
-            let hit = cache.get_if_valid(key, request_body);
-            if hit.is_none() {
-                cache.remove_expired(key);
-            } else {
-                cache.record_hit(key);
+        let hit = match self.inner.write() {
+            Ok(mut cache) => {
+                // ~keep Check validity first; `get_if_valid` handles expiry inline.
+                let hit = cache.get_if_valid(key, request_body);
+                if hit.is_none() {
+                    cache.remove_expired(key);
+                } else {
+                    cache.record_hit(key);
+                }
+                hit
             }
-            hit
-        });
+            Err(_) => {
+                warn_lock_poisoned("get");
+                None
+            }
+        };
         Box::pin(std::future::ready(hit))
     }
 
@@ -488,49 +505,73 @@ impl CacheStore for InMemoryStore {
         request_body: String,
         response: CachedResponse,
     ) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        if let Ok(mut cache) = self.inner.write() {
-            cache.insert(key, request_body, response);
+        match self.inner.write() {
+            Ok(mut cache) => cache.insert(key, request_body, response),
+            Err(_) => warn_lock_poisoned("put"),
         }
         Box::pin(std::future::ready(()))
     }
 
     fn remove(&self, key: u64) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        if let Ok(mut cache) = self.inner.write() {
-            cache.map.remove(&key);
+        match self.inner.write() {
+            Ok(mut cache) => {
+                cache.map.remove(&key);
+            }
+            Err(_) => warn_lock_poisoned("remove"),
         }
         Box::pin(std::future::ready(()))
     }
 
     fn set_ttl(&self, key: u64, ttl: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        if let Ok(mut cache) = self.inner.write()
-            && let Some(entry) = cache.map.get_mut(&key)
-        {
-            entry.ttl_override = Some(ttl);
+        match self.inner.write() {
+            Ok(mut cache) => {
+                if let Some(entry) = cache.map.get_mut(&key) {
+                    entry.ttl_override = Some(ttl);
+                }
+            }
+            Err(_) => warn_lock_poisoned("set_ttl"),
         }
         Box::pin(std::future::ready(()))
     }
 
     fn iter_keys(&self) -> Pin<Box<dyn Future<Output = Vec<u64>> + Send + '_>> {
-        let keys = self
-            .inner
-            .read()
-            .map(|cache| cache.map.keys().copied().collect())
-            .unwrap_or_default();
+        let keys = match self.inner.read() {
+            Ok(cache) => cache.map.keys().copied().collect(),
+            Err(_) => {
+                warn_lock_poisoned("iter_keys");
+                Vec::new()
+            }
+        };
         Box::pin(std::future::ready(keys))
     }
 
     fn metadata(&self, key: u64) -> Pin<Box<dyn Future<Output = Option<CacheMetadata>> + Send + '_>> {
-        let result = self.inner.read().ok().and_then(|cache| {
-            let entry = cache.map.get(&key)?;
-            Some(CacheMetadata {
+        let result = match self.inner.read() {
+            Ok(cache) => cache.map.get(&key).map(|entry| CacheMetadata {
                 inserted_at: entry.inserted_at,
                 ttl: cache.effective_ttl(entry),
                 size_bytes: entry.size_bytes,
                 hit_count: entry.hit_count,
-            })
-        });
+            }),
+            Err(_) => {
+                warn_lock_poisoned("metadata");
+                None
+            }
+        };
         Box::pin(std::future::ready(result))
     }
+}
+
+/// Log a poisoned in-memory cache lock instead of silently treating every
+/// subsequent operation as a cache miss / no-op.
+///
+/// A poisoned `RwLock` means a previous holder panicked while mutating the
+/// cache; the data structure itself is still intact (`std::sync::RwLock`
+/// does not discard state on poisoning), so falling back to "miss" is safe,
+/// but doing so silently makes a degraded cache indistinguishable from a
+/// merely cold one. Emitting a `WARN` here lets operators notice and act.
+fn warn_lock_poisoned(op: &'static str) {
+    tracing::warn!(operation = op, "in-memory cache lock poisoned; treating as no-op/miss");
 }
 
 /// Tower [`Layer`] that caches non-streaming LLM responses.
@@ -584,6 +625,18 @@ impl CacheLayer {
     pub fn with_key_strategy(mut self, strategy: Arc<dyn CacheKeyStrategy>) -> Self {
         self.key_strategy = strategy;
         self
+    }
+
+    /// Return the configured [`CacheKeyStrategy`].
+    ///
+    /// Use this to wire the identical strategy into
+    /// [`crate::tower::cache_negative::NegativeCacheLayer::with_key_strategy`]
+    /// when customizing key derivation — both layers must agree on key
+    /// derivation for negative-cache entries to be visible to this layer's
+    /// read path.
+    #[must_use]
+    pub fn key_strategy(&self) -> Arc<dyn CacheKeyStrategy> {
+        Arc::clone(&self.key_strategy)
     }
 
     /// Set a custom [`CachePolicy`].
@@ -664,27 +717,6 @@ impl<S> CacheService<S> {
     }
 }
 
-/// Compute a cache key and serialized body from the request using the
-/// [`ExactHashStrategy`] (legacy path, kept for `NegativeCacheLayer` compat).
-///
-/// Only `Chat` and `Embed` requests are cacheable.  Returns `None` for all
-/// other request variants (streaming, `ListModels`, image, audio, etc.).
-///
-/// The returned tuple contains the 64-bit hash key and the serialized request
-/// body.  The body is stored alongside the cached response so lookups can
-/// verify against hash collisions.
-pub(crate) fn cache_key(req: &LlmRequest) -> Option<(u64, String)> {
-    let json = match &req.kind {
-        LlmRequestKind::Chat(r) => serde_json::to_string(r).ok()?,
-        LlmRequestKind::Embed(r) => serde_json::to_string(r).ok()?,
-        _ => return None,
-    };
-
-    let mut hasher = DefaultHasher::new();
-    json.hash(&mut hasher);
-    Some((hasher.finish(), json))
-}
-
 /// Derive a [`CacheKeyInput`] from an [`LlmRequest`] suitable for the
 /// configured [`CacheKeyStrategy`].
 ///
@@ -702,7 +734,26 @@ pub(crate) fn cache_key(req: &LlmRequest) -> Option<(u64, String)> {
 /// and [`TenantScopedStrategy`][crate::cache_key::TenantScopedStrategy]
 /// produce isolation keys correctly; previously both fields were hard-coded to
 /// `None`, which meant tenant A's response could be served to tenant B.
-fn strategy_key(strategy: &dyn CacheKeyStrategy, req: &LlmRequest) -> Option<(u64, String)> {
+///
+/// # Field coverage (must stay in sync with [`crate::types::ChatCompletionRequest`])
+///
+/// `params_json` must include every request field that changes the semantics
+/// of the response, or two requests that the caller considers different will
+/// collide on the same cache entry and one tenant's request could return
+/// another's response.  `tools`, `response_format`, and `seed` were
+/// previously omitted here; a request with `tools` attached could receive a
+/// cached response generated without any tools available. `stream` and
+/// `stream_options` are intentionally omitted for `Chat` — this function is
+/// only reached for the non-streaming `LlmRequestKind::Chat` variant, so those
+/// fields do not affect the cached payload.
+///
+/// This is `pub(crate)` (not private) so that
+/// [`crate::tower::cache_negative::NegativeCacheService`] can derive the exact
+/// same key when writing negative-cache entries; the two services MUST agree
+/// on key derivation or an error cached by the negative-cache layer becomes
+/// permanently unreadable by the success-path reader (a different hash space
+/// is equivalent to a different, disjoint cache).
+pub(crate) fn strategy_key(strategy: &dyn CacheKeyStrategy, req: &LlmRequest) -> Option<(u64, String)> {
     let req_tenant = req.tenant_id().map(|t| t.as_ref().to_owned());
     let (model, messages_json, params_json, tenant_id, system_prompt) = match &req.kind {
         LlmRequestKind::Chat(r) => {
@@ -713,6 +764,17 @@ fn strategy_key(strategy: &dyn CacheKeyStrategy, req: &LlmRequest) -> Option<(u6
                 "max_tokens": r.max_tokens,
                 "n": r.n,
                 "stop": r.stop,
+                "presence_penalty": r.presence_penalty,
+                "frequency_penalty": r.frequency_penalty,
+                "logit_bias": r.logit_bias,
+                "tools": r.tools,
+                "tool_choice": r.tool_choice,
+                "parallel_tool_calls": r.parallel_tool_calls,
+                "response_format": r.response_format,
+                "seed": r.seed,
+                "reasoning_effort": r.reasoning_effort,
+                "modalities": r.modalities,
+                "extra_body": r.extra_body,
             });
             let tenant_id: Option<String> = req_tenant.or_else(|| {
                 r.user
@@ -1492,5 +1554,52 @@ mod tests {
         for _ in 0..1000 {
             let _ = svc.call(LlmRequest::Chat(chat_req("gpt-4"))).await;
         }
+    }
+
+    /// Bug fix regression: `strategy_key` must fold `tools`, `response_format`,
+    /// and `seed` into the cache key. Before the fix, `params_json` only
+    /// covered `temperature`/`top_p`/`max_tokens`/`n`/`stop`, so two requests
+    /// that differ only in tools, response format, or seed produced the SAME
+    /// cache key and one caller could receive another's response — the
+    /// wrong-tools case is a correctness *and* security issue (a response
+    /// generated with a different tool surface, served to a caller who
+    /// expected its own tools to be honoured).
+    #[tokio::test]
+    async fn cache_key_differs_when_tools_response_format_or_seed_differ() {
+        use crate::types::{ChatCompletionTool, FunctionDefinition, ResponseFormat, ToolType};
+
+        let strategy = ExactHashStrategy;
+
+        let base = chat_req("gpt-4");
+
+        let mut with_tools = base.clone();
+        with_tools.tools = Some(vec![ChatCompletionTool {
+            tool_type: ToolType::Function,
+            function: FunctionDefinition {
+                name: "get_weather".into(),
+                description: None,
+                parameters: None,
+                strict: None,
+            },
+        }]);
+
+        let mut with_response_format = base.clone();
+        with_response_format.response_format = Some(ResponseFormat::JsonObject);
+
+        let mut with_seed = base.clone();
+        with_seed.seed = Some(42);
+
+        let base_key = strategy_key(&strategy, &LlmRequest::Chat(base)).expect("base request is cacheable");
+        let tools_key = strategy_key(&strategy, &LlmRequest::Chat(with_tools)).expect("tools request is cacheable");
+        let format_key = strategy_key(&strategy, &LlmRequest::Chat(with_response_format))
+            .expect("response_format request is cacheable");
+        let seed_key = strategy_key(&strategy, &LlmRequest::Chat(with_seed)).expect("seed request is cacheable");
+
+        assert_ne!(base_key.0, tools_key.0, "adding `tools` must change the cache key");
+        assert_ne!(
+            base_key.0, format_key.0,
+            "changing `response_format` must change the cache key"
+        );
+        assert_ne!(base_key.0, seed_key.0, "changing `seed` must change the cache key");
     }
 }

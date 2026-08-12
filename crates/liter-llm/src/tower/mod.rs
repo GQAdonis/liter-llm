@@ -115,9 +115,9 @@ pub use crate::vectorstore::OpenDalVectorStore;
 pub use crate::vectorstore::{InMemoryVectorStore, VectorMatch, VectorMetadata, VectorStore};
 
 pub use budget::{
-    BudgetConfig, BudgetDimension, BudgetLayer, BudgetLedger, BudgetService, BudgetSnapshot, BudgetState,
-    BudgetVerdict, CostCheckContext, CostRecordContext, DimensionLimits, Enforcement, InMemoryBudgetLedger,
-    should_hedge,
+    BudgetConfig, BudgetDimension, BudgetLayer, BudgetLedger, BudgetLedgerLayer, BudgetLedgerService, BudgetService,
+    BudgetSnapshot, BudgetState, BudgetVerdict, CostCheckContext, CostRecordContext, DimensionLimits, Enforcement,
+    InMemoryBudgetLedger, should_hedge,
 };
 pub use cache::{
     CacheBackend, CacheConfig, CacheLayer, CacheMetadata, CacheService, CacheStore, CachedResponse, InMemoryStore,
@@ -140,7 +140,7 @@ pub use health::{
     HealthCheckConfig, HealthCheckLayer, HealthCheckService, HealthChecker, HealthStatus, HttpProbeHealthChecker,
     PerProviderHealthCheck,
 };
-pub use hedge::{FixedDelayHedge, HedgeLayer, HedgePolicy, HedgeService};
+pub use hedge::{BudgetAwareHedge, FixedDelayHedge, HedgeLayer, HedgePolicy, HedgeService};
 pub use hooks::{HooksLayer, HooksService, LlmHook};
 /// `IdempotencyStoreError` is accessible via the `tower` module.
 ///

@@ -29,10 +29,11 @@
 
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use tower::{Layer, Service};
 
+use super::budget::{BudgetLedger, CostCheckContext, provider_of, should_hedge, user_id_of};
 use super::types::{LlmRequest, LlmResponse};
 use crate::client::BoxFuture;
 use crate::error::{LiterLlmError, Result};
@@ -57,6 +58,23 @@ pub trait HedgePolicy: Send + Sync + 'static {
     /// Must be ≥ 1.  Values above 3 are rarely useful and increase provider
     /// costs significantly.
     fn max_attempts(&self) -> u32;
+
+    /// Return `false` to suppress launching any *additional* (attempt ≥ 2)
+    /// hedge for `req`.
+    ///
+    /// `max_attempts`/`delay_for_attempt` bound the number of concurrent
+    /// copies structurally, but neither is aware of spend: a policy that
+    /// allows, say, 3 attempts will always fire all 3 (each one a full
+    /// billed upstream call) regardless of how close the caller already is
+    /// to a budget limit. Override this hook — or wrap the policy in
+    /// [`BudgetAwareHedge`] — to consult a [`crate::tower::budget::BudgetLedger`]
+    /// (or any other signal) before every extra attempt.
+    ///
+    /// Default implementation always returns `true` (no budget awareness),
+    /// preserving prior behaviour for existing [`HedgePolicy`] implementations.
+    fn allow_hedge(&self, _req: &LlmRequest) -> bool {
+        true
+    }
 }
 
 /// A simple [`HedgePolicy`] that fires hedges at fixed intervals.
@@ -104,6 +122,86 @@ impl HedgePolicy for FixedDelayHedge {
 
     fn max_attempts(&self) -> u32 {
         self.max_attempts
+    }
+}
+
+/// Wraps any [`HedgePolicy`] with a per-request budget-headroom check, so that
+/// hedge attempts (each one a full, separately-billed upstream call) are
+/// suppressed once firing another would risk pushing spend over a configured
+/// [`crate::tower::budget::BudgetLedger`] limit.
+///
+/// # Why this exists
+///
+/// [`crate::tower::budget::should_hedge`] is a fully-built, independently
+/// tested helper for exactly this purpose, but nothing in the hedge path
+/// ever called it — `HedgeService` fires every attempt the wrapped policy's
+/// `max_attempts`/`delay_for_attempt` schedule regardless of remaining
+/// budget headroom. `BudgetAwareHedge` is the missing wiring: it delegates
+/// `delay_for_attempt`/`max_attempts` to the inner policy unchanged, and
+/// implements [`HedgePolicy::allow_hedge`] via `should_hedge`.
+///
+/// # Context extraction
+///
+/// Uses the same conventions as [`crate::tower::budget::BudgetLedgerLayer`]:
+/// `provider` is the `<provider>/` prefix of the model name, `tenant_id`
+/// comes from [`LlmRequest::tenant_id`], `user_id` comes from the `user`
+/// field on `Chat`/`ChatStream`/`Embed` requests, and `api_key_id` is always
+/// `None` (no source field exists on [`LlmRequest`] yet).
+#[cfg_attr(alef, alef(skip))]
+pub struct BudgetAwareHedge<P, L: BudgetLedger> {
+    inner: P,
+    ledger: Arc<L>,
+    /// Estimated cost in USD of **one** copy of the hedged request.
+    /// `should_hedge` doubles this to account for the speculative duplicate.
+    estimated_cost_usd: f64,
+    /// Fraction of each limit to reserve before suppressing hedges (see
+    /// [`crate::tower::budget::should_hedge`]).
+    safety_margin_pct: f64,
+}
+
+impl<P: HedgePolicy, L: BudgetLedger> BudgetAwareHedge<P, L> {
+    /// Wrap `inner` with a budget-headroom check backed by `ledger`.
+    #[must_use]
+    pub fn new(inner: P, ledger: Arc<L>, estimated_cost_usd: f64, safety_margin_pct: f64) -> Self {
+        Self {
+            inner,
+            ledger,
+            estimated_cost_usd,
+            safety_margin_pct,
+        }
+    }
+}
+
+impl<P: HedgePolicy, L: BudgetLedger> HedgePolicy for BudgetAwareHedge<P, L> {
+    fn delay_for_attempt(&self, attempt: u32, latency_so_far: Duration) -> Option<Duration> {
+        self.inner.delay_for_attempt(attempt, latency_so_far)
+    }
+
+    fn max_attempts(&self) -> u32 {
+        self.inner.max_attempts()
+    }
+
+    fn allow_hedge(&self, req: &LlmRequest) -> bool {
+        if !self.inner.allow_hedge(req) {
+            return false;
+        }
+
+        let model = req.model().unwrap_or("");
+        let provider = provider_of(model);
+        let ctx = CostCheckContext {
+            model,
+            provider,
+            tenant_id: req.tenant_id().map(|t| t.as_ref()),
+            user_id: user_id_of(req),
+            api_key_id: None,
+            timestamp: SystemTime::now(),
+        };
+        should_hedge(
+            self.ledger.as_ref(),
+            &ctx,
+            self.estimated_cost_usd,
+            self.safety_margin_pct,
+        )
     }
 }
 
@@ -231,6 +329,13 @@ where
 
     // ~keep Later hedge attempts must call ready() so concurrency and buffer permits are respected.
     for attempt in 2..=max_attempts {
+        // ~keep Budget-aware policies (e.g. BudgetAwareHedge) veto further attempts once headroom runs out;
+        // ~keep break rather than continue — headroom does not typically recover mid-request.
+        if !policy.allow_hedge(&req) {
+            tracing::debug!(attempt, "hedge suppressed: policy vetoed additional attempt");
+            break;
+        }
+
         let latency_so_far = dispatch_time.elapsed();
         let Some(hedge_delay) = policy.delay_for_attempt(attempt, latency_so_far) else {
             break;
@@ -619,6 +724,102 @@ mod tests {
             0,
             "loser future must be dropped after winner returns; {} still alive",
             live.load(Ordering::SeqCst)
+        );
+    }
+
+    /// A policy whose `allow_hedge` can be toggled at runtime, used to prove
+    /// `hedge_race` actually consults the hook rather than always hedging.
+    struct ToggleableHedge {
+        inner: FixedDelayHedge,
+        allowed: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl HedgePolicy for ToggleableHedge {
+        fn delay_for_attempt(&self, attempt: u32, latency_so_far: Duration) -> Option<Duration> {
+            self.inner.delay_for_attempt(attempt, latency_so_far)
+        }
+        fn max_attempts(&self) -> u32 {
+            self.inner.max_attempts()
+        }
+        fn allow_hedge(&self, _req: &LlmRequest) -> bool {
+            self.allowed.load(Ordering::SeqCst)
+        }
+    }
+
+    /// Regression for "hedging is unbounded": before `allow_hedge` existed,
+    /// `HedgeService` fired every attempt the policy's `max_attempts` allowed
+    /// regardless of any cost/budget signal. A policy that vetoes hedging via
+    /// `allow_hedge` must suppress the extra attempt — only the primary call
+    /// (attempt 1, which does not go through `allow_hedge`) should reach the
+    /// inner service.
+    #[tokio::test]
+    async fn allow_hedge_false_suppresses_additional_attempts() {
+        let policy = Arc::new(ToggleableHedge {
+            inner: FixedDelayHedge::new(Duration::ZERO, 3),
+            allowed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        });
+        let mock = MockClient::ok();
+        let call_count = Arc::clone(&mock.call_count);
+        let inner = LlmService::new(mock);
+        let mut svc = HedgeLayer::new(policy).layer(inner);
+
+        svc.call(LlmRequest::Chat(chat_req("openai/gpt-4")))
+            .await
+            .expect("should succeed");
+
+        assert_eq!(
+            call_count.load(Ordering::SeqCst),
+            1,
+            "allow_hedge=false must suppress every attempt beyond the primary, even with max_attempts=3"
+        );
+    }
+
+    /// `BudgetAwareHedge::allow_hedge` must suppress hedging once the wrapped
+    /// `should_hedge` reports insufficient headroom, and allow it when headroom
+    /// is ample — proving `should_hedge` (previously dead code, never called
+    /// from anywhere in the hedge path) is now actually wired in.
+    #[tokio::test]
+    async fn budget_aware_hedge_suppresses_when_ledger_is_near_limit() {
+        use crate::tower::budget::{CostRecordContext, DimensionLimits, InMemoryBudgetLedger};
+
+        let mut limits = DimensionLimits::default();
+        limits.per_user.insert("alice".to_owned(), 10.0);
+        let ledger = Arc::new(InMemoryBudgetLedger::new(limits, Duration::from_secs(3600)));
+
+        // Spend $9.50 of the $10.00 user budget up front.
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                cost_usd: 9.50,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: std::time::SystemTime::now(),
+            })
+            .await;
+
+        let near_limit_policy =
+            BudgetAwareHedge::new(FixedDelayHedge::new(Duration::ZERO, 2), Arc::clone(&ledger), 0.50, 0.10);
+
+        let mut req = chat_req("gpt-4");
+        req.user = Some("alice".into());
+        let llm_req = LlmRequest::Chat(req);
+
+        assert!(
+            !near_limit_policy.allow_hedge(&llm_req),
+            "hedging must be suppressed once spend + 2x estimated cost would exceed 90% of the user budget"
+        );
+
+        let far_from_limit_policy = BudgetAwareHedge::new(FixedDelayHedge::new(Duration::ZERO, 2), ledger, 0.01, 0.10);
+        let mut req2 = chat_req("gpt-4");
+        req2.user = Some("bob".into());
+        let llm_req2 = LlmRequest::Chat(req2);
+        assert!(
+            far_from_limit_policy.allow_hedge(&llm_req2),
+            "a user with no recorded spend and a tiny estimated cost must be allowed to hedge"
         );
     }
 }

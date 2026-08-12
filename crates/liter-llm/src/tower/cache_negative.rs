@@ -49,8 +49,9 @@ use std::time::{Duration, Instant};
 
 use tower::{Layer, Service};
 
-use super::cache::{CacheStore, CachedResponse, InMemoryStore, cache_key};
+use super::cache::{CacheStore, CachedResponse, InMemoryStore, strategy_key};
 use super::types::{LlmRequest, LlmResponse};
+use crate::cache_key::{CacheKeyStrategy, ExactHashStrategy};
 use crate::client::BoxFuture;
 use crate::error::{LiterLlmError, Result};
 
@@ -154,6 +155,8 @@ impl NegativeCachePolicy for FixedWindowNegativeCache {
 pub struct NegativeCacheLayer<P: NegativeCachePolicy = FixedWindowNegativeCache> {
     store: Arc<dyn CacheStore>,
     policy: Arc<P>,
+    // ~keep Must match the CacheKeyStrategy CacheLayer uses, or entries land in a key space CacheLayer never reads.
+    key_strategy: Arc<dyn CacheKeyStrategy>,
 }
 
 impl NegativeCacheLayer<FixedWindowNegativeCache> {
@@ -165,6 +168,7 @@ impl NegativeCacheLayer<FixedWindowNegativeCache> {
         Self {
             store: Arc::new(InMemoryStore::new(&CacheConfig::default())),
             policy: Arc::new(FixedWindowNegativeCache::default()),
+            key_strategy: Arc::new(ExactHashStrategy),
         }
     }
 }
@@ -177,9 +181,32 @@ impl Default for NegativeCacheLayer<FixedWindowNegativeCache> {
 
 impl<P: NegativeCachePolicy> NegativeCacheLayer<P> {
     /// Create a new layer with a custom store and policy.
+    ///
+    /// Key derivation defaults to [`ExactHashStrategy`] — the same default
+    /// [`crate::tower::cache::CacheLayer::new`] uses. If the paired
+    /// `CacheLayer` is customized via `with_key_strategy`, call
+    /// [`Self::with_key_strategy`] with the *same* strategy instance so both
+    /// layers agree on key derivation (see the [module-level
+    /// docs][crate::tower::cache] "must share a key strategy" section).
     #[must_use]
     pub fn new(store: Arc<dyn CacheStore>, policy: Arc<P>) -> Self {
-        Self { store, policy }
+        Self {
+            store,
+            policy,
+            key_strategy: Arc::new(ExactHashStrategy),
+        }
+    }
+
+    /// Set a custom [`CacheKeyStrategy`].
+    ///
+    /// Must be the same strategy (or an equivalent one) passed to the paired
+    /// [`crate::tower::cache::CacheLayer::with_key_strategy`] — see
+    /// [`crate::tower::cache::CacheLayer::key_strategy`] for the recommended
+    /// way to share a single instance between both layers.
+    #[must_use]
+    pub fn with_key_strategy(mut self, strategy: Arc<dyn CacheKeyStrategy>) -> Self {
+        self.key_strategy = strategy;
+        self
     }
 }
 
@@ -190,6 +217,7 @@ impl<P: NegativeCachePolicy, S> Layer<S> for NegativeCacheLayer<P> {
         NegativeCacheService {
             store: Arc::clone(&self.store),
             policy: Arc::clone(&self.policy),
+            key_strategy: Arc::clone(&self.key_strategy),
             inner,
         }
     }
@@ -200,6 +228,7 @@ impl<P: NegativeCachePolicy, S> Layer<S> for NegativeCacheLayer<P> {
 pub struct NegativeCacheService<P: NegativeCachePolicy, S> {
     store: Arc<dyn CacheStore>,
     policy: Arc<P>,
+    key_strategy: Arc<dyn CacheKeyStrategy>,
     inner: S,
 }
 
@@ -208,6 +237,7 @@ impl<P: NegativeCachePolicy, S: Clone> Clone for NegativeCacheService<P, S> {
         Self {
             store: Arc::clone(&self.store),
             policy: Arc::clone(&self.policy),
+            key_strategy: Arc::clone(&self.key_strategy),
             inner: self.inner.clone(),
         }
     }
@@ -228,7 +258,8 @@ where
     }
 
     fn call(&mut self, req: LlmRequest) -> Self::Future {
-        let key_and_body = cache_key(&req);
+        // ~keep Must derive the identical key CacheService reads with, or this entry is never seen (see cache.rs module docs).
+        let key_and_body = strategy_key(self.key_strategy.as_ref(), &req);
         let store = Arc::clone(&self.store);
         let policy = Arc::clone(&self.policy);
         let fut = self.inner.call(req);
@@ -303,11 +334,9 @@ mod tests {
         let hit = store.get(0, "").await;
         assert!(hit.is_none(), "non-transient error must not be cached");
 
-        let body = serde_json::to_string(&chat_req("gpt-4")).unwrap();
-        use std::hash::{DefaultHasher, Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        body.hash(&mut hasher);
-        let key = hasher.finish();
+        // ~keep Must match the key CacheLayer/NegativeCacheLayer's default ExactHashStrategy actually writes.
+        let (key, body) =
+            strategy_key(&ExactHashStrategy, &LlmRequest::Chat(chat_req("gpt-4"))).expect("chat request is cacheable");
         let hit = store.get(key, &body).await;
         assert!(hit.is_none(), "non-transient error must not be stored");
     }
@@ -329,11 +358,9 @@ mod tests {
             .await;
         assert!(first.is_err(), "first call should propagate the upstream error");
 
-        let serialized = serde_json::to_string(&req_body).unwrap();
-        use std::hash::{DefaultHasher, Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        serialized.hash(&mut hasher);
-        let key = hasher.finish();
+        // ~keep Must match the key CacheLayer/NegativeCacheLayer's default ExactHashStrategy actually writes.
+        let (key, serialized) =
+            strategy_key(&ExactHashStrategy, &LlmRequest::Chat(req_body.clone())).expect("chat request is cacheable");
 
         let cached = store.get(key, &serialized).await;
         assert!(cached.is_some(), "RateLimited error must be written to store");
@@ -371,6 +398,50 @@ mod tests {
             call_count.load(std::sync::atomic::Ordering::SeqCst),
             2,
             "after negative-cache window, inner must be called again"
+        );
+    }
+
+    /// Full round-trip regression for the "dead negative cache" bug: an error
+    /// written by `NegativeCacheService` must be visible to `CacheService`'s
+    /// read path on the very next call, short-circuiting upstream.
+    ///
+    /// Before the fix, `NegativeCacheService` wrote using the legacy
+    /// `cache::cache_key` (`DefaultHasher` over the full serialized request),
+    /// while `CacheService` read using `strategy_key`/`ExactHashStrategy`
+    /// (a seeded `ahash` over a curated `model|messages|params|tenant|system`
+    /// string). The two hash spaces never agreed, so every write from
+    /// `NegativeCacheService` was invisible to `CacheService` and every
+    /// repeat call re-hit the (still-failing) upstream — the negative cache
+    /// layer was dead code that always incurred the two lookups without ever
+    /// paying off.
+    #[tokio::test]
+    async fn negative_cache_round_trip_short_circuits_upstream_before_window_elapses() {
+        let client = MockClient::failing_rate_limited();
+        let call_count = Arc::clone(&client.call_count);
+        let policy = FixedWindowNegativeCache::new(Duration::from_secs(30), true);
+        let (_, mut svc) = build_stack(client, policy);
+
+        let req_body = chat_req("gpt-4");
+
+        let first = svc
+            .ready()
+            .await
+            .unwrap()
+            .call(LlmRequest::Chat(req_body.clone()))
+            .await;
+        assert!(first.is_err(), "first call propagates the upstream error");
+        assert_eq!(call_count.load(std::sync::atomic::Ordering::SeqCst), 1);
+
+        let second = svc.ready().await.unwrap().call(LlmRequest::Chat(req_body)).await;
+        assert!(
+            second.is_err(),
+            "second call must also return an error (served from negative cache)"
+        );
+        assert_eq!(
+            call_count.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "second call within the negative-cache window must be served from the cache, \
+             not re-dispatched to upstream — this fails if the write-path and read-path keys disagree"
         );
     }
 }
