@@ -834,7 +834,8 @@ mod tests {
                 assert_eq!(max, MAX_CEL_NESTING_DEPTH);
                 assert!(actual > max, "reported depth {actual} should exceed the limit {max}");
             }
-            other => panic!("expected CelCompileError::TooDeep, got {other:?}"),
+            Ok(_) => panic!("expected CelCompileError::TooDeep, got a compiled guardrail"),
+            Err(other) => panic!("expected CelCompileError::TooDeep, got {other:?}"),
         }
     }
 
@@ -860,7 +861,8 @@ mod tests {
                 assert_eq!(max, MAX_CEL_EXPRESSION_LEN);
                 assert!(actual > max, "reported length {actual} should exceed the limit {max}");
             }
-            other => panic!("expected CelCompileError::TooLong, got {other:?}"),
+            Ok(_) => panic!("expected CelCompileError::TooLong, got a compiled guardrail"),
+            Err(other) => panic!("expected CelCompileError::TooLong, got {other:?}"),
         }
     }
 
