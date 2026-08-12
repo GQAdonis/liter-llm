@@ -868,6 +868,17 @@ jobs:
             runner: macos-latest
             target: aarch64-apple-darwin
             rid: osx-arm64
+          # ~keep Cross-compiled from the arm64 image on purpose, mirroring
+          # build-node-native: Intel macOS runners queue for hours, and Apple
+          # ships both slices so x86_64-apple-darwin builds natively here with
+          # no extra toolchain. Without this leg, packages/go/.lib/ never gets
+          # a macos-x86_64 dir even though binding.go's cgo LDFLAGS reference
+          # it, and the LiterLlm.csproj RuntimeIdentifiers/runtime.json.template
+          # both declare osx-x64 support that was never actually built.
+          - label: macos-x86_64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            rid: osx-x64
           - label: windows-x86_64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
@@ -918,6 +929,7 @@ jobs:
             ["linux-x86_64"]="x86_64-unknown-linux-gnu"
             ["linux-aarch64"]="aarch64-unknown-linux-gnu"
             ["macos-arm64"]="aarch64-apple-darwin"
+            ["macos-x86_64"]="x86_64-apple-darwin"
             ["windows-x86_64"]="x86_64-pc-windows-msvc"
           )
           TRIPLE="${triple_map[$LABEL]}"
@@ -1028,7 +1040,7 @@ jobs:
           merge-multiple: true
       - name: Stage native libs for C#
         run: |
-          for rid in linux-x64 linux-arm64 osx-arm64 win-x64; do
+          for rid in linux-x64 linux-arm64 osx-arm64 osx-x64 win-x64; do
             dest="packages/csharp/LiterLlm/runtimes/${rid}/native"
             mkdir -p "$dest"
             find "ffi-artifacts/${rid}" -type f -print0 | xargs -0 -I{} cp {} "$dest/"

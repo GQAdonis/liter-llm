@@ -10,6 +10,8 @@
     <Description>Universal LLM API client with Rust-powered polyglot bindings.</Description>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/xberg-io/liter-llm</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/xberg-io/liter-llm</PackageProjectUrl>
+    <PackageTags>anthropic;api-client;llm;openai</PackageTags>
     <Authors>Na&apos;aman Hirschfeld</Authors>
     <Company>Alef Team</Company>
     <Product>LiterLlm</Product>

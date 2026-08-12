@@ -7,6 +7,12 @@
     "type": "git",
     "url": "git+https://github.com/xberg-io/liter-llm.git"
   },
+  "homepage": "https://github.com/xberg-io/liter-llm",
+  "bugs": {
+    "url": "https://github.com/xberg-io/liter-llm/issues"
+  },
+  "author": "Na'aman Hirschfeld",
+  "keywords": ["llm", "ai", "openai", "anthropic", "gemini", "bedrock", "proxy", "napi", "rust"],
   "main": "index.js",
   "types": "index.d.ts",
   "exports": {
