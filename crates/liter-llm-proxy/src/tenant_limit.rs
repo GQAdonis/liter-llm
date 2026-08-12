@@ -13,7 +13,11 @@
 //! - [`PerKeyBudgetLedger`] (paired with `liter_llm::tower::BudgetLedgerLayer`)
 //!   — calendar-month (30-day sliding window) spend, delegating the actual
 //!   accounting to `liter_llm::tower::InMemoryBudgetLedger`'s `per_tenant`
-//!   dimension instead of a hand-rolled, never-reset counter.
+//!   dimension instead of a hand-rolled, never-reset counter. Limit changes
+//!   from a config reload — [`PerKeyBudgetLedger::update_limits`] — take
+//!   effect in place via `InMemoryBudgetLedger::update_limits`, so
+//!   month-to-date spend survives the reload just like
+//!   [`KeyLimitLayer::update_limits`]'s rpm/tpm counters already did.
 //!
 //! # Known limitations
 //!
@@ -26,12 +30,6 @@
 //! - Requests that never call `LlmRequest::with_tenant_id` — MCP `chat`/
 //!   `embed` tool calls in `mcp/tools.rs` currently do not — carry
 //!   `tenant_id: None` and are not rate/budget-limited by this layer.
-//! - [`PerKeyBudgetLedger::update_limits`] rebuilds its inner
-//!   `InMemoryBudgetLedger` wholesale on every config reload, which resets
-//!   month-to-date spend along with the limits (see that method's docs for
-//!   why — `InMemoryBudgetLedger`'s limits are private with no in-place
-//!   update API). [`KeyLimitLayer::update_limits`] has no such caveat: rpm/tpm
-//!   sliding-window counters are untouched by a limits update.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -276,8 +274,7 @@ where
 /// Pair with `liter_llm::tower::BudgetLedgerLayer` in the Tower stack; see
 /// `service_pool::build_service_stack`.
 pub struct PerKeyBudgetLedger {
-    inner: ArcSwap<InMemoryBudgetLedger>,
-    window: Duration,
+    inner: InMemoryBudgetLedger,
 }
 
 /// Calendar-month approximation used for the default per-key budget window.
@@ -296,8 +293,7 @@ impl PerKeyBudgetLedger {
     #[must_use]
     pub(crate) fn new_with_window(keys: &[VirtualKeyConfig], window: Duration) -> Self {
         Self {
-            inner: ArcSwap::from_pointee(Self::build_ledger(keys, window)),
-            window,
+            inner: Self::build_ledger(keys, window),
         }
     }
 
@@ -313,18 +309,15 @@ impl PerKeyBudgetLedger {
     /// request handled after this call returns — no `ServicePool` rebuild
     /// needed.
     ///
-    /// # Caveat: this resets month-to-date spend
-    ///
-    /// `InMemoryBudgetLedger`'s `DimensionLimits` are a private field with no
-    /// in-place update API (see `liter_llm::tower::budget`), and that core
-    /// module is out of scope to change here. The only way to change limits
-    /// without an out-of-process restart is to build a fresh ledger and swap
-    /// it in atomically — which necessarily starts spend accounting over.
-    /// A config reload is a deliberate operator action, not a crash, so this
-    /// trades a rare, visible reset for limit changes actually taking effect
-    /// at all without a restart.
+    /// Delegates to `InMemoryBudgetLedger::update_limits`, which swaps only
+    /// the configured caps and leaves accumulated month-to-date spend
+    /// untouched — a config reload no longer resets a tenant's budget.
     pub fn update_limits(&self, keys: &[VirtualKeyConfig]) {
-        self.inner.store(Arc::new(Self::build_ledger(keys, self.window)));
+        let limits = DimensionLimits {
+            per_tenant: build_budget_limits(keys),
+            ..Default::default()
+        };
+        self.inner.update_limits(limits);
     }
 }
 
@@ -333,20 +326,18 @@ impl BudgetLedger for PerKeyBudgetLedger {
         &'a self,
         ctx: &'a CostRecordContext<'a>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
-        let ledger = self.inner.load_full();
-        Box::pin(async move { ledger.record(ctx).await })
+        self.inner.record(ctx)
     }
 
     fn check<'a>(
         &'a self,
         ctx: &'a CostCheckContext<'a>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = BudgetVerdict> + Send + 'a>> {
-        let ledger = self.inner.load_full();
-        Box::pin(async move { ledger.check(ctx).await })
+        self.inner.check(ctx)
     }
 
     fn snapshot(&self) -> BudgetSnapshot {
-        self.inner.load().snapshot()
+        self.inner.snapshot()
     }
 }
 
@@ -633,6 +624,28 @@ mod tests {
         assert!(
             matches!(allowed, BudgetVerdict::Allow),
             "raised budget limit should allow the request, got: {allowed:?}"
+        );
+    }
+
+    /// Regression for the reset-on-reload bug: raising the limit alone would
+    /// also flip `Reject` to `Allow` if spend were wiped to zero, so this
+    /// checks the actual spend value via `snapshot()` rather than only the
+    /// verdict — it fails against the old rebuild-the-ledger behaviour, which
+    /// reads back 0.0 here instead of the pre-update spend.
+    #[tokio::test]
+    async fn per_key_budget_ledger_update_limits_preserves_spend() {
+        let keys = vec![virtual_key("vk-a", None, None, Some(100.0))];
+        let ledger = PerKeyBudgetLedger::new_with_window(&keys, Duration::from_secs(3600));
+
+        ledger.record(&record_cost("gpt-4o", "vk-a", 42.0)).await;
+        assert!((ledger.snapshot().per_tenant["vk-a"] - 42.0).abs() < 1e-9);
+
+        ledger.update_limits(&[virtual_key("vk-a", None, None, Some(200.0))]);
+
+        let spend = ledger.snapshot().per_tenant["vk-a"];
+        assert!(
+            (spend - 42.0).abs() < 1e-9,
+            "month-to-date spend must survive a config reload, got ${spend:.2}"
         );
     }
 }

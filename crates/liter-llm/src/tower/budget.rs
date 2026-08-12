@@ -53,6 +53,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime};
 
+use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use tower::{Layer, Service};
 
@@ -276,9 +277,17 @@ pub struct DimensionLimits {
 /// Use [`InMemoryBudgetLedger::new`] for full control or
 /// [`InMemoryBudgetLedger::from_config`] to build from an existing
 /// [`BudgetConfig`] (for backward compatibility).
+///
+/// `limits` lives behind an [`ArcSwap`] rather than a plain field so that
+/// [`InMemoryBudgetLedger::update_limits`] can hot-swap the configured caps —
+/// e.g. on a config reload — without touching the per-tenant/per-user/
+/// per-API-key spend already accumulated in the `DashMap`s below. This keeps
+/// the read path (`check`/`snapshot`) lock-free: a swap is a single atomic
+/// pointer load, matching the concurrency style the sliding-window
+/// [`WindowEntry`] accumulators already use.
 #[derive(Debug)]
 pub struct InMemoryBudgetLedger {
-    limits: DimensionLimits,
+    limits: ArcSwap<DimensionLimits>,
     window: Duration,
     global: Arc<WindowEntry>,
     per_model: Arc<DashMap<String, WindowEntry>>,
@@ -301,9 +310,38 @@ impl InMemoryBudgetLedger {
             per_tenant: Arc::new(DashMap::new()),
             per_user: Arc::new(DashMap::new()),
             per_api_key: Arc::new(DashMap::new()),
-            limits,
+            limits: ArcSwap::from_pointee(limits),
             window,
         }
+    }
+
+    /// Replace the configured per-dimension limits in place, preserving every
+    /// sliding-window spend entry already accumulated.
+    ///
+    /// This is the fix for a config-reload-time budget reset: rebuilding a
+    /// fresh [`InMemoryBudgetLedger`] to pick up new limits used to discard
+    /// all `DashMap` spend entries along with the stale limits. Swapping only
+    /// the `limits` pointer leaves `global`/`per_model`/`per_tenant`/
+    /// `per_user`/`per_api_key` untouched, so month-to-date spend survives a
+    /// reload.
+    ///
+    /// # Behavior on lowered limits
+    ///
+    /// If a limit drops below a dimension's already-accumulated spend, the
+    /// next [`BudgetLedger::check`] call sees the (unchanged) spend against
+    /// the new, lower limit and rejects immediately — existing spend is never
+    /// forgiven. This is deliberate: silently resetting spend on a limit
+    /// change is the exact failure mode this method exists to close.
+    ///
+    /// # Behavior on removed dimension keys
+    ///
+    /// A tenant/user/API-key dropped from `limits` (e.g. a virtual key
+    /// removed from config) keeps its `DashMap` window entry — only the
+    /// enforced cap disappears, so the key becomes unconstrained until a
+    /// limit is configured for it again. Spend history is retained in case
+    /// the same key is re-added later, rather than being silently discarded.
+    pub fn update_limits(&self, limits: DimensionLimits) {
+        self.limits.store(Arc::new(limits));
     }
 
     /// Build from a legacy [`BudgetConfig`].
@@ -422,15 +460,19 @@ impl BudgetLedger for InMemoryBudgetLedger {
     fn check<'a>(&'a self, ctx: &'a CostCheckContext<'a>) -> Pin<Box<dyn Future<Output = BudgetVerdict> + Send + 'a>> {
         Box::pin(async move {
             let now = ctx.timestamp;
+            // ~keep load_full (owned Arc) rather than load (thread-local Guard) because this
+            // ~keep async block must produce a Send future; an owned Arc<DimensionLimits> is
+            // ~keep unambiguously Send, avoiding any question about Guard's Send-ness here.
+            let limits = self.limits.load_full();
 
-            if let Some(limit) = self.limits.global {
+            if let Some(limit) = limits.global {
                 let spend = self.global.spend_usd(now);
                 if let Some(v) = Self::check_limit(spend, limit, BudgetDimension::Global, "global") {
                     return v;
                 }
             }
 
-            if let Some(&limit) = self.limits.per_model.get(ctx.model) {
+            if let Some(&limit) = limits.per_model.get(ctx.model) {
                 let spend = Self::entry_spend(&self.per_model, ctx.model, now);
                 if let Some(v) = Self::check_limit(
                     spend,
@@ -443,7 +485,7 @@ impl BudgetLedger for InMemoryBudgetLedger {
             }
 
             if let Some(tenant) = ctx.tenant_id
-                && let Some(&limit) = self.limits.per_tenant.get(tenant)
+                && let Some(&limit) = limits.per_tenant.get(tenant)
             {
                 let spend = Self::entry_spend(&self.per_tenant, tenant, now);
                 if let Some(v) = Self::check_limit(
@@ -457,7 +499,7 @@ impl BudgetLedger for InMemoryBudgetLedger {
             }
 
             if let Some(user) = ctx.user_id
-                && let Some(&limit) = self.limits.per_user.get(user)
+                && let Some(&limit) = limits.per_user.get(user)
             {
                 let spend = Self::entry_spend(&self.per_user, user, now);
                 if let Some(v) = Self::check_limit(
@@ -471,7 +513,7 @@ impl BudgetLedger for InMemoryBudgetLedger {
             }
 
             if let Some(key) = ctx.api_key_id
-                && let Some(&limit) = self.limits.per_api_key.get(key)
+                && let Some(&limit) = limits.per_api_key.get(key)
             {
                 let spend = Self::entry_spend(&self.per_api_key, key, now);
                 if let Some(v) = Self::check_limit(
@@ -490,6 +532,7 @@ impl BudgetLedger for InMemoryBudgetLedger {
 
     fn snapshot(&self) -> BudgetSnapshot {
         let now = SystemTime::now();
+        let limits = self.limits.load();
 
         let global_spend_usd = self.global.spend_usd(now);
 
@@ -523,10 +566,10 @@ impl BudgetLedger for InMemoryBudgetLedger {
             per_tenant,
             per_user,
             per_api_key,
-            limit_global: self.limits.global,
-            limits_per_user: self.limits.per_user.clone(),
-            limits_per_api_key: self.limits.per_api_key.clone(),
-            limits_per_tenant: self.limits.per_tenant.clone(),
+            limit_global: limits.global,
+            limits_per_user: limits.per_user.clone(),
+            limits_per_api_key: limits.per_api_key.clone(),
+            limits_per_tenant: limits.per_tenant.clone(),
         }
     }
 }
@@ -1412,6 +1455,157 @@ mod tests {
         assert!((snap.per_user["bob"] - 0.20).abs() < 1e-9);
         assert!((snap.per_api_key["key-1"] - 0.10).abs() < 1e-9);
         assert!((snap.per_api_key["key-2"] - 0.20).abs() < 1e-9);
+    }
+
+    /// Regression for the reset-on-reload bug: `update_limits` must swap only
+    /// the caps, not the accumulated spend. Before the fix, the only way to
+    /// change limits was to rebuild the whole ledger, which zeroed every
+    /// `DashMap` entry along with it — this test fails against that
+    /// rebuild-the-ledger behaviour because the post-update spend would read
+    /// back as 0.0 instead of the pre-update amount.
+    #[tokio::test]
+    async fn update_limits_preserves_accumulated_spend() {
+        let mut limits = DimensionLimits::default();
+        limits.per_user.insert("alice".to_owned(), 100.0);
+        let ledger = InMemoryBudgetLedger::new(limits, Duration::from_secs(3600));
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                cost_usd: 7.50,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!((ledger.snapshot().per_user["alice"] - 7.50).abs() < 1e-9);
+
+        let mut new_limits = DimensionLimits::default();
+        new_limits.per_user.insert("alice".to_owned(), 200.0);
+        ledger.update_limits(new_limits);
+
+        let snap = ledger.snapshot();
+        assert!(
+            (snap.per_user["alice"] - 7.50).abs() < 1e-9,
+            "spend must survive update_limits, got {}",
+            snap.per_user["alice"]
+        );
+        assert_eq!(snap.limits_per_user.get("alice"), Some(&200.0));
+
+        let verdict = ledger
+            .check(&CostCheckContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!(
+            matches!(verdict, BudgetVerdict::Allow),
+            "spend $7.50 is well under the new $200 limit, expected Allow, got {verdict:?}"
+        );
+    }
+
+    /// Lowering a limit below already-accumulated spend must reject the very
+    /// next request rather than silently forgiving the existing spend — the
+    /// opposite failure mode (forgiving spend) is the reset-on-reload bug in
+    /// disguise.
+    #[tokio::test]
+    async fn update_limits_lowering_below_spend_rejects_immediately() {
+        let mut limits = DimensionLimits::default();
+        limits.per_user.insert("alice".to_owned(), 100.0);
+        let ledger = InMemoryBudgetLedger::new(limits, Duration::from_secs(3600));
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                cost_usd: 5.0,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+
+        let mut lowered = DimensionLimits::default();
+        lowered.per_user.insert("alice".to_owned(), 1.0);
+        ledger.update_limits(lowered);
+
+        let verdict = ledger
+            .check(&CostCheckContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        match verdict {
+            BudgetVerdict::Reject { dimension, .. } => {
+                assert!(matches!(dimension, BudgetDimension::User(ref u) if u == "alice"));
+            }
+            BudgetVerdict::Allow => panic!("lowering the limit below existing spend must reject, got Allow"),
+        }
+    }
+
+    /// A tenant dropped from the limits map on reload must keep its spend
+    /// history: enforcement lifts (no configured cap means no rejection) but
+    /// the `DashMap` window entry is retained, so re-adding the same tenant
+    /// later does not silently reset it to zero.
+    #[tokio::test]
+    async fn update_limits_retains_spend_for_removed_tenant() {
+        let mut limits = DimensionLimits::default();
+        limits.per_tenant.insert("acme".to_owned(), 10.0);
+        let ledger = InMemoryBudgetLedger::new(limits, Duration::from_secs(3600));
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: Some("acme"),
+                user_id: None,
+                api_key_id: None,
+                cost_usd: 3.0,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+
+        // ~keep "acme" is absent from the new limits map entirely, simulating removal from config.
+        ledger.update_limits(DimensionLimits::default());
+
+        let verdict = ledger
+            .check(&CostCheckContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: Some("acme"),
+                user_id: None,
+                api_key_id: None,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!(
+            matches!(verdict, BudgetVerdict::Allow),
+            "no configured limit means no enforcement, expected Allow, got {verdict:?}"
+        );
+
+        let snap = ledger.snapshot();
+        assert!(
+            (snap.per_tenant["acme"] - 3.0).abs() < 1e-9,
+            "spend history for a removed tenant must be retained, got {:?}",
+            snap.per_tenant.get("acme")
+        );
     }
 
     #[tokio::test]
