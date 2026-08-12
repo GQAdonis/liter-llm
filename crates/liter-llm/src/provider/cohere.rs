@@ -30,6 +30,10 @@ impl Provider for CohereProvider {
         "https://api.cohere.com/v2"
     }
 
+    fn env_var(&self) -> Option<&str> {
+        Some("COHERE_API_KEY")
+    }
+
     fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
         Some((Cow::Borrowed("Authorization"), Cow::Owned(format!("Bearer {api_key}"))))
     }

@@ -204,16 +204,19 @@ impl Provider for VertexAiProvider {
         transform_gemini_response(body)
     }
 
-    /// Build the streaming URL: appends `?alt=sse` to enable SSE streaming.
+    /// Build the streaming URL: `:streamGenerateContent` plus `?alt=sse`.
     ///
-    /// Gemini's streaming endpoint uses the same path as the non-streaming
-    /// `generateContent` endpoint but requires `?alt=sse` to switch to
-    /// Server-Sent Events mode.
+    /// ~keep Streaming is a DISTINCT method, not `generateContent` with a flag.
+    /// ~keep `:generateContent` ignores `alt=sse` and returns one ordinary JSON
+    /// ~keep body, which the SSE parser cannot frame — the caller sees a single
+    /// ~keep `Streaming { "SSE stream truncated" }` error whose message gives no
+    /// ~keep hint that the endpoint was wrong.
     fn build_stream_url(&self, endpoint_path: &str, model: &str) -> String {
         let url = self.build_url(endpoint_path, model);
         if url.is_empty() {
             return url;
         }
+        let url = url.replace(":generateContent", ":streamGenerateContent");
         format!("{url}?alt=sse")
     }
 
@@ -1030,6 +1033,29 @@ mod tests {
         let p = provider();
         let url = p.build_url("/embeddings", "text-embedding-004");
         assert!(url.ends_with("/publishers/google/models/text-embedding-004:predict"));
+    }
+
+    /// Streaming must target `:streamGenerateContent`.  `build_stream_url`
+    /// previously reused `build_url`, so it streamed from `:generateContent`,
+    /// which ignores `alt=sse` and returns one ordinary JSON body — the caller
+    /// got a misleading "SSE stream truncated" error, never any content.
+    #[test]
+    fn build_stream_url_targets_stream_generate_content() {
+        let p = provider();
+        let url = p.build_stream_url("/chat/completions", "gemini-2.0-flash");
+
+        assert!(
+            url.ends_with("/publishers/google/models/gemini-2.0-flash:streamGenerateContent?alt=sse"),
+            "got {url}"
+        );
+    }
+
+    /// The empty-base guard must still short-circuit before the rewrite.
+    #[test]
+    fn build_stream_url_returns_empty_without_project() {
+        let p = provider_without_project();
+
+        assert!(p.build_stream_url("/chat/completions", "gemini-2.0-flash").is_empty());
     }
 
     #[test]

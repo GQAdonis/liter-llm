@@ -39,6 +39,10 @@ impl Provider for GoogleAiProvider {
         BASE_URL
     }
 
+    fn env_var(&self) -> Option<&str> {
+        Some("GEMINI_API_KEY")
+    }
+
     /// Google AI Studio uses `x-goog-api-key` header for authentication.
     fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
         Some((Cow::Borrowed("x-goog-api-key"), Cow::Borrowed(api_key)))
@@ -79,9 +83,17 @@ impl Provider for GoogleAiProvider {
         transform_gemini_response(body)
     }
 
-    /// Build the streaming URL: appends `?alt=sse` to enable SSE streaming.
+    /// Build the streaming URL: `:streamGenerateContent` plus `?alt=sse`.
+    ///
+    /// ~keep Streaming is a DISTINCT method, not `generateContent` with a flag.
+    /// ~keep `:generateContent` ignores `alt=sse` and returns one ordinary JSON
+    /// ~keep body, which the SSE parser cannot frame — the caller sees a single
+    /// ~keep `Streaming { "SSE stream truncated" }` error whose message gives no
+    /// ~keep hint that the endpoint was wrong.
     fn build_stream_url(&self, endpoint_path: &str, model: &str) -> String {
-        let url = self.build_url(endpoint_path, model);
+        let url = self
+            .build_url(endpoint_path, model)
+            .replace(":generateContent", ":streamGenerateContent");
         format!("{url}?alt=sse")
     }
 
@@ -152,12 +164,40 @@ mod tests {
         );
     }
 
+    /// Streaming must target `:streamGenerateContent`.  This test previously
+    /// asserted `:generateContent`, pinning the bug: that method ignores
+    /// `alt=sse` and returns one ordinary JSON body, so every Gemini stream
+    /// failed with a misleading "SSE stream truncated" error.
     #[test]
-    fn build_stream_url_appends_alt_sse() {
+    fn build_stream_url_targets_stream_generate_content() {
         let p = provider();
         let url = p.build_stream_url("/chat/completions", "gemini-2.0-flash");
-        assert!(url.ends_with("?alt=sse"));
-        assert!(url.contains(":generateContent"));
+
+        assert_eq!(
+            url,
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse",
+            "streaming must use the streamGenerateContent method"
+        );
+    }
+
+    /// The non-streaming path must be untouched by the streaming rewrite.
+    #[test]
+    fn build_url_still_targets_generate_content_for_non_streaming() {
+        let p = provider();
+        let url = p.build_url("/chat/completions", "gemini-2.0-flash");
+
+        assert!(url.ends_with(":generateContent"), "got {url}");
+    }
+
+    /// The rewrite keys off `:generateContent`, so the embeddings URL — which
+    /// uses `:embedContent` — must pass through unchanged.
+    #[test]
+    fn build_stream_url_leaves_embeddings_endpoint_alone() {
+        let p = provider();
+        let url = p.build_stream_url("/embeddings", "text-embedding-004");
+
+        assert!(url.contains(":embedContent"), "got {url}");
+        assert!(!url.contains("streamGenerateContent"), "got {url}");
     }
 
     #[test]

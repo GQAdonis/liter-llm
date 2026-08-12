@@ -93,6 +93,10 @@ impl Provider for AnthropicProvider {
         &self.base_url
     }
 
+    fn env_var(&self) -> Option<&str> {
+        Some("ANTHROPIC_API_KEY")
+    }
+
     fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
         // ~keep Anthropic uses x-api-key, not Authorization: Bearer.
         Some((Cow::Borrowed("x-api-key"), Cow::Borrowed(api_key)))

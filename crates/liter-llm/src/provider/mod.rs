@@ -850,6 +850,43 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// Every provider that authenticates with a static API key must name the
+    /// environment variable that key is conventionally read from.
+    ///
+    /// `env_var` is the sole gate in `DefaultClient::new`, and it is checked
+    /// with `if let Some(..)` — so a provider returning `None` does not merely
+    /// skip auto-loading, it skips the "no API key" error too.  The client is
+    /// built with an empty key and the failure only surfaces as a 401 on the
+    /// first request.  Bedrock, Vertex AI and GitHub Copilot legitimately
+    /// return `None`: their credentials come from SigV4, ADC and an OAuth
+    /// device-flow exchange respectively, not from a key variable.
+    #[test]
+    fn static_key_providers_declare_their_env_var() {
+        let cases: Vec<(&str, Box<dyn Provider>)> = vec![
+            ("OPENAI_API_KEY", Box::new(OpenAiProvider)),
+            (
+                "ANTHROPIC_API_KEY",
+                Box::new(super::anthropic::AnthropicProvider::new()),
+            ),
+            ("COHERE_API_KEY", Box::new(super::cohere::CohereProvider)),
+            ("MISTRAL_API_KEY", Box::new(super::mistral::MistralProvider)),
+            ("GEMINI_API_KEY", Box::new(super::google_ai::GoogleAiProvider)),
+            (
+                "AZURE_OPENAI_API_KEY",
+                Box::new(super::azure::AzureProvider::with_base_url("https://x.openai.azure.com")),
+            ),
+        ];
+
+        for (expected, provider) in cases {
+            assert_eq!(
+                provider.env_var(),
+                Some(expected),
+                "{} must declare {expected}",
+                provider.name()
+            );
+        }
+    }
+
     #[test]
     fn minimax_regional_endpoints_are_registered() {
         let registry = registry().expect("registry should load");
