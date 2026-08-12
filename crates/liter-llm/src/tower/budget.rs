@@ -719,6 +719,10 @@ pub struct BudgetLedgerLayer<L: BudgetLedger> {
 
 impl<L: BudgetLedger> BudgetLedgerLayer<L> {
     /// Create a new layer backed by `ledger`.
+    // ~keep Redundant with the `alef(skip)` on the type itself: alef does not propagate a
+    // ~keep type-level skip to that type's impl blocks, so it still reports this generic
+    // ~keep constructor as an unrepresentable public item and fails generation outright.
+    #[cfg_attr(alef, alef(skip))]
     #[must_use]
     pub fn new(ledger: Arc<L>, enforcement: Enforcement) -> Self {
         Self { ledger, enforcement }
@@ -2001,6 +2005,82 @@ mod tests {
         assert!(
             state.model_spend("gpt-4") > 0.0,
             "cost of a streamed response must be recorded per-model"
+        );
+    }
+
+    /// Spend must still be recorded when the caller abandons the stream.
+    ///
+    /// Accounting is settle-only, and settlement used to happen exclusively in
+    /// the stream's terminal poll — so a client that started a stream and
+    /// dropped it consumed real provider tokens (the whole completion is
+    /// generated and buffered before the caller sees a byte) while the ledger
+    /// stayed at zero.  Repeating that in a loop is unmetered usage.
+    #[tokio::test]
+    async fn abandoned_stream_still_records_spend() {
+        use futures_util::StreamExt as _;
+
+        let state = Arc::new(BudgetState::new());
+        let config = BudgetConfig {
+            global_limit: Some(1000.0),
+            enforcement: Enforcement::Hard,
+            ..Default::default()
+        };
+        let layer = BudgetLayer::new(config, Arc::clone(&state));
+        let mut svc = layer.layer(StreamingUsageService {
+            prompt_tokens: 1000,
+            completion_tokens: 500,
+        });
+
+        let resp = svc
+            .call(LlmRequest::ChatStream(chat_req("gpt-4")))
+            .await
+            .expect("streamed call should succeed");
+        let LlmResponse::ChatStream(mut stream) = resp else {
+            panic!("expected a ChatStream response");
+        };
+
+        // ~keep Take one chunk and walk away — the usage-bearing final chunk is never polled.
+        let _ = stream.next().await;
+        drop(stream);
+
+        assert!(
+            state.global_spend() > 0.0,
+            "spend must be recorded even though the stream was dropped before it ended"
+        );
+        assert!(
+            state.model_spend("gpt-4") > 0.0,
+            "per-model spend must be recorded for an abandoned stream"
+        );
+    }
+
+    /// Dropping without polling at all must also settle.
+    #[tokio::test]
+    async fn stream_dropped_without_a_single_poll_records_spend() {
+        let state = Arc::new(BudgetState::new());
+        let config = BudgetConfig {
+            global_limit: Some(1000.0),
+            enforcement: Enforcement::Hard,
+            ..Default::default()
+        };
+        let layer = BudgetLayer::new(config, Arc::clone(&state));
+        let mut svc = layer.layer(StreamingUsageService {
+            prompt_tokens: 1000,
+            completion_tokens: 500,
+        });
+
+        let resp = svc
+            .call(LlmRequest::ChatStream(chat_req("gpt-4")))
+            .await
+            .expect("streamed call should succeed");
+        let LlmResponse::ChatStream(stream) = resp else {
+            panic!("expected a ChatStream response");
+        };
+
+        drop(stream);
+
+        assert!(
+            state.global_spend() > 0.0,
+            "spend must be recorded for a stream that was never polled"
         );
     }
 }

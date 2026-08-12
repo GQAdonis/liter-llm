@@ -21,7 +21,7 @@
 //! ```
 
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::task::{Context, Poll, Waker};
 
 use futures_core::Stream;
 use tower::Layer;
@@ -101,6 +101,49 @@ impl Stream for UsageObservingStream {
             }
             Poll::Pending => Poll::Pending,
         }
+    }
+}
+
+/// Upper bound on chunks drained in [`UsageObservingStream::drop`].
+///
+/// Only a stream that is both infinite and always-ready could reach this; the
+/// bound exists so `Drop` cannot spin forever. ~keep
+const DROP_DRAIN_CHUNK_LIMIT: usize = 100_000;
+
+impl Drop for UsageObservingStream {
+    fn drop(&mut self) {
+        let Some(on_complete) = self.on_complete.take() else {
+            // ~keep The stream ran to completion and poll_next already settled.
+            return;
+        };
+
+        // ~keep The caller abandoned the stream, so poll_next never reached its
+        // ~keep terminal arm and this request's spend would go unrecorded entirely —
+        // ~keep letting a client consume provider tokens for free by repeatedly
+        // ~keep starting streams and dropping them.
+        //
+        // ~keep Usage normally arrives only in the final chunk, but LlmService buffers
+        // ~keep the provider stream before any middleware sees it, so that chunk is
+        // ~keep already in memory here and can be recovered without awaiting: drain
+        // ~keep whatever is immediately ready. A genuinely lazy stream returns Pending
+        // ~keep on the first poll and is left untouched, so this never blocks.
+        let mut context = Context::from_waker(Waker::noop());
+        for _ in 0..DROP_DRAIN_CHUNK_LIMIT {
+            match self.inner.as_mut().poll_next(&mut context) {
+                Poll::Ready(Some(Ok(chunk))) => {
+                    if chunk.usage.is_some() {
+                        self.last_usage = chunk.usage;
+                    }
+                }
+                Poll::Ready(Some(Err(_)) | None) | Poll::Pending => break,
+            }
+        }
+
+        if self.last_usage.is_none() {
+            tracing::warn!("streamed usage unavailable on abandoned stream; spend not recorded");
+        }
+
+        on_complete(self.last_usage.take());
     }
 }
 
