@@ -90,6 +90,22 @@ fn idem_random_state() -> &'static ahash::RandomState {
     })
 }
 
+/// Upper bound on the serialised-body prefix embedded in a body hash.
+const BODY_HASH_PREFIX_BYTES: usize = 64;
+
+/// Largest index `<= max_bytes` that is a UTF-8 character boundary in `s`.
+///
+/// `str` slicing panics when an index lands inside a multi-byte character, and
+/// `serde_json` emits non-ASCII text raw rather than `\u`-escaped, so a plain
+/// non-English prompt puts one across a fixed byte offset. ~keep
+fn char_boundary_at_or_before(s: &str, max_bytes: usize) -> usize {
+    let mut cut = s.len().min(max_bytes);
+    while cut > 0 && !s.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    cut
+}
+
 /// Compute a stable body hash for the request.
 ///
 /// Only `kind` is hashed — `tenant_id` and `idempotency_key` are infra
@@ -109,7 +125,8 @@ fn compute_body_hash(request: &LlmRequest) -> Option<String> {
 
     let h = idem_random_state().hash_one(&json);
     // ~keep Embed a JSON prefix so hash collisions cause conflicts, not silent corruption.
-    Some(format!("{h:016x}:{}", &json[..json.len().min(64)]))
+    let cut = char_boundary_at_or_before(&json, BODY_HASH_PREFIX_BYTES);
+    Some(format!("{h:016x}:{}", &json[..cut]))
 }
 
 /// An entry in the idempotency store.
@@ -803,6 +820,48 @@ mod tests {
                 "hash #{i} differs from hash #0 — ahash seed is not fixed"
             );
         }
+    }
+
+    /// `compute_body_hash` embeds a byte-bounded prefix of the serialised body.
+    /// `serde_json` emits non-ASCII text raw rather than `\u`-escaped, so a
+    /// request whose payload puts a multi-byte character across the cut point
+    /// used to panic on the string slice — a reachable panic in the request
+    /// path, reached by an ordinary non-English prompt.  Sweeping the leading
+    /// padding walks the character across the boundary whatever the exact
+    /// serialised layout is; the `straddled` guard fails the test if a future
+    /// layout change means no case exercises the boundary any more.
+    #[test]
+    fn body_hash_survives_multibyte_char_on_prefix_boundary() {
+        use crate::types::common::{Message, UserMessage};
+
+        let mut straddled = false;
+
+        for pad in 0..BODY_HASH_PREFIX_BYTES {
+            let mut chat = chat_req("gpt-4");
+            chat.messages = vec![Message::User(UserMessage {
+                content: format!("{}🌍 доброе утро", "a".repeat(pad)).into(),
+                name: None,
+            })];
+
+            let request = LlmRequest::Chat(chat);
+            let json = serde_json::to_string(&request.kind).expect("request must serialise");
+            if json.len() > BODY_HASH_PREFIX_BYTES && !json.is_char_boundary(BODY_HASH_PREFIX_BYTES) {
+                straddled = true;
+            }
+
+            let hash = compute_body_hash(&request).unwrap_or_else(|| panic!("hash must be Some (pad={pad})"));
+
+            assert!(
+                hash.contains(':'),
+                "hash must keep the `<digest>:<prefix>` shape (pad={pad}), got {hash}"
+            );
+        }
+
+        assert!(
+            straddled,
+            "no padding put a multi-byte character across byte {BODY_HASH_PREFIX_BYTES} — \
+             the serialised layout changed and this test no longer covers the panic"
+        );
     }
 
     /// Two requests with the same idempotency key but different tenant IDs must
