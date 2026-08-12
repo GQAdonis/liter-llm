@@ -53,6 +53,7 @@ use secrecy::{ExposeSecret, SecretString};
 use crate::auth::KeyContext;
 use crate::config::VirtualKeyConfig;
 use crate::error::ProxyError;
+use crate::shutdown::ShutdownHandle;
 use crate::state::AppState;
 
 /// Query parameters accepted by `GET /v1/realtime`.
@@ -153,6 +154,22 @@ fn resolve_upstream_credential(
         .map(|cred| cred.api_key.clone())
 }
 
+/// Derive the cancellation token for one realtime session.
+///
+/// MUST return a CHILD of the shutdown token, never a clone. `run_proxy`
+/// cancels whatever token it is given as soon as either relay loop exits —
+/// that is every normal session close — and a clone shares cancellation state
+/// with the process-wide token that
+/// `axum::serve(..).with_graceful_shutdown(..)` awaits. Cloning here meant one
+/// client hanging up a voice session shut down the entire proxy. A child is
+/// still cancelled BY the parent, so draining continues to close live
+/// sessions, but cancelling the child leaves the parent untouched. ~keep
+fn session_cancel_token(shutdown: Option<&ShutdownHandle>) -> CancellationToken {
+    shutdown.map_or_else(CancellationToken::default, |handle| {
+        handle.cancellation_token().child_token()
+    })
+}
+
 /// Spawned per WebSocket connection.  Opens the upstream connection using the
 /// pre-resolved `upstream_api_key` and runs the bidirectional proxy until
 /// either side closes.
@@ -189,11 +206,7 @@ async fn handle_session(client_socket: WebSocket, model: String, upstream_api_ke
         }
     };
 
-    let cancel = state
-        .shutdown
-        .as_ref()
-        .map(|handle| handle.cancellation_token())
-        .unwrap_or_default();
+    let cancel = session_cancel_token(state.shutdown.as_ref());
 
     let guardrails: Vec<Arc<dyn Guardrail>> = vec![];
 
@@ -661,6 +674,44 @@ mod tests {
         let result = tokio::time::timeout(Duration::from_millis(100), cancel.cancelled()).await;
         assert!(result.is_ok(), "cancellation should complete within 100ms");
         assert!(start.elapsed() < Duration::from_millis(100), "should not have blocked");
+    }
+
+    /// Ending one realtime session must NOT shut down the proxy.
+    ///
+    /// This drives `session_cancel_token` itself rather than re-deriving a
+    /// child token inline — an inline version would keep passing if the
+    /// production code reverted to `.clone()`, which is precisely the bug.
+    #[test]
+    fn session_cancel_token_does_not_cancel_the_shutdown_token() {
+        let coordinator = crate::shutdown::ShutdownCoordinator::new();
+        let handle = coordinator.handle();
+        let shutdown = handle.cancellation_token();
+
+        let session = session_cancel_token(Some(&handle));
+        // Exactly what run_proxy does when either relay loop exits.
+        session.cancel();
+
+        assert!(session.is_cancelled(), "the session token must be cancelled");
+        assert!(
+            !shutdown.is_cancelled(),
+            "a session ending must NOT cancel the process-wide shutdown token — that stops the server"
+        );
+    }
+
+    /// The session token must still be cancelled BY a real shutdown, or
+    /// draining would leave realtime sessions running.
+    #[test]
+    fn session_cancel_token_is_still_cancelled_by_shutdown() {
+        let coordinator = crate::shutdown::ShutdownCoordinator::new();
+        let handle = coordinator.handle();
+        let session = session_cancel_token(Some(&handle));
+
+        handle.cancellation_token().cancel();
+
+        assert!(
+            session.is_cancelled(),
+            "drain must still close active realtime sessions"
+        );
     }
 
     /// A guardrail that blocks every event prevents the payload from reaching
