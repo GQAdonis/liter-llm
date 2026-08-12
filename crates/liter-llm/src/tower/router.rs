@@ -224,6 +224,13 @@ pub struct Router<S> {
     counter: Arc<AtomicUsize>,
     /// Per-deployment metrics (latency tracking, etc.).
     state: RouterState,
+    /// Model identifier for each deployment, in the same order as `deployments`.
+    ///
+    /// Used by [`RoutingStrategy::Semantic`] so the classifier cascade is
+    /// handed real model IDs instead of positional placeholders. Defaults to
+    /// the deployment's positional index as a string (e.g. `"0"`) until
+    /// [`Router::with_deployment_models`] is called.
+    deployment_models: Vec<String>,
 }
 
 impl<S> Router<S> {
@@ -263,12 +270,44 @@ impl<S> Router<S> {
                 });
             }
         }
+        let deployment_models = (0..deployments.len()).map(|i| i.to_string()).collect();
         Ok(Self {
             deployments,
             strategy,
             counter: Arc::new(AtomicUsize::new(0)),
             state: RouterState::new(),
+            deployment_models,
         })
+    }
+
+    /// Attach real model identifiers to each deployment, in the same order as
+    /// the `deployments` vec passed to [`Router::new`].
+    ///
+    /// [`RoutingStrategy::Semantic`] hands these identifiers to the classifier
+    /// cascade and maps its verdict back to a deployment by exact string
+    /// match. Without this call, deployments are only addressable by their
+    /// positional index as a string (e.g. `"0"`), which classifiers built
+    /// around real model names (the common case) will never emit — their
+    /// verdict is then silently discarded and the router falls back to
+    /// round-robin.
+    ///
+    /// If `models.len()` does not match the deployment count, a warning is
+    /// logged; extra entries are ignored and missing entries keep their
+    /// positional-index fallback.
+    #[must_use]
+    pub fn with_deployment_models(mut self, models: Vec<String>) -> Self {
+        let expected = self.deployments.len();
+        if models.len() != expected {
+            tracing::warn!(
+                expected,
+                got = models.len(),
+                "Router::with_deployment_models: length mismatch; missing entries keep the positional-index fallback"
+            );
+        }
+        for (i, model) in models.into_iter().take(expected).enumerate() {
+            self.deployment_models[i] = model;
+        }
+        self
     }
 }
 
@@ -279,6 +318,7 @@ impl<S: Clone> Clone for Router<S> {
             strategy: self.strategy.clone(),
             counter: Arc::clone(&self.counter),
             state: self.state.clone(),
+            deployment_models: self.deployment_models.clone(),
         }
     }
 }
@@ -298,164 +338,205 @@ where
 
     fn call(&mut self, req: LlmRequest) -> Self::Future {
         match &self.strategy {
-            RoutingStrategy::RoundRobin => {
-                let idx = self.counter.fetch_add(1, Ordering::Relaxed) % self.deployments.len();
-                let mut svc = self.deployments[idx].clone();
-                Box::pin(async move { svc.call(req).await })
-            }
-            RoutingStrategy::Fallback => {
-                let deployments = self.deployments.clone();
-                Box::pin(async move {
-                    let mut last_err: Option<LiterLlmError> = None;
-                    for mut svc in deployments {
-                        match svc.call(req.clone()).await {
-                            Ok(resp) => return Ok(resp),
-                            Err(e) if e.is_transient() => {
-                                tracing::warn!(
-                                    error = %e,
-                                    "deployment failed with transient error; trying next deployment"
-                                );
-                                last_err = Some(e);
-                            }
-                            Err(e) => return Err(e),
-                        }
-                    }
-                    Err(last_err.unwrap_or(LiterLlmError::ServerError {
-                        message: "all deployments failed".into(),
-                        status: 500,
-                    }))
-                })
-            }
-            RoutingStrategy::LatencyBased => {
-                let state = self.state.clone();
-                let n = self.deployments.len();
-
-                let mut best_idx = 0;
-                let mut best_ema = f64::MAX;
-                for i in 0..n {
-                    let ema = state.metrics.get(&i).map_or(0.0, |m| m.latency_ema);
-                    if ema < best_ema {
-                        best_ema = ema;
-                        best_idx = i;
-                    }
-                }
-
-                let mut svc = self.deployments[best_idx].clone();
-                let idx = best_idx;
-
-                Box::pin(async move {
-                    let start = Instant::now();
-                    let result = svc.call(req).await;
-                    let latency = start.elapsed().as_secs_f64();
-
-                    state.metrics.entry(idx).or_default().record_latency(latency);
-
-                    result
-                })
-            }
-            RoutingStrategy::CostBased => {
-                let model = req.model().map(ToOwned::to_owned);
-                let deployments = self.deployments.clone();
-
-                Box::pin(async move {
-                    let mut last_err: Option<LiterLlmError> = None;
-                    for mut svc in deployments {
-                        match svc.call(req.clone()).await {
-                            Ok(resp) => {
-                                if let (Some(model_name), Some(usage)) = (&model, resp.usage())
-                                    && let Some(cost) = crate::cost::completion_cost(
-                                        model_name,
-                                        usage.prompt_tokens,
-                                        usage.completion_tokens,
-                                    )
-                                {
-                                    tracing::debug!(
-                                        model = %model_name,
-                                        cost_usd = cost,
-                                        "cost-based routing: estimated cost"
-                                    );
-                                }
-                                return Ok(resp);
-                            }
-                            Err(e) if e.is_transient() => {
-                                last_err = Some(e);
-                            }
-                            Err(e) => return Err(e),
-                        }
-                    }
-                    Err(last_err.unwrap_or(LiterLlmError::ServerError {
-                        message: "all deployments failed".into(),
-                        status: 500,
-                    }))
-                })
-            }
-            RoutingStrategy::WeightedRandom { weights } => {
-                let idx = weighted_random_select(weights);
-                let mut svc = self.deployments[idx].clone();
-                Box::pin(async move { svc.call(req).await })
-            }
-            RoutingStrategy::Semantic(classifier) => {
-                use super::route_classify::ClassifyContext;
-                use std::collections::HashMap;
-
-                let classifier = Arc::clone(classifier);
-                let deployments = self.deployments.clone();
-                let counter = Arc::clone(&self.counter);
-
-                let n = deployments.len();
-                let available_models: Vec<String> = (0..n).map(|i| i.to_string()).collect();
-
-                let (prompt, system_prompt) = match &req.kind {
-                    LlmRequestKind::Chat(r) => {
-                        let prompt = r
-                            .messages
-                            .iter()
-                            .rev()
-                            .find_map(|m| {
-                                if let crate::types::Message::User(u) = m {
-                                    match &u.content {
-                                        crate::types::UserContent::Text(t) => Some(t.clone()),
-                                        crate::types::UserContent::Parts(_) => None,
-                                    }
-                                } else {
-                                    None
-                                }
-                            })
-                            .unwrap_or_default();
-                        let system = r.messages.iter().find_map(|m| {
-                            if let crate::types::Message::System(s) = m {
-                                s.content.as_text()
-                            } else {
-                                None
-                            }
-                        });
-                        (prompt, system)
-                    }
-                    _ => (String::new(), None),
-                };
-
-                Box::pin(async move {
-                    let meta: HashMap<String, String> = HashMap::new();
-                    let ctx = ClassifyContext {
-                        prompt: &prompt,
-                        system_prompt: system_prompt.as_deref(),
-                        metadata: &meta,
-                        available_models: &available_models,
-                    };
-
-                    let idx = classifier
-                        .classify(&ctx)
-                        .await
-                        .and_then(|model_str| model_str.parse::<usize>().ok())
-                        .filter(|&i| i < n);
-
-                    let idx = idx.unwrap_or_else(|| counter.fetch_add(1, Ordering::Relaxed) % n);
-
-                    deployments[idx].clone().call(req).await
-                })
-            }
+            RoutingStrategy::RoundRobin => self.call_round_robin(req),
+            RoutingStrategy::Fallback => self.call_fallback(req),
+            RoutingStrategy::LatencyBased => self.call_latency_based(req),
+            RoutingStrategy::CostBased => self.call_cost_based(req),
+            RoutingStrategy::WeightedRandom { weights } => self.call_weighted_random(weights, req),
+            RoutingStrategy::Semantic(classifier) => self.call_semantic(classifier, req),
         }
     }
+}
+
+impl<S> Router<S>
+where
+    S: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    /// [`RoutingStrategy::RoundRobin`]: advance the shared counter and dispatch
+    /// to the next deployment.
+    fn call_round_robin(&self, req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let idx = self.counter.fetch_add(1, Ordering::Relaxed) % self.deployments.len();
+        let mut svc = self.deployments[idx].clone();
+        Box::pin(async move { svc.call(req).await })
+    }
+
+    /// [`RoutingStrategy::Fallback`]: try deployments in order, advancing past
+    /// transient errors and propagating any other error immediately.
+    fn call_fallback(&self, req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let deployments = self.deployments.clone();
+        Box::pin(async move {
+            let mut last_err: Option<LiterLlmError> = None;
+            for mut svc in deployments {
+                match svc.call(req.clone()).await {
+                    Ok(resp) => return Ok(resp),
+                    Err(e) if e.is_transient() => {
+                        tracing::warn!(
+                            error = %e,
+                            "deployment failed with transient error; trying next deployment"
+                        );
+                        last_err = Some(e);
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Err(last_err.unwrap_or(LiterLlmError::ServerError {
+                message: "all deployments failed".into(),
+                status: 500,
+            }))
+        })
+    }
+
+    /// [`RoutingStrategy::LatencyBased`]: dispatch to the deployment with the
+    /// lowest observed latency EMA, then record this call's latency.
+    fn call_latency_based(&self, req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let state = self.state.clone();
+        let n = self.deployments.len();
+
+        let mut best_idx = 0;
+        let mut best_ema = f64::MAX;
+        for i in 0..n {
+            let ema = state.metrics.get(&i).map_or(0.0, |m| m.latency_ema);
+            if ema < best_ema {
+                best_ema = ema;
+                best_idx = i;
+            }
+        }
+
+        let mut svc = self.deployments[best_idx].clone();
+        let idx = best_idx;
+
+        Box::pin(async move {
+            let start = Instant::now();
+            let result = svc.call(req).await;
+            let latency = start.elapsed().as_secs_f64();
+
+            state.metrics.entry(idx).or_default().record_latency(latency);
+
+            result
+        })
+    }
+
+    /// [`RoutingStrategy::CostBased`]: try deployments in order, logging the
+    /// estimated cost of the first success.
+    fn call_cost_based(&self, req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let model = req.model().map(ToOwned::to_owned);
+        let deployments = self.deployments.clone();
+
+        Box::pin(async move {
+            let mut last_err: Option<LiterLlmError> = None;
+            for mut svc in deployments {
+                match svc.call(req.clone()).await {
+                    Ok(resp) => {
+                        log_estimated_cost(model.as_deref(), &resp);
+                        return Ok(resp);
+                    }
+                    Err(e) if e.is_transient() => {
+                        last_err = Some(e);
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Err(last_err.unwrap_or(LiterLlmError::ServerError {
+                message: "all deployments failed".into(),
+                status: 500,
+            }))
+        })
+    }
+
+    /// [`RoutingStrategy::WeightedRandom`]: dispatch using weighted-random
+    /// selection over `weights`.
+    fn call_weighted_random(&self, weights: &[Weight], req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let idx = weighted_random_select(weights);
+        let mut svc = self.deployments[idx].clone();
+        Box::pin(async move { svc.call(req).await })
+    }
+
+    /// [`RoutingStrategy::Semantic`]: ask the classifier cascade for a model ID
+    /// and dispatch to the deployment serving that model, falling back to
+    /// round-robin when the cascade defers or names a model this router has no
+    /// deployment for.
+    fn call_semantic(
+        &self,
+        classifier: &Arc<dyn super::route_classify::RouteClassifier>,
+        req: LlmRequest,
+    ) -> BoxFuture<'static, Result<LlmResponse>> {
+        use super::route_classify::ClassifyContext;
+
+        let classifier = Arc::clone(classifier);
+        let deployments = self.deployments.clone();
+        let counter = Arc::clone(&self.counter);
+        let deployment_models = self.deployment_models.clone();
+
+        let (prompt, system_prompt) = extract_semantic_prompt(&req);
+
+        Box::pin(async move {
+            let meta: HashMap<String, String> = HashMap::new();
+            let ctx = ClassifyContext {
+                prompt: &prompt,
+                system_prompt: system_prompt.as_deref(),
+                metadata: &meta,
+                available_models: &deployment_models,
+            };
+
+            let verdict = classifier.classify(&ctx).await;
+            let idx = resolve_semantic_index(verdict.as_deref(), &deployment_models, &counter);
+
+            deployments[idx].clone().call(req).await
+        })
+    }
+}
+
+/// Log the estimated cost of a successful cost-based routing call, if pricing
+/// data is available for the model.
+fn log_estimated_cost(model: Option<&str>, resp: &LlmResponse) {
+    if let (Some(model_name), Some(usage)) = (model, resp.usage())
+        && let Some(cost) = crate::cost::completion_cost(model_name, usage.prompt_tokens, usage.completion_tokens)
+    {
+        tracing::debug!(model = %model_name, cost_usd = cost, "cost-based routing: estimated cost");
+    }
+}
+
+/// Pull the latest user message text and an optional system prompt out of a
+/// chat request for the semantic classifier cascade. Non-chat requests
+/// (embeddings, image generation, etc.) have no prompt text to classify on.
+fn extract_semantic_prompt(req: &LlmRequest) -> (String, Option<String>) {
+    let LlmRequestKind::Chat(r) = &req.kind else {
+        return (String::new(), None);
+    };
+    let prompt = r
+        .messages
+        .iter()
+        .rev()
+        .find_map(|m| {
+            if let crate::types::Message::User(u) = m {
+                match &u.content {
+                    crate::types::UserContent::Text(t) => Some(t.clone()),
+                    crate::types::UserContent::Parts(_) => None,
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default();
+    let system = r.messages.iter().find_map(|m| {
+        if let crate::types::Message::System(s) = m {
+            s.content.as_text()
+        } else {
+            None
+        }
+    });
+    (prompt, system)
+}
+
+/// Map a classifier's model-ID verdict back to a deployment index by exact
+/// string match against `deployment_models`. Falls back to round-robin (via
+/// `counter`) when the classifier deferred (`None`) or named a model with no
+/// matching deployment, so a request is never dropped.
+fn resolve_semantic_index(verdict: Option<&str>, deployment_models: &[String], counter: &AtomicUsize) -> usize {
+    verdict
+        .and_then(|model_id| deployment_models.iter().position(|m| m == model_id))
+        .unwrap_or_else(|| counter.fetch_add(1, Ordering::Relaxed) % deployment_models.len())
 }
 
 /// Select a deployment index using weighted random distribution.
@@ -653,6 +734,9 @@ where
     services: ReadyCache<String, ConcurrencyLimit<D::Service>, LlmRequest>,
     /// Per-provider configuration (concurrency limits, etc.).
     provider_configs: HashMap<String, ProviderConfig>,
+    /// Monotonic counter for round-robin selection among currently-ready
+    /// upstreams; see [`Self::call`].
+    counter: AtomicUsize,
     _marker: PhantomData<LlmRequest>,
 }
 
@@ -684,6 +768,7 @@ where
             discover,
             services: ReadyCache::default(),
             provider_configs: HashMap::new(),
+            counter: AtomicUsize::new(0),
             _marker: PhantomData,
         }
     }
@@ -735,6 +820,16 @@ where
     }
 }
 
+/// Select the next ready-set index to dispatch to, rotating through
+/// `[0, ready_len)` on every call.
+///
+/// Dispatching unconditionally to index 0 would pin all traffic on whichever
+/// upstream currently occupies that slot in the [`ReadyCache`] instead of
+/// distributing across the ready set; see [`DynamicRouter::call`].
+fn next_ready_index(counter: &AtomicUsize, ready_len: usize) -> usize {
+    counter.fetch_add(1, Ordering::Relaxed) % ready_len
+}
+
 impl<D> Service<LlmRequest> for DynamicRouter<D>
 where
     D: Discover<Key = String> + Unpin + Send,
@@ -761,10 +856,12 @@ where
     }
 
     fn call(&mut self, req: LlmRequest) -> Self::Future {
-        if self.services.ready_len() == 0 {
+        let ready_len = self.services.ready_len();
+        if ready_len == 0 {
             return Box::pin(async { Err(RouterError::NoReadyUpstream { code: 2002 }.into()) });
         }
-        let fut = self.services.call_ready_index(0, req);
+        let index = next_ready_index(&self.counter, ready_len);
+        let fut = self.services.call_ready_index(index, req);
         Box::pin(fut)
     }
 }
@@ -1128,5 +1225,95 @@ mod tests {
 
         let resp = router.call(LlmRequest::Chat(chat_req("gpt-4"))).await;
         assert!(resp.is_ok(), "fallback round-robin should handle the request");
+    }
+
+    /// A classifier that records the `available_models` slice it was given,
+    /// then defers. Used to prove the router hands the classifier real model
+    /// IDs rather than stringified positional indices.
+    struct RecordingClassifier {
+        seen: Arc<std::sync::Mutex<Vec<String>>>,
+    }
+
+    impl crate::tower::route_classify::RouteClassifier for RecordingClassifier {
+        fn classify<'a>(
+            &'a self,
+            ctx: &'a crate::tower::route_classify::ClassifyContext<'a>,
+        ) -> Pin<Box<dyn std::future::Future<Output = Option<String>> + Send + 'a>> {
+            *self.seen.lock().expect("mutex not poisoned") = ctx.available_models.to_vec();
+            Box::pin(async move { None })
+        }
+    }
+
+    /// Regression test for the "semantic routing is silently inert" bug: the
+    /// classifier must see the deployments' real model IDs (as configured via
+    /// [`Router::with_deployment_models`]), not `["0", "1", ...]` positional
+    /// placeholders that no real-world classifier would ever return.
+    #[tokio::test]
+    async fn router_semantic_strategy_passes_real_model_ids_to_classifier() {
+        let deployments: Vec<LlmService<MockClient>> =
+            vec![LlmService::new(MockClient::ok()), LlmService::new(MockClient::ok())];
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let classifier = Arc::new(RecordingClassifier {
+            seen: Arc::clone(&seen),
+        });
+        let mut router = Router::new(deployments, RoutingStrategy::Semantic(classifier))
+            .expect("valid router")
+            .with_deployment_models(vec!["gpt-4o".into(), "claude-3-5-sonnet".into()]);
+
+        let resp = router.call(LlmRequest::Chat(chat_req("gpt-4"))).await;
+        assert!(resp.is_ok());
+        assert_eq!(
+            *seen.lock().expect("mutex not poisoned"),
+            vec!["gpt-4o".to_string(), "claude-3-5-sonnet".to_string()],
+            "classifier must see real model IDs, not positional index placeholders"
+        );
+    }
+
+    /// Regression test for the "verdict parsed back as an index" bug: the
+    /// classifier returns a real model *name* (not `"1"`), and the router must
+    /// resolve it to the matching deployment by name — not silently discard
+    /// the verdict because it fails to parse as `usize`.
+    ///
+    /// Deployment 0 wraps a `failing_rate_limited` client; deployment 1 (named
+    /// `"claude-3-5-sonnet"`) wraps an `ok` client. Only a genuine name-based
+    /// resolution reaches the working deployment.
+    #[tokio::test]
+    async fn router_semantic_strategy_routes_by_real_model_id() {
+        let deployments: Vec<LlmService<MockClient>> = vec![
+            LlmService::new(MockClient::failing_rate_limited()),
+            LlmService::new(MockClient::ok()),
+        ];
+        let classifier = Arc::new(FixedIndexClassifier {
+            target: "claude-3-5-sonnet".into(),
+        });
+        let mut router = Router::new(deployments, RoutingStrategy::Semantic(classifier))
+            .expect("valid router")
+            .with_deployment_models(vec!["gpt-4o".into(), "claude-3-5-sonnet".into()]);
+
+        let resp = router.call(LlmRequest::Chat(chat_req("gpt-4"))).await;
+        assert!(
+            resp.is_ok(),
+            "verdict 'claude-3-5-sonnet' should resolve to deployment 1 by name"
+        );
+    }
+
+    /// Regression test for "`DynamicRouter::call` always dispatches to ready
+    /// index 0": the selection helper must rotate through the ready set
+    /// instead of returning a constant.
+    #[test]
+    fn next_ready_index_rotates_through_ready_set() {
+        let counter = AtomicUsize::new(0);
+        assert_eq!(next_ready_index(&counter, 3), 0);
+        assert_eq!(
+            next_ready_index(&counter, 3),
+            1,
+            "second call must not be pinned to index 0"
+        );
+        assert_eq!(next_ready_index(&counter, 3), 2);
+        assert_eq!(
+            next_ready_index(&counter, 3),
+            0,
+            "wraps back around after a full rotation"
+        );
     }
 }

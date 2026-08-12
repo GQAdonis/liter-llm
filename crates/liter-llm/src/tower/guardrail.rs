@@ -38,6 +38,43 @@ use crate::guardrail::{GuardrailContext, GuardrailDecision, GuardrailStage};
 
 use super::types::{LlmRequest, LlmResponse};
 
+/// Serialize a guardrail-inspectable response body, failing closed.
+///
+/// ~keep A response that cannot be serialized is treated as blocked rather
+/// ~keep than passed through unchecked: silently falling back to `Ok(response)`
+/// ~keep here would let arbitrary un-inspected content reach the caller
+/// ~keep whenever a response happens to serialize badly, defeating the
+/// ~keep purpose of the Output guardrail stage.
+fn serialize_for_guardrail<T: serde::Serialize>(value: &T) -> Result<serde_json::Value> {
+    serde_json::to_value(value).map_err(|e| LiterLlmError::InternalError {
+        message: format!("guardrail: failed to serialize response for output-stage inspection: {e}"),
+    })
+}
+
+/// Build the JSON payload the `Output` guardrail stage inspects for a given
+/// response, or `None` when no aggregate body is available yet to inspect.
+fn response_to_guardrail_json(response: &LlmResponse) -> Result<Option<serde_json::Value>> {
+    match response {
+        LlmResponse::Chat(r) => serialize_for_guardrail(r).map(Some),
+        LlmResponse::Embed(r) => serialize_for_guardrail(r).map(Some),
+        LlmResponse::ListModels(r) => serialize_for_guardrail(r).map(Some),
+        LlmResponse::ImageGenerate(r) => serialize_for_guardrail(r).map(Some),
+        LlmResponse::Transcribe(r) => serialize_for_guardrail(r).map(Some),
+        LlmResponse::Moderate(r) => serialize_for_guardrail(r).map(Some),
+        LlmResponse::Rerank(r) => serialize_for_guardrail(r).map(Some),
+        LlmResponse::Search(r) => serialize_for_guardrail(r).map(Some),
+        LlmResponse::Ocr(r) => serialize_for_guardrail(r).map(Some),
+        LlmResponse::Speech(audio_bytes) => Ok(Some(serde_json::json!({
+            // ~keep Speech returns raw audio bytes, not a serializable struct.
+            // ~keep Emitting the bytes verbatim would blow up the guardrail
+            // ~keep payload; exposing the length is still enough for e.g.
+            // ~keep length-cap guardrails to act on.
+            "byte_len": audio_bytes.len(),
+        }))),
+        LlmResponse::ChatStream(_) => Ok(None),
+    }
+}
+
 /// Tower [`Layer`] that enforces guardrail checks around an inner service.
 ///
 /// `registry` holds the ordered list of guardrails to evaluate.
@@ -152,20 +189,13 @@ where
 
             let response = inner_fut.await?;
 
-            let response_json = match &response {
-                LlmResponse::Chat(r) => match serde_json::to_value(r) {
-                    Ok(v) => v,
-                    Err(_) => return Ok(response),
-                },
-                LlmResponse::Embed(r) => match serde_json::to_value(r) {
-                    Ok(v) => v,
-                    Err(_) => return Ok(response),
-                },
-                LlmResponse::ListModels(r) => match serde_json::to_value(r) {
-                    Ok(v) => v,
-                    Err(_) => return Ok(response),
-                },
-                _ => return Ok(response),
+            let Some(response_json) = response_to_guardrail_json(&response)? else {
+                // ~keep ChatStream: no aggregate body exists yet at this point to
+                // ~keep run an Output-stage guardrail against. GuardrailStage::OutputChunk
+                // ~keep is defined for per-chunk inspection but is not yet wired up by
+                // ~keep the streaming path, so streamed responses currently bypass
+                // ~keep output guardrails entirely — tracked separately, out of scope here.
+                return Ok(response);
             };
 
             let output_ctx = GuardrailContext {
@@ -193,17 +223,25 @@ where
 #[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet};
+    use std::pin::Pin;
     use std::sync::Arc;
     use std::sync::atomic::Ordering;
 
     use tower::{Layer, Service};
 
     use super::*;
+    use crate::guardrail::Guardrail;
     use crate::guardrail::builtin::DenyListGuardrail;
     use crate::guardrail::registry::GuardrailRegistry;
     use crate::tower::service::LlmService;
     use crate::tower::tests_common::{MockClient, chat_req};
     use crate::tower::types::LlmRequest;
+    use crate::types::audio::{CreateSpeechRequest, CreateTranscriptionRequest, TranscriptionResponse};
+    use crate::types::image::{CreateImageRequest, ImagesResponse};
+    use crate::types::moderation::{ModerationRequest, ModerationResponse};
+    use crate::types::ocr::{OcrRequest, OcrResponse};
+    use crate::types::rerank::{RerankRequest, RerankResponse};
+    use crate::types::search::{SearchRequest, SearchResponse};
 
     #[tokio::test]
     async fn guardrail_layer_allows_when_registry_is_empty() {
@@ -254,5 +292,189 @@ mod tests {
         let mut svc = GuardrailLayer::new(Arc::new(registry), meta).layer(inner);
         let result = svc.call(LlmRequest::Chat(chat_req("gpt-4"))).await;
         assert!(result.is_ok(), "non-blocked user should pass through");
+    }
+
+    /// A trivial inner service that always returns a preset response,
+    /// regardless of the request. Used to exercise every `LlmResponse`
+    /// variant through the guardrail layer without depending on
+    /// `MockClient`'s per-endpoint coverage (it doesn't implement every
+    /// endpoint — e.g. `search`/`ocr` always return `EndpointNotSupported`).
+    #[derive(Clone)]
+    struct CannedService {
+        build: Arc<dyn Fn() -> LlmResponse + Send + Sync>,
+    }
+
+    impl Service<LlmRequest> for CannedService {
+        type Response = LlmResponse;
+        type Error = LiterLlmError;
+        type Future = BoxFuture<'static, Result<LlmResponse>>;
+
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, _req: LlmRequest) -> Self::Future {
+            let resp = (self.build)();
+            Box::pin(async move { Ok(resp) })
+        }
+    }
+
+    /// A guardrail that unconditionally blocks whenever it runs at the
+    /// `Output` stage. Used to prove the stage is actually invoked for a
+    /// given response type — before the fix, most response variants never
+    /// reached `run_stage` at all, so even an always-blocking guardrail
+    /// would silently never fire for them.
+    struct AlwaysBlockOutput;
+
+    impl Guardrail for AlwaysBlockOutput {
+        fn name(&self) -> &'static str {
+            "always-block-output"
+        }
+
+        fn supported_stages(&self) -> &'static [GuardrailStage] {
+            &[GuardrailStage::Output]
+        }
+
+        fn check<'a>(
+            &'a self,
+            _stage: GuardrailStage,
+            _ctx: &'a GuardrailContext<'a>,
+        ) -> Pin<Box<dyn std::future::Future<Output = GuardrailDecision> + Send + 'a>> {
+            Box::pin(async move {
+                GuardrailDecision::Block {
+                    reason: "test: always blocks output".into(),
+                    code: 9999,
+                }
+            })
+        }
+    }
+
+    /// Wrap a `CannedService` that always returns a response built by
+    /// `build_response` behind a `GuardrailLayer` containing only
+    /// `AlwaysBlockOutput`, and assert the call is blocked — proving the
+    /// Output stage actually inspected this response type instead of
+    /// silently skipping it via the old `_ => return Ok(response)` catch-all.
+    async fn assert_output_stage_inspects<F>(request: LlmRequest, build_response: F)
+    where
+        F: Fn() -> LlmResponse + Send + Sync + 'static,
+    {
+        let mut registry = GuardrailRegistry::new();
+        registry.register(Arc::new(AlwaysBlockOutput));
+
+        let inner = CannedService {
+            build: Arc::new(build_response),
+        };
+        let mut svc = GuardrailLayer::with_registry(Arc::new(registry)).layer(inner);
+
+        let err = svc
+            .call(request)
+            .await
+            .expect_err("Output-stage guardrail should have blocked this response type");
+
+        assert!(
+            matches!(err, LiterLlmError::HookRejected { .. }),
+            "expected HookRejected, got {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn guardrail_output_stage_inspects_image_generate_response() {
+        assert_output_stage_inspects(LlmRequest::ImageGenerate(CreateImageRequest::default()), || {
+            LlmResponse::ImageGenerate(ImagesResponse::default())
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn guardrail_output_stage_inspects_speech_response() {
+        assert_output_stage_inspects(LlmRequest::Speech(CreateSpeechRequest::default()), || {
+            LlmResponse::Speech(bytes::Bytes::from_static(b"audio"))
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn guardrail_output_stage_inspects_transcribe_response() {
+        assert_output_stage_inspects(LlmRequest::Transcribe(CreateTranscriptionRequest::default()), || {
+            LlmResponse::Transcribe(TranscriptionResponse::default())
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn guardrail_output_stage_inspects_moderate_response() {
+        assert_output_stage_inspects(LlmRequest::Moderate(ModerationRequest::default()), || {
+            LlmResponse::Moderate(ModerationResponse {
+                id: String::new(),
+                model: String::new(),
+                results: vec![],
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn guardrail_output_stage_inspects_rerank_response() {
+        assert_output_stage_inspects(LlmRequest::Rerank(RerankRequest::default()), || {
+            LlmResponse::Rerank(RerankResponse {
+                id: None,
+                results: vec![],
+                meta: None,
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn guardrail_output_stage_inspects_search_response() {
+        assert_output_stage_inspects(LlmRequest::Search(SearchRequest::default()), || {
+            LlmResponse::Search(SearchResponse {
+                results: vec![],
+                model: "test-model".into(),
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn guardrail_output_stage_inspects_ocr_response() {
+        assert_output_stage_inspects(LlmRequest::Ocr(OcrRequest::default()), || {
+            LlmResponse::Ocr(OcrResponse {
+                pages: vec![],
+                model: "test-model".into(),
+                usage: None,
+            })
+        })
+        .await;
+    }
+
+    /// A type whose `Serialize` impl always fails, used to exercise the
+    /// guardrail's fail-closed path for a response body that cannot be
+    /// serialized into JSON.
+    struct AlwaysFailsToSerialize;
+
+    impl serde::Serialize for AlwaysFailsToSerialize {
+        fn serialize<S: serde::Serializer>(&self, _serializer: S) -> std::result::Result<S::Ok, S::Error> {
+            Err(serde::ser::Error::custom("intentional failure for test"))
+        }
+    }
+
+    /// Regression test for the guardrail's fail-open bug: previously, a
+    /// response that failed to serialize to JSON silently returned
+    /// `Ok(response)`, letting un-inspected content reach the caller
+    /// unchecked. It must now fail closed (return `Err`).
+    ///
+    /// None of `LlmResponse`'s concrete payload types can be coaxed into a
+    /// real `serde_json::to_value` failure (no non-string map keys, and
+    /// non-finite floats serialize to JSON `null` rather than erroring), so
+    /// this exercises the extracted `serialize_for_guardrail` primitive
+    /// directly with a type whose `Serialize` impl is built to fail.
+    #[test]
+    fn serialize_for_guardrail_fails_closed_on_serialization_error() {
+        let result = serialize_for_guardrail(&AlwaysFailsToSerialize);
+        assert!(
+            result.is_err(),
+            "a response body that cannot be serialized must fail closed (Err), not silently pass through"
+        );
     }
 }
