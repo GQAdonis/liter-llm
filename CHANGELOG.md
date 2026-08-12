@@ -7,8 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Upgrade notes
+
+- **Deploying this release invalidates every existing cache entry.** The cache key now folds in
+  `tenant_id` and `system_prompt` (both previously hard-coded to `None`) and additionally hashes
+  `tools`, `response_format`, `seed`, `presence_penalty`, `frequency_penalty`, `logit_bias`,
+  `tool_choice`, `parallel_tool_calls`, `reasoning_effort`, `modalities` and `extra_body`. Old keys
+  become unreachable the moment this deploys — there is no error and no warning, just a cold cache
+  and a burst of upstream traffic and spend until it refills. This is intended: the old keys were
+  the defect. Expect the cold-start cost and do not read the traffic spike as a regression.
+
+### Security
+
+- **Proxy: any valid virtual key could read, download and delete another tenant's files, batches and
+  responses.** The nine REST handlers in `routes/files.rs` and `routes/batches.rs` bound `KeyContext`
+  as `_key_ctx` and discarded it. These IDs are opaque identifiers on a single shared upstream
+  provider account with no per-tenant ownership record in the proxy, so they are now scoped to master
+  keys — matching what the MCP layer already enforced for the same twelve operations.
+- **Proxy: revoked virtual keys and rotated master keys kept working until restart.** The config
+  watcher swapped only the config `Arc`; `KeyStore` is now built once, shared with the watcher, and
+  reloaded on every `Put`/`Resync` event.
+- **Cache: enabling the semantic tier silently defeated tenant isolation.** The exact tier folded
+  `tenant_id` into its key, but the semantic tier wrote every entry with `tenant_id: None` and
+  `VectorStore::search` took no tenant argument, so it could not have filtered even if the metadata
+  were populated — tenant B asking a semantically similar question was served tenant A's cached
+  response. `search` now takes a tenant and both backends filter on it. `None` matches only `None`;
+  treating it as a wildcard would reopen the hole it closes.
+- **Bedrock: a SigV4 signing failure sent the request to AWS unauthenticated.** `signing_headers`
+  called `sigv4_sign(...).unwrap_or_default()`, so failure yielded empty headers. Credentials are now
+  validated on every request and fail hard before any network I/O.
+- **Credentials appeared in `{:?}` output.** `LlmConfig` and `BedrockConfig` derived `Debug` over
+  `api_key`, `access_key_id`, `secret_access_key` and `session_token`, so any debug formatting — a
+  tracing event, a panic message — printed live credentials. Both now redact, matching the existing
+  `ClientConfig` convention. Proxy config structs holding virtual keys and provider credentials are
+  redacted likewise.
+- **Output guardrails did nothing for streamed responses.** `GuardrailStage::OutputChunk` was defined
+  and documented but never invoked, so a guardrail that blocks a phrase had no effect once the caller
+  streamed. Chunks now pass through it, and a blocked chunk terminates the stream: bytes already sent
+  cannot be recalled, but nothing further reaches the caller.
+- CEL guardrail expressions reached the parser with no bound on length or nesting depth. A stack
+  overflow aborts the process and `catch_unwind` cannot catch it, so one malicious rule string could
+  take the process down. Expressions are now validated before compilation. The abort was never
+  reproduced — this is defence in depth, not a confirmed exploit.
+- A panicking guardrail poisoned the global registry lock and permanently disabled guardrail
+  enforcement for the rest of the process; the guard is now recovered with a warning.
+- The CLI now warns when a master key is passed as a command-line argument, where it is visible in
+  the process table.
+
 ### Fixed
 
+- **Budget: month-to-date spend reset on every config reload, not on restart.** `InMemoryBudgetLedger`
+  had no way to update its limits, so the proxy rebuilt and swapped the whole ledger to apply a
+  reloaded config, discarding every sliding window. With hot-reload enabled and frequent config
+  pushes a tenant's budget could effectively never be enforced, and it failed open. Limits now sit
+  behind an `ArcSwap` and only that pointer is swapped, so a lowered limit applies to spend already
+  recorded rather than forgiving it.
+- **Budget enforcement, cost tracking and rate limiting skipped every streamed request.**
+  `LlmResponse::usage()` is always `None` for `ChatStream`; streams are now wrapped to fire accounting
+  on completion.
+- **Requests differing only in `tools`, `response_format`, `seed`, `logit_bias`, `tool_choice` or
+  `extra_body` collided in the cache and were served each other's responses.** See the upgrade note
+  above.
+- The negative cache was dead code: it wrote keys with a std `DefaultHasher` over raw JSON while the
+  read path used a seeded `ahash` over a curated field set, so an entry could never be read back.
+  Both paths now share one `CacheKeyStrategy`.
+- **Every non-streaming Cohere completion failed deserialization.** Cohere's v2 chat response has no
+  `choices` wrapper — `id`, `finish_reason`, `message` and `usage` are top level — so
+  `transform_response` was a no-op on real payloads. The old tests passed only because they fed the
+  wrong shape as input.
+- SSE stream truncation was reported as a clean EOF — silent data loss. Truncated lines and truncated
+  UTF-8 codepoints now surface as errors, and transport errors go through the retry budget instead of
+  propagating immediately. Anthropic 529 is treated as retryable and its `Retry-After` is honored.
+- Gemini reasoning parts carry a `thought` flag but were concatenated into visible content; they now
+  route to `reasoning_content`, and `reasoning_effort` maps to `thinkingConfig` instead of being
+  dropped.
+- `ImageUrl` and `AudioContent` are shared between request and response types but carried
+  `deny_unknown_fields`, so a provider adding a field to its image or audio output hard-failed the
+  whole response.
+- The proxy routed to only one deployment and silently dropped the rest; per-key rpm, tpm and
+  `budget_limit` were parsed from config and never enforced by anything.
+- Idempotency keys are released by an RAII guard when a request is cancelled, instead of being
+  stranded for the full 24h TTL.
+- Metrics attribute caches were unbounded, so label cardinality grew without limit in a long-running
+  proxy. The cost histogram was declared and never recorded to, which made any dashboard built on it
+  read zero forever.
 - Documentation examples are generated from every E2E fixture across the configured binding-language matrix, keeping
   examples correlated with executable coverage and making missing target renderers visible during generation.
 - Dart: the native loader downloads and caches the library again on a cold cache. It only read
