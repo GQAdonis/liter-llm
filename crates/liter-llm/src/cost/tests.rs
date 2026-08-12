@@ -364,9 +364,9 @@ fn anthropic_model_resolves_via_combined_key_and_bare_alias() {
 /// and the bare alias.
 #[test]
 fn google_model_resolves_via_combined_key_and_bare_alias() {
-    let combined =
-        model_pricing("google/gemini-2.0-flash").expect("google/gemini-2.0-flash must resolve via combined key");
-    let bare = model_pricing("gemini-2.0-flash").expect("gemini-2.0-flash must resolve via bare alias");
+    let combined = model_pricing("google/gemini-2.5-flash-lite")
+        .expect("google/gemini-2.5-flash-lite must resolve via combined key");
+    let bare = model_pricing("gemini-2.5-flash-lite").expect("gemini-2.5-flash-lite must resolve via bare alias");
 
     assert!((combined.input_cost_per_token - 0.0000001).abs() < 1e-12);
     assert!((combined.output_cost_per_token - 0.0000004).abs() < 1e-12);
