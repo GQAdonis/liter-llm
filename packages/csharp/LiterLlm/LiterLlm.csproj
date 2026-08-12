@@ -19,10 +19,13 @@
     <Nullable>enable</Nullable>
     <!-- AnyCPU managed assembly so the PE `Machine` header stays processor-neutral
          and consumers never see `warning CS8012: ... targets a different processor`.
-         Native asset resolution at consumer build time is driven by the
-         `runtimes/<rid>/native/` payload baked into the NuGet package — not a
-         single `<RuntimeIdentifier>` on the package author's side, which would
-         force runtime-specific output and break AnyCPU packaging. -->
+         Native asset resolution happens at the consumer's restore, via the
+         runtime.json RID-fallback graph packed below — NOT from a runtimes/**
+         payload in this package, which carries none. A single
+         `<RuntimeIdentifier>` here would force runtime-specific output and break
+         AnyCPU packaging. `<RuntimeIdentifiers>` (plural) only declares the
+         supported set; scripts/ci/check_csharp_rid_drift.py asserts it matches
+         the RIDs the build-ffi matrix actually produces. -->
     <PlatformTarget>AnyCPU</PlatformTarget>
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>

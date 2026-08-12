@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
-"""Verify the C# RuntimeIdentifiers set matches the build-ffi CI matrix.
+"""Verify the three C# RID lists agree: declared, built, and packed.
 
-``packages/csharp/LiterLlm/LiterLlm.csproj`` declares which RIDs the NuGet
-package supports (``<RuntimeIdentifiers>``); ``.github/workflows/publish.yaml``'s
-``build-ffi`` job matrix is what actually produces a native library per RID.
-These two lists have drifted apart twice already (macos-x86_64, then
-win-arm64: a RID declared in the csproj with no matching matrix leg, so a
-consumer on that RID resolves no native asset and fails at load). Both sets
-are extracted from their source files here rather than hardcoded, so this
-check cannot itself go stale — a hardcoded third list would just be another
-copy of the same data.
+A RID has to survive all three stages for a consumer to load the binding:
+
+1. ``packages/csharp/LiterLlm/LiterLlm.csproj`` declares the supported set
+   (``<RuntimeIdentifiers>``), and the meta package's runtime.json names an
+   ``XbergIo.LiterLlm.runtime.<rid>`` package for each.
+2. ``.github/workflows/publish.yaml``'s ``build-ffi`` matrix produces the
+   native library.
+3. ``build-csharp-package``'s ``CSHARP_RIDS`` stages that native and packs it
+   into the per-RID runtime package.
+
+1 and 2 drifted apart twice (macos-x86_64, then win-arm64: a RID declared with
+no matching matrix leg, so that RID resolved no native asset). Stage 3 is worse
+when it drifts and was missed entirely for a while — the runtime packages were
+never packed at all, so runtime.json pointed at packages that did not exist on
+nuget.org for *every* RID and the binding could not load anywhere.
+
+All three sets are extracted from their source files rather than hardcoded, so
+this check cannot itself go stale — a hardcoded fourth list would just be
+another copy of the same data.
 
 Usage:
     python3 scripts/ci/check_csharp_rid_drift.py    # exit 1 on drift
@@ -56,37 +66,48 @@ def built_rids() -> set[str]:
     return set(rids)
 
 
+def packaged_rids() -> set[str]:
+    """RIDs the build-csharp-package job stages natives for and packs.
+
+    A RID can be declared and built yet never packed into an
+    ``XbergIo.LiterLlm.runtime.<rid>`` package, which is exactly the failure this
+    check was extended for: the meta package's runtime.json names a runtime
+    package per RID, and any RID missing from the pack loop resolves to a package
+    that does not exist on nuget.org.
+    """
+    text = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+    match = re.search(r"(?m)^  build-csharp-package:\n(.*?)(?=^  [A-Za-z][\w-]*:\n)", text, re.DOTALL)
+    if not match:
+        raise SystemExit(f"could not locate build-csharp-package job in {PUBLISH_WORKFLOW}")
+    env_match = re.search(r"(?m)^\s*CSHARP_RIDS:\s*(.+?)\s*$", match.group(1))
+    if not env_match:
+        raise SystemExit(f"no job-level CSHARP_RIDS declared in build-csharp-package job of {PUBLISH_WORKFLOW}")
+    return {rid for rid in env_match.group(1).split() if rid}
+
+
 def main() -> int:
-    """Compare the two RID sets and report any drift.
+    """Compare the three RID sets and report any drift.
 
     The printed lines are this check's machine-readable result, not incidental
     logging, so `print` is the correct surface here (ruff T201 suppressed per
     call for that reason).
     """
-    declared = declared_rids()
-    built = built_rids()
+    sets = {
+        "declared in LiterLlm.csproj <RuntimeIdentifiers>": declared_rids(),
+        "built by the build-ffi matrix": built_rids(),
+        "staged and packed via CSHARP_RIDS": packaged_rids(),
+    }
 
-    declared_not_built = declared - built
-    built_not_declared = built - declared
+    union = set().union(*sets.values())
+    drift = {label: sorted(union - rids) for label, rids in sets.items() if union - rids}
 
-    if not declared_not_built and not built_not_declared:
-        print(f"OK: {len(declared)} RIDs declared and built agree: {sorted(declared)}")  # noqa: T201
+    if not drift:
+        print(f"OK: {len(union)} RIDs agree across all three sources: {sorted(union)}")  # noqa: T201
         return 0
 
-    print(  # noqa: T201
-        "RID drift between LiterLlm.csproj and publish.yaml's build-ffi matrix:",
-        file=sys.stderr,
-    )
-    if declared_not_built:
-        print(  # noqa: T201
-            f"  declared in RuntimeIdentifiers but never built: {sorted(declared_not_built)}",
-            file=sys.stderr,
-        )
-    if built_not_declared:
-        print(  # noqa: T201
-            f"  built by CI but not declared in RuntimeIdentifiers: {sorted(built_not_declared)}",
-            file=sys.stderr,
-        )
+    print("C# RID drift detected:", file=sys.stderr)  # noqa: T201
+    for label, missing in drift.items():
+        print(f"  missing from {label}: {missing}", file=sys.stderr)  # noqa: T201
     return 1
 
 

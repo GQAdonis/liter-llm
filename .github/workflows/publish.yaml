@@ -1041,6 +1041,11 @@ jobs:
       (needs.registry-results.outputs.nuget != 'true' || needs.prepare.outputs.force_republish == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # CSHARP_RIDS is declared once at job scope and consumed by both the staging
+    # loop and the per-RID pack loop. Keeping a single list is what stops the two
+    # from drifting into "natives staged for a RID that never gets packed".
+    env:
+      CSHARP_RIDS: linux-x64 linux-arm64 osx-arm64 osx-x64 win-x64 win-arm64
     steps:
       - uses: actions/checkout@v6
         with:
@@ -1052,7 +1057,7 @@ jobs:
           merge-multiple: true
       - name: Stage native libs for C#
         run: |
-          for rid in linux-x64 linux-arm64 osx-arm64 osx-x64 win-x64 win-arm64; do
+          for rid in ${CSHARP_RIDS}; do
             dest="packages/csharp/LiterLlm/runtimes/${rid}/native"
             mkdir -p "$dest"
             find "ffi-artifacts/${rid}" -type f -print0 | xargs -0 -I{} cp {} "$dest/"
@@ -1068,6 +1073,17 @@ jobs:
           version: ${{ needs.prepare.outputs.version }}
       - name: Pack NuGet package
         run: dotnet pack packages/csharp/LiterLlm/LiterLlm.csproj -c Release -o nuget-output
+        shell: bash
+      # The meta package ships no natives; its runtime.json RID-fallback graph
+      # resolves XbergIo.LiterLlm.runtime.<rid> instead. Without this loop those
+      # packages are never built, so every RID in the graph points at something
+      # that does not exist on nuget.org and the binding cannot load anywhere.
+      - name: Pack per-RID native runtime packages
+        run: |
+          for rid in ${CSHARP_RIDS}; do
+            dotnet pack packages/csharp/LiterLlm.Runtime/LiterLlm.Runtime.csproj \
+              -c Release -o nuget-output -p:PublishedRID="${rid}"
+          done
         shell: bash
       - uses: actions/upload-artifact@v7
         with:
