@@ -12,9 +12,13 @@ use crate::types::{ChatCompletionChunk, FinishReason, StreamChoice, StreamDelta,
 /// - Chat endpoint is `/chat` instead of `/chat/completions`.
 /// - Rerank endpoint is `/rerank` instead of the default path.
 /// - `stream_options` is an OpenAI-specific field and must be stripped; `stream` is kept (Cohere v2 requires it).
-/// - Finish reasons use Cohere-specific names (`COMPLETE`, `MAX_TOKENS`, `TOOL_CALL`).
-/// - Usage is reported under `tokens.input_tokens` / `tokens.output_tokens`.
-/// - Response may lack `object` and `created` fields.
+/// - The non-streaming `/chat` response has **no `choices` wrapper**: `id`, `finish_reason`,
+///   `message`, and `usage` are top-level fields (verified against Cohere's v2 API reference).
+///   `finish_reason` uses Cohere-specific names (`COMPLETE`, `MAX_TOKENS`, `TOOL_CALL`).
+///   `message.content` is an array of typed blocks (`text`, `thinking`), not a flat string.
+///   `usage` is reported as `{billed_units: {...}, tokens: {...}}`, not OpenAI's flat
+///   `prompt_tokens` / `completion_tokens`. `transform_response` rebuilds the whole body
+///   into the OpenAI `choices` shape from these fields (#53).
 pub struct CohereProvider;
 
 impl Provider for CohereProvider {
@@ -248,46 +252,99 @@ impl Provider for CohereProvider {
         }
     }
 
-    /// Normalize Cohere response format to OpenAI-compatible JSON.
+    /// Normalize a Cohere v2 `/chat` response to OpenAI chat completion format.
     ///
-    /// - Maps finish reasons: `COMPLETE` -> `stop`, `MAX_TOKENS` -> `length`,
-    ///   `TOOL_CALL` -> `tool_calls`.
-    /// - Normalizes usage from `tokens.{input,output}_tokens` to
-    ///   `usage.{prompt,completion,total}_tokens`.
-    /// - Ensures `object` and `created` fields are present.
+    /// Cohere's response has no `choices` wrapper: `finish_reason` and `message`
+    /// are top-level fields, `message.content` is an array of typed blocks
+    /// (`text`, `thinking`, ...) rather than a flat string, `message.tool_calls`
+    /// already matches the OpenAI `{id, type, function: {name, arguments}}` shape
+    /// verbatim, and usage is reported under `usage.billed_units.{input,output}_tokens`
+    /// (not OpenAI's flat `prompt_tokens` / `completion_tokens`). This rebuilds the
+    /// whole body into the shape `ChatCompletionResponse` expects (#53): the
+    /// previous implementation assumed the response was already `choices`-wrapped,
+    /// which meant every real non-streaming Cohere response failed
+    /// deserialization with a missing `choices` field.
     fn transform_response(&self, body: &mut Value) -> Result<()> {
-        if let Some(choices) = body.get_mut("choices").and_then(Value::as_array_mut) {
-            for choice in choices {
-                if let Some(reason) = choice.get("finish_reason").and_then(Value::as_str) {
-                    let mapped = match reason {
-                        "COMPLETE" => "stop",
-                        "MAX_TOKENS" => "length",
-                        "TOOL_CALL" => "tool_calls",
-                        other => other,
-                    };
-                    choice["finish_reason"] = Value::String(mapped.to_owned());
-                }
+        use serde_json::json;
+
+        let id = body.get("id").cloned().unwrap_or_else(|| Value::String(String::new()));
+
+        let finish_reason_raw = body.get("finish_reason").and_then(Value::as_str).unwrap_or("COMPLETE");
+        let finish_reason = match finish_reason_raw {
+            "COMPLETE" => "stop",
+            "MAX_TOKENS" => "length",
+            "TOOL_CALL" => "tool_calls",
+            other => other,
+        };
+
+        let content_blocks = body.pointer("/message/content").and_then(Value::as_array).cloned();
+
+        let text: String = content_blocks
+            .as_ref()
+            .map(|blocks| {
+                blocks
+                    .iter()
+                    .filter(|b| b.get("type").and_then(Value::as_str) == Some("text"))
+                    .filter_map(|b| b.get("text").and_then(Value::as_str))
+                    .collect::<Vec<_>>()
+                    .join("")
+            })
+            .unwrap_or_default();
+
+        // ~keep Cohere "thinking" blocks are internal reasoning, not visible content;
+        // route them to `reasoning_content` the same way Anthropic/Gemini thinking is handled.
+        let reasoning_text: Option<String> = content_blocks.as_ref().and_then(|blocks| {
+            let joined = blocks
+                .iter()
+                .filter(|b| b.get("type").and_then(Value::as_str) == Some("thinking"))
+                .filter_map(|b| b.get("thinking").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+                .join("");
+            if joined.is_empty() { None } else { Some(joined) }
+        });
+
+        let tool_calls = body.pointer("/message/tool_calls").and_then(Value::as_array).cloned();
+        let has_tool_calls = tool_calls.as_ref().is_some_and(|tc| !tc.is_empty());
+
+        let message_content = if text.is_empty() {
+            Value::Null
+        } else {
+            Value::String(text)
+        };
+
+        let mut message = json!({"role": "assistant", "content": message_content});
+        if let (Some(tc), true) = (tool_calls, has_tool_calls) {
+            message["tool_calls"] = Value::Array(tc);
+        }
+        if let Some(reasoning) = reasoning_text {
+            message["reasoning_content"] = Value::String(reasoning);
+        }
+
+        let input_tokens = body
+            .pointer("/usage/billed_units/input_tokens")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let output_tokens = body
+            .pointer("/usage/billed_units/output_tokens")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+
+        *body = json!({
+            "id": id,
+            "object": "chat.completion",
+            "created": unix_timestamp_secs(),
+            "model": "",
+            "choices": [{
+                "index": 0,
+                "message": message,
+                "finish_reason": finish_reason
+            }],
+            "usage": {
+                "prompt_tokens": input_tokens,
+                "completion_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens
             }
-        }
-
-        if body.get("usage").is_none()
-            && let Some(tokens) = body.get("tokens")
-        {
-            let input = tokens.get("input_tokens").and_then(Value::as_u64).unwrap_or(0);
-            let output = tokens.get("output_tokens").and_then(Value::as_u64).unwrap_or(0);
-            body["usage"] = serde_json::json!({
-                "prompt_tokens": input,
-                "completion_tokens": output,
-                "total_tokens": input + output,
-            });
-        }
-
-        if body.get("object").is_none() {
-            body["object"] = Value::String("chat.completion".to_owned());
-        }
-        if body.get("created").is_none() {
-            body["created"] = Value::Number(unix_timestamp_secs().into());
-        }
+        });
 
         Ok(())
     }
@@ -380,36 +437,150 @@ mod tests {
         assert_eq!(body["model"], "command-r-plus");
     }
 
+    /// Build a Cohere v2 `/chat` response body in the real shape (no `choices`
+    /// wrapper), per Cohere's own API reference — see #53.
+    fn real_cohere_response(finish_reason: &str, content: serde_json::Value) -> serde_json::Value {
+        json!({
+            "id": "resp-abc123",
+            "finish_reason": finish_reason,
+            "message": {
+                "role": "assistant",
+                "content": content
+            },
+            "usage": {
+                "billed_units": {"input_tokens": 10, "output_tokens": 20},
+                "tokens": {"input_tokens": 12, "output_tokens": 22}
+            }
+        })
+    }
+
     #[test]
-    fn test_cohere_transform_response_finish_reasons() {
+    fn test_cohere_transform_response_wraps_top_level_fields_into_choices() {
+        // ~keep Regression test for #53: Cohere's real response has no `choices` array —
+        // `finish_reason` and `message` are top-level. The old implementation assumed a
+        // `choices`-wrapped input and was therefore a no-op on real responses, leaving
+        // the body without the `choices` field `ChatCompletionResponse` requires.
         let provider = CohereProvider;
-        let mut body = json!({
-            "choices": [
-                {"finish_reason": "COMPLETE", "message": {"content": "hi"}},
-                {"finish_reason": "MAX_TOKENS", "message": {"content": "..."}},
-                {"finish_reason": "TOOL_CALL", "message": {"content": ""}}
-            ]
-        });
+        let mut body = real_cohere_response("COMPLETE", json!([{"type": "text", "text": "hi"}]));
+
         provider
             .transform_response(&mut body)
             .expect("transform should succeed");
 
-        let choices = body["choices"].as_array().expect("choices array");
+        assert_eq!(body["id"], "resp-abc123");
+        assert_eq!(body["object"], "chat.completion");
+        assert!(body["created"].as_u64().is_some());
+        let choices = body["choices"].as_array().expect("choices array must be present");
+        assert_eq!(choices.len(), 1);
+        assert_eq!(choices[0]["index"], 0);
         assert_eq!(choices[0]["finish_reason"], "stop");
-        assert_eq!(choices[1]["finish_reason"], "length");
-        assert_eq!(choices[2]["finish_reason"], "tool_calls");
+        assert_eq!(choices[0]["message"]["role"], "assistant");
+        assert_eq!(choices[0]["message"]["content"], "hi");
     }
 
     #[test]
-    fn test_cohere_transform_response_usage_normalization() {
+    fn test_cohere_transform_response_finish_reasons() {
         let provider = CohereProvider;
-        let mut body = json!({
-            "choices": [{"finish_reason": "COMPLETE"}],
-            "tokens": {
-                "input_tokens": 10,
-                "output_tokens": 20
-            }
-        });
+        for (raw, expected) in [
+            ("COMPLETE", "stop"),
+            ("MAX_TOKENS", "length"),
+            ("TOOL_CALL", "tool_calls"),
+        ] {
+            let mut body = real_cohere_response(raw, json!([{"type": "text", "text": "hi"}]));
+            provider
+                .transform_response(&mut body)
+                .expect("transform should succeed");
+            assert_eq!(
+                body["choices"][0]["finish_reason"], expected,
+                "mapping {raw} -> {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_cohere_transform_response_concatenates_text_blocks() {
+        let provider = CohereProvider;
+        let mut body = real_cohere_response(
+            "COMPLETE",
+            json!([{"type": "text", "text": "Hello, "}, {"type": "text", "text": "world!"}]),
+        );
+        provider
+            .transform_response(&mut body)
+            .expect("transform should succeed");
+
+        assert_eq!(body["choices"][0]["message"]["content"], "Hello, world!");
+    }
+
+    #[test]
+    fn test_cohere_transform_response_thinking_block_routes_to_reasoning_content() {
+        let provider = CohereProvider;
+        let mut body = real_cohere_response(
+            "COMPLETE",
+            json!([{"type": "thinking", "thinking": "step 1..."}, {"type": "text", "text": "answer"}]),
+        );
+        provider
+            .transform_response(&mut body)
+            .expect("transform should succeed");
+
+        assert_eq!(body["choices"][0]["message"]["content"], "answer");
+        assert_eq!(body["choices"][0]["message"]["reasoning_content"], "step 1...");
+    }
+
+    #[test]
+    fn test_cohere_transform_response_no_text_block_is_null_content() {
+        let provider = CohereProvider;
+        let mut body = real_cohere_response("TOOL_CALL", json!([]));
+        body["message"]["tool_calls"] = json!([{
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": "{\"city\":\"Berlin\"}"}
+        }]);
+
+        provider
+            .transform_response(&mut body)
+            .expect("transform should succeed");
+
+        assert!(body["choices"][0]["message"]["content"].is_null());
+        let tool_calls = body["choices"][0]["message"]["tool_calls"]
+            .as_array()
+            .expect("tool_calls array");
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0]["id"], "call_1");
+        assert_eq!(tool_calls[0]["function"]["name"], "get_weather");
+        assert_eq!(tool_calls[0]["function"]["arguments"], "{\"city\":\"Berlin\"}");
+    }
+
+    #[test]
+    fn test_cohere_transform_response_output_deserializes_as_chat_completion_response() {
+        // ~keep Regression test for #53: the whole point of `transform_response` is that
+        // its output must deserialize as `ChatCompletionResponse`. Before the fix this
+        // failed with "missing field `choices`" on every real (non-`choices`-wrapped)
+        // Cohere response.
+        let provider = CohereProvider;
+        let mut body = real_cohere_response("COMPLETE", json!([{"type": "text", "text": "hi"}]));
+
+        provider
+            .transform_response(&mut body)
+            .expect("transform should succeed");
+
+        let parsed: crate::types::ChatCompletionResponse =
+            serde_json::from_value(body).expect("transform_response output must deserialize as ChatCompletionResponse");
+        assert_eq!(
+            parsed.choices[0]
+                .message
+                .content
+                .as_ref()
+                .map(ToString::to_string)
+                .as_deref(),
+            Some("hi")
+        );
+    }
+
+    #[test]
+    fn test_cohere_transform_response_usage_uses_billed_units() {
+        let provider = CohereProvider;
+        let mut body = real_cohere_response("COMPLETE", json!([{"type": "text", "text": "hi"}]));
+
         provider
             .transform_response(&mut body)
             .expect("transform should succeed");
@@ -418,33 +589,6 @@ mod tests {
         assert_eq!(usage["prompt_tokens"], 10);
         assert_eq!(usage["completion_tokens"], 20);
         assert_eq!(usage["total_tokens"], 30);
-    }
-
-    #[test]
-    fn test_cohere_transform_response_adds_object_and_created() {
-        let provider = CohereProvider;
-        let mut body = json!({"choices": []});
-        provider
-            .transform_response(&mut body)
-            .expect("transform should succeed");
-
-        assert_eq!(body["object"], "chat.completion");
-        assert!(body["created"].as_u64().is_some());
-    }
-
-    #[test]
-    fn test_cohere_transform_response_preserves_existing_usage() {
-        let provider = CohereProvider;
-        let mut body = json!({
-            "choices": [],
-            "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15},
-            "tokens": {"input_tokens": 99, "output_tokens": 99}
-        });
-        provider
-            .transform_response(&mut body)
-            .expect("transform should succeed");
-
-        assert_eq!(body["usage"]["prompt_tokens"], 5);
     }
 
     #[test]

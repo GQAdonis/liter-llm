@@ -7,7 +7,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Returns `Some(delay)` if the request should be retried, `None` otherwise.
 ///
 /// When `retry_after` is provided (parsed from the `Retry-After` response
-/// header) it takes precedence over exponential backoff for 429 responses.
+/// header) it takes precedence over exponential backoff for 429 and 529
+/// responses — both are explicit "back off for N seconds" throttling signals,
+/// unlike a generic 5xx where a server-suggested delay is less reliable.
 ///
 /// Exponential backoff includes jitter to prevent thundering-herd effects
 /// when multiple clients retry simultaneously. The jitter scales the delay
@@ -18,20 +20,44 @@ pub fn should_retry(status: u16, attempt: u32, max_retries: u32, retry_after: Op
         return None;
     }
 
-    if !matches!(status, 429 | 500 | 502 | 503 | 504) {
+    // ~keep 529 is Anthropic's non-standard "Overloaded" status (not in the IANA HTTP
+    // status registry), used the same way other providers use 429/503: back off and retry.
+    if !matches!(status, 429 | 500 | 502 | 503 | 504 | 529) {
         return None;
     }
 
-    if status == 429
+    if matches!(status, 429 | 529)
         && let Some(server_delay) = retry_after
     {
         return Some(server_delay.min(Duration::from_secs(60)));
     }
 
+    Some(exponential_backoff(attempt))
+}
+
+/// Determine whether to retry after a transport-level failure (connection
+/// reset, DNS failure, TLS handshake failure, request timeout) rather than an
+/// HTTP status response.
+///
+/// No response was received, so there is no status code or `Retry-After`
+/// header to consult — this always falls back to the same jittered
+/// exponential backoff used for 5xx / 429 status retries.
+pub fn should_retry_transport_error(attempt: u32, max_retries: u32) -> Option<Duration> {
+    if attempt >= max_retries {
+        return None;
+    }
+
+    Some(exponential_backoff(attempt))
+}
+
+/// Jittered exponential backoff shared by status-based and transport-error retries.
+///
+/// Base delay doubles per attempt (`2^attempt` seconds), capped at 30s, then
+/// jittered to `[0.5, 1.0]` of that value.
+fn exponential_backoff(attempt: u32) -> Duration {
     let base_delay = Duration::from_secs(1u64.checked_shl(attempt).unwrap_or(u64::MAX));
     let capped = base_delay.min(Duration::from_secs(30));
-
-    Some(jittered(capped))
+    jittered(capped)
 }
 
 /// Apply jitter to a retry delay.
@@ -77,4 +103,62 @@ pub fn parse_retry_after(value: &str) -> Option<Duration> {
          falling back to exponential backoff"
     );
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retry_on_529_overloaded() {
+        // ~keep Regression test for #50: Anthropic's 529 "Overloaded" was not in the
+        // retryable status set at all, so it was never retried.
+        assert!(should_retry(529, 0, 3, None).is_some());
+        assert!(should_retry(529, 2, 3, None).is_some());
+        assert!(
+            should_retry(529, 3, 3, None).is_none(),
+            "must still respect max_retries"
+        );
+    }
+
+    #[test]
+    fn retry_after_header_respected_on_529() {
+        // ~keep Regression test for #50: Retry-After was only honored for 429, so a
+        // 529 response with a server-provided delay fell through to blind exponential
+        // backoff instead of the delay the server actually asked for.
+        let server_delay = Duration::from_secs(17);
+        let delay = should_retry(529, 0, 3, Some(server_delay)).expect("should retry on 529 with Retry-After");
+        assert_eq!(delay, server_delay);
+    }
+
+    #[test]
+    fn retry_after_still_capped_at_60s_on_529() {
+        let server_delay = Duration::from_secs(999);
+        let delay = should_retry(529, 0, 3, Some(server_delay)).expect("should retry on 529 with Retry-After");
+        assert_eq!(delay, Duration::from_secs(60));
+    }
+
+    #[test]
+    fn retry_after_still_ignored_on_500() {
+        // ~keep Unchanged prior behavior: a generic 5xx does not honor Retry-After,
+        // only the explicit throttling signals (429, 529) do.
+        let server_delay = Duration::from_secs(42);
+        let delay = should_retry(500, 0, 3, Some(server_delay)).expect("should retry on 500");
+        assert!(
+            delay < server_delay,
+            "500 must fall back to exponential backoff, not the server delay"
+        );
+    }
+
+    #[test]
+    fn should_retry_transport_error_respects_max_retries() {
+        assert!(should_retry_transport_error(0, 3).is_some());
+        assert!(should_retry_transport_error(2, 3).is_some());
+        assert!(should_retry_transport_error(3, 3).is_none());
+    }
+
+    #[test]
+    fn should_retry_transport_error_none_when_retries_disabled() {
+        assert!(should_retry_transport_error(0, 0).is_none());
+    }
 }

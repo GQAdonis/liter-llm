@@ -11,6 +11,22 @@ const DEFAULT_LOCATION: &str = "us-central1";
 /// Global counter for generating unique tool call IDs.
 static TOOL_CALL_COUNTER: AtomicU64 = AtomicU64::new(0);
 
+/// Map reasoning effort levels to a Gemini `thinkingConfig.thinkingBudget` token count.
+///
+/// Mirrors the tiers used by [`super::bedrock::reasoning_effort_to_budget_tokens`] for
+/// Claude-on-Bedrock extended thinking, adapted to Gemini's budget semantics (`0`
+/// disables thinking on models that allow it).
+fn reasoning_effort_to_thinking_budget(effort: &str) -> i64 {
+    match effort {
+        "minimal" => 0,
+        "low" => 1024,
+        "medium" => 4096,
+        "high" => 16384,
+        "max" => 24576,
+        _ => 4096,
+    }
+}
+
 /// Google Vertex AI / Gemini provider.
 ///
 /// Differences from the OpenAI-compatible baseline:
@@ -351,6 +367,17 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
         }
     }
 
+    // ~keep `reasoning_effort` was previously dropped entirely (#52): map it to Gemini's
+    // `thinkingConfig.thinkingBudget`, and request `includeThoughts` so the corresponding
+    // thought parts actually come back (routed to `reasoning_content` in the response).
+    if let Some(effort) = body.get("reasoning_effort").and_then(|e| e.as_str()) {
+        let thinking_budget = reasoning_effort_to_thinking_budget(effort);
+        gen_config["thinkingConfig"] = json!({
+            "thinkingBudget": thinking_budget,
+            "includeThoughts": true
+        });
+    }
+
     let mut tools_value = body.get("tools").and_then(|t| t.as_array()).map(|arr| {
         let declarations: Vec<serde_json::Value> = arr
             .iter()
@@ -583,11 +610,21 @@ pub(crate) fn transform_gemini_response(body: &mut serde_json::Value) -> Result<
 
     let mut text_parts: Vec<String> = vec![];
     let mut output_parts: Vec<serde_json::Value> = vec![];
+    // ~keep Gemini extended thinking marks reasoning parts with `"thought": true`
+    // alongside their `text` field. These must never reach visible `content` —
+    // route them to `reasoning_content` instead, mirroring how Anthropic's
+    // `thinking` blocks are handled (#52).
+    let mut reasoning_parts: Vec<String> = vec![];
     for p in &parts {
+        let is_thought = p.get("thought").and_then(serde_json::Value::as_bool).unwrap_or(false);
         if let Some(t) = p.get("text").and_then(|t| t.as_str()) {
             if !t.is_empty() {
-                text_parts.push(t.to_owned());
-                output_parts.push(json!({"type": "text", "text": t}));
+                if is_thought {
+                    reasoning_parts.push(t.to_owned());
+                } else {
+                    text_parts.push(t.to_owned());
+                    output_parts.push(json!({"type": "text", "text": t}));
+                }
             }
         } else if let Some(inline) = p.get("inlineData").or_else(|| p.get("inline_data")) {
             let mime_type = inline
@@ -620,6 +657,11 @@ pub(crate) fn transform_gemini_response(body: &mut serde_json::Value) -> Result<
         .iter()
         .any(|p| p.get("type").and_then(|t| t.as_str()) != Some("text"));
     let text: String = text_parts.join("");
+    let reasoning_text: Option<String> = if reasoning_parts.is_empty() {
+        None
+    } else {
+        Some(reasoning_parts.join(""))
+    };
 
     let tool_calls: Vec<serde_json::Value> = parts
         .iter()
@@ -671,6 +713,9 @@ pub(crate) fn transform_gemini_response(body: &mut serde_json::Value) -> Result<
     let mut message = json!({"role": "assistant", "content": content_value});
     if !tool_calls.is_empty() {
         message["tool_calls"] = json!(tool_calls);
+    }
+    if let Some(reasoning) = reasoning_text {
+        message["reasoning_content"] = json!(reasoning);
     }
 
     let grounding_metadata = candidate.as_ref().and_then(|c| c.get("groundingMetadata")).cloned();
@@ -735,6 +780,12 @@ pub(crate) fn parse_gemini_stream_event(event_data: &str) -> Result<Option<ChatC
         .and_then(|c| c.pointer("/message/content"))
         .and_then(|v| v.as_str())
         .map(ToOwned::to_owned);
+    // ~keep Thread `reasoning_content` through the streaming path too (#52); without
+    // this it would only ever be populated on the non-streaming response.
+    let reasoning_content = choice
+        .and_then(|c| c.pointer("/message/reasoning_content"))
+        .and_then(|v| v.as_str())
+        .map(ToOwned::to_owned);
     let finish_reason_str = choice
         .and_then(|c| c.get("finish_reason"))
         .and_then(|v| v.as_str())
@@ -783,7 +834,7 @@ pub(crate) fn parse_gemini_stream_event(event_data: &str) -> Result<Option<ChatC
                 tool_calls: stream_tool_calls,
                 function_call: None,
                 refusal: None,
-                reasoning_content: None,
+                reasoning_content,
             },
             finish_reason,
         }],
@@ -1081,6 +1132,36 @@ mod tests {
     }
 
     #[test]
+    fn transform_request_reasoning_effort_maps_to_thinking_config() {
+        // ~keep Regression test for #52: `reasoning_effort` was previously dropped
+        // entirely by Gemini's request transform.
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "reasoning_effort": "high"
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["generationConfig"]["thinkingConfig"]["thinkingBudget"], 16384);
+        assert_eq!(body["generationConfig"]["thinkingConfig"]["includeThoughts"], true);
+    }
+
+    #[test]
+    fn transform_request_no_reasoning_effort_omits_thinking_config() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(body["generationConfig"]["thinkingConfig"].is_null());
+    }
+
+    #[test]
     fn transform_request_safety_settings_from_extra_body() {
         let p = provider();
         let mut body = json!({
@@ -1221,6 +1302,56 @@ mod tests {
         assert_eq!(body["usage"]["prompt_tokens"], 8);
         assert_eq!(body["usage"]["completion_tokens"], 6);
         assert_eq!(body["usage"]["total_tokens"], 14);
+    }
+
+    #[test]
+    fn transform_response_thought_part_routes_to_reasoning_content_not_visible() {
+        // ~keep Regression test for #52: a Gemini "thought" part must never leak into
+        // the visible `content`; it must be routed to `reasoning_content` instead.
+        let p = provider();
+        let mut body = json!({
+            "candidates": [{
+                "content": {
+                    "role": "model",
+                    "parts": [
+                        {"text": "Let me think about this...", "thought": true},
+                        {"text": "The answer is 42."}
+                    ]
+                },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 5}
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        assert_eq!(body["choices"][0]["message"]["content"], "The answer is 42.");
+        assert_eq!(
+            body["choices"][0]["message"]["reasoning_content"],
+            "Let me think about this..."
+        );
+    }
+
+    #[test]
+    fn transform_response_thought_only_has_null_content() {
+        let p = provider();
+        let mut body = json!({
+            "candidates": [{
+                "content": {
+                    "role": "model",
+                    "parts": [{"text": "still thinking...", "thought": true}]
+                },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1}
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        assert!(body["choices"][0]["message"]["content"].is_null());
+        assert_eq!(body["choices"][0]["message"]["reasoning_content"], "still thinking...");
     }
 
     #[test]
@@ -1413,6 +1544,31 @@ mod tests {
 
         assert_eq!(chunk.object, "chat.completion.chunk");
         assert_eq!(chunk.choices[0].delta.content.as_deref(), Some("Hello"));
+    }
+
+    #[test]
+    fn parse_stream_event_thought_part_routes_to_reasoning_content() {
+        // ~keep Regression test for #52: the streaming path must also route "thought"
+        // parts to `reasoning_content`, not just the non-streaming response transform.
+        let p = provider();
+        let event_data = r#"{
+            "candidates": [{
+                "content": {"role": "model", "parts": [{"text": "pondering...", "thought": true}]},
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1}
+        }"#;
+
+        let chunk = p
+            .parse_stream_event(event_data)
+            .expect("parse_stream_event should not fail")
+            .expect("should yield a chunk");
+
+        assert_eq!(chunk.choices[0].delta.content, None);
+        assert_eq!(
+            chunk.choices[0].delta.reasoning_content.as_deref(),
+            Some("pondering...")
+        );
     }
 
     #[test]

@@ -18,6 +18,10 @@ use crate::types::ChatCompletionChunk;
 /// Maximum number of bytes buffered before declaring a streaming error.
 const MAX_BUFFER_BYTES: usize = 1024 * 1024;
 
+/// Maximum number of characters of truncated/leftover data logged in a
+/// truncation error message, to avoid dumping an unbounded payload.
+const TRUNCATION_PREVIEW_CHARS: usize = 64;
+
 /// Maximum capacity a reclaimed `BytesMut` buffer may have before it is
 /// discarded rather than returned to the pool.  Prevents unbounded memory
 /// accumulation on idle clients that previously processed very large chunks.
@@ -329,20 +333,47 @@ where
             }
 
             if *this.done {
-                // ~keep Leftover bytes at EOF are an incomplete SSE line and indicate truncation.
+                // ~keep Leftover bytes at EOF are an incomplete SSE line: the connection was
+                // cut mid-event. That is data loss, not a clean end, so it must surface as
+                // an `Err` item rather than a silent `Poll::Ready(None)` (see #44).
                 let remaining = this.buffer.len() - *this.cursor;
                 if remaining > 0 {
-                    tracing::warn!(
-                        leftover_bytes = remaining,
-                        preview = &this.buffer[*this.cursor..(*this.cursor + remaining.min(64))],
-                        "SSE stream ended with unterminated data in buffer; dropping partial line"
-                    );
+                    let leftover = this.buffer[*this.cursor..].trim();
+                    if !leftover.is_empty() {
+                        let preview: String = leftover.chars().take(TRUNCATION_PREVIEW_CHARS).collect();
+                        tracing::error!(
+                            leftover_bytes = remaining,
+                            preview = %preview,
+                            "SSE stream ended with unterminated data in buffer; stream was truncated"
+                        );
+                        this.buffer.clear();
+                        *this.cursor = 0;
+                        this.pending.clear();
+                        return Poll::Ready(Some(Err(LiterLlmError::Streaming {
+                            message: format!(
+                                "SSE stream truncated: {remaining} bytes of incomplete data at end of stream \
+                                 (starts with: {preview:?})"
+                            ),
+                        })));
+                    }
                     this.buffer.clear();
                     *this.cursor = 0;
                 }
-                // ~keep Any bytes still pending at EOF are a truncated codepoint; drop
-                // them rather than aborting an otherwise-complete response.
-                this.pending.clear();
+                // ~keep Bytes still pending at EOF are a codepoint split by the connection
+                // closing mid-character — also truncation, not something to drop silently.
+                if !this.pending.is_empty() {
+                    let pending_len = this.pending.len();
+                    this.pending.clear();
+                    tracing::error!(
+                        pending_bytes = pending_len,
+                        "SSE stream ended mid-codepoint; stream was truncated"
+                    );
+                    return Poll::Ready(Some(Err(LiterLlmError::Streaming {
+                        message: format!(
+                            "SSE stream truncated: {pending_len} bytes of incomplete UTF-8 at end of stream"
+                        ),
+                    })));
+                }
                 return Poll::Ready(None);
             }
 
@@ -621,6 +652,50 @@ mod tests {
                 assert!(message.contains("invalid UTF-8"), "unexpected message: {message}");
             }
             other => panic!("expected a Streaming UTF-8 error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn truncated_stream_surfaces_as_error_not_clean_eof() {
+        // ~keep Regression test for #44: a connection cut mid-event (no trailing "\n\n")
+        // must surface as an `Err`, not be silently dropped as `Poll::Ready(None)`.
+        let inner = futures_util::stream::iter(vec![Ok::<_, reqwest::Error>(Bytes::from_static(
+            br#"data: {"id":"trunc","choices":[{"delta":{"content":"partial"#,
+        ))]);
+        let mut parser: Pin<Box<SseParser<_, _, _>>> = Box::pin(SseParser::new(inner, json_parse, None));
+
+        match futures_util::StreamExt::next(&mut parser).await {
+            Some(Err(LiterLlmError::Streaming { message })) => {
+                assert!(message.contains("truncated"), "unexpected message: {message}");
+            }
+            other => panic!("truncated stream must yield an error, not {other:?}"),
+        }
+
+        // ~keep After the truncation error, the stream must end (no repeated errors, no panic).
+        assert!(futures_util::StreamExt::next(&mut parser).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn truncated_stream_mid_codepoint_surfaces_as_error() {
+        // ~keep Regression test for #44: a connection cut mid-UTF-8-codepoint must also
+        // be reported as truncation, not silently dropped.
+        let content = "café"; // "é" is 2 bytes in UTF-8; split right before its second byte.
+        let full = format!(r#"data: {{"text":"{content}"#);
+        let bytes = full.into_bytes();
+        let split = bytes.len() - 1; // leaves the last byte of "é" pending
+        assert!(
+            std::str::from_utf8(&bytes[..split]).is_err(),
+            "split must land inside a codepoint"
+        );
+
+        let inner = futures_util::stream::iter(vec![Ok::<_, reqwest::Error>(Bytes::from(bytes[..split].to_vec()))]);
+        let mut parser: Pin<Box<SseParser<_, _, _>>> = Box::pin(SseParser::new(inner, json_parse, None));
+
+        match futures_util::StreamExt::next(&mut parser).await {
+            Some(Err(LiterLlmError::Streaming { message })) => {
+                assert!(message.contains("truncated"), "unexpected message: {message}");
+            }
+            other => panic!("mid-codepoint truncation must yield an error, not {other:?}"),
         }
     }
 }

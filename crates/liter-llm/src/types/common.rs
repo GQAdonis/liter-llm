@@ -126,8 +126,13 @@ impl Default for ContentPart {
 }
 
 /// An image URL reference with optional detail level for processing.
+///
+/// ~keep No `deny_unknown_fields`: this type is shared with the response side
+/// (see [`AssistantPart::OutputImage`]) where it is deserialized from
+/// provider output, not just constructed as request input (see #51). A
+/// provider adding a new field to its image-output object must not hard-fail
+/// the whole response.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct ImageUrl {
     /// URL of the image (data URI or HTTP/HTTPS URL).
     pub url: String,
@@ -159,8 +164,10 @@ pub struct DocumentContent {
 }
 
 /// Audio content part for speech-capable models.
+///
+/// ~keep No `deny_unknown_fields`: shared with the response side (see
+/// [`AssistantPart::OutputAudio`]), same rationale as [`ImageUrl`] (#51).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct AudioContent {
     /// Base64-encoded audio data.
     pub data: String,
@@ -988,6 +995,38 @@ mod tests {
         let a: AssistantMessage = serde_json::from_str(json).expect("valid assistant message shape");
         assert_eq!(a.reasoning_content.as_deref(), Some("because..."));
         assert_eq!(a.reasoning_text(), Some("because..."));
+    }
+
+    #[test]
+    fn output_image_part_tolerates_unknown_field_in_image_url() {
+        // ~keep Regression test for #51: `ImageUrl` is shared between request-side
+        // `ContentPart::ImageUrl` and response-side `AssistantPart::OutputImage`.
+        // A provider adding a new field to its image-output object (e.g. an `id`
+        // or `expires_at`) must not hard-fail the whole response.
+        let json = r#"{"type":"output_image","image_url":{"url":"https://example.com/x.png","future_field":"x"}}"#;
+        let part: AssistantPart =
+            serde_json::from_str(json).expect("unknown field in nested image_url must not fail deserialization");
+        match part {
+            AssistantPart::OutputImage { image_url } => {
+                assert_eq!(image_url.url, "https://example.com/x.png");
+            }
+            other => panic!("expected OutputImage, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn output_audio_part_tolerates_unknown_field_in_audio() {
+        // ~keep Regression test for #51: same rationale as the ImageUrl case above,
+        // for `AudioContent` / `AssistantPart::OutputAudio`.
+        let json = r#"{"type":"output_audio","audio":{"data":"YWJj","format":"wav","future_field":42}}"#;
+        let part: AssistantPart =
+            serde_json::from_str(json).expect("unknown field in nested audio object must not fail deserialization");
+        match part {
+            AssistantPart::OutputAudio { audio } => {
+                assert_eq!(audio.format, "wav");
+            }
+            other => panic!("expected OutputAudio, got {other:?}"),
+        }
     }
 }
 

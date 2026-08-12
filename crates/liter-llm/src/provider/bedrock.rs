@@ -312,9 +312,15 @@ impl Provider for BedrockProvider {
 
     /// Validate that the provider is usable in the current environment.
     ///
-    /// When the `bedrock` feature is enabled, checks that AWS credentials are
-    /// available in the environment (`AWS_ACCESS_KEY_ID` at minimum).  Without
-    /// credentials, every real Bedrock request will be rejected with a 403.
+    /// When the `bedrock` feature is enabled, checks that both an AWS access key
+    /// and secret key are available (explicit config, or `AWS_ACCESS_KEY_ID`
+    /// and `AWS_SECRET_ACCESS_KEY` in the environment). Without both, SigV4
+    /// signing cannot succeed, so this returns an error instead of letting the
+    /// request continue toward an unsigned or malformed send.
+    ///
+    /// Called once at client construction and again on every request from
+    /// [`BedrockProvider::transform_request`], since credentials can become
+    /// unavailable between the two.
     ///
     /// When the `bedrock` feature is disabled (e.g. in tests with `base_url`
     /// override), validation is skipped so callers can connect to a mock server
@@ -322,15 +328,18 @@ impl Provider for BedrockProvider {
     fn validate(&self) -> Result<()> {
         #[cfg(feature = "bedrock")]
         {
-            let has_credentials = self.access_key_id.is_some() || std::env::var("AWS_ACCESS_KEY_ID").is_ok();
-            if !has_credentials {
-                return Err(LiterLlmError::BadRequest {
+            let has_access_key = self.access_key_id.is_some() || std::env::var("AWS_ACCESS_KEY_ID").is_ok();
+            let has_secret_key = self.secret_access_key.is_some() || std::env::var("AWS_SECRET_ACCESS_KEY").is_ok();
+            // ~keep Both keys are required: sigv4_sign has no instance-profile/SSO fallback,
+            // so a request missing either one can never actually be signed.
+            if !has_access_key || !has_secret_key {
+                return Err(LiterLlmError::Authentication {
                     message: "AWS Bedrock requires AWS credentials. \
                               Set them explicitly via config or set AWS_ACCESS_KEY_ID and \
                               AWS_SECRET_ACCESS_KEY (and optionally AWS_SESSION_TOKEN) in the \
                               environment."
                         .into(),
-                    status: 400,
+                    status: 401,
                 });
             }
         }
@@ -387,6 +396,12 @@ impl Provider for BedrockProvider {
     /// - Tools are described in `toolConfig.tools[].toolSpec`.
     fn transform_request(&self, body: &mut serde_json::Value) -> Result<()> {
         use serde_json::json;
+
+        // ~keep Re-checked on every request (not just at client construction): credentials
+        // can become unavailable between construction and send, and `signing_headers` has
+        // no way to fail the request itself, so this is the last chance to hard-error
+        // instead of silently sending an unsigned request.
+        self.validate()?;
 
         let messages = body
             .as_object_mut()
@@ -680,10 +695,21 @@ impl Provider for BedrockProvider {
     ///
     /// When the `bedrock` feature is disabled, returns an empty vector so
     /// requests work against override base-URLs (e.g. mock servers in tests).
+    ///
+    /// # Known residual gap (#42)
+    ///
+    /// This trait method cannot return `Result`, so a signing failure here
+    /// cannot itself abort the request. `Provider::transform_request` (called
+    /// earlier in the send path, see [`BedrockProvider::transform_request`])
+    /// re-validates that credentials are present on every request and hard-errors
+    /// before any network I/O, which closes the realistic failure mode (missing
+    /// or revoked credentials). The only way `sigv4_sign` can still fail here despite
+    /// that precheck is an internal SigV4 library error (malformed signing params),
+    /// which is logged loudly rather than silently swallowed. ~keep
     fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Vec<(String, String)> {
         #[cfg(feature = "bedrock")]
         {
-            sigv4_sign(
+            match sigv4_sign(
                 method,
                 url,
                 body,
@@ -691,8 +717,19 @@ impl Provider for BedrockProvider {
                 self.access_key_id.as_deref(),
                 self.secret_access_key.as_deref(),
                 self.session_token.as_deref(),
-            )
-            .unwrap_or_default()
+            ) {
+                Ok(headers) => headers,
+                Err(error) => {
+                    tracing::error!(
+                        error = %error,
+                        %method,
+                        "Bedrock SigV4 signing failed after credential precheck passed; \
+                         request will be sent without an Authorization header and is \
+                         expected to be rejected by AWS"
+                    );
+                    vec![]
+                }
+            }
         }
 
         #[cfg(not(feature = "bedrock"))]
@@ -1015,7 +1052,14 @@ mod tests {
     fn provider() -> BedrockProvider {
         // ~keep SAFETY: env vars are process-global; `#[serial]` on callers prevents races.
         unsafe { std::env::remove_var("BEDROCK_BASE_URL") };
-        BedrockProvider::new("us-east-1")
+        // ~keep Explicit dummy credentials so `transform_request`'s per-request
+        // `validate()` check (see #42) doesn't fail non-signing-focused tests
+        // regardless of the ambient AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY env state.
+        BedrockProvider::new("us-east-1").with_credentials(
+            Some("AKIATESTDUMMY".to_owned()),
+            Some("test-dummy-secret".to_owned()),
+            None,
+        )
     }
 
     #[test]
@@ -1092,6 +1136,28 @@ mod tests {
             None,
         );
         assert!(result.is_err(), "signing without credentials should fail");
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(feature = "bedrock")]
+    fn transform_request_fails_hard_without_credentials_rather_than_sending_unsigned() {
+        // ~keep Regression test for #42: before the fix, `signing_headers` swallowed a
+        // signing failure via `.unwrap_or_default()` and the request went out with no
+        // Authorization header. `transform_request` must now hard-error before any
+        // network I/O so an unsigned Bedrock request can never be sent.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        unsafe { std::env::remove_var("AWS_SECRET_ACCESS_KEY") };
+        let p = BedrockProvider::new("us-east-1");
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let result = p.transform_request(&mut body);
+        assert!(
+            result.is_err(),
+            "transform_request must hard-error when Bedrock has no credentials, not silently \
+             succeed and let signing_headers send an unsigned request"
+        );
     }
 
     #[test]
