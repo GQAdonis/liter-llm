@@ -120,10 +120,15 @@ impl ProxyServer {
             lp::set_outbound_policy(policy);
         }
 
-        let service_pool = service_pool::ServicePool::from_config(&self.config, self.usage_sink.clone())?;
-        // ~keep Built as an `Arc` up front (rather than at `AppState` construction
-        // ~keep below) so the same instance can be handed to the config watcher,
-        // ~keep which hot-reloads it on every valid config change (see issue #69).
+        // ~keep `service_pool` and `key_store` are built as `Arc`s up front (rather
+        // ~keep than at `AppState` construction below) so the same instances can be
+        // ~keep handed to the config watcher, which hot-reloads both on every valid
+        // ~keep config change: `key_store` revokes/rotates keys, `service_pool`
+        // ~keep refreshes per-key rpm/tpm/budget limits (see issue #69).
+        let service_pool = Arc::new(service_pool::ServicePool::from_config(
+            &self.config,
+            self.usage_sink.clone(),
+        )?);
         let key_store = Arc::new(auth::KeyStore::from_config(
             self.config.general.master_key.clone(),
             &self.config.keys,
@@ -145,6 +150,7 @@ impl ProxyServer {
                     provider,
                     Arc::clone(&arc_config),
                     Arc::clone(&key_store),
+                    Arc::clone(&service_pool),
                     cancel.clone(),
                 )
                 .await;
@@ -158,6 +164,7 @@ impl ProxyServer {
                     Arc::new(provider),
                     Arc::clone(&arc_config),
                     Arc::clone(&key_store),
+                    Arc::clone(&service_pool),
                     cancel.clone(),
                 )
                 .await;
@@ -188,7 +195,7 @@ impl ProxyServer {
         let state = AppState {
             key_store,
             key_resolver,
-            service_pool: Arc::new(service_pool),
+            service_pool,
             file_store: Arc::new(file_store),
             config: arc_config,
             secret_registry,

@@ -19,6 +19,7 @@ use super::{
     provider::{ConfigError, ConfigEvent, ConfigProvider},
 };
 use crate::auth::KeyStore;
+use crate::service_pool::ServicePool;
 
 /// Start the hot-reload background task.
 ///
@@ -27,6 +28,10 @@ use crate::auth::KeyStore;
 /// - `key_store` is reloaded (see [`KeyStore::reload`]) on every valid
 ///   reload so that revoked master/virtual keys stop authenticating
 ///   immediately instead of staying valid for the life of the process.
+/// - `service_pool` has its per-key rpm/tpm/budget limits refreshed (see
+///   [`ServicePool::update_key_limits`]) on every valid reload, so limit
+///   changes take effect without a process restart (issue #69 only covered
+///   `KeyStore`; this closes the same gap for `ServicePool`'s limit layers).
 /// - `cancel` allows the caller to shut down the watcher gracefully.
 ///
 /// The task logs every reload and error. It never panics — errors are logged
@@ -35,10 +40,11 @@ pub async fn spawn_watcher(
     provider: Arc<dyn ConfigProvider>,
     swap: Arc<ArcSwap<ProxyConfig>>,
     key_store: Arc<KeyStore>,
+    service_pool: Arc<ServicePool>,
     cancel: CancellationToken,
 ) {
     tokio::spawn(async move {
-        run_watcher(provider, swap, key_store, cancel).await;
+        run_watcher(provider, swap, key_store, service_pool, cancel).await;
     });
 }
 
@@ -46,6 +52,7 @@ async fn run_watcher(
     provider: Arc<dyn ConfigProvider>,
     swap: Arc<ArcSwap<ProxyConfig>>,
     key_store: Arc<KeyStore>,
+    service_pool: Arc<ServicePool>,
     cancel: CancellationToken,
 ) {
     let mut rx = match open_watch_stream(provider.as_ref()).await {
@@ -64,7 +71,7 @@ async fn run_watcher(
             }
             event = rx.recv() => {
                 match event {
-                    Some(ev) => handle_event(ev, &swap, &key_store),
+                    Some(ev) => handle_event(ev, &swap, &key_store, &service_pool),
                     None => {
                         tracing::warn!("config watcher: watch channel closed; watcher stopping");
                         return;
@@ -75,15 +82,21 @@ async fn run_watcher(
     }
 }
 
-fn handle_event(event: ConfigEvent, swap: &Arc<ArcSwap<ProxyConfig>>, key_store: &KeyStore) {
+fn handle_event(
+    event: ConfigEvent,
+    swap: &Arc<ArcSwap<ProxyConfig>>,
+    key_store: &KeyStore,
+    service_pool: &ServicePool,
+) {
     match event {
         ConfigEvent::Put { revision, config } => {
             tracing::info!(revision, "config watcher: hot-reload successful");
             increment_counter("gen_ai.config.reload");
             record_revision("gen_ai.config.revision", revision);
-            // ~keep Reload the key store before publishing the new config so no
-            // ~keep request can observe the new config with stale auth state.
+            // ~keep Reload the key store and per-key limits before publishing the new
+            // ~keep config so no request can observe the new config with stale auth/limit state.
             key_store.reload(config.general.master_key.clone(), &config.keys);
+            service_pool.update_key_limits(&config.keys);
             swap.store(Arc::new(config));
         }
         ConfigEvent::Resync { revision, config } => {
@@ -91,6 +104,7 @@ fn handle_event(event: ConfigEvent, swap: &Arc<ArcSwap<ProxyConfig>>, key_store:
             increment_counter("gen_ai.config.reload");
             record_revision("gen_ai.config.revision", revision);
             key_store.reload(config.general.master_key.clone(), &config.keys);
+            service_pool.update_key_limits(&config.keys);
             swap.store(Arc::new(config));
         }
         ConfigEvent::Delete { revision, path } => {
@@ -193,6 +207,13 @@ mod tests {
         c
     }
 
+    /// An empty `ServicePool` for tests that don't exercise limit reload —
+    /// `spawn_watcher` requires one but most tests here only care about the
+    /// `ArcSwap<ProxyConfig>`/`KeyStore` reload paths.
+    fn empty_service_pool() -> Arc<ServicePool> {
+        Arc::new(ServicePool::from_config(&ProxyConfig::default(), None).expect("empty config should build"))
+    }
+
     #[tokio::test]
     async fn arc_swap_reconfig_does_not_block_inflight_requests() {
         let initial = Arc::new(base_config(1000));
@@ -222,7 +243,14 @@ mod tests {
         let provider_arc: Arc<dyn ConfigProvider> = Arc::new(provider);
         let key_store = Arc::new(KeyStore::from_config(None, &[]));
 
-        spawn_watcher(Arc::clone(&provider_arc), Arc::clone(&swap), key_store, cancel.clone()).await;
+        spawn_watcher(
+            Arc::clone(&provider_arc),
+            Arc::clone(&swap),
+            key_store,
+            empty_service_pool(),
+            cancel.clone(),
+        )
+        .await;
 
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
@@ -253,7 +281,14 @@ mod tests {
         let provider_arc: Arc<dyn ConfigProvider> = Arc::new(provider);
         let key_store = Arc::new(KeyStore::from_config(None, &[]));
 
-        spawn_watcher(Arc::clone(&provider_arc), Arc::clone(&swap), key_store, cancel.clone()).await;
+        spawn_watcher(
+            Arc::clone(&provider_arc),
+            Arc::clone(&swap),
+            key_store,
+            empty_service_pool(),
+            cancel.clone(),
+        )
+        .await;
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
         let new_config = base_config(5000);
@@ -285,7 +320,14 @@ mod tests {
         let provider_arc: Arc<dyn ConfigProvider> = Arc::new(provider);
         let key_store = Arc::new(KeyStore::from_config(None, &[]));
 
-        spawn_watcher(Arc::clone(&provider_arc), Arc::clone(&swap), key_store, cancel.clone()).await;
+        spawn_watcher(
+            Arc::clone(&provider_arc),
+            Arc::clone(&swap),
+            key_store,
+            empty_service_pool(),
+            cancel.clone(),
+        )
+        .await;
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
         let resynced = base_config(7000);
@@ -337,6 +379,7 @@ mod tests {
             Arc::clone(&provider_arc),
             Arc::clone(&swap),
             Arc::clone(&key_store),
+            empty_service_pool(),
             cancel.clone(),
         )
         .await;
@@ -384,6 +427,7 @@ mod tests {
             Arc::clone(&provider_arc),
             Arc::clone(&swap),
             Arc::clone(&key_store),
+            empty_service_pool(),
             cancel.clone(),
         )
         .await;

@@ -9,13 +9,14 @@ use liter_llm::error::LiterLlmError;
 use liter_llm::observability::{MultiUsageSink, UsageSinkErased};
 use liter_llm::tower::types::{LlmRequest, LlmResponse};
 use liter_llm::tower::{
-    BudgetConfig, BudgetLayer, BudgetState, CacheConfig, CacheLayer, CooldownLayer, CostTrackingLayer, Enforcement,
-    HealthCheckLayer, HooksLayer, LlmService, ModelRateLimitLayer, RateLimitConfig, TracingLayer,
+    BudgetConfig, BudgetLayer, BudgetLedgerLayer, BudgetState, CacheConfig, CacheLayer, CooldownLayer,
+    CostTrackingLayer, Enforcement, HealthCheckLayer, HooksLayer, LlmService, ModelRateLimitLayer, RateLimitConfig,
+    Router, RoutingStrategy, TracingLayer,
 };
 
-use crate::config::{ModelEntry, ProxyConfig};
+use crate::config::{ModelEntry, ProxyConfig, VirtualKeyConfig};
 use crate::error::ProxyError;
-use crate::tenant_limit::{KeyLimitLayer, build_key_limits};
+use crate::tenant_limit::{KeyLimitLayer, PerKeyBudgetLedger, build_key_limits};
 
 type Bcs = tower::util::BoxCloneService<LlmRequest, LlmResponse, LiterLlmError>;
 
@@ -57,6 +58,13 @@ pub struct ServicePool {
     /// The first client inserted during construction, for deterministic
     /// `first_client()` behaviour regardless of `HashMap` iteration order.
     default_client: Option<Arc<DefaultClient>>,
+    /// Shared per-key rpm/tpm limiter, retained so a config reload can push
+    /// updated limits into every model's Tower stack (see
+    /// [`ServicePool::update_key_limits`]) without rebuilding the pool.
+    key_limit_layer: Arc<KeyLimitLayer>,
+    /// Shared per-key calendar-month budget ledger, retained for the same
+    /// reason as `key_limit_layer`.
+    budget_ledger: Arc<PerKeyBudgetLedger>,
 }
 
 // ~keep SAFETY: `SyncBoxService` wraps a `Mutex<BoxCloneService>` which is `Send + Sync`.
@@ -66,8 +74,10 @@ impl ServicePool {
     /// Build a pool from the proxy configuration.
     ///
     /// Groups `config.models` by `name` and creates a Tower service stack for
-    /// each unique model name.  When multiple deployments share a name, the
-    /// first entry is used (round-robin load balancing is planned for v2).
+    /// each unique model name.  When multiple deployments share a name they
+    /// form an active-active pool dispatched via [`Router`] with
+    /// [`RoutingStrategy::RoundRobin`] (see [`build_base_service`]); a single
+    /// entry gets a bare `LlmService` with no routing overhead.
     ///
     /// `usage_sink`, when `Some`, is wired into `HooksLayer` outermost in
     /// every model's Tower stack so all completions emit a `UsageEvent`.
@@ -85,23 +95,24 @@ impl ServicePool {
         // ~keep Built once and reused via `.layer(..)` for every model below so a
         // ~keep key's rpm/tpm/budget limit is shared across all models it can
         // ~keep reach, not reset per model (see `tenant_limit` module docs).
-        let key_limit_layer = KeyLimitLayer::new(Arc::new(build_key_limits(&config.keys)));
+        // ~keep Both are Arc-wrapped and retained on `ServicePool` (not just the
+        // ~keep local `.layer(..)` closures) so a config reload can call
+        // ~keep `update_key_limits` afterwards — see that method's docs.
+        let key_limit_layer = Arc::new(KeyLimitLayer::new(build_key_limits(&config.keys)));
+        let budget_ledger = Arc::new(PerKeyBudgetLedger::new(&config.keys));
 
         let mut services = HashMap::new();
         let mut clients = HashMap::new();
         let mut default_client: Option<Arc<DefaultClient>> = None;
 
         for (name, entries) in &grouped {
-            let entry = entries[0];
-
-            let client = build_client(entry, config)?;
-            let client_arc = Arc::new(client);
+            let (base, client_arc) = build_base_service(entries, config)?;
 
             if default_client.is_none() {
                 default_client = Some(Arc::clone(&client_arc));
             }
 
-            let svc = build_service_stack(config, Arc::clone(&client_arc), usage_sink.clone(), &key_limit_layer);
+            let svc = build_service_stack(config, base, usage_sink.clone(), &key_limit_layer, &budget_ledger);
 
             services.insert(name.clone(), SyncBoxService { inner: Mutex::new(svc) });
             clients.insert(name.clone(), client_arc);
@@ -111,7 +122,25 @@ impl ServicePool {
             services,
             clients,
             default_client,
+            key_limit_layer,
+            budget_ledger,
         })
+    }
+
+    /// Push updated per-key rpm/tpm/budget limits from a reloaded
+    /// `ProxyConfig.keys` into every model's live Tower stack.
+    ///
+    /// Both the rpm/tpm limiter and the budget ledger are shared (via `Arc`)
+    /// across every model's stack, so this takes effect for all in-flight and
+    /// future requests immediately — no `ServicePool` rebuild needed. Call
+    /// this from the config watcher's reload path alongside
+    /// `auth::KeyStore::reload`.
+    ///
+    /// See [`PerKeyBudgetLedger::update_limits`] for why updating the budget
+    /// axis resets month-to-date spend (rpm/tpm counters are unaffected).
+    pub fn update_key_limits(&self, keys: &[VirtualKeyConfig]) {
+        self.key_limit_layer.update_limits(keys);
+        self.budget_ledger.update_limits(keys);
     }
 
     /// Clone and return a Tower service stack for the given model name.
@@ -162,6 +191,66 @@ impl ServicePool {
     }
 }
 
+/// Extract each entry's real provider model identifier, in the same order as
+/// `entries`.
+///
+/// This is the `Vec` handed to [`Router::with_deployment_models`] — its index
+/// must align 1:1 with the `deployments` vec passed to [`Router::new`], since
+/// [`RoutingStrategy::Semantic`] resolves a classifier verdict back to a
+/// deployment by matching against this list. [`build_base_service`] builds
+/// both vecs from the same iteration so they cannot drift apart.
+fn deployment_model_ids(entries: &[&ModelEntry]) -> Vec<String> {
+    entries.iter().map(|entry| entry.provider_model.clone()).collect()
+}
+
+/// Build the base (pre-middleware) service for one model-name group.
+///
+/// A `name` may be declared by more than one `[[models]]` entry to form an
+/// active-active deployment pool (see `proxy-configuration.mdx`). A single
+/// entry gets a bare `LlmService` with no routing overhead; multiple entries
+/// are wrapped in a [`Router`] using [`RoutingStrategy::RoundRobin`] so every
+/// configured deployment actually receives traffic, with
+/// [`Router::with_deployment_models`] wired to each entry's real
+/// `provider_model` so a future classifier-driven `RoutingStrategy::Semantic`
+/// resolves correctly.
+///
+/// Returns the base service plus the first entry's raw client, which callers
+/// use for File/Batch/Response operations that bypass the Tower stack (see
+/// `ServicePool::get_client`).
+///
+/// # Errors
+///
+/// Returns an error string if any entry's `DefaultClient` fails to build, or
+/// if `Router::new` rejects the deployment list (only possible if `entries`
+/// is empty, which cannot happen here since callers derive `entries` from a
+/// non-empty group).
+fn build_base_service(entries: &[&ModelEntry], config: &ProxyConfig) -> Result<(Bcs, Arc<DefaultClient>), String> {
+    if entries.len() == 1 {
+        let client_arc = Arc::new(build_client(entries[0], config)?);
+        let base: Bcs = tower::util::BoxCloneService::new(LlmService::new_from_arc(Arc::clone(&client_arc)));
+        return Ok((base, client_arc));
+    }
+
+    let mut deployments = Vec::with_capacity(entries.len());
+    let mut first_client: Option<Arc<DefaultClient>> = None;
+    for entry in entries.iter().copied() {
+        let client_arc = Arc::new(build_client(entry, config)?);
+        if first_client.is_none() {
+            first_client = Some(Arc::clone(&client_arc));
+        }
+        deployments.push(LlmService::new_from_arc(client_arc));
+    }
+    let deployment_models = deployment_model_ids(entries);
+
+    let router = Router::new(deployments, RoutingStrategy::RoundRobin)
+        .map_err(|e| format!("failed to build router for deployment pool: {e}"))?
+        .with_deployment_models(deployment_models);
+
+    let base: Bcs = tower::util::BoxCloneService::new(router);
+    let client_arc = first_client.ok_or_else(|| "deployment pool must have at least one entry".to_string())?;
+    Ok((base, client_arc))
+}
+
 /// Build a `DefaultClient` from a `ModelEntry` and global config defaults.
 fn build_client(entry: &ModelEntry, config: &ProxyConfig) -> Result<DefaultClient, String> {
     let api_key = entry.api_key.as_deref().unwrap_or("");
@@ -189,22 +278,23 @@ fn build_client(entry: &ModelEntry, config: &ProxyConfig) -> Result<DefaultClien
 /// 2. HealthCheck
 /// 3. Cooldown
 /// 4. RateLimit (per-model)
-/// 5. KeyLimit (per-virtual-key rpm/tpm/budget — see issue #71)
-/// 6. CostTracking
-/// 7. Budget
-/// 8. Tracing
-/// 9. HooksLayer with usage sink (outermost, conditional on `usage_sink.is_some()`)
+/// 5. KeyLimit (per-virtual-key rpm/tpm — see issue #71)
+/// 6. Per-key budget ledger (calendar-month, per-virtual-key — see issue #71)
+/// 7. CostTracking
+/// 8. Budget (global/per-model, from `[budget]`)
+/// 9. Tracing
+/// 10. HooksLayer with usage sink (outermost, conditional on `usage_sink.is_some()`)
 ///
 /// HooksLayer sits outermost so it observes every request regardless of which
 /// inner layer produces the response (cache hit or live upstream).
 fn build_service_stack(
     config: &ProxyConfig,
-    client: Arc<DefaultClient>,
+    base: Bcs,
     usage_sink: Option<Arc<dyn UsageSinkErased>>,
     key_limit_layer: &KeyLimitLayer,
+    budget_ledger: &Arc<PerKeyBudgetLedger>,
 ) -> Bcs {
-    let base = LlmService::new_from_arc(client);
-    let mut svc: Bcs = tower::util::BoxCloneService::new(base);
+    let mut svc: Bcs = base;
 
     if let Some(ref cache_cfg) = config.cache {
         let max_entries = cache_cfg.max_entries.unwrap_or(256);
@@ -241,6 +331,11 @@ fn build_service_stack(
     }
 
     svc = tower::util::BoxCloneService::new(key_limit_layer.layer(svc));
+
+    // ~keep Hard enforcement: mirrors the pre-existing `KeyLimitService` budget
+    // ~keep check it replaces, which always rejected (no soft mode for per-key budgets).
+    let budget_ledger_layer = BudgetLedgerLayer::new(Arc::clone(budget_ledger), Enforcement::Hard);
+    svc = tower::util::BoxCloneService::new(budget_ledger_layer.layer(svc));
 
     if config.general.enable_cost_tracking {
         svc = tower::util::BoxCloneService::new(CostTrackingLayer.layer(svc));
@@ -423,8 +518,14 @@ interval_secs = 10
         assert!(pool.get_service("gpt").is_ok());
     }
 
+    /// Regression test for the "extra deployments are silently dropped" gap:
+    /// `ServicePool::from_config` must build successfully — via
+    /// [`build_base_service`]'s `Router` path — for a name declared by more
+    /// than two entries, not just the two-entry case. `get_client` still
+    /// resolves to the first entry, per the documented File/Batch bypass
+    /// contract.
     #[test]
-    fn duplicate_model_names_use_first_entry() {
+    fn deployment_pool_builds_router_across_all_entries() {
         let config = ProxyConfig::from_toml_str(
             r#"
 [[models]]
@@ -434,8 +535,13 @@ api_key = "sk-1"
 
 [[models]]
 name = "gpt"
-provider_model = "azure/gpt-4o"
+provider_model = "anthropic/claude-sonnet-4-5"
 api_key = "sk-2"
+
+[[models]]
+name = "gpt"
+provider_model = "openai/gpt-4o-mini"
+api_key = "sk-3"
 "#,
         )
         .expect("valid TOML");
@@ -443,5 +549,37 @@ api_key = "sk-2"
         let pool = ServicePool::from_config(&config, None).expect("should build");
         assert_eq!(pool.services.len(), 1);
         assert!(pool.get_service("gpt").is_ok());
+        assert!(pool.get_client("gpt").is_ok());
+    }
+
+    /// The `Vec` passed to `Router::with_deployment_models` must align 1:1
+    /// with the `deployments` vec index Router dispatches on — a misordered
+    /// list resolves a classifier verdict to the wrong upstream. Both vecs
+    /// are built from the same `entries` iteration in `build_base_service`,
+    /// so this proves the extraction itself preserves configured order.
+    #[test]
+    fn deployment_model_ids_preserves_configured_order() {
+        let one = ModelEntry {
+            name: "gpt".to_string(),
+            provider_model: "openai/gpt-4o".to_string(),
+            api_key: None,
+            base_url: None,
+            timeout_secs: None,
+            fallbacks: vec![],
+        };
+        let two = ModelEntry {
+            name: "gpt".to_string(),
+            provider_model: "azure/gpt-4o".to_string(),
+            api_key: None,
+            base_url: None,
+            timeout_secs: None,
+            fallbacks: vec![],
+        };
+        let entries: Vec<&ModelEntry> = vec![&one, &two];
+
+        assert_eq!(
+            deployment_model_ids(&entries),
+            vec!["openai/gpt-4o".to_string(), "azure/gpt-4o".to_string()]
+        );
     }
 }

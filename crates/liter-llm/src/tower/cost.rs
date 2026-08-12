@@ -189,6 +189,10 @@ fn record_cost(model: &Option<String>, resp: &LlmResponse, operation: &str, span
 /// usage)` pair. Shared by the non-streaming path (`record_cost`, usage
 /// available immediately) and the `ChatStream` completion callback (usage
 /// only known once the stream has been fully consumed).
+// ~keep `operation` is only read by the otel metrics call below, so it is genuinely unused
+// ~keep when that feature is off; the allow is scoped to that case rather than renaming the
+// ~keep parameter, which would obscure its meaning in the enabled build.
+#[cfg_attr(not(feature = "otel"), allow(unused_variables))]
 fn record_cost_for_usage(model: Option<&str>, usage: Option<&Usage>, operation: &str, span: &tracing::Span) {
     let Some(model_name) = model else { return };
     let Some(usage) = usage else { return };
