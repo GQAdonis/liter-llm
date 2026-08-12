@@ -599,10 +599,20 @@ impl CacheLayer {
     /// key strategy with the [`StandardCachePolicy`].
     #[must_use]
     pub fn new(config: CacheConfig) -> Self {
+        // ~keep The policy's exact_ttl must come from the config. `decide` returns
+        // ~keep `ttl_override: Some(exact_ttl)` on every non-bypassed write, and that
+        // ~keep override wins over the store's own TTL — so leaving it at the policy
+        // ~keep default silently discarded `config.ttl` entirely. It went unnoticed
+        // ~keep because both defaults are 300s, written independently in two places.
+        let cache_policy = StandardCachePolicy {
+            exact_ttl: config.ttl,
+            ..StandardCachePolicy::default()
+        };
+
         Self {
             store: Arc::new(InMemoryStore::new(&config)),
             key_strategy: Arc::new(ExactHashStrategy),
-            cache_policy: Arc::new(StandardCachePolicy::default()),
+            cache_policy: Arc::new(cache_policy),
             embedding_provider: None,
             vector_store: None,
         }
@@ -1452,6 +1462,43 @@ mod tests {
         for h in handles {
             h.await.expect("task must not panic");
         }
+    }
+
+    /// A configured `CacheConfig.ttl` must actually govern entry lifetime.
+    ///
+    /// `StandardCachePolicy::decide` returns `ttl_override: Some(exact_ttl)` on
+    /// every non-bypassed write, and that override wins over the store's own
+    /// TTL — so building the layer with the policy default silently discarded
+    /// `config.ttl`. The bug was invisible because `CacheConfig::default().ttl`
+    /// and `StandardCachePolicy::default().exact_ttl` are both 300s, defined
+    /// independently; only a non-default value exposes it.
+    #[tokio::test]
+    async fn configured_ttl_expires_the_entry() {
+        let config = CacheConfig {
+            max_entries: 10,
+            ttl: Duration::from_millis(60),
+            backend: CacheBackend::default(),
+        };
+        let client = MockClient::ok();
+        let call_count = Arc::clone(&client.call_count);
+        let mut svc = CacheLayer::new(config).layer(LlmService::new(client));
+
+        svc.call(LlmRequest::Chat(chat_req("ttl-model"))).await.unwrap();
+        svc.call(LlmRequest::Chat(chat_req("ttl-model"))).await.unwrap();
+        assert_eq!(
+            call_count.load(Ordering::SeqCst),
+            1,
+            "second call within the TTL must be served from cache"
+        );
+
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        svc.call(LlmRequest::Chat(chat_req("ttl-model"))).await.unwrap();
+        assert_eq!(
+            call_count.load(Ordering::SeqCst),
+            2,
+            "entry must expire after the CONFIGURED 60ms, not the 300s policy default"
+        );
     }
 
     #[tokio::test]

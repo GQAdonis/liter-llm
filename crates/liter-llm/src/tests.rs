@@ -1240,6 +1240,26 @@ mod error_tests {
         assert!(matches!(err, LiterLlmError::RateLimited { .. }));
     }
 
+    /// The parsed `Retry-After` delay must be readable through an accessor.
+    ///
+    /// It reached the Rust core correctly but had no getter, so every generated
+    /// binding could only see the status code — a rate-limited caller in Python,
+    /// Node, PHP or WASM had to invent its own backoff.
+    #[test]
+    fn rate_limited_error_exposes_retry_after() {
+        let err = LiterLlmError::from_status(429, "slow down", Some(std::time::Duration::from_secs(30)));
+
+        assert_eq!(err.retry_after(), Some(std::time::Duration::from_secs(30)));
+    }
+
+    /// A 429 without the header, and every non-rate-limit error, must report
+    /// `None` rather than a fabricated delay.
+    #[test]
+    fn retry_after_is_none_when_the_server_did_not_advertise_one() {
+        assert_eq!(LiterLlmError::from_status(429, "slow down", None).retry_after(), None);
+        assert_eq!(LiterLlmError::from_status(500, "boom", None).retry_after(), None);
+    }
+
     #[test]
     fn error_from_context_window() {
         let err = LiterLlmError::from_status(
