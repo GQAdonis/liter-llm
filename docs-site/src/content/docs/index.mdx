@@ -85,19 +85,24 @@ import { Card, CardGrid, LinkCard, Tabs, TabItem } from "@astrojs/starlight/comp
 <TabItem label="Rust">
 
 ```rust title="src/main.rs"
-use liter_llm::{ChatCompletionRequest, ClientConfigBuilder, DefaultClient, LlmClient, Message};
+use liter_llm::{ChatCompletionRequest, ClientConfigBuilder, DefaultClient, LlmClient, Message, UserContent, UserMessage};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = ClientConfigBuilder::new(std::env::var("OPENAI_API_KEY")?).build();
     let client = DefaultClient::new(config, None)?;
 
-    let request = ChatCompletionRequest::builder("openai/gpt-4o-mini")
-        .add_user_message("Summarize liter-llm in one sentence.")
-        .build()?;
+    let request = ChatCompletionRequest {
+        model: "openai/gpt-4o-mini".into(),
+        messages: vec![Message::User(UserMessage {
+            content: UserContent::Text("Summarize liter-llm in one sentence.".into()),
+            name: None,
+        })],
+        ..Default::default()
+    };
 
     let response = client.chat(request).await?;
-    println!("{}", response.choices[0].message.content_text().unwrap_or(""));
+    println!("{}", response.choices[0].message.text().unwrap_or_default());
     Ok(())
 }
 ```

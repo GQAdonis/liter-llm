@@ -112,9 +112,9 @@ Virtual API keys. Each key is a Bearer token with its own model allowlist, rate 
 | `key`          | string       | required | The Bearer token clients present.                                         |
 | `description`  | string?      | none     | Free-text label surfaced in logs and the admin API.                       |
 | `models`       | `list<string>` | `[]`     | Allowed model names. Empty means all models are allowed.                  |
-| `rpm`          | u32?         | none     | Per-key request-per-minute cap.                                           |
-| `tpm`          | u64?         | none     | Per-key token-per-minute cap.                                             |
-| `budget_limit` | f64?         | none     | Lifetime spend cap in USD. Requests that would exceed the cap return 402. |
+| `rpm`          | u32?         | none     | **Not yet enforced.** Parsed into `VirtualKeyConfig` but no per-key rate-limit layer reads it; only the global `[rate_limit]` table is wired to `ModelRateLimitLayer`. Setting this silently does nothing. |
+| `tpm`          | u64?         | none     | **Not yet enforced.** Same gap as `rpm` — no per-key layer consumes it.   |
+| `budget_limit` | f64?         | none     | **Not yet enforced.** Mapped into `ResolvedKey.monthly_budget` but nothing reads that field to reject requests. Only the global `[budget]` table is enforced via `BudgetLayer`. Requests are **not** rejected with 402 when a key's lifetime spend exceeds this value. |
 
 <Snip_toml_server_keys />
 
@@ -199,12 +199,12 @@ Storage backend for the `/v1/files` endpoints.
 
 ## `[health]`
 
-Periodic upstream probes. When configured, the proxy sends a small request to `probe_model` every `interval_secs` seconds and marks failing providers unhealthy so the fallback layer can skip them.
+Periodic upstream probes. When `interval_secs` is set, the proxy installs `HealthCheckLayer` on that interval to mark failing providers unhealthy so the fallback layer can skip them.
 
 | Field           | Type    | Default | Description                                                |
 | --------------- | ------- | ------- | ---------------------------------------------------------- |
 | `interval_secs` | u64?    | none    | Probe interval. Disabled when omitted.                     |
-| `probe_model`   | string? | none    | Model name used for the probe. Usually a cheap chat model. |
+| `probe_model`   | string? | none    | **Not yet enforced.** Parsed into `HealthConfig` but `HealthCheckLayer::new` only takes `interval_secs` — the configured model name is never read, so it does not select what gets probed. |
 
 <Snip_toml_server_health />
 

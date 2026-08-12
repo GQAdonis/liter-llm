@@ -48,8 +48,6 @@ includes:
     taskfile: .task/tools/test-apps.yml
   docs:
     taskfile: .task/tools/docs.yml
-  snippets:
-    taskfile: .task/workflows/snippets.yml
   local:
     taskfile: .task/workflows/local.yml
   e2e:
