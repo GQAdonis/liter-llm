@@ -55,9 +55,7 @@
       "properties": {
         "object": {
           "type": "string",
-          "enum": [
-            "list"
-          ],
+          "enum": ["list"],
           "x-stainless-const": true
         },
         "data": {
@@ -67,10 +65,7 @@
           }
         }
       },
-      "required": [
-        "object",
-        "data"
-      ]
+      "required": ["object", "data"]
     },
     "Model": {
       "title": "Model",
@@ -87,9 +82,7 @@
         "object": {
           "type": "string",
           "description": "The object type, which is always \"model\".",
-          "enum": [
-            "model"
-          ],
+          "enum": ["model"],
           "x-stainless-const": true
         },
         "owned_by": {
@@ -97,12 +90,7 @@
           "description": "The organization that owns the model."
         }
       },
-      "required": [
-        "id",
-        "object",
-        "created",
-        "owned_by"
-      ],
+      "required": ["id", "object", "created", "owned_by"],
       "x-oaiMeta": {
         "name": "The model object",
         "example": "{\n  \"id\": \"VAR_chat_model_id\",\n  \"object\": \"model\",\n  \"created\": 1686935002,\n  \"owned_by\": \"openai\"\n}\n"

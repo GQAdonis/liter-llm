@@ -14,11 +14,7 @@
             },
             {
               "type": "string",
-              "enum": [
-                "gpt-3.5-turbo-instruct",
-                "davinci-002",
-                "babbage-002"
-              ]
+              "enum": ["gpt-3.5-turbo-instruct", "davinci-002", "babbage-002"]
             }
           ],
           "x-oaiTypeLabel": "string"
@@ -177,10 +173,7 @@
           "description": "A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse. [Learn more](/docs/guides/safety-best-practices#end-user-ids).\n"
         }
       },
-      "required": [
-        "model",
-        "prompt"
-      ]
+      "required": ["model", "prompt"]
     },
     "CreateCompletionResponse": {
       "type": "object",
@@ -195,21 +188,12 @@
           "description": "The list of completion choices the model generated for the input prompt.",
           "items": {
             "type": "object",
-            "required": [
-              "finish_reason",
-              "index",
-              "logprobs",
-              "text"
-            ],
+            "required": ["finish_reason", "index", "logprobs", "text"],
             "properties": {
               "finish_reason": {
                 "type": "string",
                 "description": "The reason the model stopped generating tokens. This will be `stop` if the model hit a natural stop point or a provided stop sequence,\n`length` if the maximum number of tokens specified in the request was reached,\nor `content_filter` if content was omitted due to a flag from our content filters.\n",
-                "enum": [
-                  "stop",
-                  "length",
-                  "content_filter"
-                ]
+                "enum": ["stop", "length", "content_filter"]
               },
               "index": {
                 "type": "integer"
@@ -274,22 +258,14 @@
         "object": {
           "type": "string",
           "description": "The object type, which is always \"text_completion\"",
-          "enum": [
-            "text_completion"
-          ],
+          "enum": ["text_completion"],
           "x-stainless-const": true
         },
         "usage": {
           "$ref": "common.json#/$defs/CompletionUsage"
         }
       },
-      "required": [
-        "id",
-        "object",
-        "created",
-        "model",
-        "choices"
-      ],
+      "required": ["id", "object", "created", "model", "choices"],
       "x-oaiMeta": {
         "name": "The completion object",
         "legacy": true,

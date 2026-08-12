@@ -46,12 +46,7 @@
             },
             {
               "type": "string",
-              "enum": [
-                "tts-1",
-                "tts-1-hd",
-                "gpt-4o-mini-tts",
-                "gpt-4o-mini-tts-2025-12-15"
-              ]
+              "enum": ["tts-1", "tts-1-hd", "gpt-4o-mini-tts", "gpt-4o-mini-tts-2025-12-15"]
             }
           ],
           "x-oaiTypeLabel": "string"
@@ -74,14 +69,7 @@
           "description": "The format to audio in. Supported formats are `mp3`, `opus`, `aac`, `flac`, `wav`, and `pcm`.",
           "default": "mp3",
           "type": "string",
-          "enum": [
-            "mp3",
-            "opus",
-            "aac",
-            "flac",
-            "wav",
-            "pcm"
-          ]
+          "enum": ["mp3", "opus", "aac", "flac", "wav", "pcm"]
         },
         "speed": {
           "description": "The speed of the generated audio. Select a value from `0.25` to `4.0`. `1.0` is the default.",
@@ -94,17 +82,10 @@
           "description": "The format to stream the audio in. Supported formats are `sse` and `audio`. `sse` is not supported for `tts-1` or `tts-1-hd`.",
           "type": "string",
           "default": "audio",
-          "enum": [
-            "sse",
-            "audio"
-          ]
+          "enum": ["sse", "audio"]
         }
       },
-      "required": [
-        "model",
-        "input",
-        "voice"
-      ]
+      "required": ["model", "input", "voice"]
     },
     "CreateSpeechResponseStreamEvent": {
       "anyOf": [
@@ -178,14 +159,9 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "word",
-              "segment"
-            ]
+            "enum": ["word", "segment"]
           },
-          "default": [
-            "segment"
-          ]
+          "default": ["segment"]
         },
         "stream": {
           "anyOf": [
@@ -206,9 +182,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": [
-                    "auto"
-                  ],
+                  "enum": ["auto"],
                   "default": "auto",
                   "description": "Automatically set chunking parameters based on the audio. Must be set to `\"auto\"`.\n",
                   "x-stainless-const": true
@@ -241,10 +215,7 @@
           }
         }
       },
-      "required": [
-        "file",
-        "model"
-      ]
+      "required": ["file", "model"]
     },
     "CreateTranscriptionResponseDiarizedJson": {
       "type": "object",
@@ -253,9 +224,7 @@
         "task": {
           "type": "string",
           "description": "The type of task that was run. Always `transcribe`.",
-          "enum": [
-            "transcribe"
-          ],
+          "enum": ["transcribe"],
           "x-stainless-const": true
         },
         "duration": {
@@ -291,12 +260,7 @@
           }
         }
       },
-      "required": [
-        "task",
-        "duration",
-        "text",
-        "segments"
-      ],
+      "required": ["task", "duration", "text", "segments"],
       "x-oaiMeta": {
         "name": "The transcription object (Diarized JSON)",
         "group": "audio",
@@ -351,9 +315,7 @@
           ]
         }
       },
-      "required": [
-        "text"
-      ],
+      "required": ["text"],
       "x-oaiMeta": {
         "name": "The transcription object (JSON)",
         "group": "audio",
@@ -394,11 +356,7 @@
           "$ref": "#/$defs/TranscriptTextUsageDuration"
         }
       },
-      "required": [
-        "language",
-        "duration",
-        "text"
-      ],
+      "required": ["language", "duration", "text"],
       "x-oaiMeta": {
         "name": "The transcription object (Verbose JSON)",
         "group": "audio",
@@ -424,9 +382,7 @@
             },
             {
               "type": "string",
-              "enum": [
-                "whisper-1"
-              ],
+              "enum": ["whisper-1"],
               "x-stainless-const": true
             }
           ],
@@ -439,13 +395,7 @@
         "response_format": {
           "description": "The format of the output, in one of these options: `json`, `text`, `srt`, `verbose_json`, or `vtt`.\n",
           "type": "string",
-          "enum": [
-            "json",
-            "text",
-            "srt",
-            "verbose_json",
-            "vtt"
-          ],
+          "enum": ["json", "text", "srt", "verbose_json", "vtt"],
           "default": "json"
         },
         "temperature": {
@@ -454,10 +404,7 @@
           "default": 0
         }
       },
-      "required": [
-        "file",
-        "model"
-      ]
+      "required": ["file", "model"]
     },
     "CreateTranslationResponseJson": {
       "type": "object",
@@ -466,9 +413,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "text"
-      ]
+      "required": ["text"]
     },
     "CreateTranslationResponseVerboseJson": {
       "type": "object",
@@ -493,11 +438,7 @@
           }
         }
       },
-      "required": [
-        "language",
-        "duration",
-        "text"
-      ]
+      "required": ["language", "duration", "text"]
     },
     "SpeechAudioDeltaEvent": {
       "type": "object",
@@ -506,9 +447,7 @@
         "type": {
           "type": "string",
           "description": "The type of the event. Always `speech.audio.delta`.\n",
-          "enum": [
-            "speech.audio.delta"
-          ],
+          "enum": ["speech.audio.delta"],
           "x-stainless-const": true
         },
         "audio": {
@@ -516,10 +455,7 @@
           "description": "A chunk of Base64-encoded audio data.\n"
         }
       },
-      "required": [
-        "type",
-        "audio"
-      ],
+      "required": ["type", "audio"],
       "x-oaiMeta": {
         "name": "Stream Event (speech.audio.delta)",
         "group": "speech",
@@ -533,9 +469,7 @@
         "type": {
           "type": "string",
           "description": "The type of the event. Always `speech.audio.done`.\n",
-          "enum": [
-            "speech.audio.done"
-          ],
+          "enum": ["speech.audio.done"],
           "x-stainless-const": true
         },
         "usage": {
@@ -555,17 +489,10 @@
               "description": "Total number of tokens used (input + output)."
             }
           },
-          "required": [
-            "input_tokens",
-            "output_tokens",
-            "total_tokens"
-          ]
+          "required": ["input_tokens", "output_tokens", "total_tokens"]
         }
       },
-      "required": [
-        "type",
-        "usage"
-      ],
+      "required": ["type", "usage"],
       "x-oaiMeta": {
         "name": "Stream Event (speech.audio.done)",
         "group": "speech",
@@ -579,9 +506,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": [
-            "duration"
-          ],
+          "enum": ["duration"],
           "description": "The type of the usage object. Always `duration` for this variant.",
           "x-stainless-const": true
         },
@@ -590,10 +515,7 @@
           "description": "Duration of the input audio in seconds."
         }
       },
-      "required": [
-        "type",
-        "seconds"
-      ]
+      "required": ["type", "seconds"]
     },
     "TranscriptTextUsageTokens": {
       "type": "object",
@@ -602,9 +524,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": [
-            "tokens"
-          ],
+          "enum": ["tokens"],
           "description": "The type of the usage object. Always `tokens` for this variant.",
           "x-stainless-const": true
         },
@@ -635,12 +555,7 @@
           "description": "Total number of tokens used (input + output)."
         }
       },
-      "required": [
-        "type",
-        "input_tokens",
-        "output_tokens",
-        "total_tokens"
-      ]
+      "required": ["type", "input_tokens", "output_tokens", "total_tokens"]
     },
     "TranscriptionDiarizedSegment": {
       "type": "object",
@@ -649,9 +564,7 @@
         "type": {
           "type": "string",
           "description": "The type of the segment. Always `transcript.text.segment`.\n",
-          "enum": [
-            "transcript.text.segment"
-          ],
+          "enum": ["transcript.text.segment"],
           "x-stainless-const": true
         },
         "id": {
@@ -677,20 +590,11 @@
           "description": "Speaker label for this segment. When known speakers are provided, the label matches `known_speaker_names[]`. Otherwise speakers are labeled sequentially using capital letters (`A`, `B`, ...).\n"
         }
       },
-      "required": [
-        "type",
-        "id",
-        "start",
-        "end",
-        "text",
-        "speaker"
-      ]
+      "required": ["type", "id", "start", "end", "text", "speaker"]
     },
     "TranscriptionInclude": {
       "type": "string",
-      "enum": [
-        "logprobs"
-      ],
+      "enum": ["logprobs"],
       "default": []
     },
     "TranscriptionSegment": {
@@ -777,24 +681,16 @@
           "description": "End time of the word in seconds."
         }
       },
-      "required": [
-        "word",
-        "start",
-        "end"
-      ]
+      "required": ["word", "start", "end"]
     },
     "VadConfig": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type"
-      ],
+      "required": ["type"],
       "properties": {
         "type": {
           "type": "string",
-          "enum": [
-            "server_vad"
-          ],
+          "enum": ["server_vad"],
           "description": "Must be set to `server_vad` to enable manual chunking using server side VAD."
         },
         "prefix_padding_ms": {
@@ -825,9 +721,7 @@
           "type": "object",
           "description": "Custom voice reference.",
           "additionalProperties": false,
-          "required": [
-            "id"
-          ],
+          "required": ["id"],
           "properties": {
             "id": {
               "type": "string",
@@ -846,18 +740,7 @@
         },
         {
           "type": "string",
-          "enum": [
-            "alloy",
-            "ash",
-            "ballad",
-            "coral",
-            "echo",
-            "sage",
-            "shimmer",
-            "verse",
-            "marin",
-            "cedar"
-          ]
+          "enum": ["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"]
         }
       ]
     }
