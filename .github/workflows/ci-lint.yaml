@@ -28,6 +28,12 @@ jobs:
     if: github.repository == 'xberg-io/liter-llm' && github.actor != 'dependabot[bot]'
     uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1
     with:
+      # `check-fixture-snippets` is deliberately NOT enabled here: turning it on
+      # installs alef and runs `alef snippets check --strict --cache off`, which
+      # currently fails with an unactionable upstream IO error (tracked upstream
+      # as B26, not yet fixed). Flipping this to `true` before B26 lands would
+      # make every push/PR red for a reason contributors cannot fix locally.
+      # Re-enable once B26 is resolved upstream. ~keep
       setup-rust: true
       setup-python: true
       # poly's checkstyle project check runs `mvn checkstyle:check` on packages/java,

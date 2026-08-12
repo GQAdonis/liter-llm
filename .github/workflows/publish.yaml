@@ -105,6 +105,27 @@ jobs:
         with:
           available-targets: "crates,python,node,wasm,ruby,go,java,elixir,csharp,php,homebrew,kotlin,dart,zig,swift"
 
+      - name: Verify required CI workflows are green for target commit
+        if: ${{ steps.meta.outputs.dry_run != 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TARGET_SHA: ${{ steps.meta.outputs.target_sha }}
+        run: |
+          # release/tag/repository_dispatch triggers do not themselves guarantee CI ran
+          # on this commit — nothing downstream previously checked, so a red or
+          # never-tested commit could be published. Require the workflows that gate
+          # `main` to have a successful completed run against TARGET_SHA. ~keep
+          for workflow in ci-rust.yaml ci-lint.yaml; do
+            conclusion=$(gh api "repos/${{ github.repository }}/actions/workflows/$workflow/runs?head_sha=$TARGET_SHA&status=completed&per_page=1" \
+              --jq '.workflow_runs[0].conclusion // "missing"')
+            echo "$workflow conclusion for $TARGET_SHA: $conclusion"
+            if [ "$conclusion" != "success" ]; then
+              echo "::error::$workflow has not succeeded on $TARGET_SHA (conclusion: $conclusion). Refusing to publish."
+              exit 1
+            fi
+          done
+        shell: bash
+
       - name: Ensure GitHub Release exists for tag
         if: ${{ steps.meta.outputs.is_tag == 'true' && steps.meta.outputs.dry_run != 'true' }}
         uses: xberg-io/actions/publish-github-release@v1
@@ -1229,11 +1250,11 @@ jobs:
           for tarball in go-ffi-artifacts/*.tar.gz; do
             base=$(basename "$tarball" .tar.gz)
             case "$base" in
-              *-linux-x86_64)   lib_dir="linux-amd64"   ;;
-              *-linux-aarch64)  lib_dir="linux-arm64"   ;;
-              *-macos-arm64)    lib_dir="macos-arm64"   ;;
-              *-macos-x86_64)   lib_dir="macos-amd64"   ;;
-              *-windows-x86_64) lib_dir="windows-amd64" ;;
+              *-linux-x86_64)   lib_dir="linux-x86_64"   ;;
+              *-linux-aarch64)  lib_dir="linux-aarch64"  ;;
+              *-macos-arm64)    lib_dir="macos-arm64"    ;;
+              *-macos-x86_64)   lib_dir="macos-x86_64"   ;;
+              *-windows-x86_64) lib_dir="windows-x86_64" ;;
               *)
                 echo "WARNING: unknown platform suffix on '$base', skipping"
                 continue
