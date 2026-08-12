@@ -224,8 +224,8 @@ const CLASSIFIER_KEYS_BY_KIND: &[(&str, &[&str])] = &[
 /// `RoutingConfig` and `ClassifierConfig` both carry
 /// `#[serde(deny_unknown_fields)]`, but serde ignores it on an
 /// internally-tagged enum (`tag = "strategy"` / `tag = "kind"`) because tag
-/// dispatch buffers the content first. Without this check a typo such as
-/// `weight` instead of `weights`, or `treshold` instead of `threshold`,
+/// dispatch buffers the content first. Without this check a misspelled key —
+/// `weight` instead of `weights`, or `threshold` with a letter dropped —
 /// parses successfully and is silently discarded, which is exactly the
 /// silent-misconfiguration failure this config surface exists to prevent. ~keep
 fn validate_routing_keys(expanded: &str) -> Result<(), String> {
