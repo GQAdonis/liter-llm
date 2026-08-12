@@ -11,6 +11,7 @@ pub mod service_pool;
 pub mod shutdown;
 pub mod state;
 pub mod streaming;
+pub mod tenant_limit;
 
 #[cfg(test)]
 #[ctor::ctor(unsafe)]
@@ -120,7 +121,13 @@ impl ProxyServer {
         }
 
         let service_pool = service_pool::ServicePool::from_config(&self.config, self.usage_sink.clone())?;
-        let key_store = auth::KeyStore::from_config(self.config.general.master_key.clone(), &self.config.keys);
+        // ~keep Built as an `Arc` up front (rather than at `AppState` construction
+        // ~keep below) so the same instance can be handed to the config watcher,
+        // ~keep which hot-reloads it on every valid config change (see issue #69).
+        let key_store = Arc::new(auth::KeyStore::from_config(
+            self.config.general.master_key.clone(),
+            &self.config.keys,
+        ));
         let file_store = file_store::FileStore::from_config(self.config.files.as_ref().unwrap_or(&Default::default()))?;
 
         let arc_config = Arc::new(ArcSwap::from(Arc::new(self.config)));
@@ -134,14 +141,26 @@ impl ProxyServer {
             WatchMode::Off => {}
             WatchMode::File { path } => {
                 let provider = Arc::new(config::FileWatchConfigProvider::new(path));
-                config::watcher::spawn_watcher(provider, Arc::clone(&arc_config), cancel.clone()).await;
+                config::watcher::spawn_watcher(
+                    provider,
+                    Arc::clone(&arc_config),
+                    Arc::clone(&key_store),
+                    cancel.clone(),
+                )
+                .await;
             }
             #[cfg(feature = "etcd-watch")]
             WatchMode::Etcd { endpoints, key } => {
                 let provider = config::EtcdConfigProvider::connect(endpoints, key)
                     .await
                     .map_err(|e| format!("etcd connect failed: {e}"))?;
-                config::watcher::spawn_watcher(Arc::new(provider), Arc::clone(&arc_config), cancel.clone()).await;
+                config::watcher::spawn_watcher(
+                    Arc::new(provider),
+                    Arc::clone(&arc_config),
+                    Arc::clone(&key_store),
+                    cancel.clone(),
+                )
+                .await;
             }
         }
 
@@ -162,7 +181,6 @@ impl ProxyServer {
                 .build(),
         );
 
-        let key_store = Arc::new(key_store);
         let key_resolver: Arc<dyn liter_llm::tenant::KeyResolver> = self
             .key_resolver_override
             .clone()

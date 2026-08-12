@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::RwLock;
 
 use dashmap::DashMap;
 use liter_llm::tenant::{KeyResolver, KeyResolverError, ResolvedKey, TenantId};
@@ -116,7 +117,10 @@ pub struct KeyStore {
     /// to hold the configuration; the lookup path iterates entries and uses
     /// `subtle::ConstantTimeEq` to compare tokens.
     keys: DashMap<String, VirtualKeyConfig>,
-    master_key: Option<SecretString>,
+    /// `RwLock`-guarded so [`KeyStore::reload`] can hot-swap the master key
+    /// from the config watcher without rebuilding the whole store (and
+    /// without every `AppState` clone holding a stale `Arc<KeyStore>`).
+    master_key: RwLock<Option<SecretString>>,
 }
 
 impl KeyStore {
@@ -126,7 +130,36 @@ impl KeyStore {
         for k in keys {
             map.insert(k.key.clone(), k.clone());
         }
-        Self { keys: map, master_key }
+        Self {
+            keys: map,
+            master_key: RwLock::new(master_key),
+        }
+    }
+
+    /// Replace the master key and the full set of virtual keys in place.
+    ///
+    /// Called by the config watcher (`config::watcher::handle_event`) on
+    /// every successful hot-reload so that revoked keys stop authenticating
+    /// immediately, instead of remaining valid for the lifetime of the
+    /// process (see issue #69). Keys present in the store but absent from
+    /// `keys` are removed; keys present in `keys` are inserted or updated.
+    pub fn reload(&self, master_key: Option<SecretString>, keys: &[VirtualKeyConfig]) {
+        match self.master_key.write() {
+            Ok(mut guard) => *guard = master_key,
+            Err(poisoned) => {
+                // ~keep Recover instead of propagating: a poisoned lock must not
+                // ~keep stop the watcher from applying the virtual-key half of the reload.
+                tracing::error!("key store: master key lock poisoned; recovering and continuing reload");
+                *poisoned.into_inner() = master_key;
+            }
+        }
+
+        let incoming: std::collections::HashSet<&str> = keys.iter().map(|k| k.key.as_str()).collect();
+        self.keys
+            .retain(|existing_key, _| incoming.contains(existing_key.as_str()));
+        for k in keys {
+            self.keys.insert(k.key.clone(), k.clone());
+        }
     }
 
     /// Check whether `token` matches the configured master key using a
@@ -136,7 +169,11 @@ impl KeyStore {
     /// user-controlled per request, so the length-check short-circuit is
     /// acceptable.
     pub fn is_master_key(&self, token: &str) -> bool {
-        let Some(master) = self.master_key.as_ref() else {
+        let guard = match self.master_key.read() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let Some(master) = guard.as_ref() else {
             return false;
         };
         let master_bytes = master.expose_secret().as_bytes();
@@ -343,5 +380,83 @@ mod tests {
 
         assert!(ctx.allowed_models.is_none());
         assert!(ctx.can_access_model("any-model"));
+    }
+
+    /// Regression test for issue #69: a virtual key removed from config and
+    /// reloaded via `KeyStore::reload` must stop authenticating immediately.
+    #[test]
+    fn reload_revokes_removed_virtual_key() {
+        let cfg = sample_key_config("vk-revoke-me", vec![]);
+        let store = KeyStore::from_config(None, std::slice::from_ref(&cfg));
+        assert!(store.get("vk-revoke-me").is_some(), "key must resolve before reload");
+
+        store.reload(None, &[]);
+
+        assert!(
+            store.get("vk-revoke-me").is_none(),
+            "revoked key must not resolve after reload"
+        );
+    }
+
+    /// Regression test for issue #69: `reload` must also add newly-configured
+    /// virtual keys, not just remove old ones.
+    #[test]
+    fn reload_adds_new_virtual_key() {
+        let store = KeyStore::from_config(None, &[]);
+        assert!(store.get("vk-new").is_none());
+
+        let cfg = sample_key_config("vk-new", vec!["gpt-4o".into()]);
+        store.reload(None, std::slice::from_ref(&cfg));
+
+        let found = store.get("vk-new").expect("newly-reloaded key should resolve");
+        assert_eq!(found.models, vec!["gpt-4o"]);
+    }
+
+    /// Regression test for issue #69: an unrelated key present both before
+    /// and after a reload must be unaffected.
+    #[test]
+    fn reload_preserves_unrelated_keys() {
+        let kept = sample_key_config("vk-kept", vec![]);
+        let removed = sample_key_config("vk-removed", vec![]);
+        let store = KeyStore::from_config(None, &[kept.clone(), removed]);
+
+        store.reload(None, std::slice::from_ref(&kept));
+
+        assert!(store.get("vk-kept").is_some(), "unrelated key must survive reload");
+        assert!(store.get("vk-removed").is_none(), "removed key must not survive reload");
+    }
+
+    /// Regression test for issue #69: hot-reload must revoke the master key
+    /// too, not just virtual keys — a rotated/removed master key must stop
+    /// authenticating immediately.
+    #[test]
+    fn reload_revokes_master_key() {
+        let store = KeyStore::from_config(Some(SecretString::from("sk-old-master".to_string())), &[]);
+        assert!(store.is_master_key("sk-old-master"));
+
+        store.reload(None, &[]);
+
+        assert!(
+            !store.is_master_key("sk-old-master"),
+            "old master key must be revoked after reload"
+        );
+    }
+
+    /// Regression test for issue #69: hot-reload must rotate the master key
+    /// to a new value.
+    #[test]
+    fn reload_rotates_master_key() {
+        let store = KeyStore::from_config(Some(SecretString::from("sk-old-master".to_string())), &[]);
+
+        store.reload(Some(SecretString::from("sk-new-master".to_string())), &[]);
+
+        assert!(
+            !store.is_master_key("sk-old-master"),
+            "old master key must no longer match"
+        );
+        assert!(
+            store.is_master_key("sk-new-master"),
+            "new master key must match after reload"
+        );
     }
 }

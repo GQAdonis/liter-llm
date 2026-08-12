@@ -18,11 +18,15 @@ use super::{
     ProxyConfig,
     provider::{ConfigError, ConfigEvent, ConfigProvider},
 };
+use crate::auth::KeyStore;
 
 /// Start the hot-reload background task.
 ///
 /// - `provider` is polled via `watch()`. Events are processed as they arrive.
 /// - `swap` is atomically updated on every valid reload.
+/// - `key_store` is reloaded (see [`KeyStore::reload`]) on every valid
+///   reload so that revoked master/virtual keys stop authenticating
+///   immediately instead of staying valid for the life of the process.
 /// - `cancel` allows the caller to shut down the watcher gracefully.
 ///
 /// The task logs every reload and error. It never panics — errors are logged
@@ -30,14 +34,20 @@ use super::{
 pub async fn spawn_watcher(
     provider: Arc<dyn ConfigProvider>,
     swap: Arc<ArcSwap<ProxyConfig>>,
+    key_store: Arc<KeyStore>,
     cancel: CancellationToken,
 ) {
     tokio::spawn(async move {
-        run_watcher(provider, swap, cancel).await;
+        run_watcher(provider, swap, key_store, cancel).await;
     });
 }
 
-async fn run_watcher(provider: Arc<dyn ConfigProvider>, swap: Arc<ArcSwap<ProxyConfig>>, cancel: CancellationToken) {
+async fn run_watcher(
+    provider: Arc<dyn ConfigProvider>,
+    swap: Arc<ArcSwap<ProxyConfig>>,
+    key_store: Arc<KeyStore>,
+    cancel: CancellationToken,
+) {
     let mut rx = match open_watch_stream(provider.as_ref()).await {
         Ok(rx) => rx,
         Err(err) => {
@@ -54,7 +64,7 @@ async fn run_watcher(provider: Arc<dyn ConfigProvider>, swap: Arc<ArcSwap<ProxyC
             }
             event = rx.recv() => {
                 match event {
-                    Some(ev) => handle_event(ev, &swap),
+                    Some(ev) => handle_event(ev, &swap, &key_store),
                     None => {
                         tracing::warn!("config watcher: watch channel closed; watcher stopping");
                         return;
@@ -65,18 +75,22 @@ async fn run_watcher(provider: Arc<dyn ConfigProvider>, swap: Arc<ArcSwap<ProxyC
     }
 }
 
-fn handle_event(event: ConfigEvent, swap: &Arc<ArcSwap<ProxyConfig>>) {
+fn handle_event(event: ConfigEvent, swap: &Arc<ArcSwap<ProxyConfig>>, key_store: &KeyStore) {
     match event {
         ConfigEvent::Put { revision, config } => {
             tracing::info!(revision, "config watcher: hot-reload successful");
             increment_counter("gen_ai.config.reload");
             record_revision("gen_ai.config.revision", revision);
+            // ~keep Reload the key store before publishing the new config so no
+            // ~keep request can observe the new config with stale auth state.
+            key_store.reload(config.general.master_key.clone(), &config.keys);
             swap.store(Arc::new(config));
         }
         ConfigEvent::Resync { revision, config } => {
             tracing::info!(revision, "config watcher: resync — full reload applied");
             increment_counter("gen_ai.config.reload");
             record_revision("gen_ai.config.revision", revision);
+            key_store.reload(config.general.master_key.clone(), &config.keys);
             swap.store(Arc::new(config));
         }
         ConfigEvent::Delete { revision, path } => {
@@ -130,8 +144,12 @@ mod tests {
     use tokio::sync::mpsc;
     use tokio_util::sync::CancellationToken;
 
+    use secrecy::SecretString;
+
     use super::*;
+    use crate::auth::KeyStore;
     use crate::config::ProxyConfig;
+    use crate::config::VirtualKeyConfig;
     use crate::config::provider::{ConfigError, ConfigEvent, ConfigProvider};
 
     /// A `ConfigProvider` that returns a fixed config from `load` and can be
@@ -202,8 +220,9 @@ mod tests {
         let cancel = CancellationToken::new();
         let (provider, tx) = ManualProvider::new(initial);
         let provider_arc: Arc<dyn ConfigProvider> = Arc::new(provider);
+        let key_store = Arc::new(KeyStore::from_config(None, &[]));
 
-        spawn_watcher(Arc::clone(&provider_arc), Arc::clone(&swap), cancel.clone()).await;
+        spawn_watcher(Arc::clone(&provider_arc), Arc::clone(&swap), key_store, cancel.clone()).await;
 
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
@@ -232,8 +251,9 @@ mod tests {
         let cancel = CancellationToken::new();
         let (provider, tx) = ManualProvider::new(initial);
         let provider_arc: Arc<dyn ConfigProvider> = Arc::new(provider);
+        let key_store = Arc::new(KeyStore::from_config(None, &[]));
 
-        spawn_watcher(Arc::clone(&provider_arc), Arc::clone(&swap), cancel.clone()).await;
+        spawn_watcher(Arc::clone(&provider_arc), Arc::clone(&swap), key_store, cancel.clone()).await;
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
         let new_config = base_config(5000);
@@ -263,8 +283,9 @@ mod tests {
         let cancel = CancellationToken::new();
         let (provider, tx) = ManualProvider::new(initial);
         let provider_arc: Arc<dyn ConfigProvider> = Arc::new(provider);
+        let key_store = Arc::new(KeyStore::from_config(None, &[]));
 
-        spawn_watcher(Arc::clone(&provider_arc), Arc::clone(&swap), cancel.clone()).await;
+        spawn_watcher(Arc::clone(&provider_arc), Arc::clone(&swap), key_store, cancel.clone()).await;
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
         let resynced = base_config(7000);
@@ -284,6 +305,115 @@ mod tests {
         }
 
         assert_eq!(swap.load().server.port, 7000);
+        cancel.cancel();
+    }
+
+    /// Regression test for issue #69: hot-reload never revoked virtual keys.
+    /// A key present at startup but removed from the reloaded config must
+    /// stop resolving through the same `KeyStore` the watcher was given.
+    #[tokio::test]
+    async fn watcher_put_event_revokes_removed_virtual_key() {
+        let mut initial = base_config(8000);
+        initial.keys = vec![VirtualKeyConfig {
+            key: "vk-revoke-me".to_string(),
+            description: None,
+            models: vec![],
+            rpm: None,
+            tpm: None,
+            budget_limit: None,
+            provider_credentials: vec![],
+        }];
+        let swap = Arc::new(ArcSwap::from(Arc::new(initial.clone())));
+        let cancel = CancellationToken::new();
+        let (provider, tx) = ManualProvider::new(initial.clone());
+        let provider_arc: Arc<dyn ConfigProvider> = Arc::new(provider);
+        let key_store = Arc::new(KeyStore::from_config(None, &initial.keys));
+        assert!(
+            key_store.get("vk-revoke-me").is_some(),
+            "key must resolve before any reload"
+        );
+
+        spawn_watcher(
+            Arc::clone(&provider_arc),
+            Arc::clone(&swap),
+            Arc::clone(&key_store),
+            cancel.clone(),
+        )
+        .await;
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
+        let mut reloaded = base_config(8001);
+        reloaded.keys = vec![];
+        tx.send(ConfigEvent::Put {
+            revision: 1,
+            config: reloaded,
+        })
+        .await
+        .expect("send");
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(200);
+        while key_store.get("vk-revoke-me").is_some() {
+            if std::time::Instant::now() > deadline {
+                panic!("watcher did not revoke the removed key within 200ms");
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        assert!(
+            key_store.get("vk-revoke-me").is_none(),
+            "key removed from the reloaded config must stop resolving"
+        );
+        cancel.cancel();
+    }
+
+    /// Regression test for issue #69: hot-reload never revoked the master
+    /// key either. A rotated master key must take effect on the same
+    /// `KeyStore` the watcher was given.
+    #[tokio::test]
+    async fn watcher_put_event_rotates_master_key() {
+        let mut initial = base_config(8100);
+        initial.general.master_key = Some(SecretString::from("sk-old-master".to_string()));
+        let swap = Arc::new(ArcSwap::from(Arc::new(initial.clone())));
+        let cancel = CancellationToken::new();
+        let (provider, tx) = ManualProvider::new(initial.clone());
+        let provider_arc: Arc<dyn ConfigProvider> = Arc::new(provider);
+        let key_store = Arc::new(KeyStore::from_config(initial.general.master_key.clone(), &[]));
+        assert!(key_store.is_master_key("sk-old-master"));
+
+        spawn_watcher(
+            Arc::clone(&provider_arc),
+            Arc::clone(&swap),
+            Arc::clone(&key_store),
+            cancel.clone(),
+        )
+        .await;
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
+        let mut reloaded = base_config(8101);
+        reloaded.general.master_key = Some(SecretString::from("sk-new-master".to_string()));
+        tx.send(ConfigEvent::Put {
+            revision: 1,
+            config: reloaded,
+        })
+        .await
+        .expect("send");
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(200);
+        while key_store.is_master_key("sk-old-master") {
+            if std::time::Instant::now() > deadline {
+                panic!("watcher did not rotate the master key within 200ms");
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        assert!(
+            !key_store.is_master_key("sk-old-master"),
+            "old master key must be revoked"
+        );
+        assert!(
+            key_store.is_master_key("sk-new-master"),
+            "new master key must be accepted"
+        );
         cancel.cancel();
     }
 }

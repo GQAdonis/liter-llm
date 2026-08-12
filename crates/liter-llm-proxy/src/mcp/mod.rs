@@ -436,6 +436,23 @@ mod tests {
         let key_ctx = KeyContext::master();
         assert!(LiterLlmMcp::check_master_access(&key_ctx, "list_files").is_ok());
         assert!(LiterLlmMcp::check_master_access(&key_ctx, "create_batch").is_ok());
+        assert!(LiterLlmMcp::check_master_access(&key_ctx, "create_response").is_ok());
+    }
+
+    /// Pins the guard `create_response` must use. It previously called
+    /// `require_model_access` (the guard for model-routed tools) instead of
+    /// `require_master` (the guard every other file/batch/response
+    /// management tool uses), letting any virtual key create a response in
+    /// the shared upstream account — see issue #70.
+    #[test]
+    fn restricted_key_rejected_for_create_response() {
+        let key_ctx = restricted_ctx("vk-limited", vec!["gpt-4o".to_string()]);
+        let result = LiterLlmMcp::check_master_access(&key_ctx, "create_response");
+        assert!(
+            result.is_err(),
+            "a virtual key with model access must still be rejected for create_response"
+        );
+        assert!(result.unwrap_err().message.contains("create_response"));
     }
 
     #[test]

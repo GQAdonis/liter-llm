@@ -44,3 +44,63 @@ pub async fn validate_api_key(
     request.extensions_mut().insert(ctx);
     Ok(next.run(request).await)
 }
+
+/// Require the master key for resource-lifecycle endpoints (files, batches,
+/// responses).
+///
+/// These endpoints bypass model routing via `ServicePool::first_client()` and
+/// talk directly to a single upstream provider account: file/batch/response
+/// IDs are opaque identifiers owned by that account, not by this proxy, so
+/// there is no per-tenant record to scope a virtual key's access to. Mirrors
+/// `LiterLlmMcp::require_master` in `mcp/tools.rs`, which restricts the
+/// equivalent MCP tools for the same reason — allowing any virtual key
+/// through would let one tenant list, read, or delete another tenant's
+/// files/batches/responses.
+pub fn require_master(key_ctx: &KeyContext, endpoint: &str) -> Result<(), ProxyError> {
+    if key_ctx.is_master {
+        return Ok(());
+    }
+    Err(ProxyError::forbidden(format!(
+        "endpoint '{endpoint}' requires master-key access; key '{}' is restricted",
+        key_ctx.key_id
+    )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::VirtualKeyConfig;
+
+    fn restricted_ctx(key_id: &str) -> KeyContext {
+        let cfg = VirtualKeyConfig {
+            key: key_id.to_string(),
+            description: None,
+            models: vec![],
+            rpm: None,
+            tpm: None,
+            budget_limit: None,
+            provider_credentials: vec![],
+        };
+        KeyContext::from_config(&cfg)
+    }
+
+    #[test]
+    fn require_master_allows_master_key() {
+        let ctx = KeyContext::master();
+        assert!(require_master(&ctx, "create_file").is_ok());
+    }
+
+    #[test]
+    fn require_master_rejects_virtual_key() {
+        let ctx = restricted_ctx("vk-tenant-a");
+        let result = require_master(&ctx, "create_file");
+        assert!(
+            result.is_err(),
+            "virtual key must be rejected for master-only endpoints"
+        );
+        let err = result.unwrap_err();
+        assert_eq!(err.error_type(), "Forbidden");
+        assert!(err.to_string().contains("create_file"));
+        assert!(err.to_string().contains("vk-tenant-a"));
+    }
+}

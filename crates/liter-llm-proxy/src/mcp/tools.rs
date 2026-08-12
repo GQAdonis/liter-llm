@@ -680,7 +680,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(params): Parameters<params::CreateResponseParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        self.require_model_access(&ctx, &params.model)?;
+        self.require_master(&ctx, "create_response")?;
 
         let req = CreateResponseRequest {
             model: params.model,

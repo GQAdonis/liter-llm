@@ -15,6 +15,7 @@ use liter_llm::tower::{
 
 use crate::config::{ModelEntry, ProxyConfig};
 use crate::error::ProxyError;
+use crate::tenant_limit::{KeyLimitLayer, build_key_limits};
 
 type Bcs = tower::util::BoxCloneService<LlmRequest, LlmResponse, LiterLlmError>;
 
@@ -81,6 +82,11 @@ impl ServicePool {
             grouped.entry(entry.name.clone()).or_default().push(entry);
         }
 
+        // ~keep Built once and reused via `.layer(..)` for every model below so a
+        // ~keep key's rpm/tpm/budget limit is shared across all models it can
+        // ~keep reach, not reset per model (see `tenant_limit` module docs).
+        let key_limit_layer = KeyLimitLayer::new(Arc::new(build_key_limits(&config.keys)));
+
         let mut services = HashMap::new();
         let mut clients = HashMap::new();
         let mut default_client: Option<Arc<DefaultClient>> = None;
@@ -95,7 +101,7 @@ impl ServicePool {
                 default_client = Some(Arc::clone(&client_arc));
             }
 
-            let svc = build_service_stack(config, Arc::clone(&client_arc), usage_sink.clone());
+            let svc = build_service_stack(config, Arc::clone(&client_arc), usage_sink.clone(), &key_limit_layer);
 
             services.insert(name.clone(), SyncBoxService { inner: Mutex::new(svc) });
             clients.insert(name.clone(), client_arc);
@@ -182,11 +188,12 @@ fn build_client(entry: &ModelEntry, config: &ProxyConfig) -> Result<DefaultClien
 /// 1. Cache (innermost)
 /// 2. HealthCheck
 /// 3. Cooldown
-/// 4. RateLimit
-/// 5. CostTracking
-/// 6. Budget
-/// 7. Tracing
-/// 8. HooksLayer with usage sink (outermost, conditional on `usage_sink.is_some()`)
+/// 4. RateLimit (per-model)
+/// 5. KeyLimit (per-virtual-key rpm/tpm/budget — see issue #71)
+/// 6. CostTracking
+/// 7. Budget
+/// 8. Tracing
+/// 9. HooksLayer with usage sink (outermost, conditional on `usage_sink.is_some()`)
 ///
 /// HooksLayer sits outermost so it observes every request regardless of which
 /// inner layer produces the response (cache hit or live upstream).
@@ -194,6 +201,7 @@ fn build_service_stack(
     config: &ProxyConfig,
     client: Arc<DefaultClient>,
     usage_sink: Option<Arc<dyn UsageSinkErased>>,
+    key_limit_layer: &KeyLimitLayer,
 ) -> Bcs {
     let base = LlmService::new_from_arc(client);
     let mut svc: Bcs = tower::util::BoxCloneService::new(base);
@@ -231,6 +239,8 @@ fn build_service_stack(
         let layer = ModelRateLimitLayer::new(tower_rl_cfg);
         svc = tower::util::BoxCloneService::new(layer.layer(svc));
     }
+
+    svc = tower::util::BoxCloneService::new(key_limit_layer.layer(svc));
 
     if config.general.enable_cost_tracking {
         svc = tower::util::BoxCloneService::new(CostTrackingLayer.layer(svc));
