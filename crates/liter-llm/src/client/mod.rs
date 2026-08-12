@@ -762,6 +762,11 @@ impl DefaultClient {
     }
 
     /// Build the combined header list for a request using a specific provider.
+    ///
+    /// # Errors
+    ///
+    /// Propagates a signing failure from [`Provider::signing_headers`] (e.g. an
+    /// internal Bedrock SigV4 error) instead of sending an unsigned request.
     fn all_headers_for_provider(
         &self,
         prov: &dyn Provider,
@@ -769,15 +774,15 @@ impl DefaultClient {
         url: &str,
         body_json: &serde_json::Value,
         body_bytes: &[u8],
-    ) -> Vec<(String, String)> {
-        let mut headers = prov.signing_headers(method, url, body_bytes);
+    ) -> Result<Vec<(String, String)>> {
+        let mut headers = prov.signing_headers(method, url, body_bytes)?;
         headers.extend(
             prov.extra_headers()
                 .iter()
                 .map(|&(name, value)| (name.to_owned(), value.to_owned())),
         );
         headers.extend(prov.dynamic_headers(body_json));
-        headers
+        Ok(headers)
     }
 
     /// Shared helper: resolve the per-request provider, build the URL, strip
@@ -862,17 +867,22 @@ impl DefaultClient {
     /// Build the combined header list using the construction-time provider.
     ///
     /// Uses pre-computed cached extra headers for efficiency.
+    ///
+    /// # Errors
+    ///
+    /// Propagates a signing failure from [`Provider::signing_headers`] (e.g. an
+    /// internal Bedrock SigV4 error) instead of sending an unsigned request.
     fn all_headers(
         &self,
         method: &str,
         url: &str,
         body_json: &serde_json::Value,
         body_bytes: &[u8],
-    ) -> Vec<(String, String)> {
-        let mut headers = self.provider.signing_headers(method, url, body_bytes);
+    ) -> Result<Vec<(String, String)>> {
+        let mut headers = self.provider.signing_headers(method, url, body_bytes)?;
         headers.extend(self.cached_extra_headers.iter().cloned());
         headers.extend(self.provider.dynamic_headers(body_json));
-        headers
+        Ok(headers)
     }
 }
 
@@ -951,7 +961,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -992,7 +1002,7 @@ impl LlmClient for DefaultClient {
                 &url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -1043,7 +1053,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1067,7 +1077,7 @@ impl LlmClient for DefaultClient {
             let url = self.provider.build_url(self.provider.models_path(), "");
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let mut raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1090,7 +1100,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1121,7 +1131,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1150,7 +1160,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1182,7 +1192,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1213,7 +1223,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1244,7 +1254,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1275,7 +1285,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1310,7 +1320,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1358,7 +1368,7 @@ impl LlmClientRaw for DefaultClient {
                 &url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -1409,7 +1419,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1450,7 +1460,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1493,7 +1503,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1534,7 +1544,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1574,7 +1584,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1614,7 +1624,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1654,7 +1664,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1688,7 +1698,7 @@ impl FileClient for DefaultClient {
             let url = self.provider.build_url(self.provider.files_path(), "");
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("POST", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("POST", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             use base64::Engine;
@@ -1724,7 +1734,7 @@ impl FileClient for DefaultClient {
             );
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1742,7 +1752,7 @@ impl FileClient for DefaultClient {
             );
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("DELETE", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("DELETE", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::delete_json(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1774,7 +1784,7 @@ impl FileClient for DefaultClient {
             };
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1792,7 +1802,7 @@ impl FileClient for DefaultClient {
             );
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             http::request::get_binary(&self.http, &url, auth, &extra, self.config.max_retries).await
@@ -1809,7 +1819,7 @@ impl BatchClient for DefaultClient {
             let body_json = serde_json::to_value(&req)?;
 
             let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -1829,7 +1839,7 @@ impl BatchClient for DefaultClient {
             );
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1858,7 +1868,7 @@ impl BatchClient for DefaultClient {
             };
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1877,7 +1887,7 @@ impl BatchClient for DefaultClient {
             let auth_header = self.resolve_auth_header().await?;
             let body_json = serde_json::Value::Null;
             let body_bytes = bytes::Bytes::new();
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2014,7 +2024,7 @@ impl ResponseClient for DefaultClient {
             let body_json = serde_json::to_value(&req)?;
 
             let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2037,7 +2047,7 @@ impl ResponseClient for DefaultClient {
             let body_json = serde_json::to_value(&req)?;
 
             let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2064,7 +2074,7 @@ impl ResponseClient for DefaultClient {
             );
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -2083,7 +2093,7 @@ impl ResponseClient for DefaultClient {
             let auth_header = self.resolve_auth_header().await?;
             let body_json = serde_json::Value::Null;
             let body_bytes = bytes::Bytes::new();
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 

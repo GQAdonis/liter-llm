@@ -96,6 +96,7 @@ pub use tokio_util::sync::CancellationToken;
 /// streams, or an endpoint-specific parser (e.g. Responses API events) for
 /// other SSE-based endpoints.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "POST",
@@ -155,6 +156,7 @@ where
 #[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "POST",

@@ -91,6 +91,7 @@ where
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "POST",
@@ -142,6 +143,7 @@ pub async fn post_json_raw(
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "POST",
@@ -194,6 +196,7 @@ pub async fn post_binary(
 /// `auth_header` is `Some((name, value))` when the provider requires
 /// authentication, or `None` when no auth header should be added.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "POST",
@@ -244,6 +247,7 @@ pub async fn post_multipart(
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "GET",
@@ -290,6 +294,7 @@ pub async fn get_json_raw(
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "DELETE",
@@ -336,6 +341,7 @@ pub async fn delete_json(
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "GET",

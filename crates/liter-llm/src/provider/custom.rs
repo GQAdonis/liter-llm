@@ -53,6 +53,7 @@ pub enum AuthHeaderFormat {
 ///
 /// Returns an error if the config is invalid (empty name, empty base_url, or
 /// no model prefixes).
+#[tracing::instrument(level = "info", skip(config), fields(name = %config.name, base_url = %config.base_url))]
 pub fn register_custom_provider(config: CustomProviderConfig) -> Result<()> {
     validate_config(&config)?;
     // ~keep Sync outbound validation catches literal private IPs; GuardedResolver handles DNS SSRF.
@@ -80,6 +81,7 @@ pub fn register_custom_provider(config: CustomProviderConfig) -> Result<()> {
 /// # Errors
 ///
 /// Returns an error if the custom-provider registry cannot be updated.
+#[tracing::instrument(level = "info", skip_all, fields(name = %name))]
 pub fn unregister_custom_provider(name: &str) -> Result<bool> {
     let mut providers = CUSTOM_PROVIDERS.write().map_err(|e| LiterLlmError::ServerError {
         message: format!("custom provider registry lock poisoned: {e}"),
@@ -97,7 +99,12 @@ pub fn unregister_custom_provider(name: &str) -> Result<bool> {
 /// `None` otherwise.  This is called at the **top** of `detect_provider`
 /// so custom providers always take priority over built-in ones.
 pub(crate) fn detect_custom_provider(model: &str) -> Option<Box<dyn Provider>> {
-    let providers = CUSTOM_PROVIDERS.read().ok()?;
+    // ~keep A poisoned lock must not permanently disable custom-provider routing:
+    // recover the guard instead of treating every future call as "no custom providers".
+    let providers = CUSTOM_PROVIDERS.read().unwrap_or_else(|poisoned| {
+        tracing::warn!("custom provider registry lock poisoned; recovering");
+        poisoned.into_inner()
+    });
 
     for cfg in providers.iter() {
         let matches = cfg

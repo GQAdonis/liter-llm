@@ -1040,11 +1040,14 @@ mod provider_tests {
     }
 
     #[test]
+    #[cfg(not(feature = "bedrock"))]
     fn bedrock_signing_headers_without_feature_returns_empty() {
         use crate::provider::bedrock::BedrockProvider;
         let p = BedrockProvider::new("us-east-1");
-        let headers = p.signing_headers("POST", "http://localhost/chat/completions", b"{}");
-        let _ = headers;
+        let headers = p
+            .signing_headers("POST", "http://localhost/chat/completions", b"{}")
+            .expect("signing_headers is infallible without the bedrock feature");
+        assert!(headers.is_empty());
     }
 
     fn make_provider_with_mappings(mappings: HashMap<String, String>) -> ConfigDrivenProvider {

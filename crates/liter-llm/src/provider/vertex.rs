@@ -286,11 +286,17 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
                 }
                 if let Some(tool_calls) = msg.get("tool_calls").and_then(|t| t.as_array()) {
                     for tc in tool_calls {
-                        let args: serde_json::Value = tc
-                            .pointer("/function/arguments")
-                            .and_then(|a| a.as_str())
-                            .and_then(|s| serde_json::from_str(s).ok())
-                            .unwrap_or_else(|| json!({}));
+                        let args = match tc.pointer("/function/arguments").and_then(|a| a.as_str()) {
+                            Some(args_str) => serde_json::from_str(args_str).unwrap_or_else(|error| {
+                                tracing::warn!(
+                                    %error,
+                                    "Gemini tool_calls[].function.arguments was not valid JSON; using an empty \
+                                     object"
+                                );
+                                json!({})
+                            }),
+                            None => json!({}),
+                        };
                         parts.push(json!({
                             "functionCall": {
                                 "name": tc.pointer("/function/name"),

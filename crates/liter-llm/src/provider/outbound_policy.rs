@@ -50,14 +50,28 @@ fn policy_lock() -> &'static RwLock<OutboundPolicy> {
 /// resolver use this policy.  Intended to be called once at application
 /// startup before any provider is registered.
 #[cfg_attr(alef, alef(skip))]
+#[tracing::instrument(level = "info")]
 pub fn set_outbound_policy(policy: OutboundPolicy) {
-    *policy_lock().write().expect("outbound policy lock poisoned") = policy;
+    // ~keep A poisoned lock must not permanently disable outbound-policy enforcement:
+    // recover the guard and keep going rather than propagate the panic.
+    let mut guard = policy_lock().write().unwrap_or_else(|poisoned| {
+        tracing::warn!("outbound policy lock poisoned; recovering");
+        poisoned.into_inner()
+    });
+    *guard = policy;
 }
 
 /// Read a snapshot of the current outbound policy.
 #[cfg_attr(alef, alef(skip))]
 pub fn current_policy() -> OutboundPolicy {
-    policy_lock().read().expect("outbound policy lock poisoned").clone()
+    // ~keep See `set_outbound_policy`: recover rather than panic on a poisoned lock.
+    policy_lock()
+        .read()
+        .unwrap_or_else(|poisoned| {
+            tracing::warn!("outbound policy lock poisoned; recovering");
+            poisoned.into_inner()
+        })
+        .clone()
 }
 
 /// Validate `raw_url` against the current outbound policy.

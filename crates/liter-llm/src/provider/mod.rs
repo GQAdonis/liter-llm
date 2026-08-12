@@ -115,7 +115,13 @@ const PROVIDERS_JSON: &str = include_str!("../../schemas/providers.json");
 static REGISTRY: LazyLock<std::result::Result<ProviderRegistry, String>> = LazyLock::new(|| {
     serde_json::from_str::<ProviderRegistryRaw>(PROVIDERS_JSON)
         .map(ProviderRegistry::from_raw)
-        .map_err(|e| e.to_string())
+        .map_err(|e| {
+            // ~keep Logged once here (LazyLock evaluates its closure exactly once) rather
+            // than at every `detect_provider`/`capabilities` call site that silently
+            // falls back to "no provider found" on this error.
+            tracing::error!(error = %e, "embedded schemas/providers.json failed to parse");
+            e.to_string()
+        })
 });
 
 /// Access the registry, returning an error if the embedded JSON was invalid.
@@ -480,9 +486,14 @@ pub(crate) trait Provider: Send + Sync {
     /// - `method`: HTTP method string, e.g. `"POST"`.
     /// - `url`: Full request URL including path and query string.
     /// - `body`: Serialised request body bytes (used in the payload hash).
-    fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Vec<(String, String)> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the signing headers cannot be computed (e.g. an
+    /// internal signing-library failure). The default implementation never fails.
+    fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Result<Vec<(String, String)>> {
         let _ = (method, url, body);
-        vec![]
+        Ok(vec![])
     }
 }
 

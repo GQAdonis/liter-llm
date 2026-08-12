@@ -398,9 +398,9 @@ impl Provider for BedrockProvider {
         use serde_json::json;
 
         // ~keep Re-checked on every request (not just at client construction): credentials
-        // can become unavailable between construction and send, and `signing_headers` has
-        // no way to fail the request itself, so this is the last chance to hard-error
-        // instead of silently sending an unsigned request.
+        // can become unavailable between construction and send. `signing_headers` now also
+        // hard-errors on a signing failure (see #42), but this precheck fails fast with a
+        // clearer, missing-credentials-specific message before any signing work happens.
         self.validate()?;
 
         let messages = body
@@ -444,11 +444,17 @@ impl Provider for BedrockProvider {
                     }
                     if let Some(tool_calls) = msg.get("tool_calls").and_then(|t| t.as_array()) {
                         for tc in tool_calls {
-                            let input: serde_json::Value = tc
-                                .pointer("/function/arguments")
-                                .and_then(|a| a.as_str())
-                                .and_then(|s| serde_json::from_str(s).ok())
-                                .unwrap_or_else(|| json!({}));
+                            let input = match tc.pointer("/function/arguments").and_then(|a| a.as_str()) {
+                                Some(args_str) => serde_json::from_str(args_str).unwrap_or_else(|error| {
+                                    tracing::warn!(
+                                        %error,
+                                        "Bedrock tool_calls[].function.arguments was not valid JSON; using an \
+                                         empty object"
+                                    );
+                                    json!({})
+                                }),
+                                None => json!({}),
+                            };
                             parts.push(json!({
                                 "toolUse": {
                                     "toolUseId": tc.get("id"),
@@ -696,20 +702,20 @@ impl Provider for BedrockProvider {
     /// When the `bedrock` feature is disabled, returns an empty vector so
     /// requests work against override base-URLs (e.g. mock servers in tests).
     ///
-    /// # Known residual gap (#42)
+    /// # Errors
     ///
-    /// This trait method cannot return `Result`, so a signing failure here
-    /// cannot itself abort the request. `Provider::transform_request` (called
-    /// earlier in the send path, see [`BedrockProvider::transform_request`])
-    /// re-validates that credentials are present on every request and hard-errors
-    /// before any network I/O, which closes the realistic failure mode (missing
-    /// or revoked credentials). The only way `sigv4_sign` can still fail here despite
-    /// that precheck is an internal SigV4 library error (malformed signing params),
-    /// which is logged loudly rather than silently swallowed. ~keep
-    fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Vec<(String, String)> {
+    /// `Provider::transform_request` (called earlier in the send path, see
+    /// [`BedrockProvider::transform_request`]) re-validates that credentials are
+    /// present on every request and hard-errors before any network I/O, which
+    /// closes the realistic failure mode (missing or revoked credentials). The
+    /// only way `sigv4_sign` can still fail here despite that precheck is an
+    /// internal SigV4 library error (malformed signing params). Fix for #42:
+    /// that failure is now propagated as a hard error instead of silently
+    /// falling back to an unsigned request. ~keep
+    fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Result<Vec<(String, String)>> {
         #[cfg(feature = "bedrock")]
         {
-            match sigv4_sign(
+            sigv4_sign(
                 method,
                 url,
                 body,
@@ -717,25 +723,21 @@ impl Provider for BedrockProvider {
                 self.access_key_id.as_deref(),
                 self.secret_access_key.as_deref(),
                 self.session_token.as_deref(),
-            ) {
-                Ok(headers) => headers,
-                Err(error) => {
-                    tracing::error!(
-                        error = %error,
-                        %method,
-                        "Bedrock SigV4 signing failed after credential precheck passed; \
-                         request will be sent without an Authorization header and is \
-                         expected to be rejected by AWS"
-                    );
-                    vec![]
-                }
-            }
+            )
+            .map_err(|error| {
+                tracing::error!(
+                    error = %error,
+                    %method,
+                    "Bedrock SigV4 signing failed after credential precheck passed"
+                );
+                error
+            })
         }
 
         #[cfg(not(feature = "bedrock"))]
         {
             let _ = (method, url, body);
-            vec![]
+            Ok(vec![])
         }
     }
 }
@@ -854,7 +856,7 @@ pub(crate) fn parse_bedrock_stream_event(event_type: &str, payload: &str) -> Res
                 .map(Some);
             }
 
-            tracing::debug!(
+            tracing::warn!(
                 content_block_index = index,
                 "Bedrock contentBlockDelta with unrecognized delta shape; skipping"
             );
@@ -1136,6 +1138,29 @@ mod tests {
             None,
         );
         assert!(result.is_err(), "signing without credentials should fail");
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(feature = "bedrock")]
+    fn signing_headers_propagates_signing_failure_instead_of_returning_empty() {
+        // ~keep Regression test for #42. `sigv4_sign_fails_without_any_credentials` proves the
+        // signer errors; this proves `signing_headers` PROPAGATES that error rather than
+        // swallowing it into an empty header vec, which is what sent unsigned requests. The
+        // sibling test covering the empty-vec return is compiled out under this feature, so
+        // without this test the with-feature path has no coverage at all.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        unsafe { std::env::remove_var("AWS_SECRET_ACCESS_KEY") };
+        let provider = BedrockProvider::new("us-east-1");
+        let result = provider.signing_headers(
+            "POST",
+            "https://bedrock-runtime.us-east-1.amazonaws.com/model/foo/converse",
+            b"{}",
+        );
+        assert!(
+            result.is_err(),
+            "signing_headers must surface the signing failure, not return empty headers"
+        );
     }
 
     #[test]
