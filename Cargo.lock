@@ -3270,6 +3270,7 @@ dependencies = [
  "notify",
  "opendal",
  "opentelemetry",
+ "regex",
  "reqwest",
  "rmcp",
  "rust_decimal",
