@@ -86,6 +86,11 @@ impl GuardrailRegistry {
     ///
     /// If no guardrail blocks, returns the last `Mutate` decision seen,
     /// or `Allow` if no mutations occurred.
+    #[tracing::instrument(
+        level = "debug",
+        skip(self, ctx),
+        fields(stage = ?stage, guardrail_count = self.guardrails.len())
+    )]
     pub async fn run_stage(&self, stage: GuardrailStage, ctx: &GuardrailContext<'_>) -> GuardrailDecision {
         let mut last_mutation: Option<GuardrailDecision> = None;
 
@@ -117,45 +122,56 @@ fn global_lock() -> &'static RwLock<GuardrailRegistry> {
     GLOBAL_REGISTRY.get_or_init(|| RwLock::new(GuardrailRegistry::new()))
 }
 
+/// Recover a poisoned [`RwLock`] write guard instead of propagating the panic.
+///
+/// A poisoned lock only means some other caller panicked while holding it —
+/// for a process-global registry that every request path depends on, one
+/// misbehaving guardrail implementation must not permanently take down
+/// guardrail evaluation for the rest of the process. ~keep
+fn recover_write(lock: &RwLock<GuardrailRegistry>) -> std::sync::RwLockWriteGuard<'_, GuardrailRegistry> {
+    lock.write().unwrap_or_else(|poisoned| {
+        tracing::warn!("global guardrail registry write lock was poisoned; recovering");
+        poisoned.into_inner()
+    })
+}
+
+/// Recover a poisoned [`RwLock`] read guard instead of propagating the panic.
+///
+/// See [`recover_write`] for why poison is recovered rather than panicked on.
+fn recover_read(lock: &RwLock<GuardrailRegistry>) -> std::sync::RwLockReadGuard<'_, GuardrailRegistry> {
+    lock.read().unwrap_or_else(|poisoned| {
+        tracing::warn!("global guardrail registry read lock was poisoned; recovering");
+        poisoned.into_inner()
+    })
+}
+
 /// Register a guardrail in the global registry.
 ///
-/// # Panics
-///
-/// Panics if the global registry lock is poisoned (i.e., another thread panicked
-/// while holding the write lock). This is a programmer error — do not panic in
-/// guardrail implementations.
+/// If the lock was poisoned by a panicking guardrail on a previous access,
+/// the poisoned state is recovered rather than propagating the panic.
+#[tracing::instrument(level = "debug", skip(guardrail), fields(guardrail_name = guardrail.name()))]
 pub fn register(guardrail: Arc<dyn Guardrail>) {
-    global_lock()
-        .write()
-        .expect("global guardrail registry lock poisoned")
-        .register(guardrail);
+    recover_write(global_lock()).register(guardrail);
 }
 
 /// Remove all guardrails from the global registry.
 ///
 /// Primarily useful in tests to reset state between test cases.
 ///
-/// # Panics
-///
-/// Panics if the global registry lock is poisoned.
+/// If the lock was poisoned by a panicking guardrail on a previous access,
+/// the poisoned state is recovered rather than propagating the panic.
+#[tracing::instrument(level = "debug")]
 pub fn clear() {
-    global_lock()
-        .write()
-        .expect("global guardrail registry lock poisoned")
-        .clear();
+    recover_write(global_lock()).clear();
 }
 
 /// Run all globally registered guardrails for `stage` against `ctx`.
 ///
-/// # Panics
-///
-/// Panics if the global registry lock is poisoned.
+/// If the lock was poisoned by a panicking guardrail on a previous access,
+/// the poisoned state is recovered rather than propagating the panic.
+#[tracing::instrument(level = "debug", skip(ctx), fields(stage = ?stage))]
 pub async fn run_stage(stage: GuardrailStage, ctx: &GuardrailContext<'_>) -> GuardrailDecision {
-    let guardrails: Vec<Arc<dyn Guardrail>> = global_lock()
-        .read()
-        .expect("global guardrail registry lock poisoned")
-        .guardrails
-        .clone();
+    let guardrails: Vec<Arc<dyn Guardrail>> = recover_read(global_lock()).guardrails.clone();
 
     let mut last_mutation: Option<GuardrailDecision> = None;
 
@@ -268,5 +284,33 @@ mod tests {
         let ctx = empty_ctx(&req, &meta);
         let decision = registry.run_stage(GuardrailStage::Input, &ctx).await;
         assert!(decision.is_allow(), "cleared registry should always allow");
+    }
+
+    /// A panic while another caller holds the global registry lock must not
+    /// permanently disable guardrail evaluation for the rest of the process:
+    /// `register`/`clear`/`run_stage` must recover a poisoned lock instead of
+    /// propagating the panic to every subsequent caller.
+    #[tokio::test]
+    async fn global_registry_recovers_from_poisoned_lock() {
+        clear();
+
+        let _ = std::thread::spawn(|| {
+            let _guard = global_lock().write().unwrap();
+            panic!("intentional panic to poison the global guardrail registry lock");
+        })
+        .join();
+
+        register(Arc::new(PromptInjectionHeuristic::new("post-poison")));
+
+        let req = serde_json::json!({ "messages": [{ "role": "user", "content": "hello" }] });
+        let meta = HashMap::new();
+        let ctx = empty_ctx(&req, &meta);
+        let decision = run_stage(GuardrailStage::Input, &ctx).await;
+        assert!(
+            decision.is_allow(),
+            "recovered registry should evaluate normally, got {decision:?}"
+        );
+
+        clear();
     }
 }

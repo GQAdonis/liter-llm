@@ -25,7 +25,10 @@ use serde::{Deserialize, Serialize};
 /// client-level settings; they are carried on this struct for callers to
 /// read when building individual requests, and are intentionally **not**
 /// mapped by [`LlmConfig::into_client_builder`].
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+///
+/// Implements `Debug` manually (see below) so `api_key` and header values are
+/// redacted rather than printed in full.
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct LlmConfig {
     /// Model identifier (e.g. `"gpt-4o"`, `"bedrock/anthropic.claude-3-sonnet-20240229-v1:0"`).
@@ -155,7 +158,10 @@ pub struct LlmProviderConfig {
 /// AWS environment variables (`AWS_DEFAULT_REGION` / `AWS_REGION`,
 /// `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`,
 /// `BEDROCK_CROSS_REGION`).
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+///
+/// Implements `Debug` manually (see below) so the AWS credential fields are
+/// redacted rather than printed in full.
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct BedrockConfig {
     /// AWS region (e.g. `"us-east-1"`).
@@ -175,6 +181,59 @@ pub struct BedrockConfig {
     pub session_token: Option<String>,
 }
 
+/// Manual `Debug` impl: `access_key_id`, `secret_access_key`, and
+/// `session_token` are AWS credentials and must never appear in full in logs
+/// or error messages produced via `{:?}`.
+impl std::fmt::Debug for BedrockConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BedrockConfig")
+            .field("region", &self.region)
+            .field("cross_region_prefix", &self.cross_region_prefix)
+            .field("access_key_id", &self.access_key_id.as_ref().map(|_| "[redacted]"))
+            .field(
+                "secret_access_key",
+                &self.secret_access_key.as_ref().map(|_| "[redacted]"),
+            )
+            .field("session_token", &self.session_token.as_ref().map(|_| "[redacted]"))
+            .finish()
+    }
+}
+
+/// Manual `Debug` impl: `api_key` must never appear in full via `{:?}`.
+/// Header values are also redacted, since custom auth headers (e.g. a
+/// bearer token in a non-standard header) can carry secrets too; header
+/// *names* are kept so the shape of the config is still inspectable.
+impl std::fmt::Debug for LlmConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let redacted_headers: Option<Vec<(&str, &str)>> = self.headers.as_ref().map(|headers| {
+            let mut kvs: Vec<(&str, &str)> = headers.keys().map(|k| (k.as_str(), "[redacted]")).collect();
+            kvs.sort_unstable_by_key(|(k, _)| *k);
+            kvs
+        });
+
+        f.debug_struct("LlmConfig")
+            .field("model", &self.model)
+            .field("api_key", &self.api_key.as_ref().map(|_| "[redacted]"))
+            .field("base_url", &self.base_url)
+            .field("timeout_secs", &self.timeout_secs)
+            .field("max_retries", &self.max_retries)
+            .field("temperature", &self.temperature)
+            .field("max_tokens", &self.max_tokens)
+            .field("load_env", &self.load_env)
+            .field("headers", &redacted_headers)
+            .field("providers", &self.providers)
+            .field("cache", &self.cache)
+            .field("budget", &self.budget)
+            .field("rate_limit", &self.rate_limit)
+            .field("cost_tracking", &self.cost_tracking)
+            .field("tracing", &self.tracing)
+            .field("cooldown_secs", &self.cooldown_secs)
+            .field("health_check_secs", &self.health_check_secs)
+            .field("bedrock", &self.bedrock)
+            .finish()
+    }
+}
+
 impl LlmConfig {
     /// Convert into a [`super::ClientConfigBuilder`], applying every field
     /// that is set.
@@ -182,6 +241,7 @@ impl LlmConfig {
     /// `model`, `temperature`, and `max_tokens` are request-time parameters
     /// and are not mapped onto the builder; read them directly from this
     /// struct when constructing individual requests.
+    #[tracing::instrument(level = "debug", skip(self), fields(model = %self.model))]
     pub fn into_client_builder(self) -> super::ClientConfigBuilder {
         let api_key = self.api_key.unwrap_or_default();
         let mut builder = super::ClientConfigBuilder::new(api_key);
@@ -429,5 +489,83 @@ model_prefixes = ["my-provider/"]
         assert_eq!(client_config.bedrock_access_key_id.as_deref(), Some("AKIAEXAMPLE"));
         assert_eq!(client_config.bedrock_secret_access_key.as_deref(), Some("secret"));
         assert_eq!(client_config.bedrock_session_token.as_deref(), Some("token"));
+    }
+
+    #[test]
+    fn debug_format_redacts_llm_config_api_key_and_header_values() {
+        let mut headers = HashMap::new();
+        headers.insert("Authorization".to_owned(), "Bearer super-secret-token".to_owned());
+
+        let config = LlmConfig {
+            model: "gpt-4o".to_owned(),
+            api_key: Some("sk-live-do-not-leak-me".to_owned()),
+            headers: Some(headers),
+            ..Default::default()
+        };
+
+        let debug_output = format!("{config:?}");
+        assert!(
+            !debug_output.contains("sk-live-do-not-leak-me"),
+            "api_key must not appear in Debug output: {debug_output}"
+        );
+        assert!(
+            !debug_output.contains("super-secret-token"),
+            "header value must not appear in Debug output: {debug_output}"
+        );
+        assert!(
+            debug_output.contains("Authorization"),
+            "header name should still be visible for inspectability: {debug_output}"
+        );
+        assert!(
+            debug_output.contains("gpt-4o"),
+            "non-secret fields should still be visible: {debug_output}"
+        );
+    }
+
+    #[test]
+    fn debug_format_redacts_bedrock_config_credentials() {
+        let bedrock = BedrockConfig {
+            region: Some("us-east-1".to_owned()),
+            access_key_id: Some("AKIALEAKEDVALUE".to_owned()),
+            secret_access_key: Some("do-not-leak-secret".to_owned()),
+            session_token: Some("do-not-leak-token".to_owned()),
+            ..Default::default()
+        };
+
+        let debug_output = format!("{bedrock:?}");
+        assert!(
+            !debug_output.contains("AKIALEAKEDVALUE"),
+            "access_key_id must not appear in Debug output: {debug_output}"
+        );
+        assert!(
+            !debug_output.contains("do-not-leak-secret"),
+            "secret_access_key must not appear in Debug output: {debug_output}"
+        );
+        assert!(
+            !debug_output.contains("do-not-leak-token"),
+            "session_token must not appear in Debug output: {debug_output}"
+        );
+        assert!(
+            debug_output.contains("us-east-1"),
+            "non-secret fields should still be visible: {debug_output}"
+        );
+    }
+
+    #[test]
+    fn debug_format_redacts_bedrock_credentials_nested_under_llm_config() {
+        let config = LlmConfig {
+            model: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0".to_owned(),
+            bedrock: Some(BedrockConfig {
+                secret_access_key: Some("nested-leak-check".to_owned()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let debug_output = format!("{config:?}");
+        assert!(
+            !debug_output.contains("nested-leak-check"),
+            "bedrock secret nested inside LlmConfig must not leak: {debug_output}"
+        );
     }
 }

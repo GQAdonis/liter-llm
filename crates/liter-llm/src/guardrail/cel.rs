@@ -30,6 +30,15 @@
 //!     .with_fail_open(true); // SECURITY WARNING: only use in non-production
 //! ```
 //!
+//! # Input bounding at construction time
+//!
+//! [`CelGuardrail::new`] rejects expressions that exceed [`MAX_CEL_EXPRESSION_LEN`]
+//! bytes or nest `(`/`[`/`{` deeper than [`MAX_CEL_NESTING_DEPTH`], *before* the
+//! expression is handed to the parser. The parser is a recursive-descent ANTLR
+//! parser: a sufficiently deep nesting can exhaust the native stack, which is an
+//! abort rather than a panic and cannot be caught by `catch_unwind`. Bounding the
+//! input is the only available defense against that failure mode.
+//!
 //! # CEL variables available in expressions
 //!
 //! | Variable | Type | Description |
@@ -67,6 +76,24 @@ use super::{Guardrail, GuardrailContext, GuardrailDecision, GuardrailStage};
 /// Numeric error code returned when a CEL expression cannot be evaluated and
 /// the guardrail is configured to fail-closed (the default).
 const CEL_EVAL_ERROR_CODE: u32 = 4001;
+
+/// Maximum accepted length (in bytes) of a CEL expression string.
+///
+/// Bounds parser work and input size regardless of nesting shape. Chosen to
+/// comfortably fit any realistic hand-written policy expression while
+/// rejecting pathological inputs before they reach the parser.
+const MAX_CEL_EXPRESSION_LEN: usize = 4096;
+
+/// Maximum accepted nesting depth of `(`, `[`, and `{` in a CEL expression.
+///
+/// The `cel-interpreter` parser is a recursive-descent ANTLR parser: each
+/// nesting level consumes native stack. A crafted expression with enough
+/// nested parentheses can exhaust the stack and abort the process — an abort
+/// is not a panic, so `std::panic::catch_unwind` around `Program::compile`
+/// cannot catch it. Rejecting deep nesting here, before the expression ever
+/// reaches the parser, is the only defense available for that failure mode.
+/// ~keep
+const MAX_CEL_NESTING_DEPTH: usize = 64;
 
 /// The action taken when a [`CelGuardrail`]'s expression evaluates to `true`.
 #[cfg_attr(alef, alef(skip))]
@@ -115,15 +142,75 @@ pub struct CelGuardrail {
 
 /// Error returned when a CEL expression cannot be compiled.
 ///
-/// Wraps the underlying `cel-interpreter` parse failure as an owned message.
-/// The message is kept opaque and does not expose the third-party error type,
-/// keeping the public surface `Send + Sync` and FFI-friendly. Some malformed
-/// inputs cause the parser to panic rather than return an error; those panics
-/// are caught and surfaced through this type so construction never aborts.
+/// `TooLong` and `TooDeep` are rejected before the expression ever reaches
+/// the `cel-interpreter` parser (see [`MAX_CEL_EXPRESSION_LEN`] and
+/// [`MAX_CEL_NESTING_DEPTH`]). `Invalid` wraps the underlying parser's
+/// message as an owned, opaque string — it does not expose the third-party
+/// error type, keeping the public surface `Send + Sync` and FFI-friendly.
+/// Some malformed inputs cause the parser to panic rather than return an
+/// error; those panics are caught and surfaced as `Invalid` so construction
+/// never aborts.
 #[cfg_attr(alef, alef(skip))]
 #[derive(Debug, thiserror::Error)]
-#[error("invalid CEL expression: {0}")]
-pub struct CelCompileError(String);
+pub enum CelCompileError {
+    /// The expression exceeded [`MAX_CEL_EXPRESSION_LEN`] bytes.
+    #[error("CEL expression exceeds maximum length of {max} bytes (got {actual})")]
+    TooLong {
+        /// The length of the rejected expression, in bytes.
+        actual: usize,
+        /// The maximum accepted length, in bytes.
+        max: usize,
+    },
+    /// The expression's `(`/`[`/`{` nesting exceeded [`MAX_CEL_NESTING_DEPTH`].
+    #[error("CEL expression exceeds maximum nesting depth of {max} (got {actual})")]
+    TooDeep {
+        /// The nesting depth reached before rejection.
+        actual: usize,
+        /// The maximum accepted nesting depth.
+        max: usize,
+    },
+    /// The parser rejected the expression as syntactically invalid, or
+    /// panicked while attempting to parse it.
+    #[error("invalid CEL expression: {0}")]
+    Invalid(String),
+}
+
+/// Reject a CEL expression before it reaches the parser if it is too long or
+/// nests `(`/`[`/`{` too deeply.
+///
+/// This is a defense-in-depth measure for a parser that recurses on nesting
+/// depth: bounding the input here costs O(length) time and O(1) additional
+/// stack, regardless of how the parser itself is implemented. See
+/// [`MAX_CEL_NESTING_DEPTH`] for why this matters. ~keep
+fn validate_expression(expression: &str) -> Result<(), CelCompileError> {
+    if expression.len() > MAX_CEL_EXPRESSION_LEN {
+        return Err(CelCompileError::TooLong {
+            actual: expression.len(),
+            max: MAX_CEL_EXPRESSION_LEN,
+        });
+    }
+
+    let mut depth: usize = 0;
+    for ch in expression.chars() {
+        match ch {
+            '(' | '[' | '{' => {
+                depth += 1;
+                if depth > MAX_CEL_NESTING_DEPTH {
+                    return Err(CelCompileError::TooDeep {
+                        actual: depth,
+                        max: MAX_CEL_NESTING_DEPTH,
+                    });
+                }
+            }
+            ')' | ']' | '}' => {
+                depth = depth.saturating_sub(1);
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
 
 impl CelGuardrail {
     /// Create a new [`CelGuardrail`].
@@ -143,13 +230,19 @@ impl CelGuardrail {
         on_true: CelAction,
         stages: &'static [GuardrailStage],
     ) -> Result<Self, CelCompileError> {
+        // ~keep Bound length/nesting BEFORE the parser ever sees the expression: this is the
+        // only defense against a stack-overflow abort, which catch_unwind below cannot catch.
+        validate_expression(expression)?;
+
         // ~keep Catch both parse errors and ANTLR parser panics so bad CEL cannot abort startup.
         let compiled = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| Program::compile(expression)));
         let program = match compiled {
             Ok(Ok(program)) => program,
-            Ok(Err(parse_errors)) => return Err(CelCompileError(parse_errors.to_string())),
+            Ok(Err(parse_errors)) => return Err(CelCompileError::Invalid(parse_errors.to_string())),
             Err(_panic) => {
-                return Err(CelCompileError(format!("parser panicked on expression {expression:?}")));
+                return Err(CelCompileError::Invalid(format!(
+                    "parser panicked on expression {expression:?}"
+                )));
             }
         };
         Ok(Self {
@@ -711,5 +804,89 @@ mod tests {
             }
             other => panic!("expected Block(4001), got {other:?}"),
         }
+    }
+
+    /// A short expression that nests `(` far past [`MAX_CEL_NESTING_DEPTH`] must be
+    /// rejected by depth bounding — proving the nesting check fires independently
+    /// of the length check (an attacker packing deep nesting into few bytes cannot
+    /// slip past a length-only guard).
+    #[tokio::test]
+    async fn cel_guardrail_rejects_deeply_nested_expression_without_reaching_parser() {
+        let depth = MAX_CEL_NESTING_DEPTH + 1;
+        let expression = format!("{}true{}", "(".repeat(depth), ")".repeat(depth));
+        assert!(
+            expression.len() < MAX_CEL_EXPRESSION_LEN,
+            "test expression must stay under the length bound so only depth is exercised"
+        );
+
+        let result = CelGuardrail::new(
+            "too-deep",
+            &expression,
+            CelAction::Block {
+                code: 1399,
+                reason: "test".into(),
+            },
+            INPUT_STAGES,
+        );
+
+        match result {
+            Err(CelCompileError::TooDeep { actual, max }) => {
+                assert_eq!(max, MAX_CEL_NESTING_DEPTH);
+                assert!(actual > max, "reported depth {actual} should exceed the limit {max}");
+            }
+            other => panic!("expected CelCompileError::TooDeep, got {other:?}"),
+        }
+    }
+
+    /// A flat (unnested) expression whose length alone exceeds
+    /// [`MAX_CEL_EXPRESSION_LEN`] must be rejected before parsing.
+    #[tokio::test]
+    async fn cel_guardrail_rejects_oversized_expression_without_reaching_parser() {
+        let filler = "a".repeat(MAX_CEL_EXPRESSION_LEN + 1);
+        let expression = format!("\"{filler}\" == \"{filler}\"");
+
+        let result = CelGuardrail::new(
+            "too-long",
+            &expression,
+            CelAction::Block {
+                code: 1399,
+                reason: "test".into(),
+            },
+            INPUT_STAGES,
+        );
+
+        match result {
+            Err(CelCompileError::TooLong { actual, max }) => {
+                assert_eq!(max, MAX_CEL_EXPRESSION_LEN);
+                assert!(actual > max, "reported length {actual} should exceed the limit {max}");
+            }
+            other => panic!("expected CelCompileError::TooLong, got {other:?}"),
+        }
+    }
+
+    /// Regression for the claimed stack-overflow-abort vector (~5000 nested
+    /// parentheses). This does NOT prove the abort itself reproduces — that is
+    /// unverified and cannot be verified without running the parser under a
+    /// crash-observing harness. It proves the defensive bound rejects this
+    /// exact input shape with a typed error, quickly, before the expression
+    /// ever reaches `Program::compile`.
+    #[tokio::test]
+    async fn cel_guardrail_rejects_five_thousand_nested_parens() {
+        let expression = format!("{}true{}", "(".repeat(5000), ")".repeat(5000));
+
+        let result = CelGuardrail::new(
+            "pathological-nesting",
+            &expression,
+            CelAction::Block {
+                code: 1399,
+                reason: "test".into(),
+            },
+            INPUT_STAGES,
+        );
+
+        assert!(
+            result.is_err(),
+            "5000 nested parens must be rejected before reaching the CEL parser"
+        );
     }
 }
