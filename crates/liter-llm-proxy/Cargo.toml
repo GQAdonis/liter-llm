@@ -57,6 +57,7 @@ notify = { workspace = true }
 opendal = { workspace = true }
 
 opentelemetry = { workspace = true, optional = true }
+regex = { workspace = true }
 rmcp = { workspace = true }
 rust_decimal = { workspace = true }
 schemars = { workspace = true }

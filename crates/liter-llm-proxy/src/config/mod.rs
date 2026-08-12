@@ -3,6 +3,7 @@ pub mod key;
 pub mod mcp;
 pub mod model;
 pub mod provider;
+pub mod routing;
 pub mod security;
 pub mod server;
 pub mod watcher;
@@ -14,6 +15,7 @@ pub use model::{AliasEntry, ModelEntry};
 #[cfg(feature = "etcd-watch")]
 pub use provider::EtcdConfigProvider;
 pub use provider::{ConfigError, ConfigEvent, ConfigProvider, FileWatchConfigProvider, StaticFileConfigProvider};
+pub use routing::{ClassifierConfig, KeywordRuleConfig, PrototypeConfig, RoutingConfig};
 pub use security::{OutboundPolicyKind, SecurityConfig};
 pub use server::ServerConfig;
 
@@ -149,6 +151,10 @@ pub struct ProxyConfig {
     pub mcp: McpConfig,
     #[serde(default)]
     pub security: SecurityConfig,
+    /// Routing strategy applied to every multi-deployment `[[models]]`
+    /// group. Absent means round-robin, matching pre-existing behaviour.
+    /// See [`routing::RoutingConfig`].
+    pub routing: Option<RoutingConfig>,
 }
 
 /// Replace all `${VAR_NAME}` occurrences in `s` with the value of the
@@ -187,6 +193,95 @@ pub fn interpolate_env_vars(s: &str) -> String {
     result
 }
 
+/// Keys accepted in `[routing]` for each `strategy` value.
+///
+/// `strategy` itself is always permitted; the second element lists the extra
+/// keys that strategy takes.
+const ROUTING_KEYS_BY_STRATEGY: &[(&str, &[&str])] = &[
+    ("round_robin", &[]),
+    ("fallback", &[]),
+    ("latency_based", &[]),
+    ("cost_based", &[]),
+    ("weighted_random", &["weights"]),
+    ("semantic", &["classifier"]),
+];
+
+/// Keys accepted in `[routing.classifier]` for each `kind` value.
+///
+/// `kind` itself is always permitted; the second element lists the extra
+/// keys that kind takes.
+const CLASSIFIER_KEYS_BY_KIND: &[(&str, &[&str])] = &[
+    ("keyword", &["rules"]),
+    (
+        "embedding",
+        &["embedding_model", "api_key", "base_url", "threshold", "prototypes"],
+    ),
+];
+
+/// Reject unknown keys in the `[routing]` table and, when
+/// `strategy = "semantic"`, in the nested `[routing.classifier]` table.
+///
+/// `RoutingConfig` and `ClassifierConfig` both carry
+/// `#[serde(deny_unknown_fields)]`, but serde ignores it on an
+/// internally-tagged enum (`tag = "strategy"` / `tag = "kind"`) because tag
+/// dispatch buffers the content first. Without this check a typo such as
+/// `weight` instead of `weights`, or `treshold` instead of `threshold`,
+/// parses successfully and is silently discarded, which is exactly the
+/// silent-misconfiguration failure this config surface exists to prevent. ~keep
+fn validate_routing_keys(expanded: &str) -> Result<(), String> {
+    // ~keep The typed parse has already succeeded by the time this runs, so a failure here
+    // ~keep would mean the two parsers disagree — surface it rather than skipping the check.
+    let root: toml::Table =
+        toml::from_str(expanded).map_err(|e| format!("invalid TOML config: re-parse for validation failed: {e}"))?;
+    let Some(routing) = root.get("routing").and_then(toml::Value::as_table) else {
+        return Ok(());
+    };
+    reject_unknown_keys(routing, "strategy", ROUTING_KEYS_BY_STRATEGY, "[routing]")?;
+
+    if let Some(classifier) = routing.get("classifier").and_then(toml::Value::as_table) {
+        reject_unknown_keys(classifier, "kind", CLASSIFIER_KEYS_BY_KIND, "[routing.classifier]")?;
+    }
+    Ok(())
+}
+
+/// Reject keys in `table` other than `tag_field` and the extra keys
+/// registered for `table[tag_field]`'s value in `allowed`.
+///
+/// A no-op — rather than an error — when `tag_field` is absent, not a
+/// string, or its value isn't a recognised tag: those cases either mean
+/// there is nothing to validate here, or they already failed serde's own
+/// typed parse in [`parse_with_env_interpolation`] before this runs.
+fn reject_unknown_keys(
+    table: &toml::Table,
+    tag_field: &str,
+    allowed: &[(&str, &[&str])],
+    context: &str,
+) -> Result<(), String> {
+    let Some(tag_value) = table.get(tag_field).and_then(toml::Value::as_str) else {
+        return Ok(());
+    };
+    let Some((_, extra)) = allowed.iter().find(|(name, _)| *name == tag_value) else {
+        return Ok(());
+    };
+
+    let unknown: Vec<&str> = table
+        .keys()
+        .map(String::as_str)
+        .filter(|key| *key != tag_field && !extra.contains(key))
+        .collect();
+
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    let mut allowed_keys = vec![tag_field];
+    allowed_keys.extend_from_slice(extra);
+    Err(format!(
+        "invalid TOML config: unknown key(s) in {context} for {tag_field} \"{tag_value}\": {}. Accepted keys: {}",
+        unknown.join(", "),
+        allowed_keys.join(", ")
+    ))
+}
+
 /// Apply env-var interpolation to a raw TOML string, then deserialize.
 ///
 /// This is the simplest correct approach: interpolate the whole TOML source
@@ -194,7 +289,9 @@ pub fn interpolate_env_vars(s: &str) -> String {
 /// gets expanded uniformly.
 fn parse_with_env_interpolation(raw: &str) -> Result<ProxyConfig, String> {
     let expanded = interpolate_env_vars(raw);
-    toml::from_str(&expanded).map_err(|e| format!("invalid TOML config: {e}"))
+    let config: ProxyConfig = toml::from_str(&expanded).map_err(|e| format!("invalid TOML config: {e}"))?;
+    validate_routing_keys(&expanded)?;
+    Ok(config)
 }
 
 impl ProxyConfig {

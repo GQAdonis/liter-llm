@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use regex::Regex;
 use tower::Layer;
 
 use liter_llm::client::{ClientConfigBuilder, DefaultClient};
@@ -10,11 +11,12 @@ use liter_llm::observability::{MultiUsageSink, UsageSinkErased};
 use liter_llm::tower::types::{LlmRequest, LlmResponse};
 use liter_llm::tower::{
     BudgetConfig, BudgetLayer, BudgetLedgerLayer, BudgetState, CacheConfig, CacheLayer, CooldownLayer,
-    CostTrackingLayer, Enforcement, HealthCheckLayer, HooksLayer, LlmService, ModelRateLimitLayer, RateLimitConfig,
-    Router, RoutingStrategy, TracingLayer,
+    CostTrackingLayer, EmbeddingSimilarityClassifier, Enforcement, HealthCheckLayer, HooksLayer, IntentPrototype,
+    KeywordClassifier, LlmService, ModelRateLimitLayer, RateLimitConfig, RouteClassifier, Router, RoutingStrategy,
+    TracingLayer, Weight,
 };
 
-use crate::config::{ModelEntry, ProxyConfig, VirtualKeyConfig};
+use crate::config::{ClassifierConfig, KeywordRuleConfig, ModelEntry, ProxyConfig, RoutingConfig, VirtualKeyConfig};
 use crate::error::ProxyError;
 use crate::tenant_limit::{KeyLimitLayer, PerKeyBudgetLedger, build_key_limits};
 
@@ -75,9 +77,11 @@ impl ServicePool {
     ///
     /// Groups `config.models` by `name` and creates a Tower service stack for
     /// each unique model name.  When multiple deployments share a name they
-    /// form an active-active pool dispatched via [`Router`] with
-    /// [`RoutingStrategy::RoundRobin`] (see [`build_base_service`]); a single
-    /// entry gets a bare `LlmService` with no routing overhead.
+    /// form an active-active pool dispatched via [`Router`] with the
+    /// [`RoutingStrategy`] configured in `[routing]` (defaulting to
+    /// [`RoutingStrategy::RoundRobin`] — see [`build_routing_strategy`] and
+    /// [`build_base_service`]); a single entry gets a bare `LlmService` with
+    /// no routing overhead.
     ///
     /// `usage_sink`, when `Some`, is wired into `HooksLayer` outermost in
     /// every model's Tower stack so all completions emit a `UsageEvent`.
@@ -101,12 +105,18 @@ impl ServicePool {
         let key_limit_layer = Arc::new(KeyLimitLayer::new(build_key_limits(&config.keys)));
         let budget_ledger = Arc::new(PerKeyBudgetLedger::new(&config.keys));
 
+        // ~keep Built once and cloned per group below: `RoutingStrategy` is global
+        // ~keep (see `RoutingConfig` docs), and cloning is cheap (an Arc bump for
+        // ~keep `Semantic`, a small Vec copy for `WeightedRandom`) next to rebuilding
+        // ~keep a classifier — including its embedding `DefaultClient` — per group.
+        let routing_strategy = build_routing_strategy(config)?;
+
         let mut services = HashMap::new();
         let mut clients = HashMap::new();
         let mut default_client: Option<Arc<DefaultClient>> = None;
 
         for (name, entries) in &grouped {
-            let (base, client_arc) = build_base_service(entries, config)?;
+            let (base, client_arc) = build_base_service(entries, config, &routing_strategy)?;
 
             if default_client.is_none() {
                 default_client = Some(Arc::clone(&client_arc));
@@ -136,8 +146,9 @@ impl ServicePool {
     /// this from the config watcher's reload path alongside
     /// `auth::KeyStore::reload`.
     ///
-    /// See [`PerKeyBudgetLedger::update_limits`] for why updating the budget
-    /// axis resets month-to-date spend (rpm/tpm counters are unaffected).
+    /// Accumulated state survives: the budget ledger swaps only its configured
+    /// caps, and the rpm/tpm sliding-window counters are untouched. A reload
+    /// therefore cannot be used to reset a tenant's month-to-date spend.
     pub fn update_key_limits(&self, keys: &[VirtualKeyConfig]) {
         self.key_limit_layer.update_limits(keys);
         self.budget_ledger.update_limits(keys);
@@ -208,11 +219,12 @@ fn deployment_model_ids(entries: &[&ModelEntry]) -> Vec<String> {
 /// A `name` may be declared by more than one `[[models]]` entry to form an
 /// active-active deployment pool (see `proxy-configuration.mdx`). A single
 /// entry gets a bare `LlmService` with no routing overhead; multiple entries
-/// are wrapped in a [`Router`] using [`RoutingStrategy::RoundRobin`] so every
-/// configured deployment actually receives traffic, with
-/// [`Router::with_deployment_models`] wired to each entry's real
-/// `provider_model` so a future classifier-driven `RoutingStrategy::Semantic`
-/// resolves correctly.
+/// are wrapped in a [`Router`] using `routing_strategy` (built once per pool
+/// by [`build_routing_strategy`] from `[routing]`, defaulting to
+/// [`RoutingStrategy::RoundRobin`]) so every configured deployment actually
+/// receives traffic, with [`Router::with_deployment_models`] wired to each
+/// entry's real `provider_model` so `RoutingStrategy::Semantic` resolves
+/// correctly.
 ///
 /// Returns the base service plus the first entry's raw client, which callers
 /// use for File/Batch/Response operations that bypass the Tower stack (see
@@ -221,10 +233,15 @@ fn deployment_model_ids(entries: &[&ModelEntry]) -> Vec<String> {
 /// # Errors
 ///
 /// Returns an error string if any entry's `DefaultClient` fails to build, or
-/// if `Router::new` rejects the deployment list (only possible if `entries`
-/// is empty, which cannot happen here since callers derive `entries` from a
-/// non-empty group).
-fn build_base_service(entries: &[&ModelEntry], config: &ProxyConfig) -> Result<(Bcs, Arc<DefaultClient>), String> {
+/// if `Router::new` rejects the deployment list — either because `entries`
+/// is empty (cannot happen here since callers derive `entries` from a
+/// non-empty group) or because a `RoutingStrategy::WeightedRandom` weight
+/// count from `[routing]` doesn't match this group's deployment count.
+fn build_base_service(
+    entries: &[&ModelEntry],
+    config: &ProxyConfig,
+    routing_strategy: &RoutingStrategy,
+) -> Result<(Bcs, Arc<DefaultClient>), String> {
     if entries.len() == 1 {
         let client_arc = Arc::new(build_client(entries[0], config)?);
         let base: Bcs = tower::util::BoxCloneService::new(LlmService::new_from_arc(Arc::clone(&client_arc)));
@@ -242,13 +259,116 @@ fn build_base_service(entries: &[&ModelEntry], config: &ProxyConfig) -> Result<(
     }
     let deployment_models = deployment_model_ids(entries);
 
-    let router = Router::new(deployments, RoutingStrategy::RoundRobin)
+    let router = Router::new(deployments, routing_strategy.clone())
         .map_err(|e| format!("failed to build router for deployment pool: {e}"))?
         .with_deployment_models(deployment_models);
 
     let base: Bcs = tower::util::BoxCloneService::new(router);
     let client_arc = first_client.ok_or_else(|| "deployment pool must have at least one entry".to_string())?;
     Ok((base, client_arc))
+}
+
+/// Translate `config.routing` (`[routing]`) into the runtime
+/// [`RoutingStrategy`] applied to every multi-deployment group.
+///
+/// Absent `[routing]` returns [`RoutingStrategy::RoundRobin`], preserving the
+/// behaviour every existing config relied on before `[routing]` existed.
+///
+/// # Errors
+///
+/// Returns an error string if `strategy = "semantic"` and the configured
+/// classifier fails to build — an invalid regex pattern for a `keyword`
+/// classifier, or a client-construction failure for an `embedding`
+/// classifier's credentials.
+fn build_routing_strategy(config: &ProxyConfig) -> Result<RoutingStrategy, String> {
+    let Some(routing) = &config.routing else {
+        return Ok(RoutingStrategy::RoundRobin);
+    };
+
+    match routing {
+        RoutingConfig::RoundRobin => Ok(RoutingStrategy::RoundRobin),
+        RoutingConfig::Fallback => Ok(RoutingStrategy::Fallback),
+        RoutingConfig::LatencyBased => Ok(RoutingStrategy::LatencyBased),
+        RoutingConfig::CostBased => Ok(RoutingStrategy::CostBased),
+        RoutingConfig::WeightedRandom { weights } => Ok(RoutingStrategy::WeightedRandom {
+            weights: weights.iter().copied().map(Weight::from_f64).collect(),
+        }),
+        RoutingConfig::Semantic { classifier } => Ok(RoutingStrategy::Semantic(build_classifier(classifier, config)?)),
+    }
+}
+
+/// Build the [`RouteClassifier`] behind `RoutingStrategy::Semantic` from
+/// `[routing.classifier]`.
+///
+/// # Errors
+///
+/// Returns an error string if a `keyword` rule's `pattern` is not a valid
+/// regex, or if an `embedding` classifier's `DefaultClient` fails to build
+/// (see [`build_classifier_client`]).
+fn build_classifier(cfg: &ClassifierConfig, config: &ProxyConfig) -> Result<Arc<dyn RouteClassifier>, String> {
+    match cfg {
+        ClassifierConfig::Keyword { rules } => {
+            let compiled = compile_keyword_rules(rules)?;
+            Ok(Arc::new(KeywordClassifier::new(compiled)))
+        }
+        ClassifierConfig::Embedding {
+            embedding_model,
+            api_key,
+            base_url,
+            threshold,
+            prototypes,
+        } => {
+            let client = build_classifier_client(api_key.as_deref(), base_url.as_deref(), embedding_model, config)?;
+            let prototypes = prototypes
+                .iter()
+                .map(|p| IntentPrototype {
+                    name: p.name.clone(),
+                    embedding: p.embedding.clone(),
+                    model: p.model.clone(),
+                })
+                .collect();
+            Ok(Arc::new(EmbeddingSimilarityClassifier::new(
+                Arc::new(client),
+                embedding_model.clone(),
+                prototypes,
+                *threshold,
+            )))
+        }
+    }
+}
+
+/// Compile each `(pattern, model)` rule's regex, failing on the first
+/// invalid pattern with the pattern text and the underlying `regex` error.
+fn compile_keyword_rules(rules: &[KeywordRuleConfig]) -> Result<Vec<(Regex, String)>, String> {
+    rules
+        .iter()
+        .map(|rule| {
+            Regex::new(&rule.pattern)
+                .map(|re| (re, rule.model.clone()))
+                .map_err(|e| format!("routing.classifier: invalid regex pattern '{}': {e}", rule.pattern))
+        })
+        .collect()
+}
+
+/// Build the `DefaultClient` an `EmbeddingSimilarityClassifier` uses to embed
+/// the live request prompt, applying the same `[general]` timeout/retry
+/// defaults [`build_client`] applies to `[[models]]` entries.
+fn build_classifier_client(
+    api_key: Option<&str>,
+    base_url: Option<&str>,
+    embedding_model: &str,
+    config: &ProxyConfig,
+) -> Result<DefaultClient, String> {
+    let mut builder = ClientConfigBuilder::new(api_key.unwrap_or(""));
+    if let Some(url) = base_url {
+        builder = builder.base_url(url);
+    }
+    builder = builder.timeout(Duration::from_secs(config.general.default_timeout_secs));
+    builder = builder.max_retries(config.general.max_retries);
+    let client_config = builder.build();
+
+    DefaultClient::new(client_config, Some(embedding_model))
+        .map_err(|e| format!("failed to build routing.classifier embedding client: {e}"))
 }
 
 /// Build a `DefaultClient` from a `ModelEntry` and global config defaults.
@@ -581,5 +701,167 @@ api_key = "sk-3"
             deployment_model_ids(&entries),
             vec!["openai/gpt-4o".to_string(), "azure/gpt-4o".to_string()]
         );
+    }
+
+    /// Absent `[routing]` must preserve the pre-existing default exactly —
+    /// round-robin — so every config written before `[routing]` existed
+    /// keeps behaving the same way.
+    #[test]
+    fn build_routing_strategy_defaults_to_round_robin_when_unconfigured() {
+        let config = ProxyConfig::default();
+        let strategy = build_routing_strategy(&config).expect("default should build");
+        assert!(matches!(strategy, RoutingStrategy::RoundRobin));
+    }
+
+    /// Regression guard for the class of bug this task fixes: a configured
+    /// `strategy = "semantic"` must actually produce `RoutingStrategy::
+    /// Semantic`, not silently fall back to round-robin.
+    #[test]
+    fn build_routing_strategy_builds_semantic_from_keyword_classifier() {
+        let config = ProxyConfig::from_toml_str(
+            r#"
+[routing]
+strategy = "semantic"
+
+[routing.classifier]
+kind = "keyword"
+
+[[routing.classifier.rules]]
+pattern = "(?i)sql"
+model = "gpt-4o"
+"#,
+        )
+        .expect("valid TOML");
+
+        let strategy = build_routing_strategy(&config).expect("classifier should build");
+        assert!(matches!(strategy, RoutingStrategy::Semantic(_)));
+    }
+
+    #[test]
+    fn build_routing_strategy_converts_weighted_random_weights() {
+        let config = ProxyConfig::from_toml_str(
+            r#"
+[routing]
+strategy = "weighted_random"
+weights = [3.0, 2.0, 1.0]
+"#,
+        )
+        .expect("valid TOML");
+
+        let strategy = build_routing_strategy(&config).expect("should build");
+        match strategy {
+            RoutingStrategy::WeightedRandom { weights } => {
+                assert_eq!(
+                    weights,
+                    vec![Weight::from_f64(3.0), Weight::from_f64(2.0), Weight::from_f64(1.0)]
+                );
+            }
+            other => panic!("expected WeightedRandom, got {other:?}"),
+        }
+    }
+
+    /// A `keyword` classifier with an unparsable regex must fail router
+    /// construction with a clear, actionable error rather than building a
+    /// classifier that always defers (which would look identical to a
+    /// working-but-idle semantic router from the outside).
+    #[test]
+    fn semantic_classifier_with_invalid_regex_fails_clearly() {
+        let config = ProxyConfig::from_toml_str(
+            r#"
+[routing]
+strategy = "semantic"
+
+[routing.classifier]
+kind = "keyword"
+
+[[routing.classifier.rules]]
+pattern = "(unclosed"
+model = "gpt-4o"
+"#,
+        )
+        .expect("valid TOML");
+
+        let err = build_routing_strategy(&config).expect_err("invalid regex must fail, not build a dead classifier");
+        assert!(err.contains("invalid regex"), "error should name the problem: {err}");
+    }
+
+    /// End-to-end regression test for the "semantic routing is silently
+    /// inert" bug: a `[routing] strategy = "semantic"` config with a
+    /// `keyword` classifier must produce a working `Router` — built via the
+    /// same `build_base_service` path `ServicePool::from_config` uses — with
+    /// the `Semantic` strategy and the deployment's real `provider_model`
+    /// values, not stringified positional indices.
+    #[test]
+    fn build_base_service_wires_semantic_strategy_with_real_model_ids() {
+        let entry_a = ModelEntry {
+            name: "gpt".to_string(),
+            provider_model: "openai/gpt-4o".to_string(),
+            api_key: Some("sk-1".to_string()),
+            base_url: None,
+            timeout_secs: None,
+            fallbacks: vec![],
+        };
+        let entry_b = ModelEntry {
+            name: "gpt".to_string(),
+            provider_model: "anthropic/claude-sonnet-4-5".to_string(),
+            api_key: Some("sk-2".to_string()),
+            base_url: None,
+            timeout_secs: None,
+            fallbacks: vec![],
+        };
+        let entries: Vec<&ModelEntry> = vec![&entry_a, &entry_b];
+
+        let config = ProxyConfig::from_toml_str(
+            r#"
+[routing]
+strategy = "semantic"
+
+[routing.classifier]
+kind = "keyword"
+
+[[routing.classifier.rules]]
+pattern = "(?i)claude"
+model = "anthropic/claude-sonnet-4-5"
+"#,
+        )
+        .expect("valid TOML");
+
+        let routing_strategy = build_routing_strategy(&config).expect("classifier should build");
+        assert!(
+            matches!(routing_strategy, RoutingStrategy::Semantic(_)),
+            "must be the configured Semantic strategy, not a silent RoundRobin default"
+        );
+
+        let (_base, _client) =
+            build_base_service(&entries, &config, &routing_strategy).expect("router should build across both entries");
+    }
+
+    /// A `strategy = "embedding"` classifier config must build successfully
+    /// end to end through `build_routing_strategy`, wiring a real
+    /// `DefaultClient` for the live-prompt embedding call and the
+    /// precomputed prototype vectors from TOML.
+    #[test]
+    fn build_routing_strategy_builds_semantic_from_embedding_classifier() {
+        let config = ProxyConfig::from_toml_str(
+            r#"
+[routing]
+strategy = "semantic"
+
+[routing.classifier]
+kind = "embedding"
+embedding_model = "openai/text-embedding-3-small"
+api_key = "sk-embed"
+threshold = 0.75
+
+[[routing.classifier.prototypes]]
+name = "coding"
+model = "gpt-4o"
+embedding = [1.0, 0.0, 0.0]
+"#,
+        )
+        .expect("valid TOML");
+
+        let strategy = build_routing_strategy(&config).expect("embedding classifier should build");
+        assert!(matches!(strategy, RoutingStrategy::Semantic(_)));
     }
 }
