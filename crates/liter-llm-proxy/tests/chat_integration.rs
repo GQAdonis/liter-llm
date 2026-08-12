@@ -201,3 +201,51 @@ async fn chat_upstream_receives_correct_request() {
 
     upstream.shutdown();
 }
+
+/// `ChatCompletionRequest` is `deny_unknown_fields` and this route parses the
+/// client's body straight into it, so every documented OpenAI request field
+/// the struct did not model came back as a hard 400 to a stock SDK client.
+#[tokio::test]
+async fn chat_accepts_documented_openai_request_fields() {
+    let upstream = common::mock_upstream::MockUpstream::start(vec![chat_route()]).await;
+    let proxy = common::test_proxy::TestProxy::new(&upstream.url);
+
+    let body = r#"{
+        "model": "test-model",
+        "messages": [{"role": "user", "content": "hi"}],
+        "logprobs": true,
+        "top_logprobs": 5,
+        "max_completion_tokens": 1024,
+        "service_tier": "flex",
+        "store": true,
+        "metadata": {"run": "nightly"},
+        "prediction": {"type": "content", "content": "draft"},
+        "audio": {"voice": "alloy", "format": "wav"},
+        "web_search_options": {"search_context_size": "medium"}
+    }"#;
+
+    let resp = proxy
+        .router()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("authorization", "Bearer sk-master")
+                .header("content-type", "application/json")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = resp.status();
+    let bytes = Body::new(resp.into_body()).collect().await.unwrap().to_bytes();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "documented OpenAI fields must not be rejected; body was {}",
+        String::from_utf8_lossy(&bytes)
+    );
+
+    upstream.shutdown();
+}

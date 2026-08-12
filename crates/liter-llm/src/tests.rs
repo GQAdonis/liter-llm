@@ -463,6 +463,18 @@ mod serde_tests {
             seed: None,
             reasoning_effort: None,
             modalities: None,
+            logprobs: Some(true),
+            top_logprobs: Some(5),
+            max_completion_tokens: Some(2048),
+            service_tier: Some("flex".into()),
+            store: Some(true),
+            metadata: Some(std::collections::BTreeMap::from([(
+                "run".to_owned(),
+                "nightly".to_owned(),
+            )])),
+            prediction: Some(serde_json::json!({"type": "content", "content": "draft"})),
+            audio: Some(serde_json::json!({"voice": "alloy", "format": "wav"})),
+            web_search_options: Some(serde_json::json!({"search_context_size": "medium"})),
             extra_body: None,
         };
 
