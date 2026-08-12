@@ -184,6 +184,17 @@ tasks:
     desc: Run all linters via poly
     cmds:
       - poly lint .
+      - task: lint:task-coverage
+
+  lint:task-coverage:
+    desc: Assert every Taskfile poly skips is skipped only for Go template syntax
+    # poly cannot parse Taskfile YAML containing `{{ }}` and skips those files.
+    # That is correct, but it means most of our task automation is linted by
+    # nothing, and a NEW silently-skipped file is indistinguishable from one that
+    # was checked and found clean. poly reports a count but not names, so this
+    # reconstructs the expected set from the property causing the skip. ~keep
+    cmds:
+      - python3 scripts/ci/check_task_lint_coverage.py
 
   check:
     desc: Run all checks (lint + test)
