@@ -8,12 +8,13 @@ use tower::Layer;
 use liter_llm::client::{ClientConfigBuilder, DefaultClient};
 use liter_llm::error::LiterLlmError;
 use liter_llm::observability::{MultiUsageSink, UsageSinkErased};
+use liter_llm::tenant::TenantId;
 use liter_llm::tower::types::{LlmRequest, LlmResponse};
 use liter_llm::tower::{
-    BudgetConfig, BudgetLayer, BudgetLedgerLayer, BudgetState, CacheConfig, CacheLayer, CooldownLayer,
-    CostTrackingLayer, EmbeddingSimilarityClassifier, Enforcement, HealthCheckLayer, HooksLayer, IntentPrototype,
-    KeywordClassifier, LlmService, ModelRateLimitLayer, RateLimitConfig, RouteClassifier, Router, RoutingStrategy,
-    TracingLayer, Weight,
+    BudgetConfig, BudgetDimension, BudgetLayer, BudgetLedger, BudgetLedgerLayer, BudgetState, BudgetVerdict,
+    CacheConfig, CacheLayer, CooldownLayer, CostCheckContext, CostTrackingLayer, EmbeddingSimilarityClassifier,
+    Enforcement, HealthCheckLayer, HooksLayer, IntentPrototype, KeywordClassifier, LlmService, ModelRateLimitLayer,
+    RateLimitConfig, RouteClassifier, Router, RoutingStrategy, TracingLayer, Weight,
 };
 
 use crate::config::{ClassifierConfig, KeywordRuleConfig, ModelEntry, ProxyConfig, RoutingConfig, VirtualKeyConfig};
@@ -164,6 +165,58 @@ impl ServicePool {
             .get(model)
             .ok_or_else(|| ProxyError::not_found(format!("model '{model}' not found")))?
             .clone_service()
+    }
+
+    /// Enforce per-key rpm and budget limits at realtime WebSocket session
+    /// establishment.
+    ///
+    /// `routes::realtime` never runs a session through `get_service`'s Tower
+    /// stack — it proxies raw WebSocket frames, so there is no discrete
+    /// `LlmRequest`/`LlmResponse` per message to run through `KeyLimitLayer`
+    /// or `BudgetLedgerLayer`. This method reuses the SAME `key_limit_layer`
+    /// and `budget_ledger` instances `build_service_stack` wires into every
+    /// model's stack (see `tenant_limit` module docs) rather than a separate
+    /// realtime-only implementation, so a key's rpm window and calendar-month
+    /// spend are shared across unary calls and realtime sessions. Session
+    /// establishment is charged as a single reserved request against the rpm
+    /// window; there is no cost-tracking hook for the ongoing audio stream,
+    /// so budget enforcement here is a pre-flight gate against already
+    /// recorded spend, not continuous metering of the live session.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LiterLlmError::RateLimited`] (converted to a 429 `ProxyError`
+    /// via the same `From` impl unary calls use) when the per-key rpm/tpm
+    /// window is exhausted, or [`LiterLlmError::BudgetExceeded`] when the
+    /// tenant is already over its configured budget — matching
+    /// `BudgetLedgerService::call`'s Reject handling exactly, so a rejected
+    /// realtime session reports the same error shape as a rejected unary
+    /// call.
+    pub async fn check_realtime_session_start(&self, tenant_id: &TenantId, model: &str) -> Result<(), ProxyError> {
+        self.key_limit_layer.check_and_reserve(tenant_id)?;
+
+        let check_ctx = CostCheckContext {
+            model,
+            provider: "openai",
+            tenant_id: Some(tenant_id.as_ref()),
+            user_id: None,
+            api_key_id: None,
+            timestamp: std::time::SystemTime::now(),
+        };
+
+        if let BudgetVerdict::Reject { reason, dimension } = self.budget_ledger.check(&check_ctx).await {
+            let model_field = match &dimension {
+                BudgetDimension::Model(m) => Some(m.clone()),
+                _ => None,
+            };
+            return Err(LiterLlmError::BudgetExceeded {
+                message: reason,
+                model: model_field,
+            }
+            .into());
+        }
+
+        Ok(())
     }
 
     /// Return a reference to the raw `DefaultClient` for the given model.
@@ -495,6 +548,7 @@ fn build_service_stack(
 mod tests {
     use super::*;
     use crate::config::ProxyConfig;
+    use liter_llm::tower::CostRecordContext;
 
     fn config_with_one_model() -> ProxyConfig {
         ProxyConfig::from_toml_str(
@@ -863,5 +917,82 @@ embedding = [1.0, 0.0, 0.0]
 
         let strategy = build_routing_strategy(&config).expect("embedding classifier should build");
         assert!(matches!(strategy, RoutingStrategy::Semantic(_)));
+    }
+
+    fn config_with_keyed_model(key_toml: &str) -> ProxyConfig {
+        ProxyConfig::from_toml_str(&format!(
+            r#"
+[[models]]
+name = "test-model"
+provider_model = "openai/gpt-4o"
+api_key = "sk-test"
+
+[[keys]]
+key = "vk-a"
+models = ["test-model"]
+{key_toml}
+"#
+        ))
+        .expect("valid TOML")
+    }
+
+    /// Regression test for the "realtime sessions bypass rpm/budget
+    /// enforcement" gap: a key with capacity remaining must be allowed to
+    /// start a realtime session.
+    #[tokio::test]
+    async fn check_realtime_session_start_allows_within_limits() {
+        let config = config_with_keyed_model("rpm = 5");
+        let pool = ServicePool::from_config(&config, None).expect("should build");
+
+        let result = pool
+            .check_realtime_session_start(&TenantId::from("vk-a"), "test-model")
+            .await;
+        assert!(result.is_ok(), "session within rpm should be allowed, got: {result:?}");
+    }
+
+    /// A realtime session establishment must consume the SAME rpm counter a
+    /// unary call would — proving `check_realtime_session_start` shares
+    /// state with `KeyLimitLayer` rather than tracking sessions separately.
+    #[tokio::test]
+    async fn check_realtime_session_start_rejects_once_rpm_exhausted() {
+        let config = config_with_keyed_model("rpm = 1");
+        let pool = ServicePool::from_config(&config, None).expect("should build");
+        let tenant = TenantId::from("vk-a");
+
+        let first = pool.check_realtime_session_start(&tenant, "test-model").await;
+        assert!(first.is_ok(), "first session should be allowed, got: {first:?}");
+
+        let second = pool.check_realtime_session_start(&tenant, "test-model").await;
+        assert!(second.is_err(), "rpm=1 must reject the second session");
+        assert_eq!(second.unwrap_err().error_type(), "RateLimited");
+    }
+
+    /// A tenant already over its configured budget must be denied a new
+    /// realtime session — proving `check_realtime_session_start` reads from
+    /// the SAME `PerKeyBudgetLedger` unary calls record spend into, not a
+    /// separate realtime-only ledger.
+    #[tokio::test]
+    async fn check_realtime_session_start_rejects_when_budget_exhausted() {
+        let config = config_with_keyed_model("budget_limit = 1.0");
+        let pool = ServicePool::from_config(&config, None).expect("should build");
+        let tenant = TenantId::from("vk-a");
+
+        pool.budget_ledger
+            .record(&CostRecordContext {
+                model: "test-model",
+                provider: "openai",
+                tenant_id: Some("vk-a"),
+                user_id: None,
+                api_key_id: None,
+                cost_usd: 5.0,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: std::time::SystemTime::now(),
+            })
+            .await;
+
+        let result = pool.check_realtime_session_start(&tenant, "test-model").await;
+        assert!(result.is_err(), "spend above budget_limit must reject the session");
+        assert_eq!(result.unwrap_err().error_type(), "BudgetExceeded");
     }
 }

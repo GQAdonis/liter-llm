@@ -27,9 +27,18 @@
 //!   (`ProxyServer::with_key_resolver`) that maps to unrelated tenant IDs
 //!   will not have its keys found here, and enforcement silently no-ops
 //!   (fails open) for that resolver.
-//! - Requests that never call `LlmRequest::with_tenant_id` — MCP `chat`/
-//!   `embed` tool calls in `mcp/tools.rs` currently do not — carry
-//!   `tenant_id: None` and are not rate/budget-limited by this layer.
+//! - Requests that never call `LlmRequest::with_tenant_id` carry
+//!   `tenant_id: None` and are not rate/budget-limited by this layer. Every
+//!   model-routed MCP tool call in `mcp/tools.rs` now goes through
+//!   `LiterLlmMcp::dispatch`, which attaches `tenant_id` the same way
+//!   `routes::dispatch` does for HTTP — so this gap no longer applies to MCP.
+//! - Realtime WebSocket sessions (`routes::realtime`) never enter this Tower
+//!   stack at all — there is no discrete `LlmRequest`/`LlmResponse` per
+//!   message. `ServicePool::check_realtime_session_start` calls
+//!   [`KeyLimitLayer::check_and_reserve`] and `PerKeyBudgetLedger::check`
+//!   directly at session establishment as a pre-flight gate; it cannot meter
+//!   the live session's own token usage, since no cost-tracking hook exists
+//!   for realtime today.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -158,6 +167,76 @@ impl<S> Layer<S> for KeyLimitLayer {
     }
 }
 
+/// Shared rpm/tpm pre-flight check reused by [`KeyLimitService::call`] and by
+/// [`KeyLimitLayer::check_and_reserve`] (the realtime session-start gate, see
+/// `ServicePool::check_realtime_session_start`).  Master-tenant and
+/// unconfigured-key callers are always allowed and never enter `state`.  On
+/// success, reserves the request by incrementing `request_count`.
+fn check_and_reserve_rpm_tpm(
+    limits: &ArcSwap<HashMap<TenantId, KeyLimits>>,
+    window: Duration,
+    state: &DashMap<TenantId, TenantWindow>,
+    tenant_id: &TenantId,
+) -> LlmResult<()> {
+    if tenant_id.as_ref() == MASTER_TENANT_ID {
+        return Ok(());
+    }
+    let Some(limits) = limits.load().get(tenant_id).copied() else {
+        return Ok(());
+    };
+
+    let mut entry = state.entry(tenant_id.clone()).or_insert_with(TenantWindow::new);
+    entry.maybe_reset(window);
+
+    if let Some(rpm) = limits.rpm
+        && entry.request_count >= u64::from(rpm)
+    {
+        return Err(LiterLlmError::RateLimited {
+            message: format!(
+                "key '{tenant_id}' exceeded {rpm} requests per {:.0}s window",
+                window.as_secs_f64()
+            ),
+            retry_after: Some(window),
+        });
+    }
+
+    if let Some(tpm) = limits.tpm
+        && entry.token_count >= tpm
+    {
+        return Err(LiterLlmError::RateLimited {
+            message: format!(
+                "key '{tenant_id}' exceeded {tpm} tokens per {:.0}s window",
+                window.as_secs_f64()
+            ),
+            retry_after: Some(window),
+        });
+    }
+
+    entry.request_count += 1;
+    Ok(())
+}
+
+impl KeyLimitLayer {
+    /// Check and reserve one request against `tenant_id`'s rpm/tpm window
+    /// without going through a [`Service`].
+    ///
+    /// Used by realtime WebSocket session establishment (see
+    /// `ServicePool::check_realtime_session_start`), which has no discrete
+    /// `LlmRequest` to run through [`KeyLimitService`] — a session counts as
+    /// one reserved request against the SAME shared counters unary calls use,
+    /// so a key's rpm cap applies across both. There is no post-session
+    /// token count to add afterwards (realtime has no usage-reporting hook
+    /// today), so `tpm` here only rejects a window already exhausted by prior
+    /// unary calls; it cannot account for the realtime session's own usage.
+    ///
+    /// # Errors
+    /// Returns [`LiterLlmError::RateLimited`] once the tenant's rpm or tpm
+    /// window is exhausted.
+    pub fn check_and_reserve(&self, tenant_id: &TenantId) -> LlmResult<()> {
+        check_and_reserve_rpm_tpm(&self.limits, self.window, &self.state, tenant_id)
+    }
+}
+
 /// Tower [`Service`] produced by [`KeyLimitLayer`].
 pub struct KeyLimitService<S> {
     inner: S,
@@ -191,57 +270,20 @@ where
     }
 
     fn call(&mut self, req: LlmRequest) -> Self::Future {
-        // ~keep Master-key traffic and requests with no tenant_id at all (e.g.
-        // ~keep MCP tool calls, see module docs) are intentionally unlimited here.
+        // ~keep Requests with no tenant_id at all (e.g. MCP tool calls that
+        // ~keep predate `dispatch`'s `with_tenant_id`, see module docs) are
+        // ~keep intentionally unlimited here; master and unconfigured keys are
+        // ~keep handled inside `check_and_reserve_rpm_tpm`.
         let Some(tenant_id) = req.tenant_id().cloned() else {
             return Box::pin(self.inner.call(req));
         };
-        if tenant_id.as_ref() == MASTER_TENANT_ID {
-            return Box::pin(self.inner.call(req));
+
+        if let Err(e) = check_and_reserve_rpm_tpm(&self.limits, self.window, &self.state, &tenant_id) {
+            return Box::pin(async move { Err(e) });
         }
-        let Some(limits) = self.limits.load().get(&tenant_id).copied() else {
-            return Box::pin(self.inner.call(req));
-        };
 
         let window = self.window;
         let state = Arc::clone(&self.state);
-
-        {
-            let mut entry = state.entry(tenant_id.clone()).or_insert_with(TenantWindow::new);
-            entry.maybe_reset(window);
-
-            if let Some(rpm) = limits.rpm
-                && entry.request_count >= u64::from(rpm)
-            {
-                let tenant_id = tenant_id.clone();
-                return Box::pin(async move {
-                    Err(LiterLlmError::RateLimited {
-                        message: format!(
-                            "key '{tenant_id}' exceeded {rpm} requests per {:.0}s window",
-                            window.as_secs_f64()
-                        ),
-                        retry_after: Some(window),
-                    })
-                });
-            }
-
-            if let Some(tpm) = limits.tpm
-                && entry.token_count >= tpm
-            {
-                let tenant_id = tenant_id.clone();
-                return Box::pin(async move {
-                    Err(LiterLlmError::RateLimited {
-                        message: format!(
-                            "key '{tenant_id}' exceeded {tpm} tokens per {:.0}s window",
-                            window.as_secs_f64()
-                        ),
-                        retry_after: Some(window),
-                    })
-                });
-            }
-
-            entry.request_count += 1;
-        }
 
         let fut = self.inner.call(req);
 
@@ -508,6 +550,54 @@ mod tests {
             matches!(second, Err(LiterLlmError::RateLimited { .. })),
             "rpm=1 must be exhausted globally for the key, not per model, got: {second:?}"
         );
+    }
+
+    /// Regression test for the realtime-session rpm gap: [`KeyLimitLayer::
+    /// check_and_reserve`] must share the SAME counters as `KeyLimitService::
+    /// call`, so a realtime session establishment (which never runs through
+    /// the `Service`) still counts against — and can be blocked by — a key's
+    /// rpm window.
+    #[tokio::test]
+    async fn check_and_reserve_shares_counters_with_key_limit_service() {
+        let limits = limits_map(&[(
+            "vk-a",
+            KeyLimits {
+                rpm: Some(1),
+                tpm: None,
+            },
+        )]);
+        let layer = KeyLimitLayer::new(limits);
+        let mut svc = layer.layer(ReachedInner);
+
+        // ~keep A realtime session establishment reserves the single rpm slot...
+        layer
+            .check_and_reserve(&TenantId::from("vk-a"))
+            .expect("first session should be allowed");
+
+        // ~keep ...so a unary call from the SAME key immediately after must be
+        // ~keep rejected, proving both call sites share one counter.
+        let rejected = svc.call(chat_request("gpt-4o").with_tenant_id("vk-a")).await;
+        assert!(
+            matches!(rejected, Err(LiterLlmError::RateLimited { .. })),
+            "rpm=1 already reserved by check_and_reserve must reject the next unary call, got: {rejected:?}"
+        );
+    }
+
+    /// `check_and_reserve` must allow master-tenant and unconfigured-key
+    /// callers, exactly like `KeyLimitService::call` does.
+    #[tokio::test]
+    async fn check_and_reserve_allows_master_and_unconfigured_keys() {
+        let limits = limits_map(&[(
+            MASTER_TENANT_ID,
+            KeyLimits {
+                rpm: Some(0),
+                tpm: None,
+            },
+        )]);
+        let layer = KeyLimitLayer::new(limits);
+
+        assert!(layer.check_and_reserve(&TenantId::from(MASTER_TENANT_ID)).is_ok());
+        assert!(layer.check_and_reserve(&TenantId::from("vk-unknown")).is_ok());
     }
 
     /// Regression test for the "limit changes need a process restart" gap:

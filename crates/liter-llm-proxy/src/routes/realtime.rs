@@ -80,6 +80,18 @@ pub struct RealtimeQueryParams {
 ///   no matching credential is found for the `"openai"` provider (or for a
 ///   master-key caller without an explicit credential), the handler returns
 ///   503 rather than falling back to the master key.
+///
+/// # Rate limit and budget enforcement
+///
+/// Unlike unary endpoints, a realtime session never runs through
+/// `ServicePool::get_service`'s Tower stack (there is no discrete
+/// `LlmRequest`/`LlmResponse` per WebSocket message), so `KeyLimitLayer` and
+/// `BudgetLedgerLayer` never see it. [`ServicePool::check_realtime_session_start`]
+/// closes that gap at session establishment — **before** the upgrade — reusing
+/// the SAME per-key rpm window and budget ledger unary calls use, rather than
+/// a parallel realtime-only implementation. See that method's docs for what
+/// it can and cannot enforce (it cannot meter the live session's own token
+/// usage, only gate on rpm and already-recorded spend).
 pub async fn realtime_websocket(
     ws: WebSocketUpgrade,
     Query(params): Query<RealtimeQueryParams>,
@@ -93,6 +105,14 @@ pub async fn realtime_websocket(
             "key '{}' is not allowed to access model '{model}'",
             key_ctx.redacted_id()
         ));
+        return err.into_response();
+    }
+
+    if let Err(err) = state
+        .service_pool
+        .check_realtime_session_start(&key_ctx.tenant_id, &model)
+        .await
+    {
         return err.into_response();
     }
 
