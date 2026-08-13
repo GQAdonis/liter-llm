@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use tower::{Layer, Service, ServiceExt as _};
+use tracing::Instrument as _;
 
 use super::types::{LlmRequest, LlmResponse};
 use crate::client::BoxFuture;
@@ -213,26 +214,50 @@ where
 
             let mut last_err: Option<LiterLlmError> = None;
 
+            /// Distinguishes a `poll_ready` failure from a `call` failure so the two
+            /// retain their own log messages once both paths funnel through the
+            /// same instrumented future below.
+            enum AttemptError {
+                Ready(LiterLlmError),
+                Call(LiterLlmError),
+            }
+
             for (attempt, svc_template) in chain.iter().enumerate() {
-                let mut svc = svc_template.clone();
+                let svc = svc_template.clone();
+                let attempt_request = request.clone();
                 let span = tracing::debug_span!(
                     "fallback_chain.attempt",
                     chain_len,
                     attempt,
                     outcome = tracing::field::Empty,
                 );
-                let _guard = span.enter();
 
-                // ~keep Drive each fallback service to ready so permit-based readiness is honored.
-                let svc = match svc.ready().await {
-                    Ok(s) => s,
-                    Err(e) => match policy.classify(&e) {
+                // ~keep .instrument (not span.enter()) because this future is awaited;
+                // ~keep holding an entered guard across an await would mis-attribute events
+                // ~keep from other tasks interleaved on this thread to this span.
+                let result: std::result::Result<LlmResponse, AttemptError> = async move {
+                    let mut svc = svc;
+                    // ~keep Drive each fallback service to ready so permit-based readiness is honored.
+                    let ready_svc = svc.ready().await.map_err(AttemptError::Ready)?;
+                    ready_svc.call(attempt_request).await.map_err(AttemptError::Call)
+                }
+                .instrument(span.clone())
+                .await;
+
+                match result {
+                    Ok(resp) => {
+                        tracing::debug!(attempt, "fallback chain: success");
+                        span.record("outcome", "success");
+                        return Ok(resp);
+                    }
+                    Err(AttemptError::Ready(e)) => match policy.classify(&e) {
                         RetryClass::Terminal => {
                             tracing::debug!(
                                 attempt,
                                 error = %e,
                                 "fallback chain: terminal error in poll_ready, aborting"
                             );
+                            span.record("outcome", "terminal");
                             return Err(e);
                         }
                         RetryClass::Transient => {
@@ -242,19 +267,11 @@ where
                                 error = %e,
                                 "fallback chain: transient error in poll_ready, trying next service"
                             );
+                            span.record("outcome", "transient");
                             last_err = Some(e);
-                            continue;
                         }
                     },
-                };
-
-                match svc.call(request.clone()).await {
-                    Ok(resp) => {
-                        tracing::debug!(attempt, "fallback chain: success");
-                        span.record("outcome", "success");
-                        return Ok(resp);
-                    }
-                    Err(err) => match policy.classify(&err) {
+                    Err(AttemptError::Call(err)) => match policy.classify(&err) {
                         RetryClass::Terminal => {
                             tracing::debug!(
                                 attempt,
