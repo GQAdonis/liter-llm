@@ -67,34 +67,26 @@ tasks:
 
   setup:
     desc: "Install all dependencies and dev tools"
-    vars:
-      # Pinned to the version the goldziher/tap/poly formula currently
-      # publishes. brew has no versioned formula alias for poly (the tap
-      # rewrites the same formula in place on every release), so this pin is
-      # enforced by verifying the resolved version below rather than by
-      # requesting an exact release from brew. ~keep
-      POLY_VERSION: "0.19.7"
     cmds:
       - task: rust:install
       - alef setup
       - |
-        # `command -v poly` alone is not a version check: it is satisfied by
-        # ANY poly on PATH from ANY channel (e.g. a stray `cargo install
-        # poly-cli`), so channels can drift indefinitely without this ever
-        # re-running. Always resolve and verify the actual version instead.
-        resolved="$(poly --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
-        if [ "$resolved" != "{{.POLY_VERSION}}" ]; then
-          echo "poly: expected {{.POLY_VERSION}}, found '${resolved:-none}' ($(command -v poly || echo 'not on PATH')). Installing via brew..." >&2
+        # Track the newest poly rather than a pinned version, matching ci-lint.yaml,
+        # which leaves `poly-version` unset. A pin here ages into a build with known
+        # defects and silently diverges from what CI runs. ~keep
+        #
+        # poly ships on several channels and brew is only one of them, so this does not
+        # force a channel — it upgrades the one it can and tells you when it cannot.
+        # Failing on a non-brew poly would break every contributor who installed it with
+        # `cargo install`, which is a supported channel. ~keep
+        if ! command -v poly >/dev/null 2>&1; then
+          brew install goldziher/tap/poly
+        elif [ "$(command -v poly)" = "$(brew --prefix 2>/dev/null)/bin/poly" ]; then
           # `brew install` no-ops on an already-installed-but-outdated formula, so an
-          # upgrade must be attempted first or a stale poly would survive this branch
-          # and be misreported below as a PATH-shadowing problem. ~keep
-          brew upgrade goldziher/tap/poly 2>/dev/null || brew install goldziher/tap/poly
-          resolved="$(poly --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
-          if [ "$resolved" != "{{.POLY_VERSION}}" ]; then
-            echo "ERROR: poly still reports '${resolved:-none}' after brew install, expected {{.POLY_VERSION}}." >&2
-            echo "A stray install on another channel may be shadowing brew's poly on PATH — run 'which -a poly' and remove it." >&2
-            exit 1
-          fi
+          # upgrade must be attempted explicitly or a stale poly survives untouched. ~keep
+          brew upgrade goldziher/tap/poly 2>/dev/null || true
+        else
+          echo "poly $(poly --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) from $(command -v poly) (not brew) — keep it current on that channel; CI always installs the newest release." >&2
         fi
       - poly hooks install
 
