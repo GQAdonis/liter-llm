@@ -62,7 +62,7 @@ pub fn require_master(key_ctx: &KeyContext, endpoint: &str) -> Result<(), ProxyE
     }
     Err(ProxyError::forbidden(format!(
         "endpoint '{endpoint}' requires master-key access; key '{}' is restricted",
-        key_ctx.key_id
+        key_ctx.redacted_id()
     )))
 }
 
@@ -101,6 +101,17 @@ mod tests {
         let err = result.unwrap_err();
         assert_eq!(err.error_type(), "Forbidden");
         assert!(err.to_string().contains("create_file"));
-        assert!(err.to_string().contains("vk-tenant-a"));
+        // ~keep The 403 body is returned to the caller and re-ingested by every log and
+        // ~keep error tracker on the response path, so it must carry the stable redacted
+        // ~keep correlation id, never the live key. This assertion previously required the
+        // ~keep opposite — it pinned the leak in place.
+        assert!(
+            !err.to_string().contains("vk-tenant-a"),
+            "the live virtual key must never reach a client-visible error body"
+        );
+        assert!(
+            err.to_string().contains(&restricted_ctx("vk-tenant-a").redacted_id()),
+            "the error must still identify the key by its redacted correlation id"
+        );
     }
 }

@@ -98,8 +98,17 @@ impl KeyContext {
         }
     }
 
-    /// A stable, non-reversible identifier for this key, safe to log and to
-    /// return in an error body.
+    /// A stable correlation identifier for this key, safe to log and to return
+    /// in an error body.
+    ///
+    /// ~keep NOT a cryptographic redaction. ahash is a fast, non-cryptographic
+    /// ~keep hash and the seeds below are compiled into the binary, so anyone who
+    /// ~keep can guess a candidate key can confirm it by recomputing this value.
+    /// ~keep That is acceptable for high-entropy tokens, where guessing is
+    /// ~keep infeasible; it is NOT a control that makes a short or predictable
+    /// ~keep virtual key safe to expose. Deployments issuing low-entropy keys need
+    /// ~keep a keyed HMAC with an operator-provisioned secret instead. The 64-bit
+    /// ~keep width also collides around ~2^32 distinct keys.
     ///
     /// ~keep `key_id` holds the virtual key token — the live credential the
     /// ~keep caller authenticates with. Formatting it into a 403 body put that
