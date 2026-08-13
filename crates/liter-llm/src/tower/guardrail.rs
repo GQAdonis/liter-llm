@@ -73,7 +73,11 @@ fn request_to_guardrail_json(request: &LlmRequest) -> Result<serde_json::Value> 
 /// ~keep `DenyListGuardrail` configured on this field name rely on it being
 /// ~keep populated whenever `LlmRequest::tenant_id` is set. Renaming this
 /// ~keep constant is a breaking change for any deployed guardrail expression.
-const TENANT_ID_METADATA_KEY: &str = "tenant_id";
+/// ~keep Exported so a caller that assembles the context itself — the proxy's realtime
+/// ~keep relay proxies raw frames and has no `LlmRequest` to derive one from — uses this
+/// ~keep exact key rather than its own copy of the string. Two spellings would make a
+/// ~keep configured deny-list live on one path and silently dead on the other.
+pub const TENANT_ID_METADATA_KEY: &str = "tenant_id";
 
 /// Merge the layer's static metadata with per-call facts derived from `request`.
 ///

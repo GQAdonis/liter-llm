@@ -135,7 +135,7 @@ pub use cooldown::{CooldownLayer, CooldownService};
 pub use cost::{CostTrackingLayer, CostTrackingService};
 pub use fallback::{FallbackLayer, FallbackService};
 pub use fallback_chain::{DefaultRetryPolicy, FallbackChainLayer, FallbackChainService, RetryClass, RetryPolicy};
-pub use guardrail::{GuardrailLayer, GuardrailService};
+pub use guardrail::{GuardrailLayer, GuardrailService, TENANT_ID_METADATA_KEY};
 pub use health::{
     HealthCheckConfig, HealthCheckLayer, HealthCheckService, HealthChecker, HealthStatus, HttpProbeHealthChecker,
     PerProviderHealthCheck,
