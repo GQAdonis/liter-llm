@@ -62,23 +62,37 @@ impl Provider for CohereProvider {
         "/rerank"
     }
 
-    /// Strip transport-level parameters that Cohere does not accept in the body.
+    /// Strip transport-level parameters that Cohere does not accept in the body, and
+    /// rename `top_p` to Cohere's own nucleus-sampling field name.
     ///
     /// Note: Cohere v2 requires `stream` in the body, so only `stream_options`
     /// (an OpenAI-specific field) is removed.
     ///
-    /// Neither `temperature` nor `top_p` is range-checked here, unlike Anthropic and
-    /// Bedrock. Cohere's API reference documents `temperature` as "a non-negative
-    /// float" with no stated maximum, so there is no upper bound to enforce — the
-    /// "0-1" figure that appears in Cohere's conceptual guides is guidance, not a
-    /// schema constraint, and rejecting on it would fail requests Cohere accepts.
+    /// `temperature` is NOT range-checked here, unlike Anthropic and Bedrock. Cohere's
+    /// API reference documents `temperature` as "a non-negative float" with no stated
+    /// maximum, so there is no upper bound to enforce — the "0-1" figure that appears
+    /// in Cohere's conceptual guides is guidance, not a schema constraint, and
+    /// rejecting on it would fail requests Cohere accepts.
     ///
-    /// `top_p` is a separate, pre-existing problem rather than a range one: Cohere's
-    /// v2 nucleus-sampling field is named `p` (min `0.01`, max `0.99`), so the `top_p`
-    /// this crate forwards never reaches Cohere as a recognised field at any value.
+    /// `top_p` IS range-checked and renamed. Cohere's v2 `/chat` endpoint has no
+    /// `top_p` field at all; its nucleus-sampling parameter is named `p` (default
+    /// `0.75`, min `0.01`, max `0.99`, verified against Cohere's API reference) — so
+    /// forwarding `top_p` verbatim meant the value was silently dropped, never
+    /// reaching Cohere as a recognised field at any value the caller chose. The range
+    /// check runs against the caller-facing `top_p` name *before* the rename, so a
+    /// rejected request's error names the field the caller actually set (`top_p`)
+    /// rather than Cohere's internal name (`p`), which the caller may never have
+    /// written. Note the minimum is `0.01`, not `0.0`: `top_p: 0.0` is legal for
+    /// OpenAI (and documented as legal by this crate's own `ChatCompletionRequest`)
+    /// but must be rejected here rather than silently coerced to `0.01`.
     fn transform_request(&self, body: &mut Value) -> Result<()> {
+        super::validate_sampling_param_range(body, "top_p", "Cohere", 0.01, 0.99)?;
+
         if let Some(obj) = body.as_object_mut() {
             obj.remove("stream_options");
+            if let Some(top_p) = obj.remove("top_p") {
+                obj.insert("p".to_owned(), top_p);
+            }
         }
         Ok(())
     }
@@ -493,6 +507,100 @@ mod tests {
         provider.transform_request(&mut body).expect("transform should succeed");
         assert_eq!(body["stream"], true);
         assert!(body.get("stream_options").is_none());
+        assert_eq!(body["model"], "command-r-plus");
+    }
+
+    // ~keep Cohere's v2 `/chat` endpoint has no `top_p` field; its nucleus-sampling
+    // parameter is named `p` (min 0.01, max 0.99), verified against
+    // docs.cohere.com/reference/chat. Forwarding `top_p` verbatim meant the value was
+    // silently dropped, never reaching Cohere as a recognised field at any value.
+
+    #[test]
+    fn transform_request_renames_top_p_to_cohere_p() {
+        // Delete the `obj.insert("p".to_owned(), top_p);` line (or the whole `if let
+        // Some(top_p) = ...` rename block) in `CohereProvider::transform_request` to
+        // make this fail: `p` would then be absent from the transformed body.
+        let provider = CohereProvider;
+        let mut body = json!({
+            "model": "command-r-plus",
+            "messages": [{"role": "user", "content": "hello"}],
+            "top_p": 0.5
+        });
+        provider.transform_request(&mut body).expect("transform should succeed");
+        assert_eq!(body["p"], 0.5);
+    }
+
+    #[test]
+    fn transform_request_removes_top_p_field_name() {
+        // Delete `obj.remove("top_p")` (replacing it with a non-removing read) in
+        // `CohereProvider::transform_request` to make this fail: `top_p` would still
+        // be present in the transformed body alongside `p`.
+        let provider = CohereProvider;
+        let mut body = json!({
+            "model": "command-r-plus",
+            "messages": [{"role": "user", "content": "hello"}],
+            "top_p": 0.5
+        });
+        provider.transform_request(&mut body).expect("transform should succeed");
+        assert!(body.get("top_p").is_none());
+    }
+
+    #[test]
+    fn transform_request_rejects_top_p_zero_point_zero() {
+        // Delete the `super::validate_sampling_param_range(body, "top_p", "Cohere",
+        // 0.01, 0.99)?;` line in `CohereProvider::transform_request` to make this
+        // fail: 0.0 is legal for OpenAI (and this crate's own `ChatCompletionRequest`
+        // docs) but is below Cohere's documented minimum of 0.01 and must be rejected,
+        // not silently coerced.
+        let provider = CohereProvider;
+        let mut body = json!({
+            "model": "command-r-plus",
+            "messages": [{"role": "user", "content": "hello"}],
+            "top_p": 0.0
+        });
+        let err = provider
+            .transform_request(&mut body)
+            .expect_err("0.0 is below Cohere's minimum p of 0.01");
+        assert_eq!(err.status_code(), 400);
+        assert_eq!(
+            err.to_string(),
+            "bad request: top_p=0 is outside Cohere's supported range [0.01, 0.99]; lower \
+             the requested value or omit `top_p` to use the provider default"
+        );
+    }
+
+    #[test]
+    fn transform_request_accepts_top_p_zero_point_nine_nine() {
+        // Change the `max` argument passed to `validate_sampling_param_range` from
+        // `0.99` to something smaller (e.g. `0.9`) in `CohereProvider::transform_request`
+        // to make this fail: 0.99 is Cohere's documented maximum and must be accepted.
+        let provider = CohereProvider;
+        let mut body = json!({
+            "model": "command-r-plus",
+            "messages": [{"role": "user", "content": "hello"}],
+            "top_p": 0.99
+        });
+        provider
+            .transform_request(&mut body)
+            .expect("0.99 is within Cohere's range");
+        assert_eq!(body["p"], 0.99);
+        assert!(body.get("top_p").is_none());
+    }
+
+    #[test]
+    fn transform_request_without_top_p_is_untouched() {
+        // Change the rename block to unconditionally insert a `p` field (dropping the
+        // `if let Some(top_p) = obj.remove("top_p")` guard) in
+        // `CohereProvider::transform_request` to make this fail: a body with no
+        // `top_p` would gain a spurious `p` field.
+        let provider = CohereProvider;
+        let mut body = json!({
+            "model": "command-r-plus",
+            "messages": [{"role": "user", "content": "hello"}]
+        });
+        provider.transform_request(&mut body).expect("transform should succeed");
+        assert!(body.get("p").is_none());
+        assert!(body.get("top_p").is_none());
         assert_eq!(body["model"], "command-r-plus");
     }
 

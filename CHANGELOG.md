@@ -119,6 +119,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `refusal` (present even when `null`) to satisfy OpenAI's response schema. See "Upgrade notes."
 - `Choice` gained a `logprobs` field; `CreateResponseRequest` gained an `extra_body` field;
   `GuardrailService` gained an `S: Clone` bound. See "Upgrade notes."
+- **`top_p` never reached Cohere at any value.** Cohere's v2 `/chat` endpoint has no `top_p` field
+  — its nucleus-sampling parameter is named `p` — so the value was forwarded under a name Cohere
+  does not recognise and silently dropped, leaving nucleus sampling entirely unset on every Cohere
+  request that asked for it. It is now renamed to `p` on the way out and range-checked against
+  Cohere's documented `[0.01, 0.99]`. Note the floor is `0.01`, not `0.0`: `top_p: 0.0` is legal
+  for OpenAI and was legal per this crate's own docs, and is now rejected for Cohere rather than
+  quietly coerced. The error names `top_p`, the field you set, not Cohere's internal `p`.
 - **`temperature` above a provider's documented cap is now rejected locally instead of forwarded.**
   `ChatCompletionRequest` documented `temperature` as `[0.0, 2.0]` — OpenAI's range — while
   Anthropic and Amazon Bedrock both cap it at `1.0`, so a value legal per our own API docs failed
