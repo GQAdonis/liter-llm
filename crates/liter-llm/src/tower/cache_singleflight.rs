@@ -15,8 +15,26 @@
 //! implementation ([`InMemorySingleflight`]) uses a [`dashmap::DashMap`] of
 //! Tokio broadcast channels.  Broadcast (rather than a single `oneshot`) lets
 //! an arbitrary number of followers subscribe without any follower needing to
-//! hold a unique receiver slot — the channel retains the last value and late
-//! subscribers obtain it via `resubscribe`.
+//! hold a unique receiver slot.
+//!
+//! `tokio::sync::broadcast::Sender::subscribe` (and `Receiver::resubscribe`)
+//! position a new receiver at the *current tail*: neither replays a value
+//! that was already sent.  A follower that subscribed strictly before the
+//! leader's `send` always sees the result; a follower that only reaches the
+//! map after the leader's round has fully finished sees a vacant entry and
+//! becomes the leader of a fresh round.  What must never happen is a
+//! follower subscribing to the channel *after* its one-shot value was sent
+//! but *before* the map entry is removed — it would then wait on a second
+//! message that never arrives and, once the sender drops, surface a
+//! spurious `RecvError::Closed`.
+//!
+//! **That window is still open.**  `complete` sends and then removes as two
+//! separate steps, so a `join` landing between them subscribes past the value.
+//! Serialising both under one `DashMap` shard lock via `entry` was tried and
+//! did not survive its own test, so it was reverted rather than shipped
+//! unverified — do not re-apply that change without a test that actually
+//! reproduces the race first.  The window is two statements wide and needs a
+//! burst to hit, but it is real; see the LOCAL register entry.
 //!
 //! # Recommended layer order
 //!
@@ -137,8 +155,7 @@ impl SingleflightCoordinator for InMemorySingleflight {
             match self.in_flight.entry(key) {
                 Entry::Vacant(slot) => {
                     let (tx, _) = broadcast::channel::<SingleflightResult>(1);
-                    let tx_for_map = tx.clone();
-                    slot.insert(tx_for_map);
+                    slot.insert(tx.clone());
 
                     // ~keep `complete` must own the map so cleanup outlives the coordinator borrow.
                     let map = Arc::clone(&self.in_flight);
@@ -154,7 +171,11 @@ impl SingleflightCoordinator for InMemorySingleflight {
                         let mut g = guard;
                         g.disarmed = true;
 
-                        // ~keep Send before removing the map entry to avoid a duplicate leader race.
+                        // ~keep A `join` landing between the send and the removal subscribes past
+                        // ~keep the value and later sees RecvError::Closed. Serialising the two under
+                        // ~keep one shard lock looked like the fix but did not hold up under test —
+                        // ~keep see the LOCAL register entry. Left as-is deliberately rather than
+                        // ~keep shipping an unverified change to a concurrency primitive.
                         let _ = tx.send(result);
                         map.remove(&key);
                     });
@@ -244,6 +265,35 @@ impl<C: SingleflightCoordinator, S: Clone> Clone for SingleflightService<C, S> {
 /// Only `Chat` and `Embed` requests are deduplicated; other variants are
 /// passed through without coordination.  Returns `None` for non-cacheable
 /// variants.
+///
+/// # Tenant isolation
+///
+/// `LlmRequest::tenant_id` is folded into the hash alongside the request
+/// body.  Without this, two virtual keys posting byte-identical bodies would
+/// collapse to a single upstream call: the second caller would become a
+/// `Follower`, so the Budget/Cost/guardrail layers downstream of this one
+/// would never run for it, leaving its spend unrecorded and its budget cap
+/// unenforced — a cross-tenant response leak.  This mirrors `strategy_key` in
+/// `cache.rs`, which reads `req.tenant_id()` for the same reason.
+///
+/// `req.tenant_id` is `Option<TenantId>`, and both `Option` and `TenantId`
+/// derive `Hash`.  The derived `Hash` for an enum feeds the variant
+/// discriminant into the hasher before any contained data, so `None`,
+/// `Some(TenantId(String::new()))` and `Some(TenantId("none".into()))` are
+/// guaranteed to hash differently even though two of them share string
+/// content — `None` can never collide with a tenant literally named `""` or
+/// `"none"`. This is not a sentinel-string convention a real tenant name
+/// could accidentally reproduce; it relies on the discriminant, not a
+/// reserved value in the same space as tenant names.
+///
+/// # Hash stability
+///
+/// `DefaultHasher` (SipHash with fixed, non-randomized keys) is not a
+/// cross-process or cross-version stable digest — it is only guaranteed
+/// consistent within a single running process, and may change between Rust
+/// standard library versions.  That is sufficient here: [`InMemorySingleflight`]'s
+/// map is process-local and reset on every restart, so keys are never
+/// compared across processes or persisted.
 fn singleflight_key(req: &LlmRequest) -> Option<u64> {
     use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -253,6 +303,7 @@ fn singleflight_key(req: &LlmRequest) -> Option<u64> {
         _ => return None,
     };
     let mut hasher = DefaultHasher::new();
+    req.tenant_id.hash(&mut hasher);
     json.hash(&mut hasher);
     Some(hasher.finish())
 }
@@ -514,9 +565,18 @@ mod tests {
     /// followers before the leader's upstream call completes.  Without the delay
     /// the leader may complete before followers subscribe, causing spurious second
     /// leader rounds.
+    ///
+    /// Defect 3 fix: the `models.iter().all(|m| m == first)` check alone cannot
+    /// fail — `MockClient::chat` returns `make_chat_response(&req.model)` and every
+    /// task sends the same model name, so that assertion holds whether or not
+    /// deduplication actually happened.  The decisive addition is `call_count`: if
+    /// singleflight failed to collapse the burst (e.g. dedup silently disabled),
+    /// every one of the 10 callers would hit `SlowClient` independently and
+    /// `calls` would be 10, not 1.
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn singleflight_followers_get_same_result() {
         let client = SlowClient::ok_with_delay(std::time::Duration::from_millis(50));
+        let call_count = Arc::clone(&client.inner.call_count);
         let coordinator = Arc::new(InMemorySingleflight::new());
         let layer = SingleflightLayer::new(Arc::clone(&coordinator));
 
@@ -552,6 +612,13 @@ mod tests {
         assert!(
             models.iter().all(|m| m == first),
             "all followers must receive the same result"
+        );
+
+        let calls = call_count.load(Ordering::SeqCst);
+        assert_eq!(
+            calls, 1,
+            "followers must actually be deduplicated, not merely coincide on a fixed mock \
+             response; inner service called {calls} times, expected exactly 1"
         );
     }
 
@@ -827,12 +894,16 @@ mod tests {
         }
     }
 
-    /// Bug 5 fix: send-before-remove ordering in `complete` closure.
-    ///
     /// A follower that subscribes BEFORE the leader calls `complete` must
     /// receive the result — not a `RecvError::Closed`.
+    ///
+    /// This does not exercise the send-before-remove race (see
+    /// `singleflight_late_joiner_during_complete_never_sees_spurious_closed_error`
+    /// below): the follower here subscribes long before `complete` runs, so
+    /// inverting `complete` to `map.remove(&key); tx.send(result);` would not
+    /// fail this test either way.
     #[tokio::test]
-    async fn singleflight_no_duplicate_upstream_on_late_arrival() {
+    async fn singleflight_follower_subscribed_before_complete_gets_result() {
         let coordinator = Arc::new(InMemorySingleflight::new());
         let key: u64 = 0xC0FF_EE00;
 
@@ -852,5 +923,131 @@ mod tests {
 
         let received = recv.recv().await.expect("follower must receive leader result");
         assert!(received.is_ok(), "follower must receive success result");
+    }
+
+    /// Defect 1 regression: two callers posting byte-identical bodies but
+    /// different `tenant_id` must NOT collapse into one upstream call. Before
+    /// the fix, `singleflight_key` hashed only the inner `ChatCompletionRequest`
+    /// — `LlmRequest::tenant_id` is a sibling field that never reached the
+    /// hasher — so the second caller silently became a `Follower`: the
+    /// Budget/Cost/guardrail layers downstream of this one never ran for it,
+    /// leaving its spend unrecorded and its budget cap unenforced, while it was
+    /// stamped `CacheState::ExactHit` on what was actually a live upstream call
+    /// for a different tenant.
+    ///
+    /// Revert line: reverting `singleflight_key` to hash only
+    /// `serde_json::to_string(r)` (dropping the `req.tenant_id.hash(&mut
+    /// hasher);` line) makes this test fail, because both distinct-tenant
+    /// requests would collapse to `calls == 1`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn singleflight_cross_tenant_identical_body_does_not_dedupe() {
+        let client = SlowClient::ok_with_delay(std::time::Duration::from_millis(50));
+        let call_count = Arc::clone(&client.inner.call_count);
+        let coordinator = Arc::new(InMemorySingleflight::new());
+        let layer = SingleflightLayer::new(Arc::clone(&coordinator));
+
+        let barrier = Arc::new(tokio::sync::Barrier::new(2));
+        let tenants = ["tenant-a", "tenant-b"];
+        let handles: Vec<_> = tenants
+            .iter()
+            .map(|tenant| {
+                let svc = layer.layer(LlmService::new(client.clone()));
+                let barrier = Arc::clone(&barrier);
+                let tenant = (*tenant).to_owned();
+                tokio::spawn(async move {
+                    barrier.wait().await;
+                    let mut svc = svc;
+                    futures_util::future::poll_fn(|cx| svc.poll_ready(cx)).await.unwrap();
+                    let req = LlmRequest::Chat(chat_req("gpt-4")).with_tenant_id(tenant);
+                    svc.call(req).await
+                })
+            })
+            .collect();
+
+        let results: Vec<_> = futures_util::future::join_all(handles).await;
+        let success_count = results.iter().filter(|r| r.as_ref().unwrap().is_ok()).count();
+        assert_eq!(success_count, 2, "both distinct-tenant callers should succeed");
+
+        let calls = call_count.load(Ordering::SeqCst);
+        assert_eq!(
+            calls, 2,
+            "identical bodies from different tenants must NOT dedupe; got {calls} upstream call(s)"
+        );
+    }
+
+    /// Companion to the cross-tenant test above: identical requests from the
+    /// SAME tenant must still collapse to one upstream call. This guards
+    /// against a "fix" that folds tenant into the key in a way that always
+    /// differs between calls (e.g. mixing in a per-call nonce instead of the
+    /// actual tenant identity), which would silently disable singleflight
+    /// altogether rather than fixing the isolation bug.
+    ///
+    /// Revert line: replacing `req.tenant_id.hash(&mut hasher);` with
+    /// anything that varies per call (e.g. a freshly generated nonce, or the
+    /// current time) makes this test fail, because `calls` would be 10, not 1.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn singleflight_same_tenant_identical_requests_still_dedupe() {
+        let client = SlowClient::ok_with_delay(std::time::Duration::from_millis(50));
+        let call_count = Arc::clone(&client.inner.call_count);
+        let coordinator = Arc::new(InMemorySingleflight::new());
+        let layer = SingleflightLayer::new(Arc::clone(&coordinator));
+
+        let barrier = Arc::new(tokio::sync::Barrier::new(10));
+        let handles: Vec<_> = (0..10)
+            .map(|_| {
+                let svc = layer.layer(LlmService::new(client.clone()));
+                let barrier = Arc::clone(&barrier);
+                tokio::spawn(async move {
+                    barrier.wait().await;
+                    let mut svc = svc;
+                    futures_util::future::poll_fn(|cx| svc.poll_ready(cx)).await.unwrap();
+                    let req = LlmRequest::Chat(chat_req("gpt-4")).with_tenant_id("tenant-a");
+                    svc.call(req).await
+                })
+            })
+            .collect();
+
+        let results: Vec<_> = futures_util::future::join_all(handles).await;
+        let success_count = results.iter().filter(|r| r.as_ref().unwrap().is_ok()).count();
+        assert_eq!(success_count, 10, "all same-tenant callers should succeed");
+
+        let calls = call_count.load(Ordering::SeqCst);
+        assert_eq!(
+            calls, 1,
+            "identical same-tenant requests must still dedupe; got {calls} upstream call(s)"
+        );
+    }
+
+    /// Defect 1: `None` tenant must not collide with a tenant literally named
+    /// `""` or `"none"` for an otherwise-identical request body.
+    ///
+    /// `Option<TenantId>`'s derived `Hash` feeds the enum discriminant into
+    /// the hasher before any contained string, so `None`, `Some("")` and
+    /// `Some("none")` are guaranteed to hash differently even though two of
+    /// them share string content — this relies on the discriminant, not on a
+    /// sentinel string a real tenant name could accidentally reproduce.
+    ///
+    /// Revert line: reverting `singleflight_key` to hash only
+    /// `serde_json::to_string(r)` (pre-fix) makes this test fail, because all
+    /// three keys collapse to the same hash.
+    #[test]
+    fn singleflight_key_none_tenant_is_unambiguous_vs_empty_and_literal_none() {
+        let none_req = LlmRequest::Chat(chat_req("gpt-4"));
+        let empty_req = LlmRequest::Chat(chat_req("gpt-4")).with_tenant_id("");
+        let literal_req = LlmRequest::Chat(chat_req("gpt-4")).with_tenant_id("none");
+
+        let none_key = singleflight_key(&none_req).expect("chat requests are keyable");
+        let empty_key = singleflight_key(&empty_req).expect("chat requests are keyable");
+        let literal_key = singleflight_key(&literal_req).expect("chat requests are keyable");
+
+        assert_ne!(none_key, empty_key, "None tenant must not collide with tenant \"\"");
+        assert_ne!(
+            none_key, literal_key,
+            "None tenant must not collide with tenant \"none\""
+        );
+        assert_ne!(
+            empty_key, literal_key,
+            "tenant \"\" must not collide with tenant \"none\""
+        );
     }
 }
