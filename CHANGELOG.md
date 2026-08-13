@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-08-13
+
 ### Upgrade notes
 
+- **`tenant_id` no longer defaults to the virtual key token — this resets budget spend and cache
+  scope for every unconfigured key.** The key token was silently doubling as the tenant identifier,
+  which meant a live credential flowed into the OTLP `gen_ai.budget.tenant_id` attribute, the
+  budget-ledger CSV chargeback export, tenant-scoped cache keys at rest, and `UsageEvent` logs. That
+  could not be preserved as the default — it was the vulnerability. Virtual keys now take an
+  optional `tenant_id` field; if left unset, a *new* tenant id is derived instead of reusing the key.
+  On deploy this means: **month-to-date budget spend resets to zero for every key that does not set
+  `tenant_id` explicitly**, and that key's existing tenant-scoped cache entries become orphaned
+  (unreachable, not deleted). If you need billing and cache continuity across this upgrade, set
+  `tenant_id` to the old key value for every affected virtual key **in the same deploy** — do this
+  before traffic hits the new build, not after.
 - **Deploying this release invalidates every existing cache entry.** The cache key now folds in
   `tenant_id` and `system_prompt` (both previously hard-coded to `None`) and additionally hashes
   `tools`, `response_format`, `seed`, `presence_penalty`, `frequency_penalty`, `logit_bias`,
@@ -16,9 +29,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   become unreachable the moment this deploys — there is no error and no warning, just a cold cache
   and a burst of upstream traffic and spend until it refills. This is intended: the old keys were
   the defect. Expect the cold-start cost and do not read the traffic spike as a regression.
+- **Wire format: chat responses now always include `role`, `logprobs` and `refusal`.** OpenAI's
+  schema requires all three on `choices[]`/`choices[].message`; a strict client deserializing a
+  response from this proxy previously failed on the missing keys. `refusal` is now serialized even
+  when `null`, which as a side effect also makes it appear on *request* messages you send — that is
+  valid per OpenAI's schema, but if you diff request payloads byte-for-byte, expect the new key.
+- **API: exhaustive struct literals against `Choice` or `CreateResponseRequest` will not compile.**
+  `Choice` gained `logprobs`; `CreateResponseRequest` gained `extra_body`. `GuardrailService` also
+  gained an `S: Clone` bound on its generic backend parameter.
 
 ### Security
 
+- **The virtual key token was echoed into client-visible 403 error bodies from six call sites**,
+  across `require_master`, guardrail rejections and other proxy error paths — the live credential
+  landed in the caller's own logs plus every access log, reverse proxy and error tracker on the
+  response path. `Debug` output on `KeyContext` had the same problem: both `key_id` and `tenant_id`
+  printed verbatim into any captured span or panic message. Both are now redacted; error bodies and
+  `Debug` report a stable, non-reversible correlation id instead. Two tests that had pinned the leak
+  by asserting the raw token was present now assert the opposite.
+- **`tenant_id` was the virtual key token itself, and it flowed into weakly-protected sinks with no
+  rotation-linked purge**: the OTLP `gen_ai.budget.tenant_id` metric attribute, the budget-ledger CSV
+  chargeback export, tenant-scoped cache entries at rest, and `UsageEvent` usage logs. See "Upgrade
+  notes" above — this is now fixed, and the fix changes tenant identity for unconfigured keys.
+- **An empty master key was a full authentication bypass, not a weak credential.**
+  `Authorization: Bearer` (empty, trailing space) resolved to `KeyContext::master()` — full
+  read/delete access to every tenant's files, batches and responses — because unset env-var
+  interpolation yields `""`, and the constant-time comparison treated two empty byte slices as
+  equal. Config load now refuses a master or virtual key that interpolates to empty, and the
+  comparison itself rejects empty operands. Virtual keys had the same hazard and are fixed the same
+  way.
+- **MCP tool calls and realtime sessions bypassed per-key rate limits and budgets entirely.**
+  Model-routed MCP calls never attached `tenant_id` to the Tower stack, and a missing `tenant_id` is
+  treated as intentionally unlimited; realtime never entered the Tower stack at all. Both are now
+  routed through the same rpm/tpm/budget enforcement a unary HTTP call gets — realtime is
+  necessarily pre-flight-only, since a live session has no discrete request to meter.
+- `server.request_timeout_secs` was parsed from config and had no effect. It is now applied to unary
+  routes, bounding an upstream that never responds. (Realtime and already-flowing stream bodies are
+  not covered — see the commit notes for why.)
+- CEL guardrail expressions could exhaust the native stack through an unparenthesized operator chain
+  (`"!!!!...true"`, a long `&&` chain) that the existing bracket-depth cap could not see, since it
+  counts only `( [ {`. Operator count is now bounded too. Not a confirmed exploit — defence in depth
+  alongside the existing depth cap.
 - **Proxy: any valid virtual key could read, download and delete another tenant's files, batches and
   responses.** The nine REST handlers in `routes/files.rs` and `routes/batches.rs` bound `KeyContext`
   as `_key_ctx` and discarded it. These IDs are opaque identifiers on a single shared upstream
@@ -54,8 +105,109 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CLI now warns when a master key is passed as a command-line argument, where it is visible in
   the process table.
 
+### Changed
+
+- Chat responses now always serialize `role` (on `choices[].message`), `logprobs` (on `choices[]`)
+  and `refusal` (present even when `null`) to satisfy OpenAI's response schema. See "Upgrade notes."
+- `Choice` gained a `logprobs` field; `CreateResponseRequest` gained an `extra_body` field;
+  `GuardrailService` gained an `S: Clone` bound. See "Upgrade notes."
+- **The Responses API is documented as OpenAI-only.** No behaviour changed, but the docs previously
+  implied otherwise — `parse_response_stream_event` described the event shape as "uniform across
+  providers that support it", a set that does not exist: the provider registry models no
+  `responses` endpoint for any of its 165 providers, no provider overrides `responses_path()`, and
+  neither `transform_request` nor `transform_response` runs on this path. A `provider/model` prefix
+  on `CreateResponseRequest.model` is not stripped and does not re-route. If you point this path at
+  a non-OpenAI provider today, it does not work and is not expected to.
+
 ### Fixed
 
+- **Cohere streaming was entirely non-functional.** The parser matched Cohere's legacy v1 NDJSON
+  event names and field paths against the v2 endpoint the provider actually targets, so a stream
+  opened cleanly and then yielded empty text, empty tool calls, and no `finish_reason` or usage —
+  ever. All twelve existing streaming tests encoded the v1 shapes and asserted the broken behaviour;
+  rewritten against the real v2 wire format.
+- **Every non-streaming Cohere completion failed deserialization.** Cohere's v2 chat response has no
+  `choices` wrapper — `id`, `finish_reason`, `message` and `usage` are top level — so
+  `transform_response` was a no-op on real payloads. The old tests passed only because they fed the
+  wrong shape as input.
+- **Gemini streaming hit the non-streaming endpoint and failed with a misleading error.**
+  `build_stream_url` reused the non-streaming `:generateContent` URL with `?alt=sse` appended;
+  Gemini ignores `alt=sse` there and returns one ordinary JSON body, which surfaced as "SSE stream
+  truncated" with no content. Both Google AI Studio and Vertex AI now call
+  `:streamGenerateContent`.
+- **Bedrock embedding requests were silently discarded.** Bedrock has no unified embeddings API, so
+  embedding calls fell through to the Converse (chat) transform, which rebuilds the body and
+  dropped the input entirely. Titan and Cohere embedding shapes are now dispatched on model prefix
+  and their responses normalised to OpenAI's `data[]` list form; a batched Titan input errors rather
+  than silently truncating to one vector, and an unrecognised embedding model errors instead of
+  guessing.
+- **Vertex, Google AI and Bedrock silently dropped documented OpenAI request fields**
+  (`logprobs`/`top_logprobs`, `service_tier`, `metadata`, and others) because those providers
+  rebuild the request body wholesale. Fields with a real equivalent are now mapped (e.g.
+  `logprobs`/`top_logprobs` → Gemini's `responseLogprobs`/`logprobs`); anything without one now
+  warns instead of vanishing. Anthropic had the opposite defect — it mutates the body in place, so
+  seven unmapped fields reached its wire verbatim, and a caller's `metadata` collided with
+  Anthropic's own `metadata.user_id`. Anthropic now strips what it doesn't support.
+- **Setting `modalities` or `seed` on an Anthropic request failed the entire call with a 400.** Two
+  fields were still missing from Anthropic's strip list, and the Messages API rejects any
+  unrecognised top-level key with `"Extra inputs are not permitted"` rather than ignoring it — so
+  these did not degrade the request, they broke it, including `modalities: ["text"]`, which is a
+  no-op for a provider that only emits text. Both are now stripped; `seed` warns, since a caller
+  pinning it for reproducibility gets none.
+- The `cohere` and `cohere_chat` registry entries pointed at `api.cohere.ai` while the provider
+  itself used `api.cohere.com`. Both hosts are live aliases so nothing failed, but anything reading
+  the registry to locate Cohere disagreed with the client that sends the request. Both now say
+  `api.cohere.com`, and a test pins them together.
+- **The proxy rejected documented OpenAI chat request fields with a hard 400** instead of ignoring
+  them: `logprobs`, `top_logprobs`, `max_completion_tokens`, `service_tier`, `store`, `metadata`,
+  `prediction`, `audio`, `web_search_options`. All are now accepted and forwarded to the provider.
+- **The Responses API had no escape hatch for provider extensions.** `CreateResponseRequest` had no
+  `extra_body`, and because the type denies unknown fields, a caller-supplied `extra_body` was
+  rejected outright — for example, there was no way to reach OpenAI's `reasoning.effort` on this
+  path. `extra_body` is now merged on both the streaming and non-streaming Responses paths, reusing
+  the same merge the chat path already used (GH [#174], reported by @huangmiuXyz).
+- Guardrail `Mutate` decisions were applied at the `OutputChunk` streaming stage but silently
+  ignored at the `Input` and `Output` stages — a redaction guardrail (including the built-in
+  `RegexGuardrail` in Redact mode) sent the provider the unredacted content and returned the
+  unredacted response to the caller. Both stages now apply the mutated payload, and fail closed: if
+  a mutated payload cannot be applied, the call aborts rather than silently forwarding the original.
+- The circuit breaker could be force-closed by a stale in-flight request. A request that started
+  while the circuit was `Closed` and completed after other requests had since tripped it to `Open`
+  unconditionally reset the breaker to `Closed` and zeroed the failure count on success, sending
+  traffic back at a backend that was still down. Closing now requires a `HalfOpen -> Closed`
+  transition; a success recorded against an already-`Open` circuit is ignored.
+- A realtime session hanging up could shut down the entire proxy. The handler passed the
+  process-wide shutdown token straight into the relay loop, so a normal session close cancelled the
+  same token graceful shutdown awaits — any client could trigger it deliberately, and a legitimate
+  user closing a call could trigger it by accident. Sessions now cancel a child token instead.
+- Streamed requests that a caller abandoned early recorded no spend, even though the full
+  completion is generated and buffered server-side before the first byte reaches the caller —
+  opening and dropping streams in a loop was unmetered usage against a budget-limited endpoint.
+  Spend now also settles on stream `Drop`.
+- Several in-memory maps had no bound and were reachable with attacker-controlled keys, each a
+  memory-exhaustion vector in a long-running proxy: the per-key idempotency store (also fixed to
+  hash bodies deterministically across restarts and replicas, rather than per-process-random), the
+  budget ledger's per-user/per-key spend maps (reclaims only zero-spend entries — an
+  already-tracked principal's recorded spend is never discarded), and the semantic-routing
+  classifier verdict cache (capped at 4096 entries by default).
+- Cache TTL configuration was ignored on two of three write paths. `CacheLayer::new` hardcoded a
+  300s policy TTL regardless of `CacheConfig.ttl`; `with_store` (used by every custom store and
+  every OpenDAL backend via `ManagedClient`) took no config at all and had the same default. Both
+  now honour the configured TTL.
+- Weighted-random routing seeded its RNG from `SystemTime` subsecond nanos, so requests arriving in
+  the same timer tick drew near-identical values and a burst of traffic collapsed onto one
+  deployment instead of spreading per the configured weights. Now seeded once from OS entropy.
+- A request body containing a non-ASCII character within the first 64 bytes panicked while
+  computing the idempotency body hash, which sliced a fixed-length prefix on a byte boundary that
+  could fall mid-character. Now cuts on the nearest character boundary; previously-working hashes
+  are unchanged.
+- `LiterLlmError` gained a `retry_after()` accessor alongside `status_code()` and `error_type()`,
+  exposing the delay already parsed from a `Retry-After` header on `RateLimited` errors. Consumers
+  previously had to invent their own backoff from the status code alone; bindings pick this up on
+  their next regen.
+- The npm package's `bin/liter-llm.js` was committed non-executable, so a checkout — or any install
+  path that preserves archive file modes — could not run it directly.
+- The C# README badge linked to `nuget.org/packages/LiterLlm`, a package this project does not own.
 - **Budget: month-to-date spend reset on every config reload, not on restart.** `InMemoryBudgetLedger`
   had no way to update its limits, so the proxy rebuilt and swapped the whole ledger to apply a
   reloaded config, discarding every sliding window. With hot-reload enabled and frequent config
@@ -71,10 +223,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The negative cache was dead code: it wrote keys with a std `DefaultHasher` over raw JSON while the
   read path used a seeded `ahash` over a curated field set, so an entry could never be read back.
   Both paths now share one `CacheKeyStrategy`.
-- **Every non-streaming Cohere completion failed deserialization.** Cohere's v2 chat response has no
-  `choices` wrapper — `id`, `finish_reason`, `message` and `usage` are top level — so
-  `transform_response` was a no-op on real payloads. The old tests passed only because they fed the
-  wrong shape as input.
 - SSE stream truncation was reported as a clean EOF — silent data loss. Truncated lines and truncated
   UTF-8 codepoints now surface as errors, and transport errors go through the retry budget instead of
   propagating immediately. Anthropic 529 is treated as retryable and its `Retry-After` is honored.
@@ -111,6 +259,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ["AssistantContent"]` has been configured in `alef.toml` all along, but the extension was absent
   from the committed bindings — the post-build step that injects it only runs when `lib.dart` is
   already on disk, so an earlier regen had silently skipped it.
+
+[#174]: https://github.com/xberg-io/liter-llm/issues/174
 
 ## [1.16.0] - 2026-08-05
 
@@ -916,7 +1066,7 @@ Virtual-key holders who previously hit MCP tools without a model-access policy n
 
 - **API rename**: `ResponseClient::retrieve_response` / `cancel_response` now take a parameter named `response_id` (was `id`). Positional callers are unaffected; named-arg callers must update. Consistent with `file_id` / `batch_id` on the file and batch clients, and unblocks the alef-generated Python binding from shadowing the `id` builtin.
 - **GitHub Release CLI assets** ship a single sorted `SHA256SUMS-<version>.txt` instead of one `.sha256` per archive — closes #67.
-- **WebAssembly build verified `mio`-free.** `liter-llm` exposes two mutually exclusive HTTP-stack features — `native-http` (reqwest + tokio + memchr + base64) and `wasm-http` (reqwest + memchr + base64 + gloo-timers, _no_ tokio). `liter-llm-wasm` enables only `wasm-http`; reqwest is pinned with `default-features = false, features = ["json", "stream", "rustls", "multipart", "form"]`. `cargo build --target wasm32-unknown-unknown -p liter-llm-wasm` pulls neither `mio` nor `tokio` — reqwest auto-routes to the browser/Node `fetch` API on `wasm32` targets.
+- **WebAssembly build verified `mio`-free.** `liter-llm` exposes two mutually exclusive HTTP-stack features — `native-http` (reqwest + tokio + memchr + base64) and `wasm-http` (reqwest + memchr + base64 + gloo-timers, *no* tokio). `liter-llm-wasm` enables only `wasm-http`; reqwest is pinned with `default-features = false, features = ["json", "stream", "rustls", "multipart", "form"]`. `cargo build --target wasm32-unknown-unknown -p liter-llm-wasm` pulls neither `mio` nor `tokio` — reqwest auto-routes to the browser/Node `fetch` API on `wasm32` targets.
 - **Ruby publish** vendors core crates exclusively via the shared `xberg-io/actions/rewrite-native-deps@v1` action (alef `publish prepare`, `vendor_mode = "core-only"`). The bespoke `scripts/ci/ruby/vendor-liter-llm-core.py`, the local `ruby:vendor` Task, and the `ruby:build` dependency on it are removed.
 - **Repo hygiene**: `.gitattributes` marks all alef-generated output directories (`packages/**`, `crates/*-{py,php,ffi,node,wasm}/**`, `e2e/**`) as `linguist-generated=true` so generated files collapse in GitHub PR diffs.
 
