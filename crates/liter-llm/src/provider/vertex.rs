@@ -349,6 +349,16 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
         gen_config["stopSequences"] = json!(sequences);
     }
 
+    // ~keep Gemini's GenerationConfig has a direct equivalent: `responseLogprobs` (bool) turns
+    // ~keep logprobs on, `logprobs` (int) is the top-N count — the same pair as OpenAI's
+    // ~keep `logprobs`/`top_logprobs`, just under swapped field names.
+    if let Some(logprobs) = body.get("logprobs").and_then(|v| v.as_bool()) {
+        gen_config["responseLogprobs"] = json!(logprobs);
+    }
+    if let Some(top_logprobs) = body.get("top_logprobs") {
+        gen_config["logprobs"] = top_logprobs.clone();
+    }
+
     if let Some(rf) = body.get("response_format") {
         let rf_type = rf.get("type").and_then(|t| t.as_str()).unwrap_or("");
         match rf_type {
@@ -434,6 +444,25 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
         if let Some(cc) = eb.get("cached_content") {
             cached_content = Some(cc.clone());
         }
+    }
+
+    // ~keep `audio` (voice/format) and `web_search_options` have no Gemini equivalent that can
+    // ~keep be mapped without guessing: Gemini's speech voices and search-grounding wiring use
+    // ~keep different vocabularies/shapes than OpenAI's. Warn rather than silently drop, since a
+    // ~keep caller who asked for a specific voice or web-grounded answers gets neither without
+    // ~keep any signal. `modalities: ["audio"]` itself still maps to `responseModalities` above.
+    if body.get("audio").is_some() {
+        tracing::warn!(
+            "chat request set `audio`, which has no Gemini equivalent and was dropped; voice and \
+             format cannot be configured for this provider"
+        );
+    }
+    if body.get("web_search_options").is_some() {
+        tracing::warn!(
+            "chat request set `web_search_options`, which has no Gemini equivalent and was \
+             dropped; configure grounding via extra_body.grounding_config or \
+             extra_body.google_search_retrieval instead"
+        );
     }
 
     let mut new_body = json!({"contents": contents});
@@ -1083,6 +1112,95 @@ mod tests {
 
         assert_eq!(body["generationConfig"]["maxOutputTokens"], 200);
         assert_eq!(body["generationConfig"]["temperature"], 0.5);
+    }
+
+    /// `max_completion_tokens` maps to `maxOutputTokens` when `max_tokens` is absent.
+    /// Previously untested even though the mapping itself predates this fix.
+    #[test]
+    fn transform_request_max_completion_tokens_maps_to_max_output_tokens() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_completion_tokens": 512
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["generationConfig"]["maxOutputTokens"], 512);
+    }
+
+    /// `logprobs`/`top_logprobs` map to Gemini's `responseLogprobs`/`logprobs` generationConfig
+    /// fields rather than being silently discarded by the wholesale body rebuild.
+    #[test]
+    fn transform_request_logprobs_maps_to_response_logprobs() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "logprobs": true,
+            "top_logprobs": 5
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["generationConfig"]["responseLogprobs"], true);
+        assert_eq!(body["generationConfig"]["logprobs"], 5);
+    }
+
+    #[test]
+    fn transform_request_logprobs_false_maps_explicitly() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "logprobs": false
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["generationConfig"]["responseLogprobs"], false);
+        assert!(body["generationConfig"].get("logprobs").is_none());
+    }
+
+    /// `audio` and `web_search_options` have no Gemini equivalent; the request must still
+    /// succeed but the fields must not appear anywhere on the wire body.
+    #[test]
+    fn transform_request_audio_and_web_search_options_dropped_not_forwarded() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "audio": {"voice": "alloy", "format": "wav"},
+            "web_search_options": {"search_context_size": "medium"}
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(body.get("audio").is_none());
+        assert!(body.get("web_search_options").is_none());
+    }
+
+    /// `service_tier`, `store`, `metadata` and `prediction` have no Gemini equivalent and no
+    /// wire-safety risk (unlike Anthropic's colliding `metadata`), so they stay silently
+    /// dropped by the wholesale body rebuild — this pins that as intentional, not an oversight.
+    #[test]
+    fn transform_request_cosmetic_openai_fields_dropped() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "service_tier": "flex",
+            "store": true,
+            "metadata": {"run": "nightly"},
+            "prediction": {"type": "content", "content": "draft"}
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        for key in &["service_tier", "store", "metadata", "prediction"] {
+            assert!(body.get(key).is_none(), "`{key}` should not be forwarded to Gemini");
+        }
     }
 
     #[test]

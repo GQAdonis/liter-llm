@@ -242,6 +242,40 @@ mod tests {
         assert_eq!(settings[0]["category"], "HARM_CATEGORY_HATE_SPEECH");
     }
 
+    /// Shared with vertex.rs via `transform_gemini_request`; exercised here too since
+    /// GoogleAiProvider is a distinct entry point a caller can hit directly.
+    #[test]
+    fn transform_request_logprobs_maps_to_response_logprobs() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "logprobs": true,
+            "top_logprobs": 3
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["generationConfig"]["responseLogprobs"], true);
+        assert_eq!(body["generationConfig"]["logprobs"], 3);
+    }
+
+    #[test]
+    fn transform_request_audio_and_web_search_options_dropped_not_forwarded() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "audio": {"voice": "alloy", "format": "wav"},
+            "web_search_options": {"search_context_size": "medium"}
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(body.get("audio").is_none());
+        assert!(body.get("web_search_options").is_none());
+    }
+
     #[test]
     fn transform_request_cached_content() {
         let p = provider();

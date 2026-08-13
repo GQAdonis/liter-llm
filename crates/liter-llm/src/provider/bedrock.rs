@@ -604,6 +604,49 @@ impl Provider for BedrockProvider {
             new_body["guardrailConfig"] = gc;
         }
 
+        // ~keep Bedrock's Converse API has real equivalents for these two OpenAI fields:
+        // ~keep `serviceTier: {type}` accepts "priority"|"default"|"flex"|"reserved", so every
+        // ~keep OpenAI value except "auto" maps directly; "auto" has no Bedrock counterpart and
+        // ~keep omitting `serviceTier` already gives provider-default behaviour, which is the
+        // ~keep same effect. `requestMetadata` is a string-to-string map used for CloudTrail/
+        // ~keep CloudWatch filtering, the same shape as our `metadata` tag map.
+        if let Some(tier) = body.get("service_tier").and_then(|v| v.as_str())
+            && tier != "auto"
+        {
+            new_body["serviceTier"] = json!({"type": tier});
+        }
+        if let Some(metadata) = body.get("metadata").and_then(|v| v.as_object())
+            && !metadata.is_empty()
+        {
+            new_body["requestMetadata"] = json!(metadata);
+        }
+
+        // ~keep `logprobs`/`top_logprobs`, `audio` and `web_search_options` have no Bedrock
+        // ~keep Converse API equivalent (InferenceConfiguration has no logprobs field; Claude on
+        // ~keep Bedrock has no audio-output or built-in web-search-tool configuration). They are
+        // ~keep already dropped by the wholesale rebuild above; warn so a caller who asked for
+        // ~keep any of them can tell the request silently ignored that part of the ask.
+        let logprobs_requested = body.get("logprobs").and_then(|v| v.as_bool()).unwrap_or(false);
+        if logprobs_requested || body.get("top_logprobs").is_some() {
+            tracing::warn!(
+                "chat request set logprobs/top_logprobs, which Bedrock's Converse API does not \
+                 support; the fields were dropped and the response will not include log \
+                 probabilities"
+            );
+        }
+        if body.get("audio").is_some() {
+            tracing::warn!(
+                "chat request set `audio`, which was dropped: Bedrock's Converse API has no \
+                 audio output support"
+            );
+        }
+        if body.get("web_search_options").is_some() {
+            tracing::warn!(
+                "chat request set `web_search_options`, which was dropped: Bedrock's Converse \
+                 API has no built-in web-search tool configuration equivalent"
+            );
+        }
+
         *body = new_body;
         Ok(())
     }
@@ -1532,6 +1575,104 @@ mod tests {
 
         assert_eq!(body["inferenceConfig"]["maxTokens"], 100);
         assert_eq!(body["inferenceConfig"]["temperature"], 0.7);
+    }
+
+    /// `max_completion_tokens` maps to `inferenceConfig.maxTokens` when `max_tokens` is absent.
+    /// Previously untested even though the mapping itself predates this fix.
+    #[test]
+    #[serial]
+    fn transform_request_max_completion_tokens_maps_to_max_tokens() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_completion_tokens": 512
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["inferenceConfig"]["maxTokens"], 512);
+    }
+
+    /// `service_tier` maps to Bedrock Converse's `serviceTier: {type}` for every value except
+    /// `"auto"`, which has no Bedrock counterpart and is left unset (provider default).
+    #[test]
+    #[serial]
+    fn transform_request_service_tier_maps_to_bedrock_service_tier() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "service_tier": "flex"
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["serviceTier"]["type"], "flex");
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_service_tier_auto_is_omitted() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "service_tier": "auto"
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(body.get("serviceTier").is_none());
+    }
+
+    /// `metadata` maps to Bedrock Converse's `requestMetadata`, the same string-to-string
+    /// tag-map shape used for CloudTrail/CloudWatch filtering.
+    #[test]
+    #[serial]
+    fn transform_request_metadata_maps_to_request_metadata() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "metadata": {"run": "nightly", "team": "platform"}
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["requestMetadata"]["run"], "nightly");
+        assert_eq!(body["requestMetadata"]["team"], "platform");
+    }
+
+    /// `logprobs`/`top_logprobs`/`audio`/`web_search_options` have no Bedrock equivalent; the
+    /// wholesale body rebuild already dropped them, this pins that they never leak onto the wire.
+    #[test]
+    #[serial]
+    fn transform_request_unmappable_openai_only_fields_dropped() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "logprobs": true,
+            "top_logprobs": 5,
+            "store": true,
+            "prediction": {"type": "content", "content": "draft"},
+            "audio": {"voice": "alloy", "format": "wav"},
+            "web_search_options": {"search_context_size": "medium"}
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        for key in &[
+            "logprobs",
+            "top_logprobs",
+            "store",
+            "prediction",
+            "audio",
+            "web_search_options",
+        ] {
+            assert!(body.get(key).is_none(), "`{key}` must not be forwarded to Bedrock");
+        }
     }
 
     #[test]

@@ -178,7 +178,10 @@ impl Provider for AnthropicProvider {
     /// - `tool_choice` mapped from OpenAI semantics to Anthropic semantics.
     /// - Tools converted from OpenAI `function` wrappers to Anthropic `input_schema` format.
     /// - Unsupported parameters removed: `n`, `presence_penalty`, `frequency_penalty`,
-    ///   `logit_bias`, `stream` (the client handles stream separately).
+    ///   `logit_bias`, `stream` (the client handles stream separately), `logprobs`,
+    ///   `top_logprobs`, `store`, `metadata`, `prediction`, `audio`, `web_search_options` (these
+    ///   have no Anthropic equivalent; `logprobs`/`top_logprobs`/`metadata`/`audio`/
+    ///   `web_search_options` are logged at WARN when actually requested).
     fn transform_request(&self, body: &mut Value) -> Result<()> {
         let messages = body
             .as_object_mut()
@@ -344,6 +347,42 @@ impl Provider for AnthropicProvider {
             }
         }
 
+        // ~keep Unlike vertex.rs/bedrock.rs, this function mutates `body` in place rather than
+        // ~keep rebuilding it wholesale, so any field not explicitly named below is forwarded
+        // ~keep to Anthropic verbatim. `metadata`, `store`, `prediction`, `audio`,
+        // ~keep `web_search_options`, `logprobs` and `top_logprobs` have no Anthropic
+        // ~keep equivalent and must be stripped here or they leak onto the wire — for
+        // ~keep `metadata` specifically, Anthropic has its own `metadata: {user_id}` field, so
+        // ~keep forwarding our arbitrary tag map would collide with a real field, not just add
+        // ~keep an unrecognized one.
+        let logprobs_requested = body.get("logprobs").and_then(Value::as_bool).unwrap_or(false);
+        let top_logprobs_requested = body.get("top_logprobs").is_some();
+        if logprobs_requested || top_logprobs_requested {
+            tracing::warn!(
+                "chat request set logprobs/top_logprobs, which Anthropic's Messages API does not \
+                 support; the fields were dropped and the response will not include log \
+                 probabilities"
+            );
+        }
+        if body.get("metadata").is_some() {
+            tracing::warn!(
+                "chat request set `metadata`, which was dropped: Anthropic's own `metadata` \
+                 field only accepts `user_id` and is not compatible with arbitrary key/value tags"
+            );
+        }
+        if body.get("audio").is_some() {
+            tracing::warn!(
+                "chat request set `audio`, which was dropped: Anthropic's Messages API has no \
+                 audio output support"
+            );
+        }
+        if body.get("web_search_options").is_some() {
+            tracing::warn!(
+                "chat request set `web_search_options`, which was dropped: Anthropic has no \
+                 equivalent top-level field; use a `web_search_20250305` tool in `tools` instead"
+            );
+        }
+
         // ~keep Keep `stream` in the body; Anthropic requires it for streaming responses.
         if let Some(obj) = body.as_object_mut() {
             for key in &[
@@ -357,6 +396,13 @@ impl Provider for AnthropicProvider {
                 "user",
                 "reasoning_effort",
                 "extra_body",
+                "logprobs",
+                "top_logprobs",
+                "store",
+                "metadata",
+                "prediction",
+                "audio",
+                "web_search_options",
             ] {
                 obj.remove(*key);
             }
@@ -1421,6 +1467,42 @@ mod tests {
             assert!(body.get(key).is_none(), "`{key}` should be removed");
         }
         assert_eq!(body["stream"], true);
+    }
+
+    /// Regression test: `transform_request` mutates `body` in place rather than rebuilding it
+    /// wholesale (unlike vertex.rs/bedrock.rs), so `logprobs`, `top_logprobs`, `store`,
+    /// `metadata`, `prediction`, `audio` and `web_search_options` used to leak onto the
+    /// Anthropic wire verbatim instead of being dropped or mapped. None of them have an
+    /// Anthropic equivalent, so they must be stripped like the other unsupported fields above.
+    #[test]
+    fn transform_request_strips_unmappable_openai_only_fields() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "logprobs": true,
+            "top_logprobs": 5,
+            "store": true,
+            "metadata": {"run": "nightly"},
+            "prediction": {"type": "content", "content": "draft"},
+            "audio": {"voice": "alloy", "format": "wav"},
+            "web_search_options": {"search_context_size": "medium"}
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        for key in &[
+            "logprobs",
+            "top_logprobs",
+            "store",
+            "metadata",
+            "prediction",
+            "audio",
+            "web_search_options",
+        ] {
+            assert!(body.get(key).is_none(), "`{key}` must not be forwarded to Anthropic");
+        }
     }
 
     #[test]
