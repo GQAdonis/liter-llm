@@ -34,6 +34,11 @@ jobs:
       # as B26, not yet fixed). Flipping this to `true` before B26 lands would
       # make every push/PR red for a reason contributors cannot fix locally.
       # Re-enable once B26 is resolved upstream. ~keep
+      # Pin poly to the same build `task setup` installs (Taskfile.yml POLY_VERSION),
+      # so the gate can't silently change under us between runs. Without this the
+      # reusable workflow resolves whatever tag GitHub reports as latest at run time.
+      # Bump both together when upgrading. ~keep
+      poly-version: "v0.19.7"
       setup-rust: true
       setup-python: true
       # poly's checkstyle project check runs `mvn checkstyle:check` on packages/java,
