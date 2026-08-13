@@ -69,13 +69,23 @@ impl Provider for CohereProvider {
 
     /// Parse a Cohere v2 streaming SSE event into a `ChatCompletionChunk`.
     ///
-    /// Cohere v2 streaming events use a `type` field to distinguish event kinds:
-    /// - `stream-start`: beginning of stream, emit role = assistant
-    /// - `content-delta`: text content token, extract from `delta.text`
-    /// - `tool-call-start`: start of a tool call with id and function name
-    /// - `tool-call-delta`: partial tool call arguments
+    /// Cohere v2 streaming events use a `type` field to distinguish event kinds
+    /// (verified against Cohere's v2 API reference, `docs.cohere.com/reference/chat-stream`
+    /// and `docs.cohere.com/v2/docs/streaming`):
+    /// - `message-start`: beginning of stream; id is top-level, role at `delta.message.role`
+    /// - `content-delta`: text content token, extract from `delta.message.content.text`
+    /// - `tool-call-start`: start of a tool call; id/name at `delta.message.tool_calls.{id,function.name}`
+    /// - `tool-call-delta`: partial tool call arguments at `delta.message.tool_calls.function.arguments`
     /// - `tool-call-end`: end of a tool call (skipped)
-    /// - `stream-end`: end of stream with finish reason and usage
+    /// - `message-end`: end of stream; finish reason at `delta.finish_reason`, usage at
+    ///   `delta.usage.billed_units.{input,output}_tokens`
+    ///
+    /// ~keep The previous implementation matched Cohere's legacy v1 NDJSON event names
+    /// (`stream-start`/`stream-end`) and flat field paths (`delta.text`, `delta.id`,
+    /// `delta.function.name`) against this v2 SSE endpoint. Every real v2 event silently
+    /// missed: `content-delta` always yielded empty text, tool-call id/name/arguments were
+    /// always empty, and `finish_reason`/`usage` never surfaced because the event-type
+    /// strings never matched — streaming opened without error but delivered nothing.
     fn parse_stream_event(&self, event_data: &str) -> Result<Option<ChatCompletionChunk>> {
         let v: Value = serde_json::from_str(event_data).map_err(|e| LiterLlmError::Streaming {
             message: format!("failed to parse Cohere SSE event: {e}"),
@@ -84,8 +94,13 @@ impl Provider for CohereProvider {
         let event_type = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
 
         match event_type {
-            "stream-start" => {
-                let id = v.get("generation_id").and_then(|g| g.as_str()).unwrap_or("").to_owned();
+            "message-start" => {
+                let id = v.get("id").and_then(|g| g.as_str()).unwrap_or("").to_owned();
+                let role = v
+                    .pointer("/delta/message/role")
+                    .and_then(|r| r.as_str())
+                    .unwrap_or("assistant")
+                    .to_owned();
 
                 Ok(Some(ChatCompletionChunk {
                     id,
@@ -95,7 +110,7 @@ impl Provider for CohereProvider {
                     choices: vec![StreamChoice {
                         index: 0,
                         delta: StreamDelta {
-                            role: Some("assistant".to_owned()),
+                            role: Some(role),
                             content: None,
                             tool_calls: None,
                             function_call: None,
@@ -112,7 +127,7 @@ impl Provider for CohereProvider {
 
             "content-delta" => {
                 let text = v
-                    .pointer("/delta/text")
+                    .pointer("/delta/message/content/text")
                     .and_then(|t| t.as_str())
                     .unwrap_or("")
                     .to_owned();
@@ -142,9 +157,13 @@ impl Provider for CohereProvider {
 
             "tool-call-start" => {
                 let index = v.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as u32;
-                let tool_id = v.pointer("/delta/id").and_then(|i| i.as_str()).unwrap_or("").to_owned();
+                let tool_id = v
+                    .pointer("/delta/message/tool_calls/id")
+                    .and_then(|i| i.as_str())
+                    .unwrap_or("")
+                    .to_owned();
                 let tool_name = v
-                    .pointer("/delta/function/name")
+                    .pointer("/delta/message/tool_calls/function/name")
                     .and_then(|n| n.as_str())
                     .unwrap_or("")
                     .to_owned();
@@ -183,7 +202,7 @@ impl Provider for CohereProvider {
             "tool-call-delta" => {
                 let index = v.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as u32;
                 let arguments = v
-                    .pointer("/delta/function/arguments")
+                    .pointer("/delta/message/tool_calls/function/arguments")
                     .and_then(|a| a.as_str())
                     .unwrap_or("")
                     .to_owned();
@@ -221,9 +240,9 @@ impl Provider for CohereProvider {
 
             "tool-call-end" => Ok(None),
 
-            "stream-end" => {
+            "message-end" => {
                 let finish_reason = v
-                    .get("finish_reason")
+                    .pointer("/delta/finish_reason")
                     .and_then(|r| r.as_str())
                     .map(map_cohere_finish_reason);
 
@@ -364,11 +383,11 @@ fn map_cohere_finish_reason(reason: &str) -> FinishReason {
     }
 }
 
-/// Extract usage from a Cohere `stream-end` event.
+/// Extract usage from a Cohere `message-end` event.
 ///
-/// Cohere v2 reports usage under `usage.billed_units.{input_tokens, output_tokens}`.
+/// Cohere v2 reports usage under `delta.usage.billed_units.{input_tokens, output_tokens}`.
 fn extract_cohere_stream_usage(v: &Value) -> Option<crate::types::Usage> {
-    let billed = v.pointer("/usage/billed_units")?;
+    let billed = v.pointer("/delta/usage/billed_units")?;
     let input = billed.get("input_tokens").and_then(|t| t.as_u64()).unwrap_or(0);
     let output = billed.get("output_tokens").and_then(|t| t.as_u64()).unwrap_or(0);
 
@@ -595,10 +614,19 @@ mod tests {
         assert_eq!(usage["total_tokens"], 30);
     }
 
+    // ~keep Regression coverage for the streaming fix: the previous event shapes below
+    // (`stream-start`/`stream-end` with flat `delta.text` / `delta.id` / `delta.function.*`
+    // paths) encoded Cohere's legacy v1 NDJSON format, not the v2 SSE format this provider
+    // actually targets (base_url is `.../v2`). Every one of those tests passed against a
+    // shape the real v2 endpoint never sends, so they asserted the *broken* production
+    // behaviour (content-delta always yielding empty text, tool-call fields always empty,
+    // finish_reason/usage never surfacing) as if it were correct. Shapes below are quoted
+    // verbatim from Cohere's v2 API reference (`docs.cohere.com/reference/chat-stream`).
+
     #[test]
-    fn test_parse_stream_event_stream_start() {
+    fn test_parse_stream_event_message_start() {
         let provider = CohereProvider;
-        let event = r#"{"type":"stream-start","generation_id":"gen-123"}"#;
+        let event = r#"{"delta":{"message":{"role":"assistant"}},"id":"gen-123","type":"message-start"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -616,7 +644,7 @@ mod tests {
     #[test]
     fn test_parse_stream_event_content_delta() {
         let provider = CohereProvider;
-        let event = r#"{"type":"content-delta","delta":{"type":"text_content","text":"Hello"}}"#;
+        let event = r#"{"delta":{"message":{"content":{"text":"Hello"}}},"index":0,"type":"content-delta"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -630,7 +658,7 @@ mod tests {
     #[test]
     fn test_parse_stream_event_content_delta_whitespace() {
         let provider = CohereProvider;
-        let event = r#"{"type":"content-delta","delta":{"type":"text_content","text":" world"}}"#;
+        let event = r#"{"delta":{"message":{"content":{"text":" world"}}},"index":0,"type":"content-delta"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -642,7 +670,7 @@ mod tests {
     #[test]
     fn test_parse_stream_event_tool_call_start() {
         let provider = CohereProvider;
-        let event = r#"{"type":"tool-call-start","index":0,"delta":{"type":"tool_call","id":"tc-001","function":{"name":"get_weather","arguments":""}}}"#;
+        let event = r#"{"delta":{"message":{"tool_calls":{"function":{"arguments":"","name":"get_weather"},"id":"tc-001","type":"function"}}},"index":0,"type":"tool-call-start"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -664,8 +692,7 @@ mod tests {
     #[test]
     fn test_parse_stream_event_tool_call_delta() {
         let provider = CohereProvider;
-        let event =
-            r#"{"type":"tool-call-delta","index":0,"delta":{"type":"tool_call","function":{"arguments":"{\"ci"}}}"#;
+        let event = r#"{"delta":{"message":{"tool_calls":{"function":{"arguments":"{\"ci"}}}},"index":0,"type":"tool-call-delta"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -687,16 +714,16 @@ mod tests {
     #[test]
     fn test_parse_stream_event_tool_call_end_returns_none() {
         let provider = CohereProvider;
-        let event = r#"{"type":"tool-call-end","index":0}"#;
+        let event = r#"{"index":0,"type":"tool-call-end"}"#;
         let result = provider.parse_stream_event(event).expect("should parse");
 
         assert!(result.is_none());
     }
 
     #[test]
-    fn test_parse_stream_event_stream_end_complete() {
+    fn test_parse_stream_event_message_end_complete() {
         let provider = CohereProvider;
-        let event = r#"{"type":"stream-end","finish_reason":"COMPLETE","usage":{"billed_units":{"input_tokens":10,"output_tokens":5}}}"#;
+        let event = r#"{"delta":{"finish_reason":"COMPLETE","usage":{"billed_units":{"input_tokens":10,"output_tokens":5}}},"type":"message-end"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -710,9 +737,9 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_stream_event_stream_end_max_tokens() {
+    fn test_parse_stream_event_message_end_max_tokens() {
         let provider = CohereProvider;
-        let event = r#"{"type":"stream-end","finish_reason":"MAX_TOKENS","usage":{"billed_units":{"input_tokens":20,"output_tokens":100}}}"#;
+        let event = r#"{"delta":{"finish_reason":"MAX_TOKENS","usage":{"billed_units":{"input_tokens":20,"output_tokens":100}}},"type":"message-end"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -726,9 +753,9 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_stream_event_stream_end_tool_call() {
+    fn test_parse_stream_event_message_end_tool_call() {
         let provider = CohereProvider;
-        let event = r#"{"type":"stream-end","finish_reason":"TOOL_CALL","usage":{"billed_units":{"input_tokens":15,"output_tokens":8}}}"#;
+        let event = r#"{"delta":{"finish_reason":"TOOL_CALL","usage":{"billed_units":{"input_tokens":15,"output_tokens":8}}},"type":"message-end"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -738,9 +765,9 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_stream_event_stream_end_no_usage() {
+    fn test_parse_stream_event_message_end_no_usage() {
         let provider = CohereProvider;
-        let event = r#"{"type":"stream-end","finish_reason":"COMPLETE"}"#;
+        let event = r#"{"delta":{"finish_reason":"COMPLETE"},"type":"message-end"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -770,7 +797,7 @@ mod tests {
     #[test]
     fn test_parse_stream_event_tool_call_start_index_1() {
         let provider = CohereProvider;
-        let event = r#"{"type":"tool-call-start","index":1,"delta":{"type":"tool_call","id":"tc-002","function":{"name":"search","arguments":""}}}"#;
+        let event = r#"{"delta":{"message":{"tool_calls":{"function":{"arguments":"","name":"search"},"id":"tc-002","type":"function"}}},"index":1,"type":"tool-call-start"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
@@ -786,14 +813,28 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_stream_event_stream_end_unknown_finish_reason() {
+    fn test_parse_stream_event_message_end_unknown_finish_reason() {
         let provider = CohereProvider;
-        let event = r#"{"type":"stream-end","finish_reason":"ERROR"}"#;
+        let event = r#"{"delta":{"finish_reason":"ERROR"},"type":"message-end"}"#;
         let chunk = provider
             .parse_stream_event(event)
             .expect("should parse")
             .expect("should return Some");
 
         assert_eq!(chunk.choices[0].finish_reason, Some(FinishReason::Other));
+    }
+
+    #[test]
+    fn test_parse_stream_event_message_start_missing_role_defaults_to_assistant() {
+        // ~keep Cohere's docs always show role="assistant" on message-start, but the parser
+        // should not panic/error if a future event omits it — default rather than fail.
+        let provider = CohereProvider;
+        let event = r#"{"delta":{"message":{}},"id":"gen-456","type":"message-start"}"#;
+        let chunk = provider
+            .parse_stream_event(event)
+            .expect("should parse")
+            .expect("should return Some");
+
+        assert_eq!(chunk.choices[0].delta.role.as_deref(), Some("assistant"));
     }
 }
