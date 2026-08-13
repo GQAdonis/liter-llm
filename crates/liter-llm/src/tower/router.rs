@@ -22,13 +22,15 @@ use std::fmt;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::Instant;
 
 use dashmap::DashMap;
 use futures_core::Stream;
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
 use tower::Service;
 use tower::discover::{Change, Discover};
 use tower::limit::ConcurrencyLimit;
@@ -231,6 +233,15 @@ pub struct Router<S> {
     /// the deployment's positional index as a string (e.g. `"0"`) until
     /// [`Router::with_deployment_models`] is called.
     deployment_models: Vec<String>,
+    /// Seeded PRNG for [`RoutingStrategy::WeightedRandom`].
+    ///
+    /// Created once in [`Router::new`] and shared across clones via `Arc`, so
+    /// selections advance one generator instead of each deriving a threshold
+    /// from `SystemTime::now()`: concurrent calls landing in the same clock
+    /// tick used to compute the same threshold and pile onto the same
+    /// deployment — exactly under the burst load weighted routing exists to
+    /// spread, and predictably so.
+    weighted_random_rng: Arc<Mutex<SmallRng>>,
 }
 
 impl<S> Router<S> {
@@ -277,6 +288,7 @@ impl<S> Router<S> {
             counter: Arc::new(AtomicUsize::new(0)),
             state: RouterState::new(),
             deployment_models,
+            weighted_random_rng: Arc::new(Mutex::new(SmallRng::from_os_rng())),
         })
     }
 
@@ -319,6 +331,7 @@ impl<S: Clone> Clone for Router<S> {
             counter: Arc::clone(&self.counter),
             state: self.state.clone(),
             deployment_models: self.deployment_models.clone(),
+            weighted_random_rng: Arc::clone(&self.weighted_random_rng),
         }
     }
 }
@@ -447,7 +460,17 @@ where
     /// [`RoutingStrategy::WeightedRandom`]: dispatch using weighted-random
     /// selection over `weights`.
     fn call_weighted_random(&self, weights: &[Weight], req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
-        let idx = weighted_random_select(weights);
+        let idx = {
+            // ~keep Recover the guard on poison rather than unwrapping: a panic
+            // ~keep elsewhere while the lock was held doesn't invalidate the RNG's
+            // ~keep state, and a bad `.unwrap()` here would take down every future
+            // ~keep call through this router over one unrelated poisoning panic.
+            let mut rng = self
+                .weighted_random_rng
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            weighted_random_select(weights, &mut *rng)
+        };
         let mut svc = self.deployments[idx].clone();
         Box::pin(async move { svc.call(req).await })
     }
@@ -543,16 +566,17 @@ fn resolve_semantic_index(verdict: Option<&str>, deployment_models: &[String], c
 ///
 /// Uses a simple linear scan with a random threshold.  For small deployment
 /// counts (typical: 2-5) this is fast enough; no binary search needed.
-fn weighted_random_select(weights: &[Weight]) -> usize {
+///
+/// Draws the threshold from `rng` rather than deriving it from the system
+/// clock, so back-to-back calls sharing a caller-held generator (see
+/// [`Router`]'s `weighted_random_rng` field) advance independently instead of
+/// collapsing to the same index when they land in the same clock tick.
+fn weighted_random_select(weights: &[Weight], rng: &mut impl Rng) -> usize {
     let total: u64 = weights.iter().map(|w| u64::from(w.as_u32())).sum();
     if total == 0 {
         return 0;
     }
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos();
-    let threshold = u64::from(nanos) % total;
+    let threshold = rng.random_range(0..total);
 
     let mut cumulative: u64 = 0;
     for (i, w) in weights.iter().enumerate() {
@@ -909,13 +933,18 @@ mod tests {
         assert_eq!(Weight::default().as_u32(), 1);
     }
 
+    /// Weight ratios (1:2:3) must still translate into proportional index
+    /// space after the entropy source moved from `SystemTime` to a seeded
+    /// PRNG — the weighting math itself is unchanged, only the threshold
+    /// source is, so every index must still be reachable.
     #[test]
     fn weighted_random_selects_proportionally() {
         let weights = vec![Weight(1), Weight(2), Weight(3)];
+        let mut rng = SmallRng::seed_from_u64(0xF00D);
         let mut counts = [0usize; 3];
 
         for _ in 0..600u64 {
-            let idx = weighted_random_select(&weights);
+            let idx = weighted_random_select(&weights, &mut rng);
             assert!(idx < 3, "index {idx} out of range");
             counts[idx] += 1;
         }
@@ -923,6 +952,38 @@ mod tests {
         for (i, &count) in counts.iter().enumerate() {
             assert!(count > 0, "index {i} was never selected (counts: {counts:?})");
         }
+    }
+
+    /// Regression: the old implementation derived its threshold from
+    /// `SystemTime::now().subsec_nanos()`, so calls issued back-to-back in a
+    /// tight loop routinely landed in the same clock tick and computed the
+    /// *same* threshold every time — collapsing all traffic onto one
+    /// deployment during exactly the burst load weighted routing exists to
+    /// spread. A per-router PRNG shared across calls (mirroring how
+    /// `Router` holds one `weighted_random_rng` for its lifetime) must
+    /// instead advance on every draw.
+    ///
+    /// Made non-flaky by asserting a property true with overwhelming
+    /// probability rather than one that could fail by chance: with weights
+    /// 1:2:3 (total 6), the *most* likely single index has probability 1/2,
+    /// so the chance that 500 independent draws from a real advancing PRNG
+    /// all land on it is `0.5^500` — indistinguishable from zero. Any
+    /// implementation that reintroduces per-tick clustering (the actual bug
+    /// this pins) would instead reliably produce a single repeated index.
+    #[test]
+    fn weighted_random_rapid_calls_do_not_all_collapse_to_one_index() {
+        let weights = vec![Weight(1), Weight(2), Weight(3)];
+        let mut rng = SmallRng::seed_from_u64(0xC0FFEE);
+
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..500u64 {
+            seen.insert(weighted_random_select(&weights, &mut rng));
+        }
+
+        assert!(
+            seen.len() > 1,
+            "500 rapid back-to-back calls all returned the same index — entropy source is not advancing per call"
+        );
     }
 
     #[tokio::test]
@@ -1004,8 +1065,9 @@ mod tests {
     #[test]
     fn weighted_random_select_returns_valid_index() {
         let weights = vec![Weight(1), Weight(2), Weight(3)];
+        let mut rng = SmallRng::seed_from_u64(0xABCD);
         for _ in 0..100 {
-            let idx = weighted_random_select(&weights);
+            let idx = weighted_random_select(&weights, &mut rng);
             assert!(idx < weights.len());
         }
     }

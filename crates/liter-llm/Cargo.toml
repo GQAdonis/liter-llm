@@ -36,7 +36,7 @@ wasm-http = ["dep:reqwest", "dep:memchr", "dep:gloo-timers", "dep:web-time"]
 
 otel = ["dep:tracing-opentelemetry", "dep:opentelemetry"]
 
-tower = ["dep:tower", "dep:tower-http", "dep:futures-util"]
+tower = ["dep:tower", "dep:tower-http", "dep:futures-util", "dep:rand"]
 
 opendal-cache = ["dep:opendal", "tower"]
 
@@ -110,6 +110,11 @@ memchr = { workspace = true, optional = true }
 opendal = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }
 pin-project-lite = { workspace = true }
+# ~keep Only for RoutingStrategy::WeightedRandom's per-router PRNG (tower/router.rs);
+# ~keep os_rng seeds it once at Router::new, small_rng is the fast generator itself.
+# ~keep Not enabled for wasm32: the `tower` feature (and this dep) never builds there
+# ~keep today — liter-llm-wasm pins `default-features = false, features = ["wasm-http"]`.
+rand = { version = "0.9", default-features = false, features = ["std", "small_rng", "os_rng"], optional = true }
 regex = "1"
 rust_decimal = { workspace = true }
 secrecy = { workspace = true }
