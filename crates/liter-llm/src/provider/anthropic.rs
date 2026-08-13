@@ -179,9 +179,11 @@ impl Provider for AnthropicProvider {
     /// - Tools converted from OpenAI `function` wrappers to Anthropic `input_schema` format.
     /// - Unsupported parameters removed: `n`, `presence_penalty`, `frequency_penalty`,
     ///   `logit_bias`, `stream` (the client handles stream separately), `logprobs`,
-    ///   `top_logprobs`, `store`, `metadata`, `prediction`, `audio`, `web_search_options` (these
-    ///   have no Anthropic equivalent; `logprobs`/`top_logprobs`/`metadata`/`audio`/
-    ///   `web_search_options` are logged at WARN when actually requested).
+    ///   `top_logprobs`, `store`, `metadata`, `prediction`, `audio`, `web_search_options`,
+    ///   `modalities`, `seed` (these have no Anthropic equivalent; `logprobs`/`top_logprobs`/
+    ///   `metadata`/`audio`/`web_search_options`/`seed` are logged at WARN when actually
+    ///   requested, and `modalities` is logged at WARN only when it asks for a non-text
+    ///   modality Claude cannot produce).
     fn transform_request(&self, body: &mut Value) -> Result<()> {
         let messages = body
             .as_object_mut()
@@ -350,11 +352,15 @@ impl Provider for AnthropicProvider {
         // ~keep Unlike vertex.rs/bedrock.rs, this function mutates `body` in place rather than
         // ~keep rebuilding it wholesale, so any field not explicitly named below is forwarded
         // ~keep to Anthropic verbatim. `metadata`, `store`, `prediction`, `audio`,
-        // ~keep `web_search_options`, `logprobs` and `top_logprobs` have no Anthropic
-        // ~keep equivalent and must be stripped here or they leak onto the wire — for
-        // ~keep `metadata` specifically, Anthropic has its own `metadata: {user_id}` field, so
-        // ~keep forwarding our arbitrary tag map would collide with a real field, not just add
-        // ~keep an unrecognized one.
+        // ~keep `web_search_options`, `logprobs`, `top_logprobs`, `modalities` and `seed` have
+        // ~keep no Anthropic equivalent and must be stripped here or they leak onto the wire —
+        // ~keep and Anthropic's Messages API validates the body strictly, rejecting *any*
+        // ~keep unrecognized top-level key with a 400 "Extra inputs are not permitted" error,
+        // ~keep so an unstripped field does not merely go unused, it fails every request that
+        // ~keep sets it, even a value that would otherwise be a no-op (e.g. `modalities:
+        // ~keep ["text"]`). For `metadata` specifically, Anthropic has its own `metadata:
+        // ~keep {user_id}` field, so forwarding our arbitrary tag map would collide with a real
+        // ~keep field, not just add an unrecognized one.
         let logprobs_requested = body.get("logprobs").and_then(Value::as_bool).unwrap_or(false);
         let top_logprobs_requested = body.get("top_logprobs").is_some();
         if logprobs_requested || top_logprobs_requested {
@@ -382,6 +388,27 @@ impl Provider for AnthropicProvider {
                  equivalent top-level field; use a `web_search_20250305` tool in `tools` instead"
             );
         }
+        // ~keep `modalities: ["text"]` is a no-op for Anthropic (text is the only output it can
+        // ~keep produce), so that case is dropped silently like `store`/`prediction`. A caller
+        // ~keep asking for a modality Claude cannot produce (`audio`, `image`) gets text instead
+        // ~keep with no indication otherwise, so that case warns like `audio` above.
+        let modalities_want_non_text = body
+            .get("modalities")
+            .and_then(Value::as_array)
+            .is_some_and(|modalities| modalities.iter().any(|m| m.as_str() != Some("text")));
+        if modalities_want_non_text {
+            tracing::warn!(
+                "chat request set `modalities` to include a non-text modality, which Anthropic's \
+                 Messages API cannot produce; the field was dropped and the response will be \
+                 text only"
+            );
+        }
+        if body.get("seed").is_some() {
+            tracing::warn!(
+                "chat request set `seed`, which Anthropic's Messages API has no equivalent for; \
+                 the field was dropped and output will not be reproducible via a fixed seed"
+            );
+        }
 
         // ~keep Keep `stream` in the body; Anthropic requires it for streaming responses.
         if let Some(obj) = body.as_object_mut() {
@@ -403,6 +430,8 @@ impl Provider for AnthropicProvider {
                 "prediction",
                 "audio",
                 "web_search_options",
+                "modalities",
+                "seed",
             ] {
                 obj.remove(*key);
             }
@@ -1471,9 +1500,12 @@ mod tests {
 
     /// Regression test: `transform_request` mutates `body` in place rather than rebuilding it
     /// wholesale (unlike vertex.rs/bedrock.rs), so `logprobs`, `top_logprobs`, `store`,
-    /// `metadata`, `prediction`, `audio` and `web_search_options` used to leak onto the
-    /// Anthropic wire verbatim instead of being dropped or mapped. None of them have an
-    /// Anthropic equivalent, so they must be stripped like the other unsupported fields above.
+    /// `metadata`, `prediction`, `audio`, `web_search_options`, `modalities` and `seed` used to
+    /// leak onto the Anthropic wire verbatim instead of being dropped or mapped. None of them
+    /// have an Anthropic equivalent, so they must be stripped like the other unsupported fields
+    /// above. Anthropic's Messages API validates the body strictly and rejects *any*
+    /// unrecognized top-level key with a 400, so an unstripped field breaks the whole request,
+    /// not just that one parameter.
     #[test]
     fn transform_request_strips_unmappable_openai_only_fields() {
         let mut body = json!({
@@ -1485,7 +1517,9 @@ mod tests {
             "metadata": {"run": "nightly"},
             "prediction": {"type": "content", "content": "draft"},
             "audio": {"voice": "alloy", "format": "wav"},
-            "web_search_options": {"search_context_size": "medium"}
+            "web_search_options": {"search_context_size": "medium"},
+            "modalities": ["text", "audio"],
+            "seed": 42
         });
 
         provider()
@@ -1500,9 +1534,52 @@ mod tests {
             "prediction",
             "audio",
             "web_search_options",
+            "modalities",
+            "seed",
         ] {
             assert!(body.get(key).is_none(), "`{key}` must not be forwarded to Anthropic");
         }
+    }
+
+    /// `modalities: ["text"]` is a no-op for Anthropic, but the field still must not reach the
+    /// wire: Anthropic's Messages API rejects any unrecognized top-level key with a 400, so
+    /// even a no-op value would fail the entire request if left in the body.
+    #[test]
+    fn transform_request_strips_text_only_modalities() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "modalities": ["text"]
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(
+            body.get("modalities").is_none(),
+            "`modalities` must not be forwarded to Anthropic"
+        );
+    }
+
+    /// `modalities: ["audio"]` asks for output Claude cannot produce; the request must still
+    /// succeed (text is returned instead) rather than leaking the field and getting a 400.
+    #[test]
+    fn transform_request_strips_audio_only_modalities() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "modalities": ["audio"]
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(
+            body.get("modalities").is_none(),
+            "`modalities` must not be forwarded to Anthropic"
+        );
     }
 
     #[test]
