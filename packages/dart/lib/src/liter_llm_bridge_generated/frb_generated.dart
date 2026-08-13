@@ -3,9 +3,6 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'package:liter_llm/src/native_loader.dart';
-import 'dart:core' as _DartCore;
-import 'dart:core';
 import '../native_loader.dart';
 import 'dart:ffi';
 import 'dart:isolate';
@@ -120,7 +117,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
       final rid = computeRid();
       if (rid != null) {
         final packageRoot = await Isolate.resolvePackageUri(
-          _DartCore.Uri.parse('package:liter_llm/liter_llm.dart'),
+          Uri.parse('package:liter_llm/liter_llm.dart'),
         );
         if (packageRoot != null) {
           final ridDir = packageRoot.resolve('src/native/$rid/');
@@ -136,7 +133,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
       // Check legacy package-installed location as fallback.
       final packageRoot = await Isolate.resolvePackageUri(
-        _DartCore.Uri.parse('package:liter_llm/liter_llm.dart'),
+        Uri.parse('package:liter_llm/liter_llm.dart'),
       );
       if (packageRoot != null) {
         final libDir = packageRoot.resolve('src/liter_llm_bridge_generated/');
@@ -275,7 +272,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 2096486777;
+  int get rustContentHash => 657677820;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -782,6 +779,13 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<ModelInfo?> crateModelInfo({required String model});
+
+  Future<void> crateRecordCostUsd({
+    required String system,
+    required String model,
+    required String operation,
+    required double costUsd,
+  });
 
   Future<RefreshOutcome> crateRefreshCatalog({
     required CatalogRefreshConfig config,
@@ -5273,6 +5277,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "model_info", argNames: ["model"]);
 
   @override
+  Future<void> crateRecordCostUsd({
+    required String system,
+    required String model,
+    required String operation,
+    required double costUsd,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(system, serializer);
+          sse_encode_String(model, serializer);
+          sse_encode_String(operation, serializer);
+          sse_encode_f_64(costUsd, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 135,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateRecordCostUsdConstMeta,
+        argValues: [system, model, operation, costUsd],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateRecordCostUsdConstMeta => const TaskConstMeta(
+    debugName: "record_cost_usd",
+    argNames: ["system", "model", "operation", "costUsd"],
+  );
+
+  @override
   Future<RefreshOutcome> crateRefreshCatalog({
     required CatalogRefreshConfig config,
   }) {
@@ -5284,7 +5326,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 135,
+            funcId: 136,
             port: port_,
           );
         },
@@ -5314,7 +5356,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 136,
+            funcId: 137,
             port: port_,
           );
         },
@@ -5345,7 +5387,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 137,
+            funcId: 138,
             port: port_,
           );
         },

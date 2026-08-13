@@ -3,9 +3,10 @@ import XCTest
 @testable import LiterLlm
 
 final class LiterLlmTests: XCTestCase {
-  func testPlaceholder() throws {
-    // Placeholder test so `swift test` has a target to run.
-    // Replace or extend with real tests against the LiterLlm module.
-    XCTAssertTrue(true)
+  func testSystemMessageRoundTripsThroughJSON() throws {
+    let message = SystemMessage(content: .text(field0: "be concise"), name: "system")
+    let data = try JSONEncoder().encode(message)
+    let decoded = try JSONDecoder().decode(SystemMessage.self, from: data)
+    XCTAssertEqual(decoded, message)
   }
 }

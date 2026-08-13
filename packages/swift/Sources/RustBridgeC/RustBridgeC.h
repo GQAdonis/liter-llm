@@ -2168,6 +2168,7 @@ void* __swift_bridge__$model_info(void* model);
 void __swift_bridge__$clear(void);
 struct __swift_bridge__$ResultUIntAndString __swift_bridge__$count_tokens(void* model, void* text);
 struct __swift_bridge__$ResultUIntAndString __swift_bridge__$count_request_tokens(void* model, void* req);
+void __swift_bridge__$record_cost_usd(void* system, void* model, void* operation, double cost_usd);
 void* __swift_bridge__$check_bound(void* context, uintptr_t current_len, uintptr_t incoming, uintptr_t limit);
 void* __swift_bridge__$install_catalog_overlay_from_str(void* catalog_json);
 void __swift_bridge__$clear_catalog_overlay(void);

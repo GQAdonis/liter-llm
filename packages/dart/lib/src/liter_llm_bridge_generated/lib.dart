@@ -182,9 +182,8 @@ Future<ModelInfo?> modelInfo({required String model}) =>
 ///
 /// Primarily useful in tests to reset state between test cases.
 ///
-/// **Panics:**
-///
-/// Panics if the global registry lock is poisoned.
+/// If the lock was poisoned by a panicking guardrail on a previous access,
+/// the poisoned state is recovered rather than propagating the panic.
 Future<void> clear() => RustLib.instance.api.crateClear();
 
 /// Count tokens in a text string using the tokenizer for the given model.
@@ -217,6 +216,23 @@ Future<PlatformInt64> countRequestTokens({
   required String model,
   required ChatCompletionRequest req,
 }) => RustLib.instance.api.crateCountRequestTokens(model: model, req: req);
+
+/// Record the estimated USD cost of a completion.
+///
+/// Call from `CostTrackingService` once a
+/// completion's cost has been computed. Emits `gen_ai.client.cost.usd`.
+/// If the meter has not been initialized, this call is a no-op.
+Future<void> recordCostUsd({
+  required String system,
+  required String model,
+  required String operation,
+  required double costUsd,
+}) => RustLib.instance.api.crateRecordCostUsd(
+  system: system,
+  model: model,
+  operation: operation,
+  costUsd: costUsd,
+);
 
 /// Assert that `current_len + incoming` does not exceed `limit`.
 ///
@@ -773,6 +789,9 @@ sealed class AssistantPart with _$AssistantPart {
 }
 
 /// Audio content part for speech-capable models.
+///
+/// ~keep No `deny_unknown_fields`: shared with the response side (see
+/// [`AssistantPart::OutputAudio`]), same rationale as [`ImageUrl`] (#51).
 class AudioContent {
   /// Base64-encoded audio data.
   final String data;
@@ -1076,6 +1095,9 @@ enum BatchStatus {
 /// AWS environment variables (`AWS_DEFAULT_REGION` / `AWS_REGION`,
 /// `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`,
 /// `BEDROCK_CROSS_REGION`).
+///
+/// Implements `Debug` manually (see below) so the AWS credential fields are
+/// redacted rather than printed in full.
 class BedrockConfig {
   /// AWS region (e.g. `"us-east-1"`).
   final String? region;
@@ -2497,6 +2519,12 @@ enum ImageDetail {
 }
 
 /// An image URL reference with optional detail level for processing.
+///
+/// ~keep No `deny_unknown_fields`: this type is shared with the response side
+/// (see [`AssistantPart::OutputImage`]) where it is deserialized from
+/// provider output, not just constructed as request input (see #51). A
+/// provider adding a new field to its image-output object must not hard-fail
+/// the whole response.
 class ImageUrl {
   /// URL of the image (data URI or HTTP/HTTPS URL).
   final String url;
@@ -2781,6 +2809,9 @@ class LlmCacheConfig {
 /// client-level settings; they are carried on this struct for callers to
 /// read when building individual requests, and are intentionally **not**
 /// mapped by [`LlmConfig::into_client_builder`].
+///
+/// Implements `Debug` manually (see below) so `api_key` and header values are
+/// redacted rather than printed in full.
 class LlmConfig {
   /// Model identifier (e.g. `"gpt-4o"`, `"bedrock/anthropic.claude-3-sonnet-20240229-v1:0"`).
   final String model;
@@ -4848,49 +4879,4 @@ class WaitForBatchConfig {
           maxIntervalSecs == other.maxIntervalSecs &&
           backoffMultiplier == other.backoffMultiplier &&
           timeoutSecs == other.timeoutSecs;
-}
-
-
-extension AssistantContentTextExt on AssistantContent {
-  /// Returns the plain-text display value of this content.
-  ///
-  /// - If this is a Text variant, returns its string content verbatim.
-  /// - If this is a Parts variant, concatenates the text fields from all text-type
-  ///   parts, skipping non-text parts like images, audio, or refusals.
-  /// - Otherwise returns an empty string.
-  String text() {
-    return switch (this) {
-      AssistantContent_Text(:final field0) => field0,
-      AssistantContent_Parts(:final field0) => _extractTextFromContentParts(field0),
-      _ => '',
-    };
-  }
-}
-
-/// Helper: Extract and concatenate text from content parts.
-/// Expects parts to be a List of sealed class instances (typically ContentPart
-/// or similar union types where each variant is a sealed class, e.g. ContentPart_Text).
-/// Only instances of *_Text variants (containing a text field) contribute to output.
-String _extractTextFromContentParts(List<dynamic> parts) {
-  final sb = StringBuffer();
-  for (final part in parts) {
-    // For FRB-generated sealed class instances, we can check the runtime type
-    // and access properties dynamically. Sealed class variants follow the pattern
-    // TypeName_VariantName, and text-type variants have a 'text' property.
-    final typeString = part.runtimeType.toString();
-    // Check if this is a text-type variant (e.g., 'ContentPart_Text(...)' or similar)
-    if (typeString.contains('_Text')) {
-      try {
-        // Use dynamic access to get the 'text' field from the variant instance
-        final text = (part as dynamic).text;
-        if (text is String) {
-          sb.write(text);
-        }
-      } catch (_) {
-        // If field access fails, skip this part (it's not actually a text variant)
-        continue;
-      }
-    }
-  }
-  return sb.toString();
 }

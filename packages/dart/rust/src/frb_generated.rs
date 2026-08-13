@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2096486777;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 657677820;
 
 // Section: executor
 
@@ -4119,10 +4119,6 @@ fn wire__crate__encode_data_url_impl(
     )
 }
 #[cfg(any(all(feature = "native-http", not(target_os = "windows")),all(feature = "native-http", target_os = "windows")))]
-#[cfg(any(
-    all(feature = "native-http", not(target_os = "windows")),
-    all(feature = "native-http", target_os = "windows")
-))]
 fn wire__crate__ensure_crypto_provider_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -4286,6 +4282,39 @@ fn wire__crate__model_info_impl(
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Result::<_, ()>::Ok(crate::model_info(api_model))?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__record_cost_usd_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "record_cost_usd",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_)
+            };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_system = <String>::sse_decode(&mut deserializer);
+            let api_model = <String>::sse_decode(&mut deserializer);
+            let api_operation = <String>::sse_decode(&mut deserializer);
+            let api_cost_usd = <f64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok({
+                        crate::record_cost_usd(api_system, api_model, api_operation, api_cost_usd);
+                    })?;
                     Ok(output_ok)
                 })())
             }
@@ -8581,19 +8610,16 @@ fn pde_ffi_dispatcher_primary_impl(
         127 => wire__crate__decode_data_url_impl(port, ptr, rust_vec_len, data_len),
         128 => wire__crate__encode_data_url_impl(port, ptr, rust_vec_len, data_len),
         #[cfg(any(all(feature = "native-http", not(target_os = "windows")),all(feature = "native-http", target_os = "windows")))]
-        #[cfg(any(
-            all(feature = "native-http", not(target_os = "windows")),
-            all(feature = "native-http", target_os = "windows")
-        ))]
         129 => wire__crate__ensure_crypto_provider_impl(port, ptr, rust_vec_len, data_len),
         130 => wire__crate__install_catalog_overlay_from_str_impl(port, ptr, rust_vec_len, data_len),
         131 => wire__crate__liter_llm_error_error_type_impl(port, ptr, rust_vec_len, data_len),
         132 => wire__crate__liter_llm_error_is_transient_impl(port, ptr, rust_vec_len, data_len),
         133 => wire__crate__liter_llm_error_status_code_impl(port, ptr, rust_vec_len, data_len),
         134 => wire__crate__model_info_impl(port, ptr, rust_vec_len, data_len),
-        135 => wire__crate__refresh_catalog_impl(port, ptr, rust_vec_len, data_len),
-        136 => wire__crate__register_custom_provider_impl(port, ptr, rust_vec_len, data_len),
-        137 => wire__crate__unregister_custom_provider_impl(port, ptr, rust_vec_len, data_len),
+        135 => wire__crate__record_cost_usd_impl(port, ptr, rust_vec_len, data_len),
+        136 => wire__crate__refresh_catalog_impl(port, ptr, rust_vec_len, data_len),
+        137 => wire__crate__register_custom_provider_impl(port, ptr, rust_vec_len, data_len),
+        138 => wire__crate__unregister_custom_provider_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

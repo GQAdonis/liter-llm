@@ -139,6 +139,9 @@ public func countTokens<GenericIntoRustString: IntoRustString>(_ model: GenericI
 public func countRequestTokens<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ req: ChatCompletionRequest) throws -> UInt {
     try { let val = __swift_bridge__$count_request_tokens({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), {req.isOwned = false; return req.ptr;}()); switch val.tag { case __swift_bridge__$ResultUIntAndString$ResultOk: return val.payload.ok case __swift_bridge__$ResultUIntAndString$ResultErr: throw RustString(ptr: val.payload.err) default: fatalError() } }()
 }
+public func recordCostUsd<GenericIntoRustString: IntoRustString>(_ system: GenericIntoRustString, _ model: GenericIntoRustString, _ operation: GenericIntoRustString, _ cost_usd: Double) -> () {
+    __swift_bridge__$record_cost_usd({ let rustString = system.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = operation.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), cost_usd)
+}
 public func checkBound<GenericIntoRustString: IntoRustString>(_ context: GenericIntoRustString, _ current_len: UInt, _ incoming: UInt, _ limit: UInt) throws -> () {
     try { let val = __swift_bridge__$check_bound({ let rustString = context.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), current_len, incoming, limit); if val != nil { throw RustString(ptr: val!) } else { return } }()
 }
