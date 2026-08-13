@@ -118,7 +118,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Chat responses now always serialize `role` (on `choices[].message`), `logprobs` (on `choices[]`)
   and `refusal` (present even when `null`) to satisfy OpenAI's response schema. See "Upgrade notes."
 - `Choice` gained a `logprobs` field; `CreateResponseRequest` gained an `extra_body` field;
-  `GuardrailService` gained an `S: Clone` bound. See "Upgrade notes."
+  `GuardrailService` and `HooksService` both gained an `S: Clone` bound. See "Upgrade notes."
+- **A hook-rejected request no longer consumes rate-limit and budget accounting.** `HooksService`
+  called the inner service before running its `on_request` hooks, so a request the hooks rejected
+  had already executed every inner layer's synchronous body — and `ModelRateLimitService`
+  increments its RPM counter there. A burst of hook-rejected traffic therefore exhausted the RPM
+  window and started rejecting *legitimate* requests, none of which had reached a provider. No
+  upstream call was ever made, so this cost bookkeeping rather than money, but it is a self-DoS
+  any client could trigger by repeatedly sending content a guardrail hook blocks. The inner call
+  now happens after the hooks pass. The existing short-circuit test could not catch this: its mock
+  counted inside the async body, which is never polled either way.
 - **An Azure-routed Responses call sent a malformed URL instead of failing.** All four
   `ResponseClient` methods pass an empty model to `build_url` — none of create/retrieve/cancel has
   one to give — and Azure embeds the model in the path unconditionally, so the request went out to
