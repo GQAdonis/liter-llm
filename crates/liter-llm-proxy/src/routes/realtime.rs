@@ -13,14 +13,23 @@
 //! client  ◄─[WS message]──   translate_inbound   ◄──  upstream provider
 //! ```
 //!
-//! Guardrails are applied:
-//! - **Client → upstream**: the serialised event text is checked at the
-//!   `GuardrailStage::Input` stage before forwarding.  A `Block` result sends
-//!   a [`RealtimeEvent::Error`] back to the client; the upstream never sees the
-//!   message.
-//! - **Upstream → client**: the serialised event text is checked at the
-//!   `GuardrailStage::OutputChunk` stage before forwarding.  A `Block` result
-//!   replaces the event with a [`RealtimeEvent::Error`] sent to the client.
+//! # Guardrails — NOT enforced in any current deployment
+//!
+//! Do not rely on realtime sessions being moderated.  [`run_proxy`] takes a
+//! guardrail set and checks every message against it — client → upstream at the
+//! `GuardrailStage::Input` stage, upstream → client at `GuardrailStage::OutputChunk`,
+//! with a `Block` result replaced by a [`RealtimeEvent::Error`] — but
+//! [`handle_session`], the only production caller, passes an empty set.  There is
+//! no proxy config field, no [`AppState`] field, and no other call site that
+//! populates one, so both checks iterate nothing and always allow.
+//!
+//! Every message therefore reaches its destination unexamined.  The machinery
+//! below is exercised only by this module's own tests, which construct their own
+//! guardrail sets; it is wiring waiting for a config surface, not an active
+//! control.  Anything that must not reach the upstream has to be blocked
+//! elsewhere.
+//!
+//! [`AppState`]: crate::state::AppState
 //!
 //! # Cancellation
 //!

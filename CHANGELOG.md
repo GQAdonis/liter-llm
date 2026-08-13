@@ -58,6 +58,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   equal. Config load now refuses a master or virtual key that interpolates to empty, and the
   comparison itself rejects empty operands. Virtual keys had the same hazard and are fixed the same
   way.
+- **The realtime proxy documented guardrail enforcement it has never performed.** The module doc
+  stated as fact that client → upstream messages are checked at `GuardrailStage::Input` and
+  upstream → client at `GuardrailStage::OutputChunk`. The machinery to do so exists and is
+  correct, but the only production call site passes an empty guardrail set, and there is no proxy
+  config field, no `AppState` field and no other caller that populates one — so both checks
+  iterate nothing and always allow. No behaviour changed here; what changed is that the docs no
+  longer assert a control that is not running. If you relied on realtime sessions being moderated,
+  they were not. Wiring a real config surface for this is tracked separately.
 - **MCP tool calls and realtime sessions bypassed per-key rate limits and budgets entirely.**
   Model-routed MCP calls never attached `tenant_id` to the Tower stack, and a missing `tenant_id` is
   treated as intentionally unlimited; realtime never entered the Tower stack at all. Both are now
