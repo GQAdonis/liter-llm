@@ -19,9 +19,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   optional `tenant_id` field; if left unset, a *new* tenant id is derived instead of reusing the key.
   On deploy this means: **month-to-date budget spend resets to zero for every key that does not set
   `tenant_id` explicitly**, and that key's existing tenant-scoped cache entries become orphaned
-  (unreachable, not deleted). If you need billing and cache continuity across this upgrade, set
-  `tenant_id` to the old key value for every affected virtual key **in the same deploy** — do this
-  before traffic hits the new build, not after.
+  (unreachable, not deleted).
+
+  If you need **billing** continuity across this upgrade, set `tenant_id` to the old key value for
+  every affected virtual key **in the same deploy**, before traffic hits the new build.
+
+  **Understand what that costs before you do it.** Setting `tenant_id` to the key token puts the
+  live credential back into every sink listed above — the OTLP attribute, the chargeback export,
+  cache keys at rest and `UsageEvent` logs. None of those sinks were hardened by this release; only
+  the default changed. The code deliberately prints `tenant_id` in plain text (in `KeyContext`'s
+  `Debug`, for one) precisely *because* it is no longer expected to be a secret, so this remedy
+  reinstates the exposure the release exists to remove. Treat it as a temporary migration step:
+  carry spend across the deploy, then rotate the affected keys and drop the explicit `tenant_id`.
+  If you can absorb a spend reset instead, that is the safer choice.
+
+  Cache continuity is **not** available by any route — see the next note. Every entry is
+  unreachable after this deploy regardless of what `tenant_id` is set to, so do not accept the
+  credential-reexposure cost expecting to keep a warm cache.
 - **Deploying this release invalidates every existing cache entry.** The cache key now folds in
   `tenant_id` and `system_prompt` (both previously hard-coded to `None`) and additionally hashes
   `tools`, `response_format`, `seed`, `presence_penalty`, `frequency_penalty`, `logit_bias`,
@@ -35,8 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when `null`, which as a side effect also makes it appear on *request* messages you send — that is
   valid per OpenAI's schema, but if you diff request payloads byte-for-byte, expect the new key.
 - **API: exhaustive struct literals against `Choice` or `CreateResponseRequest` will not compile.**
-  `Choice` gained `logprobs`; `CreateResponseRequest` gained `extra_body`. `GuardrailService` also
-  gained an `S: Clone` bound on its generic backend parameter.
+  `Choice` gained `logprobs`; `CreateResponseRequest` gained `extra_body`.
+- **API: `GuardrailService` and `HooksService` gained an `S: Clone` bound.** The bound is on the
+  `Service` impl, not the struct, so it breaks composition rather than construction: a stack
+  wrapping an inner service that is not `Clone` no longer compiles. Both needed it to defer the
+  inner call until after their own pre-flight decision.
 
 ### Security
 
@@ -244,8 +261,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   classifier verdict cache (capped at 4096 entries by default).
 - Cache TTL configuration was ignored on two of three write paths. `CacheLayer::new` hardcoded a
   300s policy TTL regardless of `CacheConfig.ttl`; `with_store` (used by every custom store and
-  every OpenDAL backend via `ManagedClient`) took no config at all and had the same default. Both
-  now honour the configured TTL.
+  every OpenDAL backend via `ManagedClient`) took no config at all and had the same default.
+  `CacheLayer::new` now honours it, and a new `CacheLayer::with_store_and_config` constructor
+  carries the config through — `ManagedClient` uses it. **`with_store` itself is unchanged and
+  still cannot honour a TTL**, because it takes no `CacheConfig`; if you build a custom store
+  through it, switch to `with_store_and_config` or you will keep getting the 300s default.
 - Weighted-random routing seeded its RNG from `SystemTime` subsecond nanos, so requests arriving in
   the same timer tick drew near-identical values and a burst of traffic collapsed onto one
   deployment instead of spreading per the configured weights. Now seeded once from OS entropy.
@@ -304,13 +324,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Behavior change: an unresolvable native now throws a descriptive `StateError` naming the asset
   URL and the download command, where it previously returned `null` and let flutter_rust_bridge
   attempt its own relative-path `dlopen`.
-
-### Added
-
-- Dart: `AssistantContent.text()` is generated again. `untagged_union_text_types =
-  ["AssistantContent"]` has been configured in `alef.toml` all along, but the extension was absent
-  from the committed bindings — the post-build step that injects it only runs when `lib.dart` is
-  already on disk, so an earlier regen had silently skipped it.
 
 [#174]: https://github.com/xberg-io/liter-llm/issues/174
 
