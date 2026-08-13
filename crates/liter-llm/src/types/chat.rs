@@ -258,9 +258,41 @@ pub struct Choice {
     /// Index of this choice in the choices array.
     pub index: u32,
     /// The assistant's message response.
+    ///
+    /// Serialized with an explicit `role: "assistant"`. The field is not stored
+    /// on [`AssistantMessage`] because [`Message`] is an internally-tagged enum
+    /// keyed on `role`, so a stored field would emit the key twice inside a
+    /// request. OpenAI's response schema requires it here. ~keep
+    #[serde(serialize_with = "serialize_assistant_message_with_role")]
     pub message: AssistantMessage,
     /// Why the model stopped generating (stop, length, tool_calls, content_filter, etc.).
     pub finish_reason: Option<FinishReason>,
+    /// Per-token log probabilities, when the request asked for them.
+    ///
+    /// Required by OpenAI's response schema as an always-present, nullable key,
+    /// so this is deliberately not `skip_serializing_if`. ~keep
+    #[serde(default)]
+    pub logprobs: Option<serde_json::Value>,
+}
+
+/// Serialize an [`AssistantMessage`] with the `role: "assistant"` discriminator
+/// that OpenAI's response schema requires on `choices[].message`.
+fn serialize_assistant_message_with_role<S>(message: &AssistantMessage, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    #[derive(Serialize)]
+    struct WithRole<'a> {
+        role: &'static str,
+        #[serde(flatten)]
+        message: &'a AssistantMessage,
+    }
+
+    WithRole {
+        role: "assistant",
+        message,
+    }
+    .serialize(serializer)
 }
 
 /// A streamed chunk of a chat completion response.

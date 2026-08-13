@@ -290,7 +290,10 @@ pub struct AssistantMessage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ToolCall>>,
     /// Refusal reason, if the model declined to respond per safety policies.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ///
+    /// OpenAI's response schema requires this key to be present even when null,
+    /// so it is deliberately not `skip_serializing_if`. ~keep
+    #[serde(default)]
     pub refusal: Option<String>,
     /// Deprecated legacy function_call field; retained for API compatibility.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -877,11 +880,21 @@ mod tests {
         );
     }
 
+    /// `refusal` is serialized even when `None`, because OpenAI's response
+    /// schema requires the key to be present on `choices[].message`. That makes
+    /// it present on request messages too — which is schema-valid, and the
+    /// providers that cannot accept it rebuild the body in their own transform.
     #[test]
     fn message_assistant_with_parts_round_trips() {
         let msg = Message::assistant_with_parts(vec![AssistantPart::Text { text: "ok".into() }]);
         let json = serde_json::to_string(&msg).expect("must serialise");
-        assert_eq!(json, r#"{"role":"assistant","content":[{"type":"text","text":"ok"}]}"#);
+        assert_eq!(
+            json,
+            r#"{"role":"assistant","content":[{"type":"text","text":"ok"}],"refusal":null}"#
+        );
+
+        let back: Message = serde_json::from_str(&json).expect("must round-trip");
+        assert_eq!(back, msg, "the explicit null must deserialise back to None");
     }
 
     #[test]

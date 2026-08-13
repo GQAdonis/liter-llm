@@ -335,6 +335,7 @@ mod tests {
                         reasoning_content: None,
                     },
                     finish_reason: Some(FinishReason::Stop),
+                    logprobs: None,
                 }],
                 usage: Some(Usage {
                     prompt_tokens: 100,
