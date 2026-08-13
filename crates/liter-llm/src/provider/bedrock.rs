@@ -394,6 +394,11 @@ impl Provider for BedrockProvider {
     /// - Messages use `content` arrays with typed blocks (`text`, `toolUse`, `toolResult`).
     /// - Generation parameters live in `inferenceConfig`.
     /// - Tools are described in `toolConfig.tools[].toolSpec`.
+    ///
+    /// Embedding requests (`input` present, no `messages`) are routed to
+    /// [`transform_bedrock_embed_request`] instead: Bedrock has no Converse-style
+    /// unified embeddings API, so this dispatch mirrors the same
+    /// `input`/`messages` discriminator used by [`super::vertex`].
     fn transform_request(&self, body: &mut serde_json::Value) -> Result<()> {
         use serde_json::json;
 
@@ -402,6 +407,14 @@ impl Provider for BedrockProvider {
         // hard-errors on a signing failure (see #42), but this precheck fails fast with a
         // clearer, missing-credentials-specific message before any signing work happens.
         self.validate()?;
+
+        // ~keep Embedding bodies have `input` and no `messages`. Without this branch they
+        // ~keep fell through to the Converse transform below, which unconditionally removes
+        // ~keep `messages` (absent here) via `unwrap_or_default()` and rebuilds the body as
+        // ~keep `{"messages": []}`, silently discarding the entire `input`.
+        if body.get("input").is_some() && body.get("messages").is_none() {
+            return transform_bedrock_embed_request(body);
+        }
 
         let messages = body
             .as_object_mut()
@@ -605,8 +618,20 @@ impl Provider for BedrockProvider {
     /// always `""`.  Bedrock does not include the model name in its response
     /// body — the model is only present in the request URL path.  Threading
     /// the model through would require a signature change to `transform_response`.
+    ///
+    /// Embedding responses (Titan's `{"embedding": [...]}` or Cohere's
+    /// `{"embeddings": [[...], ...]}`) are routed to
+    /// [`transform_bedrock_embed_response`] instead. Unlike the request side,
+    /// this dispatch cannot use the model ID — `transform_response` has no
+    /// model parameter (see the limitation above) and an `InvokeModel`
+    /// response body carries no model field either — so it sniffs the
+    /// response shape instead, same as [`super::vertex::transform_gemini_response`].
     fn transform_response(&self, body: &mut serde_json::Value) -> Result<()> {
         use serde_json::json;
+
+        if body.get("embedding").is_some() || body.get("embeddings").is_some() {
+            return transform_bedrock_embed_response(body);
+        }
 
         let stop_reason = body.get("stopReason").and_then(|s| s.as_str()).unwrap_or("end_turn");
         let usage = body.get("usage").cloned();
@@ -740,6 +765,137 @@ impl Provider for BedrockProvider {
             Ok(vec![])
         }
     }
+}
+
+/// `input_type` sent for Bedrock Cohere embed models.
+///
+/// Cohere's v3 embed models require this field, but OpenAI's `EmbeddingRequest` has
+/// no equivalent concept to map from, so a default must be chosen. `search_document`
+/// is the indexing-side value — correct for the dominant use of an embeddings
+/// endpoint. A caller embedding *queries* wants `search_query` and will get subtly
+/// mismatched vectors; that needs a provider-options passthrough to fix properly,
+/// which this constant deliberately does not fake. ~keep
+const COHERE_EMBED_DEFAULT_INPUT_TYPE: &str = "search_document";
+
+/// Convert an OpenAI-style embedding request to a Bedrock model-family `InvokeModel` body.
+///
+/// Bedrock has no unified embeddings API — each model family defines its own wire
+/// shape, and there is nothing else in `transform_request`'s signature to key off
+/// of, so this dispatches on `body["model"]`. That field is populated by
+/// `Client::prepare_request` (`crates/liter-llm/src/client/mod.rs`), which inserts
+/// the already-prefix-stripped model ID into the body immediately before calling
+/// `transform_request` — so it is reliably present here.
+///
+/// Supported families:
+/// - Amazon Titan (`amazon.titan-embed-*`): `{"inputText": "..."}`.
+/// - Cohere Embed (`cohere.embed-*`): `{"texts": [...], "input_type": "search_document"}`.
+///
+/// Any other model prefix is rejected with a clear error rather than guessed at.
+///
+/// ~keep Titan's `invoke` endpoint accepts exactly one string per call (batch Titan
+/// ~keep embedding is a separate async `CreateModelInvocationJob` API, not this
+/// ~keep synchronous path). A batched OpenAI `input` is reduced to its first element;
+/// ~keep the rest are dropped with a warning rather than silently discarded.
+fn transform_bedrock_embed_request(body: &mut serde_json::Value) -> Result<()> {
+    use crate::error::LiterLlmError;
+    use serde_json::json;
+
+    let model = body.get("model").and_then(|m| m.as_str()).unwrap_or("").to_owned();
+
+    let input = body.get("input").cloned().unwrap_or_default();
+    let texts: Vec<String> = match &input {
+        serde_json::Value::String(s) => vec![s.clone()],
+        serde_json::Value::Array(arr) => arr.iter().filter_map(|v| v.as_str().map(ToOwned::to_owned)).collect(),
+        _ => vec![],
+    };
+
+    if model.starts_with("amazon.titan-embed") {
+        // ~keep Reject rather than truncate. OpenAI's contract is that `data[]` parallels
+        // ~keep `input[]`, so returning one vector for an N-element batch hands the caller
+        // ~keep silently misaligned embeddings — the kind of defect that corrupts a vector
+        // ~keep store and only surfaces much later as bad retrieval.
+        if texts.len() > 1 {
+            return Err(LiterLlmError::BadRequest {
+                message: format!(
+                    "Bedrock Titan embedding model '{model}' accepts a single input per call, but \
+                     {} were supplied; issue one request per input (batch Titan embedding is a \
+                     separate asynchronous job API)",
+                    texts.len()
+                ),
+                status: 400,
+            });
+        }
+        let text = texts.first().cloned().unwrap_or_default();
+        let mut new_body = json!({"inputText": text});
+        if let Some(dimensions) = body.get("dimensions") {
+            new_body["dimensions"] = dimensions.clone();
+        }
+        *body = new_body;
+        return Ok(());
+    }
+
+    if model.starts_with("cohere.embed") {
+        *body = json!({
+            "texts": texts,
+            "input_type": COHERE_EMBED_DEFAULT_INPUT_TYPE
+        });
+        return Ok(());
+    }
+
+    Err(LiterLlmError::BadRequest {
+        message: format!(
+            "unsupported Bedrock embedding model '{model}': liter-llm currently supports \
+             amazon.titan-embed-* and cohere.embed-* embedding models"
+        ),
+        status: 400,
+    })
+}
+
+/// Normalize a Bedrock `InvokeModel` embedding response to OpenAI's embeddings list format.
+///
+/// Dispatched by response shape rather than model ID: `transform_response` has no
+/// model parameter, and an `InvokeModel` response body carries no model field
+/// either (same limitation noted on [`BedrockProvider::transform_response`]).
+///
+/// - Titan (`{"embedding": [...], "inputTextTokenCount": N}`) -> single embedding,
+///   with `inputTextTokenCount` threaded through as `prompt_tokens`.
+/// - Cohere (`{"embeddings": [[...], ...]}`) -> one embedding per input text.
+///   ~keep Bedrock's Cohere embed response carries no token-usage field, so
+///   ~keep usage is reported as zero rather than guessed at.
+fn transform_bedrock_embed_response(body: &mut serde_json::Value) -> Result<()> {
+    use serde_json::json;
+
+    if let Some(embedding) = body.get("embedding").cloned() {
+        let prompt_tokens = body.get("inputTextTokenCount").and_then(|v| v.as_u64()).unwrap_or(0);
+        *body = json!({
+            "object": "list",
+            "data": [{"object": "embedding", "embedding": embedding, "index": 0}],
+            "model": "",
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": 0,
+                "total_tokens": prompt_tokens
+            }
+        });
+        return Ok(());
+    }
+
+    if let Some(embeddings) = body.get("embeddings").and_then(|e| e.as_array()).cloned() {
+        let data: Vec<serde_json::Value> = embeddings
+            .into_iter()
+            .enumerate()
+            .map(|(index, embedding)| json!({"object": "embedding", "embedding": embedding, "index": index}))
+            .collect();
+        *body = json!({
+            "object": "list",
+            "data": data,
+            "model": "",
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        });
+        return Ok(());
+    }
+
+    Ok(())
 }
 
 /// Parse a Bedrock ConverseStream EventStream event into a `ChatCompletionChunk`.
@@ -2012,5 +2168,185 @@ mod tests {
             "vnd.openxmlformats-officedocument.wordprocessingml.document"
         );
         assert_eq!(super::format_from_media_type("pdf"), "pdf");
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_titan_embedding_input_is_not_mangled_into_empty_messages() {
+        // ~keep Regression test: before the embed/chat branch, `transform_request`
+        // ~keep unconditionally rebuilt the body as `{"messages": []}` for any request,
+        // ~keep silently discarding an embedding request's `input` entirely.
+        let p = provider();
+        let mut body = json!({
+            "model": "amazon.titan-embed-text-v1",
+            "input": "hello world"
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["inputText"], "hello world");
+        assert!(
+            body.get("messages").is_none(),
+            "embedding body must not gain a messages field"
+        );
+    }
+
+    /// Titan's synchronous invoke takes one input, but OpenAI's contract is that
+    /// `data[]` parallels `input[]`. Quietly embedding only the first text would
+    /// hand back one vector for an N-element batch — misaligned embeddings that
+    /// surface much later as bad retrieval, not as an error. Reject instead.
+    #[test]
+    #[serial]
+    fn transform_request_titan_embedding_batch_input_is_rejected_not_truncated() {
+        let p = provider();
+        let mut body = json!({
+            "model": "amazon.titan-embed-text-v2:0",
+            "input": ["first", "second"]
+        });
+
+        let err = p
+            .transform_request(&mut body)
+            .expect_err("a batched Titan embedding request must be rejected, not silently truncated");
+
+        assert_eq!(err.status_code(), 400);
+        assert!(
+            err.to_string().contains("single input per call"),
+            "the error must explain the single-input limit, got: {err}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_titan_embedding_single_element_array_is_accepted() {
+        let p = provider();
+        let mut body = json!({
+            "model": "amazon.titan-embed-text-v2:0",
+            "input": ["only"]
+        });
+
+        p.transform_request(&mut body)
+            .expect("a single-element batch is within Titan's one-input limit");
+
+        assert_eq!(body["inputText"], "only");
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_cohere_embedding_maps_to_texts_and_input_type() {
+        let p = provider();
+        let mut body = json!({
+            "model": "cohere.embed-english-v3",
+            "input": ["one", "two"]
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        let texts = body["texts"].as_array().expect("texts should be an array");
+        assert_eq!(texts.len(), 2);
+        assert_eq!(texts[0], "one");
+        assert_eq!(texts[1], "two");
+        assert_eq!(body["input_type"], "search_document");
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_unknown_embedding_model_is_rejected() {
+        let p = provider();
+        let mut body = json!({
+            "model": "unknown-vendor.embed-v1",
+            "input": "hello"
+        });
+
+        let err = p.transform_request(&mut body).unwrap_err();
+        assert!(
+            err.to_string().contains("unsupported Bedrock embedding model"),
+            "got: {err}"
+        );
+    }
+
+    /// Regression guard: the embed/chat dispatch must only trigger for
+    /// input-without-messages bodies. A normal chat body (messages present) must
+    /// still go through the unchanged Converse transform.
+    #[test]
+    #[serial]
+    fn transform_request_chat_path_unaffected_by_embedding_branch() {
+        let p = provider();
+        let mut body = json!({
+            "model": "anthropic.claude-3-sonnet",
+            "messages": [{"role": "user", "content": "Hello!"}]
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["messages"][0]["role"], "user");
+        assert_eq!(body["messages"][0]["content"][0]["text"], "Hello!");
+        assert!(body.get("inputText").is_none());
+    }
+
+    #[test]
+    #[serial]
+    fn transform_response_titan_embedding_response_normalized() {
+        let p = provider();
+        let mut body = json!({
+            "embedding": [0.1, 0.2, 0.3],
+            "inputTextTokenCount": 4
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        assert_eq!(body["object"], "list");
+        assert_eq!(body["data"][0]["embedding"], json!([0.1, 0.2, 0.3]));
+        assert_eq!(body["data"][0]["index"], 0);
+        assert_eq!(body["usage"]["prompt_tokens"], 4);
+    }
+
+    #[test]
+    #[serial]
+    fn transform_response_cohere_embedding_response_normalized() {
+        let p = provider();
+        let mut body = json!({
+            "embeddings": [[0.1, 0.2], [0.3, 0.4]],
+            "id": "abc",
+            "response_type": "embeddings_floats",
+            "texts": ["one", "two"]
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        let data = body["data"].as_array().expect("data should be an array");
+        assert_eq!(data.len(), 2);
+        assert_eq!(data[0]["embedding"], json!([0.1, 0.2]));
+        assert_eq!(data[1]["embedding"], json!([0.3, 0.4]));
+        assert_eq!(data[1]["index"], 1);
+    }
+
+    /// Regression guard: a normal chat response (no `embedding`/`embeddings` key)
+    /// must still go through the unchanged Converse response transform.
+    #[test]
+    #[serial]
+    fn transform_response_chat_path_unaffected_by_embedding_branch() {
+        let p = provider();
+        let mut body = json!({
+            "requestId": "req-456",
+            "stopReason": "end_turn",
+            "output": {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"text": "hi"}]
+                }
+            },
+            "usage": {"inputTokens": 1, "outputTokens": 1}
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        assert_eq!(body["object"], "chat.completion");
+        assert!(body.get("data").is_none());
     }
 }
