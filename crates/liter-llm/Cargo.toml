@@ -19,17 +19,17 @@ ignored = ["dashmap", "tower-http"]
 # ~keep Disable `native-http` for WebAssembly; browser and Node builds use fetch
 # ~keep and cannot run the Tokio multi-thread runtime.
 native-http = [
-    "dep:reqwest",
-    # ~keep reqwest/http2 gates `ClientBuilder::http2_prior_knowledge()`, which
-    # ~keep backs `TransportConfig::http2_prior_knowledge`.
-    "reqwest/http2",
-    # ~keep dep:rustls is only present on non-Windows; Cargo ignores optional
-    # ~keep feature activations for absent target-conditional deps.
-    "dep:rustls",
-    "dep:tokio",
-    "dep:tokio-util",
-    "dep:memchr",
-    "dep:gcp_auth",
+  "dep:reqwest",
+  # ~keep reqwest/http2 gates `ClientBuilder::http2_prior_knowledge()`, which
+  # ~keep backs `TransportConfig::http2_prior_knowledge`.
+  "reqwest/http2",
+  # ~keep dep:rustls is only present on non-Windows; Cargo ignores optional
+  # ~keep feature activations for absent target-conditional deps.
+  "dep:rustls",
+  "dep:tokio",
+  "dep:tokio-util",
+  "dep:memchr",
+  "dep:gcp_auth",
 ]
 
 wasm-http = ["dep:reqwest", "dep:memchr", "dep:gloo-timers", "dep:web-time"]
@@ -69,17 +69,17 @@ tokenizer = ["dep:tokenizers"]
 lite = ["native-http"]
 
 full = [
-    "native-http",
-    "tower",
-    "otel",
-    "bedrock",
-    "tokenizer",
-    "azure-auth",
-    "copilot-auth",
-    "vertex-auth",
-    "vertex-adc",
-    "bedrock-auth",
-    "opendal-cache",
+  "native-http",
+  "tower",
+  "otel",
+  "bedrock",
+  "tokenizer",
+  "azure-auth",
+  "copilot-auth",
+  "vertex-auth",
+  "vertex-adc",
+  "bedrock-auth",
+  "opendal-cache",
 ]
 
 etcd-key-resolver = ["dep:etcd-client", "dep:hex", "dep:sha2"]
@@ -153,6 +153,10 @@ jsonschema = { workspace = true }
 serde_json = { workspace = true }
 serial_test = { workspace = true }
 tokio = { workspace = true, features = ["test-util", "macros"] }
+# Needed only by tower::tracing tests: the span contract is asserted through a hand-rolled
+# Subscriber, whose current_span() must return tracing_core::span::Current — a type `tracing`
+# does not re-export.
+tracing-core = "0.1"
 
 [lints]
 workspace = true

@@ -32,6 +32,26 @@
 //! - `gen_ai.response.model` — the model from the response (may differ).
 //! - `gen_ai.operation.name` — `"chat"`, `"embeddings"`, etc.
 //!
+//! # Wiring this layer in
+//!
+//! Two separate steps are required before any metric declared here reaches an
+//! OTel backend; skipping either leaves the whole surface permanently inert:
+//!
+//! 1. **Install the meter.** Call [`init_meter`] once at application startup
+//!    with a `Meter` obtained from your configured `MeterProvider` (e.g.
+//!    `global::meter("liter-llm")`). This mirrors the crate's `tracing`
+//!    convention — the library only emits, the embedding application installs
+//!    the provider — so `MetricsLayer` deliberately does not call
+//!    `global::meter` itself. Until `init_meter` runs, every recorder in this
+//!    module, and [`MetricsService`] itself, is a silent no-op.
+//! 2. **Add the layer to the request pipeline.** Unlike step 1, this is not
+//!    an OTel-wide convention: `MetricsLayer` is a regular `tower::Layer` and,
+//!    like every other layer in this module, is only applied where a caller
+//!    explicitly adds it — `LlmService` and the other layers here never wrap
+//!    it in automatically. Add `.layer(MetricsLayer)` wherever the
+//!    application assembles its `tower::ServiceBuilder` stack, typically
+//!    alongside [`super::tracing::TracingLayer`].
+//!
 //! # Feature gate
 //!
 //! This module is compiled only when the `otel` feature is active.  When the
@@ -220,9 +240,21 @@ mod inner {
         TOKEN_ATTRS_CACHE.get_or_init(DashMap::new)
     }
 
-    /// Retrieve or build base attributes for the given (system, model) pair.
-    /// Returns an Arc pointing to the cached attribute slice to avoid per-request clones.
-    fn get_or_build_base_attrs(system: &str, model: &str, response_model: &str, operation: &str) -> Arc<[KeyValue]> {
+    /// Retrieve or build the STATIC subset of GenAI attributes for a (system,
+    /// model) pair: `gen_ai.system` and `gen_ai.request.model`.
+    ///
+    /// ~keep Only these two fields are safe to key a process-wide cache on.
+    /// ~keep `gen_ai.response.model` and `gen_ai.operation.name` vary *per call*
+    /// ~keep even for the same (system, model) — the response model can differ
+    /// ~keep from the request model, and `req.model()` is `None` (so `model` is
+    /// ~keep `""`) for `ListModels` and for `ImageGenerate`/`Moderate` requests
+    /// ~keep with no model set. Baking either into the cached value (as a
+    /// ~keep previous version of this function did) meant the first observation
+    /// ~keep for a given key permanently overwrote every later one's response
+    /// ~keep model and operation name. Callers must combine this with the
+    /// ~keep per-call fields via [`build_base_attrs`] / [`build_token_attrs`]
+    /// ~keep instead of caching the combined result.
+    fn get_or_build_static_attrs(system: &str, model: &str) -> Arc<[KeyValue]> {
         let system_arc = Arc::<str>::from(system);
         let model_arc = Arc::<str>::from(model);
         let key = (Arc::clone(&system_arc), Arc::clone(&model_arc));
@@ -233,12 +265,10 @@ mod inner {
             return Arc::clone(&entry);
         }
 
-        let attrs = Arc::from(
+        let attrs: Arc<[KeyValue]> = Arc::from(
             vec![
                 KeyValue::new("gen_ai.system", system_arc.to_string()),
                 KeyValue::new("gen_ai.request.model", model_arc.to_string()),
-                KeyValue::new("gen_ai.response.model", response_model.to_owned()),
-                KeyValue::new("gen_ai.operation.name", operation.to_owned()),
             ]
             .into_boxed_slice(),
         );
@@ -246,6 +276,17 @@ mod inner {
         evict_if_at_cap(cache, "base_attrs");
         cache.entry(key).or_insert_with(|| Arc::clone(&attrs));
 
+        attrs
+    }
+
+    /// Build the full per-observation attribute set for a single call: the
+    /// cached static (system, model) pair plus this call's own
+    /// `gen_ai.response.model` and `gen_ai.operation.name`, which are never
+    /// cached (see [`get_or_build_static_attrs`]).
+    fn build_base_attrs(system: &str, model: &str, response_model: &str, operation: &str) -> Vec<KeyValue> {
+        let mut attrs = get_or_build_static_attrs(system, model).to_vec();
+        attrs.push(KeyValue::new("gen_ai.response.model", response_model.to_owned()));
+        attrs.push(KeyValue::new("gen_ai.operation.name", operation.to_owned()));
         attrs
     }
 
@@ -267,9 +308,13 @@ mod inner {
         }
     }
 
-    /// Retrieve or build cached token-type attributes for the given base attributes.
-    /// Returns a pair of (input_attrs, output_attrs) to avoid to_vec() on every token recording.
-    fn get_or_build_token_attrs(system: &str, model: &str, response_model: &str, operation: &str) -> CachedTokenAttrs {
+    /// Retrieve or build the STATIC subset of per-token-type attributes for a
+    /// (system, model) pair: the [`get_or_build_static_attrs`] pair plus
+    /// `gen_ai.token.type`. Like its base counterpart, this deliberately
+    /// excludes `gen_ai.response.model` / `gen_ai.operation.name` — see
+    /// [`get_or_build_static_attrs`] for why baking those into a cached value
+    /// is unsound.
+    fn get_or_build_static_token_attrs(system: &str, model: &str) -> CachedTokenAttrs {
         let system_arc = Arc::<str>::from(system);
         let model_arc = Arc::<str>::from(model);
         let key = (Arc::clone(&system_arc), Arc::clone(&model_arc));
@@ -283,15 +328,15 @@ mod inner {
             };
         }
 
-        let base = get_or_build_base_attrs(&system_arc, &model_arc, response_model, operation);
+        let base = get_or_build_static_attrs(&system_arc, &model_arc);
 
         let mut input_attrs = base.to_vec();
         input_attrs.push(KeyValue::new("gen_ai.token.type", "input"));
-        let input_arc = Arc::from(input_attrs.into_boxed_slice());
+        let input_arc: Arc<[KeyValue]> = Arc::from(input_attrs.into_boxed_slice());
 
         let mut output_attrs = base.to_vec();
         output_attrs.push(KeyValue::new("gen_ai.token.type", "output"));
-        let output_arc = Arc::from(output_attrs.into_boxed_slice());
+        let output_arc: Arc<[KeyValue]> = Arc::from(output_attrs.into_boxed_slice());
 
         let cached = CachedTokenAttrs {
             input: Arc::clone(&input_arc),
@@ -305,6 +350,28 @@ mod inner {
         });
 
         cached
+    }
+
+    /// Build the full per-observation (input, output) token attribute pair for
+    /// a single call: the cached static token-type attrs plus this call's own
+    /// `gen_ai.response.model` and `gen_ai.operation.name`.
+    fn build_token_attrs(
+        system: &str,
+        model: &str,
+        response_model: &str,
+        operation: &str,
+    ) -> (Vec<KeyValue>, Vec<KeyValue>) {
+        let cached = get_or_build_static_token_attrs(system, model);
+
+        let mut input = cached.input.to_vec();
+        input.push(KeyValue::new("gen_ai.response.model", response_model.to_owned()));
+        input.push(KeyValue::new("gen_ai.operation.name", operation.to_owned()));
+
+        let mut output = cached.output.to_vec();
+        output.push(KeyValue::new("gen_ai.response.model", response_model.to_owned()));
+        output.push(KeyValue::new("gen_ai.operation.name", operation.to_owned()));
+
+        (input, output)
     }
 
     static INSTRUMENTS: OnceLock<Arc<Instruments>> = OnceLock::new();
@@ -386,78 +453,61 @@ mod inner {
                 let result = fut.await;
                 let elapsed = start.elapsed().as_secs_f64();
 
-                if let Some(instr) = instruments() {
-                    let response_model = match &result {
-                        Ok(resp) => match resp {
-                            LlmResponse::Chat(r) => r.model.clone(),
-                            LlmResponse::Embed(r) => r.model.clone(),
-                            _ => model_str.clone(),
-                        },
-                        Err(_) => model_str.clone(),
-                    };
+                let Some(instr) = instruments() else {
+                    return result;
+                };
 
-                    let base_attrs = get_or_build_base_attrs(&system, &model_str, &response_model, operation);
+                let response_model = match &result {
+                    Ok(LlmResponse::Chat(r)) => r.model.clone(),
+                    Ok(LlmResponse::Embed(r)) => r.model.clone(),
+                    _ => model_str.clone(),
+                };
 
-                    instr.op_duration.record(elapsed, base_attrs.as_ref());
+                let base_attrs = build_base_attrs(&system, &model_str, &response_model, operation);
+                instr.op_duration.record(elapsed, &base_attrs);
 
-                    if let Ok(resp) = &result
-                        && let Some(usage) = resp.usage()
-                    {
-                        let token_attrs = get_or_build_token_attrs(&system, &model_str, &response_model, operation);
-
-                        instr
-                            .token_usage
-                            .record(usage.prompt_tokens, token_attrs.input.as_ref());
-
-                        instr
-                            .token_usage
-                            .record(usage.completion_tokens, token_attrs.output.as_ref());
+                match result {
+                    // ~keep `LlmResponse::usage()` always returns `None` for `ChatStream` —
+                    // ~keep usage only arrives on the stream's final chunk once fully consumed.
+                    // ~keep Without this branch every streamed request silently dropped its
+                    // ~keep `gen_ai.client.token.usage` observations while cost tracking (which
+                    // ~keep already wraps the stream the same way, see `cost::observe_stream_usage`)
+                    // ~keep kept reporting non-zero `gen_ai.client.cost.usd`.
+                    Ok(LlmResponse::ChatStream(stream)) => {
+                        let instr_for_cb = Arc::clone(&instr);
+                        let wrapped = crate::tower::cost::observe_stream_usage(stream, move |usage| {
+                            let Some(usage) = usage else { return };
+                            let (input_attrs, output_attrs) =
+                                build_token_attrs(&system, &model_str, &response_model, operation);
+                            instr_for_cb.token_usage.record(usage.prompt_tokens, &input_attrs);
+                            instr_for_cb.token_usage.record(usage.completion_tokens, &output_attrs);
+                        });
+                        Ok(LlmResponse::ChatStream(wrapped))
                     }
+                    Ok(resp) => {
+                        if let Some(usage) = resp.usage() {
+                            let (input_attrs, output_attrs) =
+                                build_token_attrs(&system, &model_str, &response_model, operation);
+                            instr.token_usage.record(usage.prompt_tokens, &input_attrs);
+                            instr.token_usage.record(usage.completion_tokens, &output_attrs);
+                        }
+                        Ok(resp)
+                    }
+                    Err(e) => Err(e),
                 }
-
-                result
             })
-        }
-    }
-
-    /// Record a cache hit metric.
-    ///
-    /// Call from cache layer implementations to emit `gen_ai.cache.hit`.
-    /// If the meter has not been initialized, this call is a no-op.
-    pub fn record_cache_hit(system: &str, model: &str, operation: &str) {
-        if let Some(instr) = instruments() {
-            instr.cache_hit.add(
-                1,
-                &[
-                    KeyValue::new("gen_ai.system", system.to_owned()),
-                    KeyValue::new("gen_ai.request.model", model.to_owned()),
-                    KeyValue::new("gen_ai.operation.name", operation.to_owned()),
-                ],
-            );
-        }
-    }
-
-    /// Record a cache miss metric.
-    ///
-    /// Call from cache layer implementations to emit `gen_ai.cache.miss`.
-    /// If the meter has not been initialized, this call is a no-op.
-    pub fn record_cache_miss(system: &str, model: &str, operation: &str) {
-        if let Some(instr) = instruments() {
-            instr.cache_miss.add(
-                1,
-                &[
-                    KeyValue::new("gen_ai.system", system.to_owned()),
-                    KeyValue::new("gen_ai.request.model", model.to_owned()),
-                    KeyValue::new("gen_ai.operation.name", operation.to_owned()),
-                ],
-            );
         }
     }
 
     /// Record a stale cache metric.
     ///
-    /// Call from cache layer implementations to emit `gen_ai.cache.stale`.
-    /// If the meter has not been initialized, this call is a no-op.
+    /// Emits `gen_ai.cache.stale`. Not currently called anywhere in this
+    /// crate: the cache layer (`cache.rs`) tracks `"exact"` / `"semantic"`
+    /// hits and misses via [`record_cache_tier_hit`] / [`record_cache_tier_miss`]
+    /// but has no call site for a stale-but-served response. Wiring it up
+    /// requires touching `cache.rs`'s stale-serving branch, which is outside
+    /// this module. If the meter has not been initialized, this call is a
+    /// no-op.
     pub fn record_cache_stale(system: &str, model: &str, operation: &str) {
         if let Some(instr) = instruments() {
             instr.cache_stale.add(
@@ -471,10 +521,18 @@ mod inner {
         }
     }
 
-    /// Record a circuit breaker trip.
+    /// Record a circuit breaker rejection.
     ///
-    /// Call from [`super::circuit::CircuitLayer`] when the circuit opens.
-    /// If the meter has not been initialized, this call is a no-op.
+    /// Emits `gen_ai.circuit.trip`. Despite the metric name, [`super::circuit::CircuitLayer`]'s
+    /// sole call site increments this once per request rejected while the
+    /// circuit is open, not once per open transition — so `rate(gen_ai_circuit_trip[5m])`
+    /// measures rejected traffic volume, not trip frequency. Fixing that requires
+    /// moving the call in `circuit.rs` to the state-transition point (outside
+    /// this module) and is a distinct concern from what this function currently,
+    /// correctly, measures. The metric name is left as-is rather than renamed
+    /// out from under it: it is part of the crate's public OTel surface, and
+    /// renaming it here would not by itself fix the semantics. If the meter
+    /// has not been initialized, this call is a no-op.
     pub fn record_circuit_trip(system: &str, model: &str) {
         if let Some(instr) = instruments() {
             instr.circuit_trip.add(
@@ -522,17 +580,37 @@ mod inner {
         }
     }
 
+    /// Resolve the effective `gen_ai.system` value: prefer the caller-supplied
+    /// `system`, falling back to the provider prefix parsed from `model`
+    /// (`"provider/model"`) when `system` is empty.
+    ///
+    /// ~keep All current [`record_cache_tier_hit`] / [`record_cache_tier_miss`]
+    /// ~keep callers (`cache.rs`) pass `""` for `system` and the full
+    /// ~keep `"provider/model"` string for `model`, which made `gen_ai.system`
+    /// ~keep permanently empty on every cache-tier observation. Deriving it
+    /// ~keep here — inside the recorder, using data it already receives — fixes
+    /// ~keep that without requiring a `cache.rs` change.
+    fn resolve_system<'a>(system: &'a str, model: &'a str) -> &'a str {
+        if !system.is_empty() {
+            return system;
+        }
+        model.split_once('/').map_or("", |(prefix, _)| prefix)
+    }
+
     /// Record a per-tier cache hit.
     ///
     /// `tier` should be one of `"exact"`, `"semantic"`, or `"streaming_replay"`.
-    /// Emits `gen_ai.cache.hit` with a `gen_ai.cache.tier` attribute.
-    /// If the meter has not been initialized, this call is a no-op.
+    /// Emits `gen_ai.cache.hit` with a `gen_ai.cache.tier` attribute. `system`
+    /// is resolved via [`resolve_system`], so an empty `system` with a
+    /// `"provider/model"`-shaped `model` still yields a populated
+    /// `gen_ai.system`. If the meter has not been initialized, this call is a
+    /// no-op.
     pub fn record_cache_tier_hit(system: &str, model: &str, tier: &str) {
         if let Some(instr) = instruments() {
             instr.cache_hit.add(
                 1,
                 &[
-                    KeyValue::new("gen_ai.system", system.to_owned()),
+                    KeyValue::new("gen_ai.system", resolve_system(system, model).to_owned()),
                     KeyValue::new("gen_ai.request.model", model.to_owned()),
                     KeyValue::new("gen_ai.cache.tier", tier.to_owned()),
                 ],
@@ -543,14 +621,17 @@ mod inner {
     /// Record a per-tier cache miss.
     ///
     /// `tier` should be one of `"exact"`, `"semantic"`, or `"streaming_replay"`.
-    /// Emits `gen_ai.cache.miss` with a `gen_ai.cache.tier` attribute.
-    /// If the meter has not been initialized, this call is a no-op.
+    /// Emits `gen_ai.cache.miss` with a `gen_ai.cache.tier` attribute. `system`
+    /// is resolved via [`resolve_system`], so an empty `system` with a
+    /// `"provider/model"`-shaped `model` still yields a populated
+    /// `gen_ai.system`. If the meter has not been initialized, this call is a
+    /// no-op.
     pub fn record_cache_tier_miss(system: &str, model: &str, tier: &str) {
         if let Some(instr) = instruments() {
             instr.cache_miss.add(
                 1,
                 &[
-                    KeyValue::new("gen_ai.system", system.to_owned()),
+                    KeyValue::new("gen_ai.system", resolve_system(system, model).to_owned()),
                     KeyValue::new("gen_ai.request.model", model.to_owned()),
                     KeyValue::new("gen_ai.cache.tier", tier.to_owned()),
                 ],
@@ -593,9 +674,14 @@ mod inner {
 
     /// Record a budget-rejection event.
     ///
-    /// Emits `gen_ai.budget.rejection` with the triggering dimension.
-    /// Call from [`super::budget::InMemoryBudgetLedger::check`] when
-    /// returning [`super::budget::BudgetVerdict::Reject`].
+    /// Emits `gen_ai.budget.rejection` with the triggering dimension. Call
+    /// from [`super::budget::InMemoryBudgetLedger::check`] when returning
+    /// [`super::budget::BudgetVerdict::Reject`] — as of this writing that
+    /// call site does not exist yet: `budget.rs` only calls
+    /// [`record_budget_spend`], so `gen_ai.budget.rejection` never fires even
+    /// though `check` does return `Reject`. This is the metric an operator
+    /// would alert on (rejected spend), so wiring `budget.rs`'s reject path
+    /// to this function is the highest-value follow-up outside this module.
     /// If the meter has not been initialized, this call is a no-op.
     pub fn record_budget_rejection(model: &str, provider: &str, dimension: &str) {
         if let Some(instr) = instruments() {
@@ -660,12 +746,27 @@ mod inner {
 
     #[cfg(test)]
     mod tests {
+        use std::pin::Pin;
+        use std::task::{Context as StdContext, Poll as StdPoll};
+
+        use futures_core::Stream;
         use tower::{Layer as _, Service as _};
 
         use super::*;
+        use crate::client::{BoxStream, LlmClient};
         use crate::tower::service::LlmService;
         use crate::tower::tests_common::{MockClient, chat_req};
         use crate::tower::types::LlmRequest;
+        use crate::types::audio::{CreateSpeechRequest, CreateTranscriptionRequest, TranscriptionResponse};
+        use crate::types::image::{CreateImageRequest, ImagesResponse};
+        use crate::types::moderation::{ModerationRequest, ModerationResponse};
+        use crate::types::ocr::{OcrRequest, OcrResponse};
+        use crate::types::rerank::{RerankRequest, RerankResponse};
+        use crate::types::search::{SearchRequest, SearchResponse};
+        use crate::types::{
+            ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, EmbeddingRequest, EmbeddingResponse,
+            ModelsListResponse, Usage,
+        };
 
         /// Verify that the MetricsLayer is a transparent pass-through when the meter
         /// is not initialised (the common case in unit tests without an OTel SDK).
@@ -720,39 +821,227 @@ mod inner {
         /// These should not panic even when called without `init_meter`.
         #[test]
         fn metrics_record_helpers_no_op_without_meter() {
-            record_cache_hit("openai", "gpt-4", "chat");
-            record_cache_miss("openai", "gpt-4", "chat");
             record_cache_stale("openai", "gpt-4", "chat");
             record_circuit_trip("openai", "gpt-4");
             record_retry_attempt("openai", "gpt-4", "chat");
         }
 
-        /// Verify that base attributes are reused across calls with the same (system, model) pair.
-        /// This test checks that Arc strong_count increases instead of allocating fresh Vec on each call.
-        #[tokio::test]
-        async fn base_attrs_reused_across_calls() {
-            use tower::{Layer as _, Service as _};
+        /// `resolve_system` must derive `gen_ai.system` from the model's
+        /// `"provider/model"` prefix whenever the caller passes an empty
+        /// `system` — the case for every current `record_cache_tier_hit` /
+        /// `record_cache_tier_miss` call site (`cache.rs` always passes `""`).
+        ///
+        /// Revert line: replacing the `if !system.is_empty() { return system }
+        /// ... model.split_once(...)` body with a bare `system` makes the
+        /// first assertion fail (`resolve_system("", "openai/gpt-4")` would
+        /// return `""` instead of `"openai"`).
+        #[test]
+        fn resolve_system_derives_from_model_when_system_is_empty() {
+            assert_eq!(resolve_system("", "openai/gpt-4"), "openai");
+            assert_eq!(resolve_system("anthropic", "openai/gpt-4"), "anthropic");
+            assert_eq!(resolve_system("", "no-slash-model"), "");
+        }
 
-            let inner = LlmService::new(MockClient::ok());
+        /// Verify that repeated lookups for the same (system, model) pair reuse the
+        /// same cached `Arc`, proving the caching layer avoids rebuilding attribute
+        /// slices on every call rather than merely appearing to (see
+        /// `base_attrs_do_not_poison_across_calls_with_same_key` for why the old
+        /// version of this test, which inspected `Arc::strong_count` after routing
+        /// through the full `MetricsService`, could never actually fail).
+        ///
+        /// Revert line: making `get_or_build_static_attrs` always rebuild (deleting
+        /// its `if let Some(entry) = cache.get(&key) { return ... }` fast path)
+        /// allocates a fresh `Arc` on the second call, so `Arc::ptr_eq` returns
+        /// `false` and the test fails.
+        #[test]
+        fn base_attrs_cache_reuses_same_arc_for_same_key() {
+            let first = get_or_build_static_attrs("openai", "gpt-4-cache-test-key");
+            let second = get_or_build_static_attrs("openai", "gpt-4-cache-test-key");
+            assert!(
+                Arc::ptr_eq(&first, &second),
+                "expected the second lookup to reuse the cached Arc, not allocate a new one"
+            );
+        }
+
+        /// Regression for the attribute-cache poisoning bug: the cache used to be
+        /// keyed only on (system, model) but baked `response.model` /
+        /// `gen_ai.operation.name` — which vary per call for the same (system,
+        /// model) — into the *cached* value. The first observation for a given key
+        /// therefore permanently mislabelled every later one's response model and
+        /// operation name.
+        ///
+        /// Revert line: changing `build_base_attrs` back to caching the combined
+        /// four-field slice under the (system, model) key (the old
+        /// `get_or_build_base_attrs` behaviour) makes the second call below return
+        /// the first call's `"error"` / `"chat"` labels instead of its own, and the
+        /// second `assert_eq!` fails.
+        #[test]
+        fn base_attrs_do_not_poison_across_calls_with_same_key() {
+            fn response_model(attrs: &[KeyValue]) -> Option<String> {
+                attrs
+                    .iter()
+                    .find(|kv| kv.key.as_str() == "gen_ai.response.model")
+                    .map(|kv| kv.value.as_str().into_owned())
+            }
+
+            let first = build_base_attrs("openai", "gpt-4-poison-test-key", "error", "chat");
+            let second = build_base_attrs("openai", "gpt-4-poison-test-key", "gpt-4-0613", "chat");
+
+            assert_eq!(response_model(&first).as_deref(), Some("error"));
+            assert_eq!(response_model(&second).as_deref(), Some("gpt-4-0613"));
+        }
+
+        /// A stream that yields a fixed sequence of chunks then ends, used to drive
+        /// `LlmResponse::ChatStream` through `MetricsService` in
+        /// `streaming_chat_records_token_usage_via_stream_completion` below.
+        struct VecStream {
+            items: std::collections::VecDeque<Result<ChatCompletionChunk>>,
+        }
+
+        impl Stream for VecStream {
+            type Item = Result<ChatCompletionChunk>;
+            fn poll_next(mut self: Pin<&mut Self>, _cx: &mut StdContext<'_>) -> StdPoll<Option<Self::Item>> {
+                StdPoll::Ready(self.items.pop_front())
+            }
+        }
+
+        /// Delegates every [`LlmClient`] method to an inner [`MockClient`] except
+        /// `chat_stream`, which yields two chunks: one with no usage, then one
+        /// carrying `usage` on the final chunk — mirroring how a real provider only
+        /// reports usage once the stream completes.
+        #[derive(Clone)]
+        struct StreamingMockClient {
+            inner: MockClient,
+            usage: Usage,
+        }
+
+        impl LlmClient for StreamingMockClient {
+            fn chat(&self, req: ChatCompletionRequest) -> crate::client::BoxFuture<'_, Result<ChatCompletionResponse>> {
+                self.inner.chat(req)
+            }
+
+            fn chat_stream(
+                &self,
+                req: ChatCompletionRequest,
+            ) -> crate::client::BoxFuture<'_, Result<BoxStream<'static, Result<ChatCompletionChunk>>>> {
+                let usage = self.usage.clone();
+                let model = req.model.clone();
+                Box::pin(async move {
+                    let chunk = |usage: Option<Usage>| {
+                        Ok(ChatCompletionChunk {
+                            id: "chunk".into(),
+                            object: "chat.completion.chunk".into(),
+                            created: 0,
+                            model: model.clone(),
+                            choices: vec![],
+                            usage,
+                            system_fingerprint: None,
+                            service_tier: None,
+                        })
+                    };
+                    let stream: BoxStream<'static, Result<ChatCompletionChunk>> = Box::pin(VecStream {
+                        items: std::collections::VecDeque::from([chunk(None), chunk(Some(usage))]),
+                    });
+                    Ok(stream)
+                })
+            }
+
+            fn embed(&self, req: EmbeddingRequest) -> crate::client::BoxFuture<'_, Result<EmbeddingResponse>> {
+                self.inner.embed(req)
+            }
+
+            fn list_models(&self) -> crate::client::BoxFuture<'_, Result<ModelsListResponse>> {
+                self.inner.list_models()
+            }
+
+            fn image_generate(&self, req: CreateImageRequest) -> crate::client::BoxFuture<'_, Result<ImagesResponse>> {
+                self.inner.image_generate(req)
+            }
+
+            fn speech(&self, req: CreateSpeechRequest) -> crate::client::BoxFuture<'_, Result<bytes::Bytes>> {
+                self.inner.speech(req)
+            }
+
+            fn transcribe(
+                &self,
+                req: CreateTranscriptionRequest,
+            ) -> crate::client::BoxFuture<'_, Result<TranscriptionResponse>> {
+                self.inner.transcribe(req)
+            }
+
+            fn moderate(&self, req: ModerationRequest) -> crate::client::BoxFuture<'_, Result<ModerationResponse>> {
+                self.inner.moderate(req)
+            }
+
+            fn rerank(&self, req: RerankRequest) -> crate::client::BoxFuture<'_, Result<RerankResponse>> {
+                self.inner.rerank(req)
+            }
+
+            fn search(&self, req: SearchRequest) -> crate::client::BoxFuture<'_, Result<SearchResponse>> {
+                self.inner.search(req)
+            }
+
+            fn ocr(&self, req: OcrRequest) -> crate::client::BoxFuture<'_, Result<OcrResponse>> {
+                self.inner.ocr(req)
+            }
+        }
+
+        /// Regression for "streaming bypasses accounting": `MetricsService::call`
+        /// used to gate token-usage recording on `resp.usage()`, which is always
+        /// `None` for `LlmResponse::ChatStream` (usage only arrives on the stream's
+        /// final chunk). A 100%-streaming deployment therefore recorded zero
+        /// `gen_ai.client.token.usage` observations. There is no OTel SDK reader
+        /// wired into this test binary, so the histogram's recorded values cannot be
+        /// read back directly; instead this asserts the externally observable proxy
+        /// for "the recorder ran": the token-attrs cache gains an entry for the
+        /// (system, model) key used here, which only happens inside
+        /// `build_token_attrs`, which only `MetricsService::call` invokes once it
+        /// has resolved a `Usage`.
+        ///
+        /// Revert line: reverting the `Ok(LlmResponse::ChatStream(stream))` arm back
+        /// to falling into the `Ok(resp) => { if let Some(usage) = resp.usage() ...
+        /// }` branch (i.e. removing the `observe_stream_usage` wrap) makes
+        /// `resp.usage()` return `None` for `ChatStream`, so `build_token_attrs` is
+        /// never called for this key and the `expect` below panics.
+        #[tokio::test]
+        async fn streaming_chat_records_token_usage_via_stream_completion() {
+            use futures_util::StreamExt as _;
+            use opentelemetry::global;
+
+            init_meter(global::meter("liter-llm-test-streaming"));
+
+            let usage = Usage {
+                prompt_tokens: 42,
+                completion_tokens: 7,
+                total_tokens: 49,
+                prompt_tokens_details: None,
+            };
+
+            let client = StreamingMockClient {
+                inner: MockClient::ok(),
+                usage: usage.clone(),
+            };
+            let inner = LlmService::new(client);
             let mut svc = MetricsLayer.layer(inner);
 
-            for _ in 0..100 {
-                let _ = svc.call(LlmRequest::Chat(chat_req("openai/gpt-4"))).await;
-            }
+            let model = "streamtest/streaming-token-usage-model";
+            let resp = svc
+                .call(LlmRequest::ChatStream(chat_req(model)))
+                .await
+                .expect("should succeed");
 
-            let cache = base_attrs_cache();
-            let openai_arc = Arc::<str>::from("openai");
-            let gpt4_arc = Arc::<str>::from("gpt-4");
-            let key = (openai_arc, gpt4_arc);
+            let crate::tower::types::LlmResponse::ChatStream(mut stream) = resp else {
+                panic!("expected a ChatStream response");
+            };
 
-            if let Some(entry) = cache.get(&key) {
-                let strong_count = Arc::strong_count(&entry);
-                assert!(
-                    strong_count > 10,
-                    "expected cached entry to be reused (strong_count > 10), got {}",
-                    strong_count
-                );
-            }
+            while stream.next().await.is_some() {}
+
+            let key = (Arc::<str>::from("streamtest"), Arc::<str>::from(model));
+            let entry = token_attrs_cache()
+                .get(&key)
+                .expect("streamed usage must populate the token-attrs cache once the stream completes");
+            assert!(entry.input.iter().any(|kv| kv.key.as_str() == "gen_ai.token.type"));
+            assert!(entry.output.iter().any(|kv| kv.key.as_str() == "gen_ai.token.type"));
         }
     }
 }
@@ -809,14 +1098,6 @@ mod inner {
             Box::pin(self.inner.call(req))
         }
     }
-
-    /// No-op cache-hit helper.
-    #[inline]
-    pub fn record_cache_hit(_system: &str, _model: &str, _operation: &str) {}
-
-    /// No-op cache-miss helper.
-    #[inline]
-    pub fn record_cache_miss(_system: &str, _model: &str, _operation: &str) {}
 
     /// No-op cache-stale helper.
     #[inline]
@@ -917,8 +1198,6 @@ mod tests {
     /// These should not panic even when called without `init_meter`.
     #[test]
     fn tower_metrics_record_helpers_no_op_without_meter() {
-        record_cache_hit("openai", "gpt-4", "chat");
-        record_cache_miss("openai", "gpt-4", "chat");
         record_cache_stale("openai", "gpt-4", "chat");
         record_circuit_trip("openai", "gpt-4");
         record_retry_attempt("openai", "gpt-4", "chat");
