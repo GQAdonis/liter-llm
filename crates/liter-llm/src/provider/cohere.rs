@@ -27,6 +27,12 @@ impl Provider for CohereProvider {
     }
 
     fn base_url(&self) -> &str {
+        // ~keep `api.cohere.ai` is a working alias for the same API (both hosts route to the
+        // ~keep same backend and return 401 rather than a DNS/redirect failure when probed
+        // ~keep unauthenticated), but `api.cohere.com` is what Cohere's own API reference uses
+        // ~keep for the v2 `/chat` endpoint, so it is the canonical choice here. schemas/
+        // ~keep providers.json's `cohere`/`cohere_chat` entries must agree with this — do not
+        // ~keep "fix" this back to `.ai`.
         "https://api.cohere.com/v2"
     }
 
@@ -410,6 +416,26 @@ mod tests {
         let provider = CohereProvider;
         assert_eq!(provider.name(), "cohere");
         assert_eq!(provider.base_url(), "https://api.cohere.com/v2");
+    }
+
+    /// Regression test: schemas/providers.json's `cohere_chat` entry hardcoded
+    /// `https://api.cohere.ai/v2` while this file hardcoded `https://api.cohere.com/v2` — both
+    /// hosts work (Cohere serves the same v2 API from either), but a silent disagreement
+    /// between the registry and the code means the registry can no longer be trusted as
+    /// documentation. Both now agree on `.com`; this test would have failed before that fix.
+    #[test]
+    fn base_url_agrees_with_the_providers_json_registry() {
+        let configs = crate::provider::all_providers().expect("embedded providers.json must parse");
+        let entry = configs
+            .iter()
+            .find(|c| c.name == "cohere_chat")
+            .expect("providers.json must have a `cohere_chat` entry");
+
+        assert_eq!(
+            entry.base_url.as_deref(),
+            Some(CohereProvider.base_url()),
+            "schemas/providers.json's `cohere_chat` base_url must match CohereProvider::base_url()"
+        );
     }
 
     #[test]

@@ -676,7 +676,8 @@
     {
       "name": "cohere",
       "display_name": "Cohere",
-      "base_url": "https://api.cohere.ai/v1",
+      "base_url": "https://api.cohere.com/v1",
+      "$comment": "api.cohere.ai is a working alias for the same API; api.cohere.com matches Cohere's own docs and crates/liter-llm/src/provider/cohere.rs, do not change this back.",
       "auth": {
         "type": "bearer",
         "env_var": "COHERE_API_KEY"
@@ -698,7 +699,8 @@
     {
       "name": "cohere_chat",
       "display_name": "Cohere Chat",
-      "base_url": "https://api.cohere.ai/v2",
+      "base_url": "https://api.cohere.com/v2",
+      "$comment": "api.cohere.ai is a working alias for the same API; api.cohere.com matches Cohere's own docs and crates/liter-llm/src/provider/cohere.rs, do not change this back.",
       "auth": {
         "type": "bearer",
         "env_var": "COHERE_API_KEY"
