@@ -50,6 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   valid per OpenAI's schema, but if you diff request payloads byte-for-byte, expect the new key.
 - **API: exhaustive struct literals against `Choice` or `CreateResponseRequest` will not compile.**
   `Choice` gained `logprobs`; `CreateResponseRequest` gained `extra_body`.
+- **API: `CacheDecision` loses `stale_while_revalidate` and `use_streaming_replay`.** Both were
+  public, documented, and read nowhere — an operator could set either and believe it took effect.
+  `stale_while_revalidate` never served a stale entry, and the "opt-in via policy" streaming replay
+  did nothing. `semantic_ttl` stays, but its doc no longer implies a separate duration: a semantic
+  hit resolves to the same physical entry, which has exactly one TTL.
+- **API: `HttpProbeHealthChecker::new` no longer takes a timeout parameter.** See the health-gate
+  entry under Fixed.
 - **API: `GuardrailService` and `HooksService` gained an `S: Clone` bound.** The bound is on the
   `Service` impl, not the struct, so it breaks composition rather than construction: a stack
   wrapping an inner service that is not `Clone` no longer compiles. Both needed it to defer the
@@ -57,6 +64,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Singleflight deduplication ignored tenant identity, so one tenant could be served another's
+  response.** `singleflight_key` hashed only the inner chat/embedding request; `tenant_id` lives on
+  the `LlmRequest` envelope, whose `Serialize` forwards to that inner value alone, so tenant could
+  not reach the hasher even indirectly — while the exact and semantic cache tiers, already fixed for
+  this, read it explicitly. Two virtual keys posting byte-identical bodies inside one in-flight
+  window collapsed to a single upstream call, and the follower skipped the budget, cost and
+  guardrail layers entirely: its spend went unrecorded and its cap unenforced, while it was reported
+  as a cache hit on a call made for someone else. Only reachable if you compose `SingleflightLayer`
+  yourself; no in-tree stack did.
+- **The proxy ran no guardrails at all.** The trait, the stage enum and the whole apply-path shipped,
+  but nothing populated a guardrail set — see "Added" for the config surface that fixes it.
 - **The virtual key token was echoed into client-visible 403 error bodies from six call sites**,
   across `require_master`, guardrail rejections and other proxy error paths — the live credential
   landed in the caller's own logs plus every access log, reverse proxy and error tracker on the
@@ -170,6 +188,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Cohere's documented `[0.01, 0.99]`. Note the floor is `0.01`, not `0.0`: `top_p: 0.0` is legal
   for OpenAI and was legal per this crate's own docs, and is now rejected for Cohere rather than
   quietly coerced. The error names `top_p`, the field you set, not Cohere's internal `p`.
+- **A single failed health probe took the whole service offline.** The global gate stored
+  `result.is_ok()` from one `ListModels` probe, so any failure rejected all traffic with 503 until
+  the next tick — and a provider that does not implement `ListModels` returns `EndpointNotSupported`
+  and was taken down permanently for a capability gap, while ordinary chat through it would have
+  worked. The gate now uses the same consecutive-failure thresholds the per-provider checker already
+  had (3 to open, 2 to close), and `EndpointNotSupported` is not counted at all. Set both thresholds
+  to `1` for the old behaviour. `HealthCheckConfig::timeout` was also applied to nothing, so a
+  stalled checker froze the probe loop and left a dead provider marked healthy forever; it now bounds
+  every probe. **Breaking: `HttpProbeHealthChecker::new` no longer takes a timeout** — two
+  independent deadlines for one probe is worse than one.
+- **Every cached error replayed as a 500.** The negative cache rewrote each error to
+  `InternalError`, so a cached 429 came back without its `Retry-After` and with `is_transient()`
+  false — clients stopped retrying. The variant is now preserved on both the write and read paths.
+  Fixing only that would have been worse than the bug: replays re-entered the write path and pushed
+  the expiry out every time, which was masked solely because the replayed error was non-transient.
+  The window is now set once, by the call that saw the real failure, so steady polling can no longer
+  keep an entry alive forever.
+- **The OpenDAL cache backend silently discarded every configured TTL** — it never overrode
+  `set_ttl`, so the trait's no-op ran and entries kept the store's construction-time TTL regardless
+  of config or per-model policy. Both existing tests named for this defect used the in-memory store,
+  which does override it. Error entries are also no longer logged at WARN on this backend, which
+  previously produced one warning per failed request during exactly the outage the negative cache
+  exists for.
+- **Metrics mislabelled everything after the first request for a model.** The attribute cache was
+  keyed on `(system, model)` but also cached `gen_ai.response.model` and `gen_ai.operation.name`, so
+  one early failure fixed both for good — and requests with no model (`ListModels`, and image or
+  moderation calls without one) all collapsed onto a single key and inherited whichever operation
+  arrived first. Token usage also dropped every streamed request while cost did not, so a streaming
+  deployment reported spend against zero tokens. `gen_ai.system` was empty on all cache-tier metrics,
+  making hit rate impossible to break down by provider.
 - **`temperature` above a provider's documented cap is now rejected locally instead of forwarded.**
   `ChatCompletionRequest` documented `temperature` as `[0.0, 2.0]` — OpenAI's range — while
   Anthropic and Amazon Bedrock both cap it at `1.0`, so a value legal per our own API docs failed
@@ -330,6 +378,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.16.0] - 2026-08-05
 
 ### Added
+
+- **`[[guardrails]]` — the proxy can now actually enforce guardrails.** One registry is built at
+  startup, layered into every model's Tower stack, and handed to the realtime WebSocket relay as the
+  same `Arc`, so a rule cannot be live on one path and absent on the other. Supports `regex` (block
+  or redact), `length_cap`, `prompt_injection`, and `cel` behind the `guardrail-cel` feature, each
+  scoped to explicit `stages`. Nothing degrades: an invalid pattern or expression, an unknown or
+  misspelled key, an empty `stages` list, a duplicate name, or a `cel` entry in a build without the
+  feature all abort startup before the listener binds — a partially-applied set is indistinguishable
+  from an unguarded proxy. `allow_list`/`deny_list` are deliberately not exposed yet; they key on a
+  named metadata field and only `tenant_id` is populated, so any other field would fail silently.
+  Guardrails are not hot-reloadable — the watcher warns rather than let a reloaded config describe a
+  set the proxy is not running.
 
 - Tool results can carry multimodal content. `ToolMessage.content` was `String`,
   so a tool returning an image had to describe it in prose or smuggle it through
