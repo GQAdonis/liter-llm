@@ -285,6 +285,34 @@ pub struct DimensionLimits {
 /// the read path (`check`/`snapshot`) lock-free: a swap is a single atomic
 /// pointer load, matching the concurrency style the sliding-window
 /// [`WindowEntry`] accumulators already use.
+///
+/// # Bounded dimensions
+///
+/// `per_user` is keyed by the request's free-text `user` field and
+/// `per_api_key` by a caller-supplied API-key identifier — both are
+/// attacker-controlled, arbitrary-cardinality inputs, so they are capped at
+/// `max_principal_entries` entries (see [`Self::with_max_principal_entries`]
+/// to override). `per_model` and `per_tenant` are keyed by operator-controlled
+/// values (the deployment's configured model list / tenant roster) with
+/// naturally bounded cardinality, so they are deliberately left uncapped —
+/// capping them would add eviction-policy risk (see below) for a dimension
+/// that was never the actual memory-exhaustion vector.
+///
+/// # Why eviction never touches recorded spend
+///
+/// This is a *spend ledger*, not a cache: an entry's value is money already
+/// billed against a principal. Evicting a live (non-zero-spend) entry to make
+/// room for a newcomer would silently forgive that spend, which is a budget
+/// bypass — a caller could burn through their limit, get evicted by
+/// cardinality pressure from other callers, and come back with a fresh
+/// budget. So the cap (`entry_add_capped`) only ever reclaims entries
+/// whose recorded spend reads as exactly zero, and once no such entries
+/// remain it **declines to track new principals** rather than evict a live
+/// one — the call still succeeds and global/per-model spend is still
+/// recorded, but that one principal's per-user/per-API-key budget is
+/// unenforced until capacity frees up. This is a known, deliberate trade-off:
+/// bounded memory always wins, at the cost of enforcement granularity (never
+/// of already-recorded spend) under sustained cardinality pressure.
 #[derive(Debug)]
 pub struct InMemoryBudgetLedger {
     limits: ArcSwap<DimensionLimits>,
@@ -294,9 +322,21 @@ pub struct InMemoryBudgetLedger {
     per_tenant: Arc<DashMap<String, WindowEntry>>,
     per_user: Arc<DashMap<String, WindowEntry>>,
     per_api_key: Arc<DashMap<String, WindowEntry>>,
+    max_principal_entries: usize,
 }
 
 impl InMemoryBudgetLedger {
+    /// Default cap on distinct entries tracked by `per_user` and
+    /// `per_api_key`.
+    ///
+    /// Both maps are keyed by attacker-controlled, arbitrary-cardinality input
+    /// (the request's free-text `user` field / a caller-supplied API-key id),
+    /// so without a cap a caller can grow either map without bound simply by
+    /// varying that field across requests — unbounded memory growth.
+    /// `per_model`/`per_tenant` are operator-controlled and naturally
+    /// bounded, so they are not capped. ~keep
+    pub const DEFAULT_MAX_PRINCIPAL_ENTRIES: usize = 100_000;
+
     /// Create a new ledger with explicit limits and a shared window duration.
     ///
     /// The `window` controls how long spend is accumulated before the
@@ -312,7 +352,19 @@ impl InMemoryBudgetLedger {
             per_api_key: Arc::new(DashMap::new()),
             limits: ArcSwap::from_pointee(limits),
             window,
+            max_principal_entries: Self::DEFAULT_MAX_PRINCIPAL_ENTRIES,
         }
+    }
+
+    /// Override the cap on tracked `per_user` / `per_api_key` entries.
+    ///
+    /// Opt-in escape hatch for deployments with either a much larger or much
+    /// smaller expected principal cardinality than
+    /// [`Self::DEFAULT_MAX_PRINCIPAL_ENTRIES`].
+    #[must_use]
+    pub fn with_max_principal_entries(mut self, max_principal_entries: usize) -> Self {
+        self.max_principal_entries = max_principal_entries.max(1);
+        self
     }
 
     /// Replace the configured per-dimension limits in place, preserving every
@@ -414,6 +466,73 @@ impl InMemoryBudgetLedger {
             .add(usd, now);
     }
 
+    /// Like [`Self::entry_add`], but bounds `map` at `max_entries` — used for
+    /// `per_user` / `per_api_key`, whose keys are attacker-controlled.
+    ///
+    /// An already-tracked key always gets its spend recorded, regardless of
+    /// how full `map` is: the cap only ever gates *new* keys, never starves an
+    /// existing principal of accounting. See the [`InMemoryBudgetLedger`]
+    /// doc comment for why a full map declines new principals instead of
+    /// evicting a live one.
+    fn entry_add_capped(
+        map: &DashMap<String, WindowEntry>,
+        dimension_name: &'static str,
+        key: &str,
+        usd: f64,
+        window: Duration,
+        now: SystemTime,
+        max_entries: usize,
+    ) {
+        if !map.contains_key(key) && map.len() >= max_entries {
+            Self::reclaim_zero_spend_entries(map, dimension_name, now);
+        }
+
+        if !map.contains_key(key) && map.len() >= max_entries {
+            // ~keep Refuse to allocate tracking state for a brand-new principal rather
+            // ~keep than evict a live one to make room — see the InMemoryBudgetLedger
+            // ~keep doc comment. Global/per-model spend for this call is still recorded
+            // ~keep by the caller; only this one dimension's enforcement is affected.
+            tracing::warn!(
+                dimension = dimension_name,
+                cap = max_entries,
+                "budget ledger at capacity; declining to track new principal, spend for this call was not recorded"
+            );
+            return;
+        }
+
+        map.entry(key.to_owned())
+            .or_insert_with(|| WindowEntry::new(window))
+            .add(usd, now);
+    }
+
+    /// Remove entries from `map` whose recorded spend reads as exactly zero,
+    /// reclaiming capacity without ever discarding a live spend record.
+    fn reclaim_zero_spend_entries(map: &DashMap<String, WindowEntry>, dimension_name: &'static str, now: SystemTime) {
+        let mut evicted_live_spend_usd = 0.0_f64;
+
+        map.retain(|_, entry| {
+            let spend = entry.spend_usd(now);
+            if spend > 0.0 {
+                return true;
+            }
+            // ~keep Defensive invariant, not expected to ever be non-zero: this branch is
+            // ~keep reached only when `spend <= 0.0`, so `evicted_live_spend_usd` should
+            // ~keep never accumulate anything. Kept as a canary — if this ever fires, a
+            // ~keep future change broke the "eviction never touches live spend" guarantee
+            // ~keep this ledger relies on to avoid becoming a budget bypass.
+            evicted_live_spend_usd += spend;
+            false
+        });
+
+        if evicted_live_spend_usd > 0.0 {
+            tracing::warn!(
+                dimension = dimension_name,
+                evicted_spend_usd = evicted_live_spend_usd,
+                "budget ledger eviction reclaimed entries carrying non-zero spend; budget enforcement was weakened"
+            );
+        }
+    }
+
     fn check_limit(spend: f64, limit: f64, dimension: BudgetDimension, key: &str) -> Option<BudgetVerdict> {
         if spend >= limit {
             Some(BudgetVerdict::Reject {
@@ -436,10 +555,26 @@ impl BudgetLedger for InMemoryBudgetLedger {
                 Self::entry_add(&self.per_tenant, tenant, ctx.cost_usd, self.window, now);
             }
             if let Some(user) = ctx.user_id {
-                Self::entry_add(&self.per_user, user, ctx.cost_usd, self.window, now);
+                Self::entry_add_capped(
+                    &self.per_user,
+                    "user",
+                    user,
+                    ctx.cost_usd,
+                    self.window,
+                    now,
+                    self.max_principal_entries,
+                );
             }
             if let Some(key) = ctx.api_key_id {
-                Self::entry_add(&self.per_api_key, key, ctx.cost_usd, self.window, now);
+                Self::entry_add_capped(
+                    &self.per_api_key,
+                    "api_key",
+                    key,
+                    ctx.cost_usd,
+                    self.window,
+                    now,
+                    self.max_principal_entries,
+                );
             }
 
             #[cfg(feature = "otel")]
@@ -1459,6 +1594,196 @@ mod tests {
         assert!((snap.per_user["bob"] - 0.20).abs() < 1e-9);
         assert!((snap.per_api_key["key-1"] - 0.10).abs() < 1e-9);
         assert!((snap.per_api_key["key-2"] - 0.20).abs() < 1e-9);
+    }
+
+    /// `per_user` is keyed by the request's free-text, attacker-controlled
+    /// `user` field, so without a cap a caller grows the map without bound
+    /// simply by varying that field per request. This pins the cap: recording
+    /// spend for far more distinct users than the configured cap must never
+    /// let `per_user` grow past it.
+    #[tokio::test]
+    async fn budget_ledger_per_user_map_is_bounded_by_max_principal_entries() {
+        const CAP: usize = 8;
+        let ledger = InMemoryBudgetLedger::new(DimensionLimits::default(), Duration::from_secs(3600))
+            .with_max_principal_entries(CAP);
+
+        for i in 0..CAP * 10 {
+            let user = format!("user-{i}");
+            ledger
+                .record(&CostRecordContext {
+                    model: "gpt-4",
+                    provider: "openai",
+                    tenant_id: None,
+                    user_id: Some(&user),
+                    api_key_id: None,
+                    cost_usd: 0.01,
+                    tokens_in: 10,
+                    tokens_out: 5,
+                    timestamp: SystemTime::now(),
+                })
+                .await;
+        }
+
+        let len = ledger.per_user.len();
+        assert!(
+            len <= CAP,
+            "per_user must stay within its cap; held {len} entries with a cap of {CAP}"
+        );
+    }
+
+    /// Same regression as above, but for `per_api_key` — the other
+    /// caller-supplied, unbounded-cardinality dimension.
+    #[tokio::test]
+    async fn budget_ledger_per_api_key_map_is_bounded_by_max_principal_entries() {
+        const CAP: usize = 8;
+        let ledger = InMemoryBudgetLedger::new(DimensionLimits::default(), Duration::from_secs(3600))
+            .with_max_principal_entries(CAP);
+
+        for i in 0..CAP * 10 {
+            let key = format!("key-{i}");
+            ledger
+                .record(&CostRecordContext {
+                    model: "gpt-4",
+                    provider: "openai",
+                    tenant_id: None,
+                    user_id: None,
+                    api_key_id: Some(&key),
+                    cost_usd: 0.01,
+                    tokens_in: 10,
+                    tokens_out: 5,
+                    timestamp: SystemTime::now(),
+                })
+                .await;
+        }
+
+        let len = ledger.per_api_key.len();
+        assert!(
+            len <= CAP,
+            "per_api_key must stay within its cap; held {len} entries with a cap of {CAP}"
+        );
+    }
+
+    /// Zero-spend entries carry no enforcement value, so reaching the cap
+    /// must first reclaim them before declining to track a new principal —
+    /// the same "reclaim before giving up" shape as
+    /// `ClassifierVerdictCache::put_cached`, but keyed on recorded spend
+    /// rather than TTL expiry.
+    #[tokio::test]
+    async fn budget_ledger_cap_reclaims_zero_spend_entries_before_declining_new_principals() {
+        const CAP: usize = 4;
+        let ledger = InMemoryBudgetLedger::new(DimensionLimits::default(), Duration::from_secs(3600))
+            .with_max_principal_entries(CAP);
+
+        for i in 0..CAP {
+            let user = format!("zero-spend-{i}");
+            ledger
+                .record(&CostRecordContext {
+                    model: "gpt-4",
+                    provider: "openai",
+                    tenant_id: None,
+                    user_id: Some(&user),
+                    api_key_id: None,
+                    cost_usd: 0.0,
+                    tokens_in: 0,
+                    tokens_out: 0,
+                    timestamp: SystemTime::now(),
+                })
+                .await;
+        }
+        assert_eq!(ledger.per_user.len(), CAP, "setup should fill the ledger to its cap");
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("real-spender"),
+                api_key_id: None,
+                cost_usd: 5.0,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+
+        assert_eq!(
+            ledger.per_user.len(),
+            1,
+            "the zero-spend entries must be reclaimed, leaving only the new spender"
+        );
+        assert!((ledger.snapshot().per_user["real-spender"] - 5.0).abs() < 1e-9);
+    }
+
+    /// The core safety property this cap must uphold: filling the ledger to
+    /// capacity with unrelated new principals must never reset (via eviction)
+    /// a principal's already-recorded, non-zero spend. If it did, the
+    /// bounded-memory fix would itself become a budget-bypass — a caller
+    /// could spend heavily, get displaced by cardinality pressure from other
+    /// keys, and come back with a silently fresh budget.
+    #[tokio::test]
+    async fn budget_ledger_cap_never_resets_an_existing_principals_spend() {
+        const CAP: usize = 4;
+        let ledger = InMemoryBudgetLedger::new(DimensionLimits::default(), Duration::from_secs(3600))
+            .with_max_principal_entries(CAP);
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                cost_usd: 42.0,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!((ledger.snapshot().per_user["alice"] - 42.0).abs() < 1e-9);
+
+        // Flood with far more distinct, non-zero-spend principals than the cap allows.
+        for i in 0..CAP * 10 {
+            let user = format!("flood-{i}");
+            ledger
+                .record(&CostRecordContext {
+                    model: "gpt-4",
+                    provider: "openai",
+                    tenant_id: None,
+                    user_id: Some(&user),
+                    api_key_id: None,
+                    cost_usd: 1.0,
+                    tokens_in: 10,
+                    tokens_out: 5,
+                    timestamp: SystemTime::now(),
+                })
+                .await;
+        }
+
+        let spend_after_flood = ledger.snapshot().per_user.get("alice").copied();
+        assert!(
+            matches!(spend_after_flood, Some(v) if (v - 42.0).abs() < 1e-9),
+            "alice's already-recorded spend must survive cap pressure from other principals, got {spend_after_flood:?}"
+        );
+
+        // An already-tracked principal must keep accumulating spend even while
+        // the ledger sits at capacity -- the cap must gate only new principals.
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                cost_usd: 8.0,
+                tokens_in: 10,
+                tokens_out: 5,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!(
+            (ledger.snapshot().per_user["alice"] - 50.0).abs() < 1e-9,
+            "an already-tracked principal must keep accumulating spend once the ledger is at capacity"
+        );
     }
 
     /// Regression for the reset-on-reload bug: `update_limits` must swap only
