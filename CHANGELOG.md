@@ -119,6 +119,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `refusal` (present even when `null`) to satisfy OpenAI's response schema. See "Upgrade notes."
 - `Choice` gained a `logprobs` field; `CreateResponseRequest` gained an `extra_body` field;
   `GuardrailService` gained an `S: Clone` bound. See "Upgrade notes."
+- **`temperature` above a provider's documented cap is now rejected locally instead of forwarded.**
+  `ChatCompletionRequest` documented `temperature` as `[0.0, 2.0]` — OpenAI's range — while
+  Anthropic and Amazon Bedrock both cap it at `1.0`, so a value legal per our own API docs failed
+  at the provider after a network round trip. Those two now return a `BadRequest` naming the field,
+  the value and the provider's range. The same outcome as before, just earlier and legible; nothing
+  that previously succeeded now fails. Deliberately not clamped — the parameter is supported and
+  only the scale differs, so clamping would silently rewrite the caller's request. Enforcement
+  applies only where the provider's own schema states a bound: Cohere documents `temperature` as a
+  non-negative float with no maximum, Google's docs contradict each other on the ceiling, and
+  Mistral publishes a recommendation rather than a bound, so those are left forwarded unchecked.
 - **The Responses API is documented as OpenAI-only.** No behaviour changed, but the docs previously
   implied otherwise — `parse_response_stream_event` described the event shape as "uniform across
   providers that support it", a set that does not exist: the provider registry models no
