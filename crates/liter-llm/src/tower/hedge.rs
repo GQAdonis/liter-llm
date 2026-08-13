@@ -161,6 +161,10 @@ pub struct BudgetAwareHedge<P, L: BudgetLedger> {
 
 impl<P: HedgePolicy, L: BudgetLedger> BudgetAwareHedge<P, L> {
     /// Wrap `inner` with a budget-headroom check backed by `ledger`.
+    // ~keep Redundant with the `alef(skip)` on the type itself: alef does not propagate a
+    // ~keep type-level skip to that type's impl blocks, so it still reports this generic
+    // ~keep constructor as an unrepresentable public item and fails generation outright.
+    #[cfg_attr(alef, alef(skip))]
     #[must_use]
     pub fn new(inner: P, ledger: Arc<L>, estimated_cost_usd: f64, safety_margin_pct: f64) -> Self {
         Self {
