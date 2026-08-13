@@ -2,6 +2,7 @@ pub mod auth;
 pub mod config;
 pub mod error;
 pub mod file_store;
+pub mod guardrail;
 pub mod mcp;
 pub mod openapi;
 pub mod provider;
@@ -192,10 +193,17 @@ impl ProxyServer {
             .key_resolver_override
             .clone()
             .unwrap_or_else(|| key_store.clone() as Arc<dyn liter_llm::tenant::KeyResolver>);
+
+        // ~keep Read back from the pool rather than building a second registry: the
+        // ~keep realtime path and every model's unary Tower stack must enforce the
+        // ~keep same set, and sharing one Arc makes divergence unrepresentable.
+        let guardrails = service_pool.guardrails();
+
         let state = AppState {
             key_store,
             key_resolver,
             service_pool,
+            guardrails,
             file_store: Arc::new(file_store),
             config: arc_config,
             secret_registry,

@@ -13,23 +13,32 @@
 //! client  ◄─[WS message]──   translate_inbound   ◄──  upstream provider
 //! ```
 //!
-//! # Guardrails — NOT enforced in any current deployment
+//! # Guardrails
 //!
-//! Do not rely on realtime sessions being moderated.  [`run_proxy`] takes a
-//! guardrail set and checks every message against it — client → upstream at the
-//! `GuardrailStage::Input` stage, upstream → client at `GuardrailStage::OutputChunk`,
-//! with a `Block` result replaced by a [`RealtimeEvent::Error`] — but
-//! [`handle_session`], the only production caller, passes an empty set.  There is
-//! no proxy config field, no [`AppState`] field, and no other call site that
-//! populates one, so both checks iterate nothing and always allow.
+//! [`handle_session`] enforces the guardrail set configured under
+//! `[[guardrails]]`, read from [`AppState::guardrails`] via
+//! [`session_guardrails`].  It is the *same* [`GuardrailRegistry`] that
+//! [`crate::service_pool::ServicePool`] layers into every model's unary Tower
+//! stack — one `Arc`, obtained from [`ServicePool::guardrails`], so a
+//! guardrail can never be live on one path and absent on the other.
 //!
-//! Every message therefore reaches its destination unexamined.  The machinery
-//! below is exercised only by this module's own tests, which construct their own
-//! guardrail sets; it is wiring waiting for a config surface, not an active
-//! control.  Anything that must not reach the upstream has to be blocked
-//! elsewhere.
+//! Every message is checked: client → upstream at the `GuardrailStage::Input`
+//! stage, upstream → client at `GuardrailStage::OutputChunk`.  A `Block`
+//! decision is returned to the client as an error event and the message is not
+//! forwarded; a `Mutate` decision rewrites the payload that is forwarded.
+//!
+//! Note that stage semantics differ between the two paths: the unary path
+//! inspects a serialized `LlmRequest`, while here the inspected payload is a
+//! single realtime event.  A pattern-based guardrail works on both, but a CEL
+//! expression written against a chat-completion shape will not evaluate
+//! against a realtime event — and `CelGuardrail` fails closed by default, so
+//! that misconfiguration blocks realtime traffic loudly rather than passing it
+//! silently.
 //!
 //! [`AppState`]: crate::state::AppState
+//! [`AppState::guardrails`]: crate::state::AppState::guardrails
+//! [`GuardrailRegistry`]: liter_llm::guardrail::GuardrailRegistry
+//! [`ServicePool::guardrails`]: crate::service_pool::ServicePool::guardrails
 //!
 //! # Cancellation
 //!
@@ -56,6 +65,8 @@ use tokio_util::sync::CancellationToken;
 
 use liter_llm::guardrail::{Guardrail, GuardrailContext, GuardrailDecision, GuardrailStage};
 use liter_llm::realtime::{RealtimeEvent, RealtimeTranslator};
+use liter_llm::tenant::TenantId;
+use liter_llm::tower::TENANT_ID_METADATA_KEY;
 use liter_llm::tower::metrics::{record_realtime_bytes, record_realtime_event, record_realtime_session_duration};
 use secrecy::{ExposeSecret, SecretString};
 
@@ -141,7 +152,9 @@ pub async fn realtime_websocket(
         }
     };
 
-    ws.on_upgrade(move |socket| handle_session(socket, model, upstream_api_key, state))
+    let tenant_id = key_ctx.tenant_id.clone();
+
+    ws.on_upgrade(move |socket| handle_session(socket, model, upstream_api_key, state, tenant_id))
         .into_response()
 }
 
@@ -205,8 +218,16 @@ fn session_cancel_token(shutdown: Option<&ShutdownHandle>) -> CancellationToken 
 ///
 /// The `upstream_api_key` is the resolved per-VK credential — the master key
 /// is NEVER passed here (that check lives in [`realtime_websocket`]).
-async fn handle_session(client_socket: WebSocket, model: String, upstream_api_key: SecretString, state: AppState) {
+async fn handle_session(
+    client_socket: WebSocket,
+    model: String,
+    upstream_api_key: SecretString,
+    state: AppState,
+    tenant_id: TenantId,
+) {
     let session_start = Instant::now();
+
+    let guardrail_metadata = session_guardrail_metadata(&tenant_id);
 
     let encoded_model: String = model
         .chars()
@@ -237,13 +258,35 @@ async fn handle_session(client_socket: WebSocket, model: String, upstream_api_ke
 
     let cancel = session_cancel_token(state.shutdown.as_ref());
 
-    let guardrails: Vec<Arc<dyn Guardrail>> = vec![];
-
-    run_proxy(client_socket, upstream, cancel, guardrails, "openai").await;
+    run_proxy(
+        client_socket,
+        upstream,
+        cancel,
+        session_guardrails(&state),
+        guardrail_metadata,
+        "openai",
+    )
+    .await;
 
     let duration = session_start.elapsed().as_secs_f64();
     record_realtime_session_duration("openai", duration);
     tracing::info!(duration_secs = duration, "realtime session ended");
+}
+
+/// The guardrail set a realtime session enforces.
+///
+/// Taken from [`AppState::guardrails`] — the registry
+/// [`crate::service_pool::ServicePool`] built at startup and layers into every
+/// model's unary Tower stack — never rebuilt here, so realtime and unary
+/// traffic are guarded by the same configured set.
+///
+/// [`run_proxy`] wants a `Vec` because it evaluates guardrails directly rather
+/// than through `GuardrailRegistry::run_stage`: realtime frames are neither an
+/// `LlmRequest` nor an `LlmResponse`, so the Tower layer does not apply.
+///
+/// [`AppState::guardrails`]: crate::state::AppState::guardrails
+fn session_guardrails(state: &AppState) -> Vec<Arc<dyn Guardrail>> {
+    state.guardrails.iter().map(Arc::clone).collect()
 }
 
 type UpstreamStream = tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -274,6 +317,22 @@ async fn connect_upstream(url: &str, api_key: &str) -> Result<UpstreamStream, St
     Ok(ws)
 }
 
+/// The `GuardrailContext::metadata` a realtime session presents to its guardrails.
+///
+/// The unary path gets this for free — `GuardrailService` derives it from
+/// [`liter_llm::tower::types::LlmRequest::tenant_id`] on every call. The relay proxies raw
+/// frames and has no `LlmRequest` to derive one from, so it must assemble the equivalent
+/// map itself. Without it, a `deny_list` on `tenant_id` would block unary traffic and
+/// silently allow realtime traffic: one configured set enforcing differently depending on
+/// which door the request came through, which is the failure the shared registry exists to
+/// prevent.
+///
+/// Uses [`TENANT_ID_METADATA_KEY`] rather than a local `"tenant_id"` literal so the two
+/// sides cannot drift into different spellings. ~keep
+fn session_guardrail_metadata(tenant_id: &TenantId) -> HashMap<String, String> {
+    HashMap::from([(TENANT_ID_METADATA_KEY.to_owned(), tenant_id.as_ref().to_owned())])
+}
+
 /// Run the bidirectional proxy loop.
 ///
 /// - Reads from `client_socket` (axum `WebSocket`) and forwards to `upstream`
@@ -286,6 +345,7 @@ pub(crate) async fn run_proxy(
     upstream: UpstreamStream,
     cancel: CancellationToken,
     guardrails: Vec<Arc<dyn Guardrail>>,
+    metadata: HashMap<String, String>,
     provider: &'static str,
 ) {
     let translator = liter_llm::realtime::OpenAiRealtimeTranslator::new();
@@ -301,7 +361,9 @@ pub(crate) async fn run_proxy(
     let upstream_tx_c2u = Arc::clone(&upstream_tx);
     let client_tx_c2u = Arc::clone(&client_tx);
     let cancel_c2u = cancel.clone();
+    let metadata = Arc::new(metadata);
     let guardrails_c2u = Arc::clone(&guardrails);
+    let metadata_c2u = Arc::clone(&metadata);
     let translator_c2u = translator.clone();
 
     let c2u = tokio::spawn(async move {
@@ -327,13 +389,15 @@ pub(crate) async fn run_proxy(
                                 }
                             };
 
-                            if let Some(err_json) =
-                                apply_guardrails_input(&guardrails_c2u, &raw, &HashMap::new()).await
-                            {
-                                let mut tx = client_tx_c2u.lock().await;
-                                let _ = tx.send(Message::Text(err_json.into())).await;
-                                continue;
-                            }
+                            let raw = match apply_guardrails_input(&guardrails_c2u, &raw, &metadata_c2u).await {
+                                GuardrailOutcome::Allow(payload) => payload,
+                                GuardrailOutcome::Block { reason, code } => {
+                                    let err_json = guardrail_error_json(code, &reason);
+                                    let mut tx = client_tx_c2u.lock().await;
+                                    let _ = tx.send(Message::Text(err_json.into())).await;
+                                    continue;
+                                }
+                            };
 
                             let event = match translator_c2u.translate_inbound(raw) {
                                 Ok(e) => e,
@@ -394,6 +458,7 @@ pub(crate) async fn run_proxy(
     let client_tx_u2c = Arc::clone(&client_tx);
     let cancel_u2c = cancel.clone();
     let guardrails_u2c = Arc::clone(&guardrails);
+    let metadata_u2c = Arc::clone(&metadata);
     let translator_u2c = translator;
 
     let u2c = tokio::spawn(async move {
@@ -443,7 +508,7 @@ pub(crate) async fn run_proxy(
                             let forward_json = match apply_guardrails_output_chunk(
                                 &guardrails_u2c,
                                 &raw,
-                                &HashMap::new(),
+                                &metadata_u2c,
                             )
                             .await
                             {
@@ -503,42 +568,64 @@ pub(crate) async fn run_proxy(
     let _ = tokio::join!(c2u, u2c);
 }
 
-/// Outcome of running guardrails on a chunk.
+/// Outcome of running guardrails on a payload.
 pub(crate) enum GuardrailOutcome {
+    /// Forward this payload — the original, or the rewrite a `Mutate`
+    /// decision produced.
     Allow(serde_json::Value),
+    /// Do not forward; return an error event to the client instead.
     Block { reason: String, code: u32 },
 }
 
+/// Render a guardrail `Block` as the realtime error event sent to the client.
+pub(crate) fn guardrail_error_json(code: u32, reason: &str) -> String {
+    let err = serde_json::json!({
+        "type": "error",
+        "error": {
+            "code": format!("{code}"),
+            "message": reason,
+        }
+    });
+    serde_json::to_string(&err).unwrap_or_default()
+}
+
+/// Run the `Input` stage over a client → upstream event.
+///
+/// A `Mutate` decision rewrites the payload and evaluation continues against
+/// the rewritten value, so the next guardrail inspects what will actually be
+/// forwarded and a redaction guardrail redacts here exactly as it does on the
+/// unary path. Dropping the rewrite and forwarding the original — as this
+/// function did while no caller supplied a guardrail set — is how a redaction
+/// guardrail comes to leak the content it was installed to remove. ~keep
 pub(crate) async fn apply_guardrails_input(
     guardrails: &[Arc<dyn Guardrail>],
     payload: &serde_json::Value,
     metadata: &HashMap<String, String>,
-) -> Option<String> {
+) -> GuardrailOutcome {
+    let mut current = payload.clone();
+
     for guardrail in guardrails.iter() {
         if !guardrail.supported_stages().contains(&GuardrailStage::Input) {
             continue;
         }
         let ctx = GuardrailContext {
-            request: payload,
+            request: &current,
             response: None,
             chunk: None,
             metadata,
         };
         match guardrail.check(GuardrailStage::Input, &ctx).await {
             GuardrailDecision::Block { reason, code } => {
-                let err = serde_json::json!({
-                    "type": "error",
-                    "error": {
-                        "code": format!("{code}"),
-                        "message": reason
-                    }
-                });
-                return Some(serde_json::to_string(&err).unwrap_or_default());
+                return GuardrailOutcome::Block { reason, code };
             }
-            GuardrailDecision::Allow | GuardrailDecision::Mutate { .. } => {}
+            GuardrailDecision::Mutate { new_payload } => {
+                current = new_payload;
+            }
+            GuardrailDecision::Allow => {}
         }
     }
-    None
+
+    GuardrailOutcome::Allow(current)
 }
 
 pub(crate) async fn apply_guardrails_output_chunk(
@@ -621,6 +708,35 @@ async fn send_error_to_axum_socket(mut socket: WebSocket, code: &str, message: &
 
 #[cfg(test)]
 mod tests {
+
+    /// A deny-list configured on `tenant_id` must decide the same way on both paths. The
+    /// unary path gets its metadata from `GuardrailService`; realtime has no `LlmRequest`,
+    /// so it assembles the equivalent here. If this map were empty — as it was before —
+    /// `DenyListGuardrail` would read `None`, treat it as "nothing to deny", and silently
+    /// allow every realtime message while the identical rule blocked unary traffic.
+    ///
+    /// Revert line: replace `session_guardrail_metadata(&tenant_id)` in `handle_session`
+    /// with `HashMap::new()` to make this fail.
+    #[test]
+    fn session_guardrail_metadata_carries_the_tenant_under_the_core_key() {
+        let tenant = TenantId::from("tnt-0123456789abcdef");
+        let metadata = session_guardrail_metadata(&tenant);
+
+        assert_eq!(
+            metadata.get(TENANT_ID_METADATA_KEY).map(String::as_str),
+            Some("tnt-0123456789abcdef"),
+            "realtime must present the tenant under the same key the unary path uses"
+        );
+        assert_eq!(metadata.len(), 1, "only tenant_id is derived for a realtime session");
+    }
+
+    /// The key is the core's exported constant, not a local literal, so a rename upstream
+    /// cannot leave the two paths spelling it differently.
+    #[test]
+    fn realtime_metadata_key_matches_the_core_constant() {
+        assert_eq!(TENANT_ID_METADATA_KEY, "tenant_id");
+    }
+
     use std::pin::Pin;
     use std::sync::Arc;
     use std::time::Duration;
@@ -775,12 +891,15 @@ mod tests {
         let guardrails: Vec<Arc<dyn Guardrail>> = vec![Arc::new(BlockAllGuardrail)];
         let payload = serde_json::json!({ "type": "input_audio_buffer.commit" });
 
-        let result = apply_guardrails_input(&guardrails, &payload, &HashMap::new()).await;
+        let outcome = apply_guardrails_input(&guardrails, &payload, &HashMap::new()).await;
 
-        assert!(result.is_some(), "guardrail should have blocked the event");
-        let err_json = result.unwrap();
-        let err_val: serde_json::Value = serde_json::from_str(&err_json).unwrap();
+        let GuardrailOutcome::Block { reason, code } = outcome else {
+            panic!("guardrail should have blocked the event");
+        };
+        let err_val: serde_json::Value =
+            serde_json::from_str(&guardrail_error_json(code, &reason)).expect("error event should be valid JSON");
         assert_eq!(err_val["type"], "error");
+        assert_eq!(err_val["error"]["code"], "1001");
         assert!(
             err_val["error"]["message"]
                 .as_str()
@@ -796,6 +915,200 @@ mod tests {
         let payload = serde_json::json!({ "type": "response.text.delta", "delta": "hello" });
         let outcome = apply_guardrails_output_chunk(&guardrails, &payload, &HashMap::new()).await;
         assert!(matches!(outcome, GuardrailOutcome::Allow(_)));
+    }
+
+    /// Build an [`AppState`] the way `ProxyServer::serve_with_shutdown` does —
+    /// in particular taking `guardrails` from the pool rather than rebuilding
+    /// it. Mirrors `routes::batches::tests::test_state`; no network access
+    /// happens at construction time.
+    fn test_state(config_toml: &str) -> AppState {
+        use arc_swap::ArcSwap;
+
+        use crate::auth::KeyStore;
+        use crate::config::{FileStorageConfig, ProxyConfig};
+        use crate::file_store::FileStore;
+        use crate::secrets::{EnvVarSecretManager, SecretManager, SecretManagerRegistry};
+        use crate::service_pool::ServicePool;
+
+        let config = ProxyConfig::from_toml_str(config_toml).expect("valid TOML");
+        let service_pool = Arc::new(ServicePool::from_config(&config, None).expect("service pool"));
+        let file_store = Arc::new(FileStore::from_config(&FileStorageConfig::default()).expect("file store"));
+        let key_store = Arc::new(KeyStore::from_config(None, &[]));
+        let secret_registry = Arc::new(
+            SecretManagerRegistry::builder()
+                .default_backend(Arc::new(EnvVarSecretManager::new()) as Arc<dyn SecretManager>)
+                .build(),
+        );
+
+        AppState {
+            key_store: Arc::clone(&key_store),
+            key_resolver: key_store,
+            guardrails: service_pool.guardrails(),
+            service_pool,
+            file_store,
+            config: Arc::new(ArcSwap::new(Arc::new(config))),
+            secret_registry,
+            shutdown: None,
+            usage_sink: None,
+        }
+    }
+
+    const MODEL_TOML: &str = r#"
+[[models]]
+name = "test-model"
+provider_model = "openai/gpt-4o"
+api_key = "sk-test"
+"#;
+
+    /// A realtime session must enforce the guardrails declared in
+    /// `[[guardrails]]`. Before this wiring existed, `handle_session` passed a
+    /// hardcoded empty vec and every realtime message went through unexamined.
+    #[test]
+    fn session_guardrails_returns_the_configured_set() {
+        let state = test_state(&format!(
+            r#"{MODEL_TOML}
+[[guardrails]]
+type = "prompt_injection"
+name = "injection-heuristic"
+"#
+        ));
+
+        let guardrails = session_guardrails(&state);
+
+        assert_eq!(guardrails.len(), 1, "the configured guardrail must reach the session");
+        assert_eq!(guardrails[0].name(), "injection-heuristic");
+    }
+
+    /// The realtime and unary paths must share one registry, not two sets
+    /// built from the same config — a shared `Arc` is what makes it impossible
+    /// to enable a guardrail on one path only.
+    #[test]
+    fn session_guardrails_share_the_pool_registry() {
+        let state = test_state(&format!(
+            r#"{MODEL_TOML}
+[[guardrails]]
+type = "prompt_injection"
+name = "injection-heuristic"
+"#
+        ));
+
+        assert!(
+            Arc::ptr_eq(&state.guardrails, &state.service_pool.guardrails()),
+            "AppState must hold the same registry the Tower stacks were built with"
+        );
+    }
+
+    #[test]
+    fn session_guardrails_is_empty_when_none_configured() {
+        let state = test_state(MODEL_TOML);
+        assert!(
+            session_guardrails(&state).is_empty(),
+            "an absent [[guardrails]] section must leave realtime behaviour unchanged"
+        );
+    }
+
+    /// End-to-end for the realtime path: TOML → `build_registry` → the exact
+    /// function the client → upstream relay loop calls on every frame.
+    #[tokio::test]
+    async fn configured_guardrail_blocks_a_realtime_input_event() {
+        let config = crate::config::ProxyConfig::from_toml_str(
+            r#"
+[[guardrails]]
+type = "regex"
+name = "block-ssn"
+pattern = '\d{3}-\d{2}-\d{4}'
+stages = ["input"]
+action = { kind = "block", code = 1100, reason_prefix = "SSN detected" }
+"#,
+        )
+        .expect("valid TOML");
+        let registry = crate::guardrail::build_registry(&config.guardrails).expect("guardrail should build");
+        let guardrails: Vec<Arc<dyn Guardrail>> = registry.iter().map(Arc::clone).collect();
+
+        let payload = serde_json::json!({
+            "type": "conversation.item.create",
+            "item": { "content": [{ "text": "my ssn is 123-45-6789" }] }
+        });
+
+        let outcome = apply_guardrails_input(&guardrails, &payload, &HashMap::new()).await;
+
+        let GuardrailOutcome::Block { code, reason } = outcome else {
+            panic!("a configured regex guardrail must block a matching realtime event");
+        };
+        assert_eq!(code, 1100);
+        assert!(
+            reason.contains("SSN detected"),
+            "reason should carry the prefix: {reason}"
+        );
+    }
+
+    /// A clean event still passes when a guardrail is configured — the check
+    /// blocks on a match, it does not reject everything.
+    #[tokio::test]
+    async fn configured_guardrail_allows_a_clean_realtime_input_event() {
+        let config = crate::config::ProxyConfig::from_toml_str(
+            r#"
+[[guardrails]]
+type = "regex"
+name = "block-ssn"
+pattern = '\d{3}-\d{2}-\d{4}'
+stages = ["input"]
+action = { kind = "block", code = 1100, reason_prefix = "SSN detected" }
+"#,
+        )
+        .expect("valid TOML");
+        let registry = crate::guardrail::build_registry(&config.guardrails).expect("guardrail should build");
+        let guardrails: Vec<Arc<dyn Guardrail>> = registry.iter().map(Arc::clone).collect();
+
+        let payload = serde_json::json!({ "type": "input_audio_buffer.commit" });
+        let outcome = apply_guardrails_input(&guardrails, &payload, &HashMap::new()).await;
+
+        assert!(matches!(outcome, GuardrailOutcome::Allow(_)));
+    }
+
+    /// A `Mutate` decision at the `Input` stage must rewrite the payload that
+    /// is forwarded upstream. Dropping the rewrite would make a configured
+    /// redaction guardrail forward exactly the content it was installed to
+    /// remove.
+    #[tokio::test]
+    async fn apply_guardrails_input_forwards_the_mutated_payload() {
+        struct RedactGuardrail;
+
+        impl Guardrail for RedactGuardrail {
+            fn name(&self) -> &'static str {
+                "redact_all"
+            }
+
+            fn supported_stages(&self) -> &'static [GuardrailStage] {
+                &[GuardrailStage::Input]
+            }
+
+            fn check<'a>(
+                &'a self,
+                _stage: GuardrailStage,
+                _ctx: &'a GuardrailContext<'a>,
+            ) -> Pin<Box<dyn std::future::Future<Output = GuardrailDecision> + Send + 'a>> {
+                Box::pin(async {
+                    GuardrailDecision::Mutate {
+                        new_payload: serde_json::json!({ "type": "redacted" }),
+                    }
+                })
+            }
+        }
+
+        let guardrails: Vec<Arc<dyn Guardrail>> = vec![Arc::new(RedactGuardrail)];
+        let payload = serde_json::json!({ "type": "conversation.item.create", "secret": "hunter2" });
+
+        let outcome = apply_guardrails_input(&guardrails, &payload, &HashMap::new()).await;
+
+        let GuardrailOutcome::Allow(forwarded) = outcome else {
+            panic!("a Mutate decision must allow the rewritten payload through");
+        };
+        assert_eq!(forwarded, serde_json::json!({ "type": "redacted" }));
+        assert!(
+            forwarded.get("secret").is_none(),
+            "the original payload must not be forwarded after a Mutate decision"
+        );
     }
 
     #[test]

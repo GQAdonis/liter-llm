@@ -15,7 +15,7 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    ProxyConfig,
+    GuardrailEntry, ProxyConfig,
     provider::{ConfigError, ConfigEvent, ConfigProvider},
 };
 use crate::auth::KeyStore;
@@ -82,6 +82,28 @@ async fn run_watcher(
     }
 }
 
+/// Warn loudly when a hot-reload changes `[[guardrails]]`.
+///
+/// The guardrail registry is built once by `ServicePool::from_config` and held
+/// by `Arc` inside every model's `GuardrailLayer` and inside `AppState`, so a
+/// reload cannot swap it — the same is true of `[[models]]` and `[routing]`,
+/// which this watcher also does not rebuild. Guardrails get an explicit
+/// warning anyway because they are a security control: publishing the new
+/// config silently would leave `config.load().guardrails` describing a set the
+/// proxy is not running, which is the "configured but not enforced" state the
+/// whole surface exists to rule out. Restart to apply. ~keep
+fn warn_on_guardrail_change(running: &[GuardrailEntry], incoming: &[GuardrailEntry]) {
+    if running == incoming {
+        return;
+    }
+    tracing::warn!(
+        running_count = running.len(),
+        incoming_count = incoming.len(),
+        "config watcher: [[guardrails]] changed, but the guardrail set is fixed at startup — the RUNNING guardrails \
+         are unchanged and the rest of the reload has been applied. Restart the proxy to enforce the new set."
+    );
+}
+
 fn handle_event(
     event: ConfigEvent,
     swap: &Arc<ArcSwap<ProxyConfig>>,
@@ -93,6 +115,7 @@ fn handle_event(
             tracing::info!(revision, "config watcher: hot-reload successful");
             increment_counter("gen_ai.config.reload");
             record_revision("gen_ai.config.revision", revision);
+            warn_on_guardrail_change(&swap.load().guardrails, &config.guardrails);
             // ~keep Reload the key store and per-key limits before publishing the new
             // ~keep config so no request can observe the new config with stale auth/limit state.
             key_store.reload(config.general.master_key.clone(), &config.keys);
@@ -103,6 +126,7 @@ fn handle_event(
             tracing::info!(revision, "config watcher: resync — full reload applied");
             increment_counter("gen_ai.config.reload");
             record_revision("gen_ai.config.revision", revision);
+            warn_on_guardrail_change(&swap.load().guardrails, &config.guardrails);
             key_store.reload(config.general.master_key.clone(), &config.keys);
             service_pool.update_key_limits(&config.keys);
             swap.store(Arc::new(config));

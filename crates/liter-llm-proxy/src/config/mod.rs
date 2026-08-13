@@ -1,4 +1,5 @@
 pub mod files;
+pub mod guardrail;
 pub mod key;
 pub mod mcp;
 pub mod model;
@@ -9,6 +10,7 @@ pub mod server;
 pub mod watcher;
 
 pub use files::FileStorageConfig;
+pub use guardrail::{CelActionConfig, GuardrailEntry, GuardrailStageConfig, RegexActionConfig};
 pub use key::VirtualKeyConfig;
 pub use mcp::McpConfig;
 pub use model::{AliasEntry, ModelEntry};
@@ -157,6 +159,13 @@ pub struct ProxyConfig {
     /// group. Absent means round-robin, matching pre-existing behaviour.
     /// See [`routing::RoutingConfig`].
     pub routing: Option<RoutingConfig>,
+    /// Content-filtering and policy guardrails enforced on every request, on
+    /// both the unary and realtime paths. Absent or empty means no guardrails.
+    ///
+    /// Any entry that fails to build aborts startup — see
+    /// [`guardrail::GuardrailEntry`] and [`crate::guardrail::build_registry`].
+    #[serde(default)]
+    pub guardrails: Vec<GuardrailEntry>,
 }
 
 /// Replace all `${VAR_NAME}` occurrences in `s` with the value of the
@@ -284,6 +293,54 @@ fn reject_unknown_keys(
     ))
 }
 
+/// Reject unknown keys in every `[[guardrails]]` entry and in each entry's
+/// nested `action` table.
+///
+/// Same serde limitation `validate_routing_keys` works around: `GuardrailEntry`
+/// carries `#[serde(deny_unknown_fields)]` but it is internally tagged
+/// (`tag = "type"`), so tag dispatch buffers the table and the attribute is a
+/// documented no-op. A misspelled `patern` would otherwise be discarded, and a
+/// guardrail built from a discarded pattern is a guardrail that does not guard.
+///
+/// Unlike `validate_routing_keys` this runs **before** the typed parse: a
+/// misspelled key almost always leaves the correctly-spelled one missing, so
+/// the typed parse would otherwise win the race and report `missing field
+/// "pattern"` while the operator stares at the line reading `patern`. Naming
+/// the key that is actually wrong is worth the ordering difference. ~keep
+fn validate_guardrail_keys(expanded: &str) -> Result<(), String> {
+    // ~keep A TOML syntax error is reported far better by the typed parse that
+    // ~keep follows; this check only has an opinion about key names.
+    let Ok(root) = toml::from_str::<toml::Table>(expanded) else {
+        return Ok(());
+    };
+    let Some(entries) = root.get("guardrails").and_then(toml::Value::as_array) else {
+        return Ok(());
+    };
+
+    for (index, entry) in entries.iter().enumerate() {
+        let Some(table) = entry.as_table() else {
+            continue;
+        };
+        let context = format!("[[guardrails]] entry {index}");
+        reject_unknown_keys(table, "type", guardrail::GUARDRAIL_KEYS_BY_TYPE, &context)?;
+
+        let Some(action) = table.get("action").and_then(toml::Value::as_table) else {
+            continue;
+        };
+        let action_context = format!("[[guardrails]] entry {index} `action`");
+        match table.get("type").and_then(toml::Value::as_str) {
+            Some("regex") => {
+                reject_unknown_keys(action, "kind", guardrail::REGEX_ACTION_KEYS_BY_KIND, &action_context)?;
+            }
+            Some("cel") => {
+                reject_unknown_keys(action, "kind", guardrail::CEL_ACTION_KEYS_BY_KIND, &action_context)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 /// Apply env-var interpolation to a raw TOML string, then deserialize.
 ///
 /// This is the simplest correct approach: interpolate the whole TOML source
@@ -291,6 +348,7 @@ fn reject_unknown_keys(
 /// gets expanded uniformly.
 fn parse_with_env_interpolation(raw: &str) -> Result<ProxyConfig, String> {
     let expanded = interpolate_env_vars(raw);
+    validate_guardrail_keys(&expanded)?;
     let config: ProxyConfig = toml::from_str(&expanded).map_err(|e| format!("invalid TOML config: {e}"))?;
     validate_routing_keys(&expanded)?;
     validate_secrets_non_empty(&config)?;

@@ -36,10 +36,12 @@ impl TestProxy {
             .expect("FileStore::from_config");
 
         let key_store = Arc::new(key_store);
+        let service_pool = Arc::new(service_pool);
         let state = AppState {
             key_store: key_store.clone(),
             key_resolver: key_store,
-            service_pool: Arc::new(service_pool),
+            guardrails: service_pool.guardrails(),
+            service_pool,
             file_store: Arc::new(file_store),
             config: Arc::new(ArcSwap::new(Arc::new(config))),
             secret_registry: Arc::new(
@@ -73,10 +75,12 @@ impl TestProxy {
         let key_store = Arc::new(key_store);
         let resolver: Arc<dyn KeyResolver> = key_resolver.unwrap_or_else(|| key_store.clone() as Arc<dyn KeyResolver>);
 
+        let service_pool = Arc::new(service_pool);
         let state = AppState {
             key_store,
             key_resolver: resolver,
-            service_pool: Arc::new(service_pool),
+            guardrails: service_pool.guardrails(),
+            service_pool,
             file_store: Arc::new(file_store),
             config: Arc::new(ArcSwap::new(Arc::new(config))),
             secret_registry: Arc::new(

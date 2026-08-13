@@ -177,6 +177,7 @@ api_key = "sk-test"
         AppState {
             key_resolver: key_store.clone() as Arc<dyn liter_llm::tenant::KeyResolver>,
             key_store,
+            guardrails: service_pool.guardrails(),
             service_pool,
             file_store,
             config: Arc::new(ArcSwap::from(Arc::new(config))),

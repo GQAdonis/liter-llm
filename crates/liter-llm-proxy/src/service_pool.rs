@@ -7,14 +7,15 @@ use tower::Layer;
 
 use liter_llm::client::{ClientConfigBuilder, DefaultClient};
 use liter_llm::error::LiterLlmError;
+use liter_llm::guardrail::GuardrailRegistry;
 use liter_llm::observability::{MultiUsageSink, UsageSinkErased};
 use liter_llm::tenant::TenantId;
 use liter_llm::tower::types::{LlmRequest, LlmResponse};
 use liter_llm::tower::{
     BudgetConfig, BudgetDimension, BudgetLayer, BudgetLedger, BudgetLedgerLayer, BudgetState, BudgetVerdict,
     CacheConfig, CacheLayer, CooldownLayer, CostCheckContext, CostTrackingLayer, EmbeddingSimilarityClassifier,
-    Enforcement, HealthCheckLayer, HooksLayer, IntentPrototype, KeywordClassifier, LlmService, ModelRateLimitLayer,
-    RateLimitConfig, RouteClassifier, Router, RoutingStrategy, TracingLayer, Weight,
+    Enforcement, GuardrailLayer, HealthCheckLayer, HooksLayer, IntentPrototype, KeywordClassifier, LlmService,
+    ModelRateLimitLayer, RateLimitConfig, RouteClassifier, Router, RoutingStrategy, TracingLayer, Weight,
 };
 
 use crate::config::{ClassifierConfig, KeywordRuleConfig, ModelEntry, ProxyConfig, RoutingConfig, VirtualKeyConfig};
@@ -68,6 +69,12 @@ pub struct ServicePool {
     /// Shared per-key calendar-month budget ledger, retained for the same
     /// reason as `key_limit_layer`.
     budget_ledger: Arc<PerKeyBudgetLedger>,
+    /// The guardrail set built from `[[guardrails]]`, layered into every
+    /// model's stack above and retained so [`AppState`] can hand the *same*
+    /// registry to the realtime WebSocket path.
+    ///
+    /// [`AppState`]: crate::state::AppState
+    guardrails: Arc<GuardrailRegistry>,
 }
 
 // ~keep SAFETY: `SyncBoxService` wraps a `Mutex<BoxCloneService>` which is `Send + Sync`.
@@ -90,8 +97,14 @@ impl ServicePool {
     /// # Errors
     ///
     /// Returns an error string if a `DefaultClient` cannot be constructed for
-    /// any model entry.
+    /// any model entry, or if any `[[guardrails]]` entry cannot be built. The
+    /// guardrail failure is deliberately fatal — see
+    /// [`crate::guardrail::build_registry`].
     pub fn from_config(config: &ProxyConfig, usage_sink: Option<Arc<dyn UsageSinkErased>>) -> Result<Self, String> {
+        // ~keep Built first, before any client or routing setup: a rejected guardrail
+        // ~keep config must abort startup, and failing here costs nothing to unwind.
+        let guardrails = crate::guardrail::build_registry(&config.guardrails)?;
+
         let mut grouped: HashMap<String, Vec<&ModelEntry>> = HashMap::new();
         for entry in &config.models {
             grouped.entry(entry.name.clone()).or_default().push(entry);
@@ -123,7 +136,14 @@ impl ServicePool {
                 default_client = Some(Arc::clone(&client_arc));
             }
 
-            let svc = build_service_stack(config, base, usage_sink.clone(), &key_limit_layer, &budget_ledger);
+            let svc = build_service_stack(
+                config,
+                base,
+                usage_sink.clone(),
+                &key_limit_layer,
+                &budget_ledger,
+                &guardrails,
+            );
 
             services.insert(name.clone(), SyncBoxService { inner: Mutex::new(svc) });
             clients.insert(name.clone(), client_arc);
@@ -135,7 +155,20 @@ impl ServicePool {
             default_client,
             key_limit_layer,
             budget_ledger,
+            guardrails,
         })
+    }
+
+    /// The guardrail set enforced by every model's Tower stack in this pool.
+    ///
+    /// [`crate::state::AppState`] stores this handle so the realtime WebSocket
+    /// path — which proxies raw frames and therefore has no Tower stack to
+    /// layer — enforces the same guardrails as the unary routes. Callers must
+    /// take the set from here rather than rebuilding it, so the two paths
+    /// cannot be configured apart.
+    #[must_use]
+    pub fn guardrails(&self) -> Arc<GuardrailRegistry> {
+        Arc::clone(&self.guardrails)
     }
 
     /// Push updated per-key rpm/tpm/budget limits from a reloaded
@@ -457,17 +490,25 @@ fn build_client(entry: &ModelEntry, config: &ProxyConfig) -> Result<DefaultClien
 /// 6. Per-key budget ledger (calendar-month, per-virtual-key — see issue #71)
 /// 7. CostTracking
 /// 8. Budget (global/per-model, from `[budget]`)
-/// 9. Tracing
-/// 10. HooksLayer with usage sink (outermost, conditional on `usage_sink.is_some()`)
+/// 9. Guardrail (from `[[guardrails]]`, conditional on a non-empty set)
+/// 10. Tracing
+/// 11. HooksLayer with usage sink (outermost, conditional on `usage_sink.is_some()`)
 ///
 /// HooksLayer sits outermost so it observes every request regardless of which
 /// inner layer produces the response (cache hit or live upstream).
+///
+/// Guardrails sit **outside** cache, rate-limit and budget so that: a blocked
+/// request never consumes a caller's rpm/tpm window or budget, a cache hit is
+/// still inspected at the `Output` stage instead of replaying content that
+/// bypassed the check, and an `Input` block costs no upstream call. They sit
+/// inside Tracing so a block is still recorded as a request. ~keep
 fn build_service_stack(
     config: &ProxyConfig,
     base: Bcs,
     usage_sink: Option<Arc<dyn UsageSinkErased>>,
     key_limit_layer: &KeyLimitLayer,
     budget_ledger: &Arc<PerKeyBudgetLedger>,
+    guardrails: &Arc<GuardrailRegistry>,
 ) -> Bcs {
     let mut svc: Bcs = base;
 
@@ -528,6 +569,15 @@ fn build_service_stack(
         };
         let state = Arc::new(BudgetState::new());
         let layer = BudgetLayer::new(tower_budget_cfg, state);
+        svc = tower::util::BoxCloneService::new(layer.layer(svc));
+    }
+
+    // ~keep Skipped when nothing is configured purely to avoid GuardrailService's
+    // ~keep per-request request serialization. This is safe only because
+    // ~keep `build_registry` makes an empty registry mean "the operator configured
+    // ~keep none" and never "some entry failed to build" — it aborts startup instead.
+    if !guardrails.is_empty() {
+        let layer = GuardrailLayer::with_registry(Arc::clone(guardrails));
         svc = tower::util::BoxCloneService::new(layer.layer(svc));
     }
 
@@ -1012,5 +1062,178 @@ models = ["test-model"]
         let result = pool.check_realtime_session_start(&tenant, "test-model").await;
         assert!(result.is_err(), "spend above budget_limit must reject the session");
         assert_eq!(result.unwrap_err().error_type(), "BudgetExceeded");
+    }
+
+    // ~keep Guardrail wiring for the unary Tower path. `[[guardrails]]` had no
+    // ~keep effect on any request before this layer was added to build_service_stack.
+
+    fn guarded_config(guardrails_toml: &str) -> Result<ProxyConfig, String> {
+        ProxyConfig::from_toml_str(&format!(
+            r#"
+[[models]]
+name = "gpt"
+provider_model = "openai/gpt-4o"
+api_key = "sk-test"
+base_url = "http://127.0.0.1:1"
+{guardrails_toml}
+"#
+        ))
+    }
+
+    const SSN_GUARDRAIL: &str = r#"
+[[guardrails]]
+type = "regex"
+name = "block-ssn"
+pattern = '\d{3}-\d{2}-\d{4}'
+stages = ["input"]
+action = { kind = "block", code = 1100, reason_prefix = "SSN detected" }
+"#;
+
+    fn chat_with(content: &str) -> LlmRequest {
+        let chat = serde_json::from_value(serde_json::json!({
+            "model": "gpt",
+            "messages": [{ "role": "user", "content": content }],
+        }))
+        .expect("chat request fixture should deserialize");
+        LlmRequest::Chat(chat)
+    }
+
+    /// A configured guardrail must block a matching request on the unary path.
+    ///
+    /// `base_url` points at a closed port, so if the `GuardrailLayer` were
+    /// missing from the stack the request would reach the transport and fail
+    /// with a connection error instead — a different error type, which is what
+    /// makes this assertion sensitive to the layer actually being installed.
+    #[tokio::test]
+    async fn configured_guardrail_blocks_on_the_unary_path() {
+        use tower::ServiceExt;
+
+        let config = guarded_config(SSN_GUARDRAIL).expect("valid TOML");
+        let pool = ServicePool::from_config(&config, None).expect("pool should build");
+        let service = pool.get_service("gpt").expect("service for configured model");
+
+        let error = service
+            .oneshot(chat_with("my ssn is 123-45-6789"))
+            .await
+            .expect_err("a configured guardrail must block the request");
+
+        match error {
+            LiterLlmError::HookRejected { message } => {
+                assert!(
+                    message.contains("SSN detected"),
+                    "the block reason should reach the caller, got: {message}"
+                );
+            }
+            other => panic!("expected HookRejected from the guardrail layer, got: {other:?}"),
+        }
+    }
+
+    /// The same stack must still forward a request that matches nothing — the
+    /// layer blocks on a decision, it does not reject everything.
+    #[tokio::test]
+    async fn configured_guardrail_forwards_a_clean_request_on_the_unary_path() {
+        use tower::ServiceExt;
+
+        let config = guarded_config(SSN_GUARDRAIL).expect("valid TOML");
+        let pool = ServicePool::from_config(&config, None).expect("pool should build");
+        let service = pool.get_service("gpt").expect("service for configured model");
+
+        let error = service
+            .oneshot(chat_with("hello there"))
+            .await
+            .expect_err("the unreachable base_url makes every forwarded request fail");
+
+        assert!(
+            !matches!(error, LiterLlmError::HookRejected { .. }),
+            "a clean request must reach the transport, not be blocked: {error:?}"
+        );
+    }
+
+    /// An absent `[[guardrails]]` section must leave the stack exactly as it
+    /// was — no registry entries, and no request blocked.
+    #[tokio::test]
+    async fn absent_guardrail_config_leaves_the_unary_path_unchanged() {
+        use tower::ServiceExt;
+
+        let config = guarded_config("").expect("valid TOML");
+        let pool = ServicePool::from_config(&config, None).expect("pool should build");
+        assert!(pool.guardrails().is_empty(), "no guardrails should be registered");
+
+        let service = pool.get_service("gpt").expect("service for configured model");
+        let error = service
+            .oneshot(chat_with("my ssn is 123-45-6789"))
+            .await
+            .expect_err("the unreachable base_url makes every forwarded request fail");
+
+        assert!(
+            !matches!(error, LiterLlmError::HookRejected { .. }),
+            "nothing may be blocked when no guardrails are configured: {error:?}"
+        );
+    }
+
+    /// Fail closed: a guardrail that cannot be constructed must abort pool
+    /// construction. `ProxyServer::serve_with_shutdown` propagates this
+    /// `Result` with `?` before binding the listener, so the proxy exits
+    /// rather than serving with a partial or empty guardrail set.
+    #[test]
+    fn malformed_guardrail_fails_pool_construction() {
+        let config = guarded_config(
+            r#"
+[[guardrails]]
+type = "regex"
+name = "broken"
+pattern = '([unclosed'
+stages = ["input"]
+action = { kind = "redact", replacement = "x" }
+"#,
+        )
+        .expect("the TOML itself is valid; the regex is not");
+
+        // ~keep Matched rather than `expect_err`, which would require `ServicePool: Debug`.
+        // ~keep The pool holds `ProxyConfig`, whose Debug derive was removed in e5d2f79a0 so a
+        // ~keep virtual key token could never reach a debug-formatted span or panic message.
+        let error = match ServicePool::from_config(&config, None) {
+            Err(error) => error,
+            Ok(_) => panic!("an unbuildable guardrail must abort startup, not degrade"),
+        };
+        assert!(error.contains("broken"), "error should name the entry: {error}");
+    }
+
+    /// A guardrail that fails to build must not be skipped in favour of the
+    /// ones that do build — the pool refuses rather than running a subset.
+    #[test]
+    fn one_malformed_guardrail_rejects_the_whole_set() {
+        let config = guarded_config(
+            r#"
+[[guardrails]]
+type = "prompt_injection"
+name = "good"
+
+[[guardrails]]
+type = "regex"
+name = "broken"
+pattern = '([unclosed'
+stages = ["input"]
+action = { kind = "redact", replacement = "x" }
+"#,
+        )
+        .expect("the TOML itself is valid; the regex is not");
+
+        assert!(
+            ServicePool::from_config(&config, None).is_err(),
+            "a partially-buildable guardrail set must abort startup"
+        );
+    }
+
+    /// The pool's registry is what `AppState` hands the realtime path, so it
+    /// must actually carry the configured entries.
+    #[test]
+    fn pool_exposes_the_configured_guardrail_set() {
+        let config = guarded_config(SSN_GUARDRAIL).expect("valid TOML");
+        let pool = ServicePool::from_config(&config, None).expect("pool should build");
+
+        let registry = pool.guardrails();
+        assert_eq!(registry.len(), 1);
+        assert_eq!(registry.iter().next().expect("one guardrail").name(), "block-ssn");
     }
 }

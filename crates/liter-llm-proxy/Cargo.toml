@@ -17,6 +17,11 @@ otel = ["liter-llm/otel", "dep:opentelemetry", "dep:tracing-opentelemetry"]
 
 opendal-cache = ["liter-llm/opendal-cache"]
 
+# ~keep Off by default because the CEL interpreter is a heavy transitive tree.
+# ~keep Without it a `type = "cel"` guardrail is a hard startup error, never a
+# ~keep silent skip — see `crate::guardrail::build_registry`.
+guardrail-cel = ["liter-llm/guardrail-cel"]
+
 # ~keep The proxy endpoints are always compiled; this named feature is an
 # ~keep explicit dependency surface for upstream crates.
 proxy = []
@@ -31,6 +36,7 @@ etcd-watch = ["dep:etcd-client"]
 full = [
     "otel",
     "opendal-cache",
+    "guardrail-cel",
     "proxy",
     "secrets-aws",
     "secrets-vault",
