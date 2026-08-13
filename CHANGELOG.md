@@ -119,6 +119,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `refusal` (present even when `null`) to satisfy OpenAI's response schema. See "Upgrade notes."
 - `Choice` gained a `logprobs` field; `CreateResponseRequest` gained an `extra_body` field;
   `GuardrailService` and `HooksService` both gained an `S: Clone` bound. See "Upgrade notes."
+- **`DenyListGuardrail` never blocked anything, and `AllowListGuardrail` would have blocked
+  everything.** Both decide on `GuardrailContext::metadata`, and nothing populated it per call —
+  `GuardrailService` passed only the static per-layer map, and `LlmRequest::tenant_id` was never
+  copied in. A deny-list on `tenant_id` therefore read `None`, which that guardrail treats as
+  "nothing to deny", so a configured and documented access control silently allowed every request;
+  an allow-list read `None` as "required field absent" and would have blocked all traffic. CEL
+  expressions referencing `metadata.tenant_id` were broken the same way. `tenant_id` is now merged
+  into the per-call context. Static per-layer metadata still wins on a key collision, with a
+  warning, so an operator's explicit value is never silently overwritten.
 - **A hook-rejected request no longer consumes rate-limit and budget accounting.** `HooksService`
   called the inner service before running its `on_request` hooks, so a request the hooks rejected
   had already executed every inner layer's synchronous body — and `ModelRateLimitService`
