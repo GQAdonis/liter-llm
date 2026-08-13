@@ -66,6 +66,16 @@ impl Provider for CohereProvider {
     ///
     /// Note: Cohere v2 requires `stream` in the body, so only `stream_options`
     /// (an OpenAI-specific field) is removed.
+    ///
+    /// Neither `temperature` nor `top_p` is range-checked here, unlike Anthropic and
+    /// Bedrock. Cohere's API reference documents `temperature` as "a non-negative
+    /// float" with no stated maximum, so there is no upper bound to enforce — the
+    /// "0-1" figure that appears in Cohere's conceptual guides is guidance, not a
+    /// schema constraint, and rejecting on it would fail requests Cohere accepts.
+    ///
+    /// `top_p` is a separate, pre-existing problem rather than a range one: Cohere's
+    /// v2 nucleus-sampling field is named `p` (min `0.01`, max `0.99`), so the `top_p`
+    /// this crate forwards never reaches Cohere as a recognised field at any value.
     fn transform_request(&self, body: &mut Value) -> Result<()> {
         if let Some(obj) = body.as_object_mut() {
             obj.remove("stream_options");

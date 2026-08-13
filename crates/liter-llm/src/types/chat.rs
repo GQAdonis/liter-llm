@@ -88,10 +88,23 @@ pub struct ChatCompletionRequest {
     pub model: String,
     /// Conversation history from oldest to newest.
     pub messages: Vec<Message>,
-    /// Sampling temperature in `[0.0, 2.0]`. Higher increases randomness. Defaults to 1.0.
+    /// Sampling temperature. Higher increases randomness, lower is more deterministic.
+    /// Defaults to 1.0.
+    ///
+    /// The accepted range depends on the provider the request is routed to. OpenAI-compatible
+    /// providers accept `[0.0, 2.0]`; Anthropic and Amazon Bedrock both cap it at `1.0`, and
+    /// for those two a value above the cap is rejected with a `BadRequest` error before the
+    /// request is sent, rather than being silently clamped or left for the provider to reject.
+    ///
+    /// No range is enforced for providers whose own documentation does not state one — the
+    /// value is forwarded and the provider decides. Consult the target provider's reference
+    /// rather than assuming `[0.0, 2.0]` is portable.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
-    /// Nucleus sampling parameter in `[0.0, 1.0]`. Lower is more focused.
+    /// Nucleus sampling parameter. Lower is more focused.
+    ///
+    /// Accepted ranges vary by provider (most document `[0.0, 1.0]`, but this is not
+    /// universal — check the target provider's own documentation for its exact bounds).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f64>,
     /// Number of chat completions to generate. Defaults to 1.

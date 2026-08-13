@@ -19,6 +19,40 @@ pub(crate) fn unix_timestamp_secs() -> u64 {
         .unwrap_or(0)
 }
 
+/// Validate that a sampling parameter present in the request body falls within a
+/// provider's documented range, rejecting it with a [`LiterLlmError::BadRequest`]
+/// when it does not.
+///
+/// `ChatCompletionRequest::temperature` and `top_p` are documented at the widest
+/// range accepted by any supported provider, so a value that is legal per that
+/// doc can still be illegal for a specific provider (e.g. Anthropic caps
+/// `temperature` at `1.0`, not OpenAI's `2.0`). Rejecting the value here, before
+/// the request reaches the wire, turns an opaque provider-side 400 into a local,
+/// actionable error instead of silently rewriting the caller's requested
+/// sampling behaviour, which a clamp would do. A missing field is not an error;
+/// only a present, out-of-range value is rejected.
+pub(crate) fn validate_sampling_param_range(
+    body: &serde_json::Value,
+    field: &str,
+    provider: &str,
+    min: f64,
+    max: f64,
+) -> Result<()> {
+    let Some(value) = body.get(field).and_then(serde_json::Value::as_f64) else {
+        return Ok(());
+    };
+    if value < min || value > max {
+        return Err(LiterLlmError::BadRequest {
+            message: format!(
+                "{field}={value} is outside {provider}'s supported range [{min}, {max}]; lower \
+                 the requested value or omit `{field}` to use the provider default"
+            ),
+            status: 400,
+        });
+    }
+    Ok(())
+}
+
 /// The streaming wire format a provider uses for its response stream.
 ///
 /// Most providers use standard Server-Sent Events (SSE).  AWS Bedrock uses
@@ -849,6 +883,34 @@ pub fn complex_provider_names() -> Result<&'static HashSet<String>> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// Revert line: delete the `if value < min || value > max { ... }` check inside
+    /// `validate_sampling_param_range` (or make it always return `Ok(())`) to make
+    /// this test fail.
+    #[test]
+    fn validate_sampling_param_range_rejects_out_of_range_value() {
+        let body = json!({"temperature": 1.8});
+        let err = validate_sampling_param_range(&body, "temperature", "Anthropic", 0.0, 1.0)
+            .expect_err("1.8 is outside [0.0, 1.0]");
+        assert_eq!(err.status_code(), 400);
+        assert_eq!(
+            err.to_string(),
+            "bad request: temperature=1.8 is outside Anthropic's supported range [0, 1]; lower \
+             the requested value or omit `temperature` to use the provider default"
+        );
+    }
+
+    #[test]
+    fn validate_sampling_param_range_accepts_in_range_value() {
+        let body = json!({"temperature": 0.5});
+        assert!(validate_sampling_param_range(&body, "temperature", "Anthropic", 0.0, 1.0).is_ok());
+    }
+
+    #[test]
+    fn validate_sampling_param_range_ignores_absent_field() {
+        let body = json!({"model": "claude-3-5-sonnet"});
+        assert!(validate_sampling_param_range(&body, "temperature", "Anthropic", 0.0, 1.0).is_ok());
+    }
 
     /// Every provider that authenticates with a static API key must name the
     /// environment variable that key is conventionally read from.

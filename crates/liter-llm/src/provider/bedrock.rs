@@ -394,6 +394,8 @@ impl Provider for BedrockProvider {
     /// - Messages use `content` arrays with typed blocks (`text`, `toolUse`, `toolResult`).
     /// - Generation parameters live in `inferenceConfig`.
     /// - Tools are described in `toolConfig.tools[].toolSpec`.
+    /// - `temperature` and `top_p` outside Bedrock's documented `[0.0, 1.0]` range are
+    ///   rejected with a `BadRequest` error rather than forwarded and left for Bedrock to reject.
     ///
     /// Embedding requests (`input` present, no `messages`) are routed to
     /// [`transform_bedrock_embed_request`] instead: Bedrock has no Converse-style
@@ -415,6 +417,15 @@ impl Provider for BedrockProvider {
         if body.get("input").is_some() && body.get("messages").is_none() {
             return transform_bedrock_embed_request(body);
         }
+
+        // ~keep The Bedrock Converse API's InferenceConfiguration documents both `temperature`
+        // ~keep and `topP` as 0-1, narrower than this crate's OpenAI-shaped 0.0-2.0 doc for
+        // ~keep `temperature`, regardless of the underlying foundation model (Anthropic, Titan,
+        // ~keep Llama, ...) since Converse enforces this at the gateway, not the model. See
+        // ~keep https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InferenceConfiguration.html.
+        // ~keep Reject out-of-range values locally rather than forwarding them for a 400.
+        super::validate_sampling_param_range(body, "temperature", "Bedrock", 0.0, 1.0)?;
+        super::validate_sampling_param_range(body, "top_p", "Bedrock", 0.0, 1.0)?;
 
         let messages = body
             .as_object_mut()
@@ -1575,6 +1586,59 @@ mod tests {
 
         assert_eq!(body["inferenceConfig"]["maxTokens"], 100);
         assert_eq!(body["inferenceConfig"]["temperature"], 0.7);
+    }
+
+    /// Revert line: delete
+    /// `super::validate_sampling_param_range(body, "temperature", "Bedrock", 0.0, 1.0)?;`
+    /// in `transform_request` to make this test fail.
+    #[test]
+    #[serial]
+    fn transform_request_rejects_temperature_above_bedrock_maximum() {
+        let p = provider();
+        let mut body = json!({
+            "model": "anthropic.claude-3-sonnet",
+            "messages": [{"role": "user", "content": "hi"}],
+            "temperature": 1.5
+        });
+
+        let err = p
+            .transform_request(&mut body)
+            .expect_err("temperature above Bedrock's 1.0 maximum should be rejected");
+
+        assert_eq!(err.status_code(), 400);
+        let message = err.to_string();
+        assert!(
+            message.contains("temperature=1.5"),
+            "error message should name the offending value: {message}"
+        );
+        assert!(
+            message.contains("Bedrock"),
+            "error message should name the provider: {message}"
+        );
+    }
+
+    /// Revert line: delete
+    /// `super::validate_sampling_param_range(body, "top_p", "Bedrock", 0.0, 1.0)?;`
+    /// in `transform_request` to make this test fail.
+    #[test]
+    #[serial]
+    fn transform_request_rejects_top_p_above_bedrock_maximum() {
+        let p = provider();
+        let mut body = json!({
+            "model": "anthropic.claude-3-sonnet",
+            "messages": [{"role": "user", "content": "hi"}],
+            "top_p": 1.2
+        });
+
+        let err = p
+            .transform_request(&mut body)
+            .expect_err("top_p above Bedrock's 1.0 maximum should be rejected");
+
+        assert_eq!(err.status_code(), 400);
+        assert!(
+            err.to_string().contains("top_p=1.2"),
+            "error message should name the offending value: {err}"
+        );
     }
 
     /// `max_completion_tokens` maps to `inferenceConfig.maxTokens` when `max_tokens` is absent.

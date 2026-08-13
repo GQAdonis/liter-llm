@@ -184,7 +184,18 @@ impl Provider for AnthropicProvider {
     ///   `metadata`/`audio`/`web_search_options`/`seed` are logged at WARN when actually
     ///   requested, and `modalities` is logged at WARN only when it asks for a non-text
     ///   modality Claude cannot produce).
+    /// - `temperature` above `1.0` (Anthropic's documented maximum, narrower than the
+    ///   `[0.0, 2.0]` this crate documents generically) is rejected with a `BadRequest`
+    ///   error rather than forwarded and left for Anthropic to reject.
     fn transform_request(&self, body: &mut Value) -> Result<()> {
+        // ~keep Anthropic's Messages API documents temperature as 0.0-1.0, narrower than this
+        // ~keep crate's OpenAI-shaped 0.0-2.0 doc; reject out-of-range values locally rather than
+        // ~keep forwarding a value Anthropic will 400 on. See
+        // ~keep https://platform.claude.com/docs/en/api/messages ("Defaults to 1.0. Ranges from
+        // ~keep 0.0 to 1.0."). `top_p` has no documented range in Anthropic's own reference and is
+        // ~keep intentionally left unchecked.
+        super::validate_sampling_param_range(body, "temperature", "Anthropic", 0.0, 1.0)?;
+
         let messages = body
             .as_object_mut()
             .and_then(|o| o.remove("messages"))
@@ -1474,6 +1485,48 @@ mod tests {
         assert_eq!(tools[0]["description"], "Get current weather");
         assert!(tools[0].get("input_schema").is_some());
         assert!(tools[0].get("function").is_none());
+    }
+
+    /// Revert line: delete the
+    /// `super::validate_sampling_param_range(body, "temperature", "Anthropic", 0.0, 1.0)?;`
+    /// call at the top of `transform_request` to make this test fail (the request
+    /// would then be transformed successfully instead of rejected).
+    #[test]
+    fn transform_request_rejects_temperature_above_anthropic_maximum() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "temperature": 1.8
+        });
+
+        let err = provider()
+            .transform_request(&mut body)
+            .expect_err("temperature above Anthropic's 1.0 maximum should be rejected");
+
+        assert_eq!(err.status_code(), 400);
+        let message = err.to_string();
+        assert!(
+            message.contains("temperature=1.8"),
+            "error message should name the offending value: {message}"
+        );
+        assert!(
+            message.contains("Anthropic"),
+            "error message should name the provider: {message}"
+        );
+    }
+
+    #[test]
+    fn transform_request_accepts_temperature_at_anthropic_maximum() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "temperature": 1.0
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("temperature exactly at Anthropic's 1.0 maximum should be accepted");
+        assert_eq!(body["temperature"], 1.0);
     }
 
     #[test]
