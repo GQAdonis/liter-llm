@@ -936,6 +936,22 @@ models = ["test-model"]
         .expect("valid TOML")
     }
 
+    /// Resolve a configured key's tenant id the same way `KeyContext` does.
+    ///
+    /// ~keep Never hardcode the key string as the tenant id here. The rpm/budget
+    /// ~keep lookup fails OPEN on a miss, so a test that passes a literal would
+    /// ~keep stop exercising enforcement the moment the derivation changes — it
+    /// ~keep would go green by not enforcing anything, which is the exact
+    /// ~keep regression these tests exist to catch.
+    fn tenant_of(config: &ProxyConfig, key: &str) -> TenantId {
+        let cfg = config
+            .keys
+            .iter()
+            .find(|k| k.key == key)
+            .expect("key must be present in the test config");
+        crate::auth::key_store::resolved_tenant_id(cfg)
+    }
+
     /// Regression test for the "realtime sessions bypass rpm/budget
     /// enforcement" gap: a key with capacity remaining must be allowed to
     /// start a realtime session.
@@ -945,7 +961,7 @@ models = ["test-model"]
         let pool = ServicePool::from_config(&config, None).expect("should build");
 
         let result = pool
-            .check_realtime_session_start(&TenantId::from("vk-a"), "test-model")
+            .check_realtime_session_start(&tenant_of(&config, "vk-a"), "test-model")
             .await;
         assert!(result.is_ok(), "session within rpm should be allowed, got: {result:?}");
     }
@@ -957,7 +973,7 @@ models = ["test-model"]
     async fn check_realtime_session_start_rejects_once_rpm_exhausted() {
         let config = config_with_keyed_model("rpm = 1");
         let pool = ServicePool::from_config(&config, None).expect("should build");
-        let tenant = TenantId::from("vk-a");
+        let tenant = tenant_of(&config, "vk-a");
 
         let first = pool.check_realtime_session_start(&tenant, "test-model").await;
         assert!(first.is_ok(), "first session should be allowed, got: {first:?}");
@@ -975,13 +991,13 @@ models = ["test-model"]
     async fn check_realtime_session_start_rejects_when_budget_exhausted() {
         let config = config_with_keyed_model("budget_limit = 1.0");
         let pool = ServicePool::from_config(&config, None).expect("should build");
-        let tenant = TenantId::from("vk-a");
+        let tenant = tenant_of(&config, "vk-a");
 
         pool.budget_ledger
             .record(&CostRecordContext {
                 model: "test-model",
                 provider: "openai",
-                tenant_id: Some("vk-a"),
+                tenant_id: Some(tenant.as_ref()),
                 user_id: None,
                 api_key_id: None,
                 cost_usd: 5.0,

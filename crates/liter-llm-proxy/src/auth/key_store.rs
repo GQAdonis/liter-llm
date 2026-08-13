@@ -46,6 +46,82 @@ pub struct KeyContext {
     pub tenant_id: TenantId,
 }
 
+/// The ahash digest of `key`, shared by [`KeyContext::redacted_id`] and
+/// [`derive_tenant_id`] so both derive from one seed table instead of two.
+///
+/// ~keep `with_seeds`, not `generate_with`: the latter folds in a per-call
+/// ~keep random component, so the same key hashed twice would not match and
+/// ~keep neither the redacted id nor the derived tenant id would be stable.
+fn key_digest(key: &str) -> u64 {
+    let state = ahash::RandomState::with_seeds(
+        REDACTED_ID_SEEDS[0],
+        REDACTED_ID_SEEDS[1],
+        REDACTED_ID_SEEDS[2],
+        REDACTED_ID_SEEDS[3],
+    );
+    state.hash_one(key)
+}
+
+/// Derive the default tenant id for a virtual key that has no explicit
+/// [`VirtualKeyConfig::tenant_id`] configured.
+///
+/// ~keep Deliberately NOT the key token. `tenant_id` flows into the OTLP
+/// ~keep `gen_ai.budget.tenant_id` metric attribute, the budget-ledger CSV
+/// ~keep chargeback export, tenant-scoped cache keys persisted at rest, and
+/// ~keep `UsageEvent` logs at INFO — every one of those sinks has weaker ACLs
+/// ~keep than the key store itself. Putting the live credential there durably
+/// ~keep leaks it into systems that never needed to see it, and none of them
+/// ~keep purge on key rotation.
+/// ~keep
+/// ~keep Shares `redacted_id`'s digest (different prefix, so the two are never
+/// ~keep visually confused) instead of a second hash. `redacted_id`'s
+/// ~keep "non-cryptographic, guessable by anyone who can propose a candidate
+/// ~keep key" caveat does not weaken anything here: a tenant id was never meant
+/// ~keep to be secret, so guessability is not a new exposure — it is the exact
+/// ~keep thing this function stops from being confused with a secret. The same
+/// ~keep 64-bit collision bound applies (~2^32 keys before a collision is
+/// ~keep likely by the birthday bound); deployments approaching that many
+/// ~keep virtual keys should set `tenant_id` explicitly rather than rely on the
+/// ~keep derived value, since a collision here silently merges two tenants'
+/// ~keep budgets and caches.
+/// ~keep
+/// ~keep UPGRADE NOTE: before this field existed, `tenant_id` WAS the key
+/// ~keep token, so this function's output differs from every existing
+/// ~keep deployment's current tenant id. Upgrading with no config change resets
+/// ~keep every virtual key's month-to-date budget-ledger spend to zero and
+/// ~keep orphans its existing tenant-scoped cache entries (they simply stop
+/// ~keep being read; nothing is deleted). Operators who need continuity across
+/// ~keep the upgrade must set `tenant_id = "<old key value>"` explicitly for
+/// ~keep each existing key in the same deploy that introduces this field, then
+/// ~keep migrate to an opaque value later at a time of their choosing. There is
+/// ~keep no way to make the *unconfigured* default match the old behaviour —
+/// ~keep the old behaviour was the vulnerability being fixed.
+fn derive_tenant_id(key: &str) -> TenantId {
+    TenantId::from(format!("tnt-{:016x}", key_digest(key)))
+}
+
+/// Resolve the tenant id for a virtual key config: the operator-configured
+/// [`VirtualKeyConfig::tenant_id`] when set, otherwise [`derive_tenant_id`].
+///
+/// Shared by [`KeyContext::from_config`] and `KeyStore`'s [`KeyResolver`]
+/// implementation so the two paths can never disagree about a key's tenant.
+///
+/// ~keep `pub(crate)`, not private, and this is load-bearing:
+/// ~keep `tenant_limit::build_key_limits` and `build_budget_limits` build a
+/// ~keep `TenantId -> limits` map that is looked up with the request's actual
+/// ~keep `tenant_id`, and that lookup FAILS OPEN on a miss. If either side
+/// ~keep derived the tenant id independently and the two ever disagreed,
+/// ~keep `KeyLimitLayer`/`PerKeyBudgetLedger` would silently stop enforcing
+/// ~keep rpm/tpm and budget for every virtual key rather than raise an error.
+/// ~keep Both call sites go through this one function so they cannot drift.
+/// ~keep Anything else that needs a key's tenant must call this too.
+pub(crate) fn resolved_tenant_id(config: &VirtualKeyConfig) -> TenantId {
+    match config.tenant_id.as_deref() {
+        Some(explicit) => TenantId::from(explicit),
+        None => derive_tenant_id(&config.key),
+    }
+}
+
 impl KeyContext {
     /// Create a context representing the master key (unrestricted access).
     ///
@@ -62,9 +138,13 @@ impl KeyContext {
 
     /// Create a context from a virtual key configuration.
     ///
-    /// The `tenant_id` defaults to the key token itself when the config does
-    /// not carry an explicit tenant.  Callers that have resolved a
-    /// [`ResolvedKey`] should prefer [`KeyContext::from_resolved`] instead.
+    /// `tenant_id` is [`VirtualKeyConfig::tenant_id`] when the operator set
+    /// one, otherwise a value derived from the key by
+    /// [`derive_tenant_id`] — **never** the raw key token.  See
+    /// [`derive_tenant_id`]'s doc comment for why, its collision bound, and
+    /// the upgrade note for deployments that predate this field.  Callers
+    /// that have resolved a [`ResolvedKey`] should prefer
+    /// [`KeyContext::from_resolved`] instead.
     pub fn from_config(config: &VirtualKeyConfig) -> Self {
         let allowed_models = if config.models.is_empty() {
             None
@@ -75,7 +155,7 @@ impl KeyContext {
             key_id: config.key.clone(),
             allowed_models,
             is_master: false,
-            tenant_id: TenantId::from(config.key.as_str()),
+            tenant_id: resolved_tenant_id(config),
         }
     }
 
@@ -119,18 +199,7 @@ impl KeyContext {
         if self.is_master {
             return "master".to_owned();
         }
-
-        // ~keep `with_seeds`, not `generate_with`: the latter folds in a per-call
-        // ~keep random component, so the same key hashed twice would not match and
-        // ~keep the identifier would be useless for correlating log lines.
-        let state = ahash::RandomState::with_seeds(
-            REDACTED_ID_SEEDS[0],
-            REDACTED_ID_SEEDS[1],
-            REDACTED_ID_SEEDS[2],
-            REDACTED_ID_SEEDS[3],
-        );
-        let digest = state.hash_one(self.key_id.as_str());
-        format!("vk-{digest:016x}")
+        format!("vk-{:016x}", key_digest(&self.key_id))
     }
 
     /// Returns true if this key is allowed to access the given model.
@@ -143,15 +212,19 @@ impl KeyContext {
 }
 
 impl std::fmt::Debug for KeyContext {
-    /// ~keep Both `key_id` and `tenant_id` hold the virtual key token, so
-    /// ~keep neither may be printed. A derived `Debug` leaked the caller's live
-    /// ~keep credential into any span or log that captured this value.
+    /// ~keep `key_id` holds the virtual key token, so it may not be printed —
+    /// ~keep a derived `Debug` would leak the caller's live credential into any
+    /// ~keep span or log that captured this value. `tenant_id` does NOT hold the
+    /// ~keep token (see `derive_tenant_id`/`resolved_tenant_id`): it is either an
+    /// ~keep operator-chosen label or a non-secret derived id, and it is already
+    /// ~keep written to metrics, chargeback exports, and usage logs elsewhere, so
+    /// ~keep printing it here plainly adds no new exposure.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KeyContext")
             .field("key_id", &self.redacted_id())
             .field("allowed_models", &self.allowed_models)
             .field("is_master", &self.is_master)
-            .field("tenant_id", &"<redacted>")
+            .field("tenant_id", &self.tenant_id)
             .finish()
     }
 }
@@ -303,7 +376,7 @@ impl KeyResolver for KeyStore {
         let result = match self.get(&api_key) {
             None => Err(KeyResolverError::NotFound),
             Some(cfg) => Ok(ResolvedKey {
-                tenant_id: TenantId::from(cfg.key.clone()),
+                tenant_id: resolved_tenant_id(&cfg),
                 allowed_models: cfg.models.clone(),
                 monthly_budget: cfg
                     .budget_limit
@@ -331,6 +404,7 @@ mod tests {
             rpm: Some(60),
             tpm: Some(100_000),
             budget_limit: Some(50.0),
+            tenant_id: None,
             provider_credentials: vec![],
         }
     }
@@ -616,7 +690,8 @@ mod tests {
     }
 
     /// A derived `Debug` printed the token; any `?key_ctx` in a span or log
-    /// line would have leaked it.
+    /// line would have leaked it. `tenant_id` is printed plainly since it no
+    /// longer holds the token — it must still never contain it.
     #[test]
     fn debug_output_never_contains_the_key() {
         let secret = "sk-vk-super-secret-token";
@@ -626,8 +701,8 @@ mod tests {
 
         assert!(!rendered.contains(secret), "Debug must not print the key: {rendered}");
         assert!(
-            rendered.contains("<redacted>"),
-            "tenant_id must be redacted too, since it holds the same token: {rendered}"
+            !rendered.contains("super-secret"),
+            "Debug must not print any part of the key via tenant_id either: {rendered}"
         );
     }
 
@@ -640,6 +715,104 @@ mod tests {
         assert!(
             store.get("").is_none(),
             "an empty token must not resolve a virtual key whose token interpolated away"
+        );
+    }
+
+    /// The core defect this module fixes: `tenant_id` used to be
+    /// `TenantId::from(config.key.clone())` — the live credential itself.
+    /// `tenant_id` is pushed to OTLP metrics, a chargeback CSV export,
+    /// persisted cache keys, and INFO-level usage logs, none of which have
+    /// the key store's ACLs. This test fails before the fix (tenant_id ==
+    /// the raw key) and passes after (tenant_id is a derived, non-secret id).
+    #[test]
+    fn tenant_id_never_contains_the_raw_key_token() {
+        let secret = "sk-vk-super-secret-token";
+        let ctx = KeyContext::from_config(&sample_key_config(secret, vec![]));
+
+        assert_ne!(
+            ctx.tenant_id.as_ref(),
+            secret,
+            "tenant_id must not equal the raw key token"
+        );
+        assert!(
+            !ctx.tenant_id.as_ref().contains("super-secret"),
+            "tenant_id must not embed any part of the key: {}",
+            ctx.tenant_id.as_ref()
+        );
+    }
+
+    /// Isolation bound: without an operator-configured `tenant_id`, two
+    /// distinct keys must resolve to distinct tenants, or their budgets and
+    /// tenant-scoped caches silently merge. Before the fix this held only
+    /// because the key itself was the tenant id; this test pins the same
+    /// guarantee for the derived id.
+    #[test]
+    fn distinct_keys_get_distinct_auto_derived_tenant_ids() {
+        let ctx_a = KeyContext::from_config(&sample_key_config("vk-team-a", vec![]));
+        let ctx_b = KeyContext::from_config(&sample_key_config("vk-team-b", vec![]));
+
+        assert_ne!(
+            ctx_a.tenant_id, ctx_b.tenant_id,
+            "distinct keys must not collapse onto one auto-derived tenant"
+        );
+    }
+
+    /// An operator-set `tenant_id` must be honoured verbatim, and must let
+    /// distinct keys deliberately share one tenant — the feature this field
+    /// exists to enable, which was impossible while the key itself was the
+    /// only tenant id.
+    #[test]
+    fn explicit_tenant_id_is_honoured_and_shareable_across_keys() {
+        let mut cfg_a = sample_key_config("vk-team-a-user-1", vec![]);
+        cfg_a.tenant_id = Some("team-a".to_string());
+        let mut cfg_b = sample_key_config("vk-team-a-user-2", vec![]);
+        cfg_b.tenant_id = Some("team-a".to_string());
+
+        let ctx_a = KeyContext::from_config(&cfg_a);
+        let ctx_b = KeyContext::from_config(&cfg_b);
+
+        assert_eq!(ctx_a.tenant_id, TenantId::from("team-a"));
+        assert_eq!(
+            ctx_a.tenant_id, ctx_b.tenant_id,
+            "two distinct keys configured with the same tenant_id must share one tenant"
+        );
+    }
+
+    /// `KeyStore::resolve` (the [`KeyResolver`] path used by callers that
+    /// resolve through the trait rather than `KeyContext::from_config`
+    /// directly) must apply the same explicit-tenant_id rule, or the two
+    /// entry points would disagree about a key's tenant.
+    #[tokio::test]
+    async fn resolve_honours_explicit_tenant_id() {
+        let mut cfg = sample_key_config("vk-resolve-me", vec![]);
+        cfg.tenant_id = Some("explicit-tenant".to_string());
+        let store = KeyStore::from_config(None, std::slice::from_ref(&cfg));
+
+        let resolved = store
+            .resolve("vk-resolve-me".to_string())
+            .await
+            .expect("configured key should resolve");
+
+        assert_eq!(resolved.tenant_id, TenantId::from("explicit-tenant"));
+    }
+
+    /// Same defect, exercised through `KeyResolver::resolve` instead of
+    /// `KeyContext::from_config`: without an explicit `tenant_id`, the
+    /// resolved tenant must be a derived id, not the raw key token.
+    #[tokio::test]
+    async fn resolve_derives_tenant_id_when_not_configured() {
+        let cfg = sample_key_config("vk-resolve-derived", vec![]);
+        let store = KeyStore::from_config(None, std::slice::from_ref(&cfg));
+
+        let resolved = store
+            .resolve("vk-resolve-derived".to_string())
+            .await
+            .expect("configured key should resolve");
+
+        assert_ne!(
+            resolved.tenant_id.as_ref(),
+            "vk-resolve-derived",
+            "resolved tenant_id must not be the raw key token"
         );
     }
 }

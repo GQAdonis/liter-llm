@@ -21,12 +21,14 @@
 //!
 //! # Known limitations
 //!
-//! - Lookup is by `tenant_id`, matched against `VirtualKeyConfig.key` (the
-//!   built-in `auth::KeyStore::resolve` sets `tenant_id == key`, see
-//!   `KeyContext::from_config`/`from_resolved`). A custom `KeyResolver`
-//!   (`ProxyServer::with_key_resolver`) that maps to unrelated tenant IDs
-//!   will not have its keys found here, and enforcement silently no-ops
-//!   (fails open) for that resolver.
+//! - Lookup is by `tenant_id`, and both this module's maps and `KeyContext`
+//!   derive that value through the single `auth::key_store::resolved_tenant_id`
+//!   function. They must never derive it independently: the lookup FAILS OPEN
+//!   on a miss, so any disagreement between the two silently disables rpm/tpm
+//!   and budget enforcement rather than raising an error. A custom
+//!   `KeyResolver` (`ProxyServer::with_key_resolver`) that maps to unrelated
+//!   tenant IDs will not have its keys found here, and enforcement silently
+//!   no-ops for that resolver.
 //! - Requests that never call `LlmRequest::with_tenant_id` carry
 //!   `tenant_id: None` and are not rate/budget-limited by this layer. Every
 //!   model-routed MCP tool call in `mcp/tools.rs` now goes through
@@ -59,6 +61,7 @@ use liter_llm::tower::{
 };
 
 use crate::auth::MASTER_TENANT_ID;
+use crate::auth::key_store::resolved_tenant_id;
 use crate::config::VirtualKeyConfig;
 
 /// Per-key rpm/tpm limits extracted from `VirtualKeyConfig` at `ServicePool`
@@ -71,19 +74,27 @@ pub struct KeyLimits {
 
 /// Build the tenant-id -> rpm/tpm limits map from the configured virtual keys.
 ///
-/// See the module-level docs for why keying by `VirtualKeyConfig.key` matches
-/// `LlmRequest::tenant_id()` for the default resolver.
+/// ~keep Keyed by `resolved_tenant_id`, the SAME resolution `KeyContext` uses, because
+/// ~keep `check_and_reserve_rpm_tpm` FAILS OPEN on a lookup miss. Keying this map any
+/// ~keep other way than the value the request actually carries does not raise an error —
+/// ~keep it silently stops enforcing rpm/tpm for every virtual key. That is why both
+/// ~keep sides must go through one function rather than each deriving the key.
 pub fn build_key_limits(keys: &[VirtualKeyConfig]) -> HashMap<TenantId, KeyLimits> {
     keys.iter()
-        .map(|k| (TenantId::from(k.key.as_str()), KeyLimits { rpm: k.rpm, tpm: k.tpm }))
+        .map(|k| (resolved_tenant_id(k), KeyLimits { rpm: k.rpm, tpm: k.tpm }))
         .collect()
 }
 
 /// Build the tenant-id -> budget-limit map (USD) from the configured virtual
 /// keys, in the `String`-keyed shape `DimensionLimits::per_tenant` expects.
+///
+/// ~keep Same resolution as `build_key_limits`, for the same fail-open reason.
 fn build_budget_limits(keys: &[VirtualKeyConfig]) -> HashMap<String, f64> {
     keys.iter()
-        .filter_map(|k| k.budget_limit.map(|limit| (k.key.clone(), limit)))
+        .filter_map(|k| {
+            k.budget_limit
+                .map(|limit| (resolved_tenant_id(k).as_ref().to_owned(), limit))
+        })
         .collect()
 }
 
@@ -437,6 +448,7 @@ mod tests {
     fn virtual_key(key: &str, rpm: Option<u32>, tpm: Option<u64>, budget_limit: Option<f64>) -> VirtualKeyConfig {
         VirtualKeyConfig {
             key: key.to_string(),
+            tenant_id: None,
             description: None,
             models: vec![],
             rpm,
@@ -446,13 +458,41 @@ mod tests {
         }
     }
 
+    /// This map is looked up with the request's `tenant_id`, and the lookup
+    /// fails open on a miss. So the only property that matters is that it is
+    /// keyed by exactly what `KeyContext` will carry — asserting a literal
+    /// value here (as this test used to, with `TenantId::from("vk-a")`) pins
+    /// the key token as the tenant id and would have to be rewritten again the
+    /// next time the derivation changes. Assert the agreement instead.
+    /// The tenant id a configured key resolves to — what a real request carries.
+    ///
+    /// ~keep Tests must not pass the key string itself as the tenant. The limit
+    /// ~keep lookup fails OPEN on a miss, so a hardcoded key would make these
+    /// ~keep tests pass by enforcing nothing at all.
+    /// ~keep Returns `&'static str` via a deliberate leak: the cost/check contexts
+    /// ~keep borrow for `'static`, and binding a local in every caller would bury
+    /// ~keep the point of each test in lifetime plumbing. Bounded by test count.
+    fn tenant_str(key: &str) -> &'static str {
+        let resolved = resolved_tenant_id(&virtual_key(key, None, None, None));
+        Box::leak(resolved.as_ref().to_owned().into_boxed_str())
+    }
+
     #[test]
-    fn build_key_limits_maps_key_token_to_tenant_id() {
-        let keys = vec![virtual_key("vk-a", Some(5), Some(1000), Some(1.5))];
-        let map = build_key_limits(&keys);
-        let limits = map.get(&TenantId::from("vk-a")).expect("key must be present");
+    fn build_key_limits_is_keyed_by_the_same_tenant_id_the_request_carries() {
+        let key = virtual_key("vk-a", Some(5), Some(1000), Some(1.5));
+        let map = build_key_limits(std::slice::from_ref(&key));
+
+        let ctx = crate::auth::KeyContext::from_config(&key);
+        let limits = map
+            .get(&ctx.tenant_id)
+            .expect("the map must be keyed by the tenant id KeyContext resolves, or enforcement fails open");
         assert_eq!(limits.rpm, Some(5));
         assert_eq!(limits.tpm, Some(1000));
+
+        assert!(
+            !map.contains_key(&TenantId::from("vk-a")),
+            "the raw key token must no longer be a tenant id"
+        );
     }
 
     #[test]
@@ -462,8 +502,8 @@ mod tests {
             virtual_key("vk-b", None, None, None),
         ];
         let map = build_budget_limits(&keys);
-        assert_eq!(map.get("vk-a"), Some(&2.5));
-        assert_eq!(map.get("vk-b"), None);
+        assert_eq!(map.get(tenant_str("vk-a")), Some(&2.5));
+        assert_eq!(map.get(tenant_str("vk-b")), None);
     }
 
     #[tokio::test]
@@ -661,9 +701,11 @@ mod tests {
         let keys = vec![virtual_key("vk-a", None, None, Some(1.0))];
         let ledger = PerKeyBudgetLedger::new_with_window(&keys, Duration::from_secs(3600));
 
-        ledger.record(&record_cost("gpt-4o", "vk-a", 1.5)).await;
+        ledger.record(&record_cost("gpt-4o", tenant_str("vk-a"), 1.5)).await;
 
-        let verdict = ledger.check(&check_ctx("vk-a", std::time::SystemTime::now())).await;
+        let verdict = ledger
+            .check(&check_ctx(tenant_str("vk-a"), std::time::SystemTime::now()))
+            .await;
         assert!(
             matches!(verdict, BudgetVerdict::Reject { .. }),
             "spend above the configured limit must reject, got: {verdict:?}"
@@ -680,16 +722,16 @@ mod tests {
         let ledger = PerKeyBudgetLedger::new_with_window(&keys, Duration::from_secs(1));
 
         let now = std::time::SystemTime::now();
-        ledger.record(&record_cost("gpt-4o", "vk-a", 5.0)).await;
+        ledger.record(&record_cost("gpt-4o", tenant_str("vk-a"), 5.0)).await;
 
-        let over_budget = ledger.check(&check_ctx("vk-a", now)).await;
+        let over_budget = ledger.check(&check_ctx(tenant_str("vk-a"), now)).await;
         assert!(
             matches!(over_budget, BudgetVerdict::Reject { .. }),
             "should be over budget within the window, got: {over_budget:?}"
         );
 
         let next_month = now + Duration::from_secs(2);
-        let after_rollover = ledger.check(&check_ctx("vk-a", next_month)).await;
+        let after_rollover = ledger.check(&check_ctx(tenant_str("vk-a"), next_month)).await;
         assert!(
             matches!(after_rollover, BudgetVerdict::Allow),
             "spend must roll over once the window elapses, got: {after_rollover:?}"
@@ -704,13 +746,17 @@ mod tests {
         let keys = vec![virtual_key("vk-a", None, None, Some(1.0))];
         let ledger = PerKeyBudgetLedger::new_with_window(&keys, Duration::from_secs(3600));
 
-        ledger.record(&record_cost("gpt-4o", "vk-a", 1.5)).await;
-        let rejected = ledger.check(&check_ctx("vk-a", std::time::SystemTime::now())).await;
+        ledger.record(&record_cost("gpt-4o", tenant_str("vk-a"), 1.5)).await;
+        let rejected = ledger
+            .check(&check_ctx(tenant_str("vk-a"), std::time::SystemTime::now()))
+            .await;
         assert!(matches!(rejected, BudgetVerdict::Reject { .. }));
 
         ledger.update_limits(&[virtual_key("vk-a", None, None, Some(100.0))]);
 
-        let allowed = ledger.check(&check_ctx("vk-a", std::time::SystemTime::now())).await;
+        let allowed = ledger
+            .check(&check_ctx(tenant_str("vk-a"), std::time::SystemTime::now()))
+            .await;
         assert!(
             matches!(allowed, BudgetVerdict::Allow),
             "raised budget limit should allow the request, got: {allowed:?}"
@@ -727,12 +773,12 @@ mod tests {
         let keys = vec![virtual_key("vk-a", None, None, Some(100.0))];
         let ledger = PerKeyBudgetLedger::new_with_window(&keys, Duration::from_secs(3600));
 
-        ledger.record(&record_cost("gpt-4o", "vk-a", 42.0)).await;
-        assert!((ledger.snapshot().per_tenant["vk-a"] - 42.0).abs() < 1e-9);
+        ledger.record(&record_cost("gpt-4o", tenant_str("vk-a"), 42.0)).await;
+        assert!((ledger.snapshot().per_tenant[tenant_str("vk-a")] - 42.0).abs() < 1e-9);
 
         ledger.update_limits(&[virtual_key("vk-a", None, None, Some(200.0))]);
 
-        let spend = ledger.snapshot().per_tenant["vk-a"];
+        let spend = ledger.snapshot().per_tenant[tenant_str("vk-a")];
         assert!(
             (spend - 42.0).abs() < 1e-9,
             "month-to-date spend must survive a config reload, got ${spend:.2}"

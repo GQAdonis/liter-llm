@@ -363,6 +363,7 @@ mod tests {
             rpm: None,
             tpm: None,
             budget_limit: None,
+            tenant_id: None,
             provider_credentials: vec![],
         }];
         let swap = Arc::new(ArcSwap::from(Arc::new(initial.clone())));

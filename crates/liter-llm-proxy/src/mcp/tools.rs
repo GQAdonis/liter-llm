@@ -747,7 +747,6 @@ mod tests {
     use axum::body::Body;
     use axum::response::Response;
     use axum::routing::post;
-    use liter_llm::tenant::TenantId;
     use liter_llm::types::ChatCompletionRequest;
     use tokio::net::TcpListener;
     use tokio::task::JoinHandle;
@@ -781,13 +780,22 @@ mod tests {
         (format!("http://127.0.0.1:{}", addr.port()), handle)
     }
 
-    fn virtual_key_ctx(tenant: &str) -> KeyContext {
-        KeyContext {
-            key_id: tenant.to_string(),
-            allowed_models: None,
-            is_master: false,
-            tenant_id: TenantId::from(tenant),
-        }
+    /// ~keep Built through `from_config`, not as a `KeyContext` literal, so the
+    /// ~keep tenant id is the one real resolution produces. Hand-setting
+    /// ~keep `tenant_id` to the key string makes the rpm/budget lookup miss, and
+    /// ~keep that lookup FAILS OPEN — the test would then pass by enforcing
+    /// ~keep nothing, which is precisely the regression it exists to catch.
+    fn virtual_key_ctx(key: &str) -> KeyContext {
+        KeyContext::from_config(&crate::config::VirtualKeyConfig {
+            key: key.to_string(),
+            tenant_id: None,
+            description: None,
+            models: vec![],
+            rpm: None,
+            tpm: None,
+            budget_limit: None,
+            provider_credentials: vec![],
+        })
     }
 
     fn chat_request(model: &str) -> LlmRequest {

@@ -189,6 +189,7 @@ api_key = "sk-test"
     fn virtual_key_ctx() -> KeyContext {
         let cfg = VirtualKeyConfig {
             key: "vk-tenant-a".to_string(),
+            tenant_id: None,
             description: None,
             models: vec![],
             rpm: None,

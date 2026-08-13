@@ -130,6 +130,7 @@ async fn virtual_key_denied_model_returns_403() {
     let mut config = common::test_proxy::default_config(&upstream.url);
     config.keys = vec![VirtualKeyConfig {
         key: "sk-restricted".into(),
+        tenant_id: None,
         description: None,
         models: vec!["other-model".into()],
         rpm: None,

@@ -387,6 +387,7 @@ mod tests {
     fn restricted_ctx(key_id: &str, models: Vec<String>) -> KeyContext {
         let cfg = VirtualKeyConfig {
             key: key_id.to_string(),
+            tenant_id: None,
             description: None,
             models,
             rpm: None,

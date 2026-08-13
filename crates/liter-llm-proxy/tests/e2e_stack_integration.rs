@@ -143,6 +143,7 @@ async fn virtual_key_routes_through_full_stack() {
     let mut config = common::test_proxy::default_config(&upstream.url);
     config.keys = vec![VirtualKeyConfig {
         key: "sk-vk-allowed".into(),
+        tenant_id: None,
         description: Some("vk with test-model allowlist".into()),
         models: vec!["test-model".into()],
         rpm: None,
@@ -192,6 +193,7 @@ async fn denied_model_short_circuits_before_upstream() {
     let mut config = common::test_proxy::default_config(&upstream.url);
     config.keys = vec![VirtualKeyConfig {
         key: "sk-vk-denied".into(),
+        tenant_id: None,
         description: Some("vk without test-model".into()),
         models: vec!["other".into()],
         rpm: None,

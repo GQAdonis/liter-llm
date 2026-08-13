@@ -25,6 +25,8 @@ use std::path::Path;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 
+use crate::auth::MASTER_TENANT_ID;
+
 fn default_timeout() -> u64 {
     120
 }
@@ -292,6 +294,7 @@ fn parse_with_env_interpolation(raw: &str) -> Result<ProxyConfig, String> {
     let config: ProxyConfig = toml::from_str(&expanded).map_err(|e| format!("invalid TOML config: {e}"))?;
     validate_routing_keys(&expanded)?;
     validate_secrets_non_empty(&config)?;
+    validate_virtual_key_tenant_ids(&config)?;
     Ok(config)
 }
 
@@ -323,6 +326,37 @@ fn validate_secrets_non_empty(config: &ProxyConfig) -> Result<(), String> {
                 "virtual key '{}' has an empty token — an unset ${{VAR}} interpolates to \"\". Set the variable or \
                  remove the key.",
                 key.description.as_deref().unwrap_or("<no description>")
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Reject a virtual key's explicit `tenant_id` when it is empty or collides
+/// with [`MASTER_TENANT_ID`].
+///
+/// An empty value is the same interpolated-away-`${VAR}` hazard as
+/// `validate_secrets_non_empty` guards against for `key`. `"master"` is
+/// reserved: `KeyContext::master()` always resolves to `MASTER_TENANT_ID`, so
+/// a virtual key configured to share it would fold that key's spend into the
+/// master key's budget-ledger bucket and cache namespace — a budget-tracking
+/// bypass introduced by config, not by code. ~keep
+fn validate_virtual_key_tenant_ids(config: &ProxyConfig) -> Result<(), String> {
+    for key in &config.keys {
+        let Some(tenant_id) = key.tenant_id.as_deref() else {
+            continue;
+        };
+        let name = key.description.as_deref().unwrap_or("<no description>");
+        if tenant_id.is_empty() {
+            return Err(format!(
+                "virtual key '{name}' has an empty tenant_id — an unset ${{VAR}} interpolates to \"\". Set the \
+                 variable or remove the tenant_id key."
+            ));
+        }
+        if tenant_id == MASTER_TENANT_ID {
+            return Err(format!(
+                "virtual key '{name}' sets tenant_id = \"{MASTER_TENANT_ID}\", which is reserved for master-key \
+                 traffic. Choose a different tenant_id."
             ));
         }
     }
@@ -489,6 +523,10 @@ duration_secs = 60
         assert_eq!(config.keys[0].key, "vk-team-a");
         assert_eq!(config.keys[0].models, vec!["gpt-4o"]);
         assert_eq!(config.keys[0].rpm, Some(60));
+        assert_eq!(
+            config.keys[0].tenant_id, None,
+            "a config with no tenant_id key must keep working and default to None"
+        );
 
         let rl = config.rate_limit.expect("rate_limit should be present");
         assert_eq!(rl.rpm, Some(120));
@@ -554,6 +592,59 @@ description = "billing-team"
         assert!(
             err.contains("billing-team"),
             "error must identify WHICH key is empty so an operator can fix it: {err}"
+        );
+    }
+
+    /// An operator-set `tenant_id` must parse and be distinguishable from the
+    /// key token — the config-level way to name a tenant directly instead of
+    /// letting the key double as its own tenant id.
+    #[test]
+    fn parses_explicit_virtual_key_tenant_id() {
+        let toml = r#"
+[[keys]]
+key = "vk-team-a-user-1"
+tenant_id = "team-a"
+"#;
+        let config = ProxyConfig::from_toml_str(toml).expect("TOML config should parse");
+        assert_eq!(config.keys[0].tenant_id.as_deref(), Some("team-a"));
+    }
+
+    /// Same interpolated-away-`${VAR}` hazard as the key token itself: an
+    /// empty tenant_id must be rejected at load, not silently accepted.
+    #[test]
+    fn rejects_virtual_key_tenant_id_that_interpolated_to_empty() {
+        let toml = r#"
+[[keys]]
+key = "vk-team-a"
+description = "billing-team"
+tenant_id = "${SURELY_NONEXISTENT_TENANT_ID_VAR_98765}"
+"#;
+        let Err(err) = ProxyConfig::from_toml_str(toml) else {
+            panic!("an empty tenant_id must be rejected");
+        };
+        assert!(
+            err.contains("billing-team") && err.contains("tenant_id"),
+            "error must identify WHICH key and WHY: {err}"
+        );
+    }
+
+    /// `"master"` is reserved for `KeyContext::master()`. A virtual key
+    /// configured to share it would fold its spend into the master tenant's
+    /// budget-ledger bucket — a config-introduced budget bypass.
+    #[test]
+    fn rejects_virtual_key_tenant_id_that_collides_with_master() {
+        let toml = r#"
+[[keys]]
+key = "vk-team-a"
+description = "billing-team"
+tenant_id = "master"
+"#;
+        let Err(err) = ProxyConfig::from_toml_str(toml) else {
+            panic!("tenant_id = \"master\" must be rejected — it collides with the reserved master tenant");
+        };
+        assert!(
+            err.contains("billing-team") && err.contains("master"),
+            "error must identify WHICH key and WHY: {err}"
         );
     }
 

@@ -54,6 +54,18 @@ pub struct VirtualKeyConfig {
     pub rpm: Option<u32>,
     pub tpm: Option<u64>,
     pub budget_limit: Option<f64>,
+    /// Explicit tenant identity for this key.
+    ///
+    /// ~keep Absent by default (`#[serde(default)]`) so existing configs keep
+    /// ~keep loading unchanged. When set, every key that shares this value is
+    /// ~keep billed, cached, and rate-limited as one tenant — the supported way to
+    /// ~keep issue several keys against one budget, which is impossible when the
+    /// ~keep tenant id is the key itself. When absent, `KeyContext::from_config`
+    /// ~keep derives a stable, non-secret id from the key rather than using the
+    /// ~keep raw token; see that function's doc comment for why, and for the
+    /// ~keep upgrade note on existing deployments.
+    #[serde(default)]
+    pub tenant_id: Option<String>,
     /// Per-provider credential pool.
     ///
     /// When non-empty, each provider listed here gets an
@@ -89,6 +101,7 @@ impl std::fmt::Debug for VirtualKeyConfig {
             .field("rpm", &self.rpm)
             .field("tpm", &self.tpm)
             .field("budget_limit", &self.budget_limit)
+            .field("tenant_id", &self.tenant_id)
             .field("provider_credentials", &self.provider_credentials)
             .finish()
     }
@@ -107,6 +120,7 @@ mod tests {
             rpm: Some(60),
             tpm: None,
             budget_limit: None,
+            tenant_id: None,
             provider_credentials: vec![],
         };
 

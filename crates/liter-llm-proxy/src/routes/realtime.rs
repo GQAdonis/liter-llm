@@ -840,6 +840,7 @@ mod tests {
     ) -> VirtualKeyConfig {
         VirtualKeyConfig {
             key: key.to_string(),
+            tenant_id: None,
             description: None,
             models,
             rpm: None,
