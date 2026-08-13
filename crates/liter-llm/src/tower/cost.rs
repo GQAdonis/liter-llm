@@ -55,6 +55,21 @@ use crate::types::{ChatCompletionChunk, Usage};
 /// `on_complete` runs synchronously inside `poll_next`; callers that need to
 /// perform async work (e.g. writing to a remote [`crate::tower::budget::BudgetLedger`])
 /// must spawn their own task rather than block here.
+///
+/// # Caller contract
+///
+/// The returned stream drains itself in `Drop` (with a no-op waker) so that an
+/// abandoned stream still reports the spend it already incurred. That is only
+/// safe because every current caller wraps [`super::service::LlmService`]'s
+/// fully-buffered stream, whose `poll_next` is a synchronous read off a
+/// `VecDeque` and touches no I/O driver.
+///
+/// Do not compose this over a live provider-backed stream. Polling real HTTP
+/// body I/O from `Drop` can panic when no reactor is running (an aborted task,
+/// a drop during runtime shutdown), and a panic raised while unwinding aborts
+/// the process instead of propagating. `pub(crate)` visibility is what keeps
+/// this contract enforceable — it is a convention, not a type-level guarantee,
+/// so preserve it. ~keep
 pub(crate) fn observe_stream_usage<F>(
     stream: BoxStream<'static, Result<ChatCompletionChunk>>,
     on_complete: F,
