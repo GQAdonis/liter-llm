@@ -270,15 +270,28 @@ where
                 && let Some(window) = policy.cache_for(err)
                 && let Some((key, body, _tenant_id)) = key_and_body
             {
-                let expires_at = Instant::now() + window;
-                // ~keep LiterLlmError is not cloneable; cache only a display-string error for later callers.
-                let cached_err = CachedResponse::Error {
-                    error: Arc::new(LiterLlmError::InternalError {
-                        message: err.to_string(),
-                    }),
-                    expires_at,
-                };
-                store.put(key, body, cached_err).await;
+                // ~keep Peek before writing: `inner` is `CacheService`, which shares this
+                // ~keep same store, so a replayed cached error re-enters this branch on every
+                // ~keep poll (it is still `Err` and still eligible per `policy.cache_for`). If
+                // ~keep we unconditionally wrote a new `expires_at` here, a client polling
+                // ~keep faster than `window` would keep the entry alive forever, even long
+                // ~keep after upstream recovered. Only write when there is no still-live
+                // ~keep negative-cache entry for this key, so a replay never extends its own
+                // ~keep window — the window is set once, by the call that actually observed
+                // ~keep the fresh upstream failure.
+                let already_cached = matches!(store.get(key, &body).await, Some(CachedResponse::Error { .. }));
+                if !already_cached {
+                    let expires_at = Instant::now() + window;
+                    // ~keep Preserve the error variant (and fields like `retry_after`) via the
+                    // ~keep same owned-conversion `cache_singleflight` uses for the identical
+                    // ~keep "LiterLlmError is not Clone" problem, instead of collapsing every
+                    // ~keep cached error to `InternalError` and silently downgrading retryability.
+                    let cached_err = CachedResponse::Error {
+                        error: Arc::new(err.to_singleflight_error()),
+                        expires_at,
+                    };
+                    store.put(key, body, cached_err).await;
+                }
             }
             result
         })
@@ -398,6 +411,127 @@ mod tests {
             call_count.load(std::sync::atomic::Ordering::SeqCst),
             2,
             "after negative-cache window, inner must be called again"
+        );
+    }
+
+    /// The cached error must preserve its original variant (and fields such as
+    /// `retry_after`), not collapse to `InternalError`.
+    ///
+    /// Before the fix, the write path always wrapped the upstream error in
+    /// `LiterLlmError::InternalError { message: err.to_string() }`, discarding
+    /// the discriminant. A cached 429 replayed as a 500 with no `retry_after`,
+    /// and `LiterLlmError::is_transient()` then returned `false` for the
+    /// replayed error — silently disabling retries for a transient failure.
+    #[tokio::test]
+    async fn negative_cache_replay_preserves_the_error_variant_and_retry_after() {
+        let client = MockClient::failing_rate_limited();
+        let policy = FixedWindowNegativeCache::new(Duration::from_secs(30), true);
+        let (_, mut svc) = build_stack(client, policy);
+
+        let req_body = chat_req("gpt-4");
+
+        let first = svc
+            .ready()
+            .await
+            .unwrap()
+            .call(LlmRequest::Chat(req_body.clone()))
+            .await;
+        assert!(first.is_err(), "first call propagates the upstream error");
+
+        let replayed = svc.ready().await.unwrap().call(LlmRequest::Chat(req_body)).await;
+        let err = replayed.expect_err("replay must still be an error");
+        assert!(
+            matches!(err, LiterLlmError::RateLimited { .. }),
+            "replayed error must preserve the RateLimited variant, got: {err:?}"
+        );
+        assert!(
+            err.is_transient(),
+            "a replayed RateLimited error must still report as transient so callers keep retrying"
+        );
+    }
+
+    /// Defect-2 regression ("self-refreshing negative cache"): replaying a
+    /// cached error through `NegativeCacheService` must not push its
+    /// `expires_at` forward.
+    ///
+    /// `NegativeCacheService` wraps `CacheService` and shares its store, so a
+    /// still-cached error re-emerges as `Err` and re-enters the write branch
+    /// on every replay (once the fix above preserves the transient variant,
+    /// `policy.cache_for` is `Some` again on the replay, exactly as it was on
+    /// the original failure). Before this fix, that branch unconditionally
+    /// recomputed `expires_at = Instant::now() + window` and re-wrote it, so a
+    /// client polling faster than `window` kept the entry alive forever and
+    /// upstream was never contacted again even after it recovered. The fix
+    /// only writes when no live entry already exists for the key, so the
+    /// window is set exactly once — by the call that observed the genuine
+    /// upstream failure — and expires on schedule regardless of how many
+    /// replays happen in between.
+    #[tokio::test]
+    async fn negative_cache_replay_does_not_refresh_the_window() {
+        let client = MockClient::failing_rate_limited();
+        let call_count = Arc::clone(&client.call_count);
+        let policy = FixedWindowNegativeCache::new(Duration::from_millis(60), true);
+        let (_, mut svc) = build_stack(client, policy);
+
+        let req_body = chat_req("gpt-4");
+
+        let first = svc
+            .ready()
+            .await
+            .unwrap()
+            .call(LlmRequest::Chat(req_body.clone()))
+            .await;
+        assert!(first.is_err());
+        assert_eq!(call_count.load(std::sync::atomic::Ordering::SeqCst), 1);
+
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        let replay_1 = svc
+            .ready()
+            .await
+            .unwrap()
+            .call(LlmRequest::Chat(req_body.clone()))
+            .await;
+        assert!(
+            replay_1.is_err(),
+            "replay well within the window must still be an error"
+        );
+        assert_eq!(
+            call_count.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "replay at ~20ms (window is 60ms) must be served from the negative cache, not upstream"
+        );
+
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        let replay_2 = svc
+            .ready()
+            .await
+            .unwrap()
+            .call(LlmRequest::Chat(req_body.clone()))
+            .await;
+        assert!(
+            replay_2.is_err(),
+            "second replay still within the window must still be an error"
+        );
+        assert_eq!(
+            call_count.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "replay at ~40ms elapsed must still be served from the negative cache"
+        );
+
+        // ~keep The final probe must land BETWEEN the two deadlines or it proves nothing.
+        // ~keep Original window: expires at t=60ms. If replays refreshed it, the t=40ms replay
+        // ~keep would have pushed it to t=100ms. Probing at ~t=75ms is past the original and
+        // ~keep short of the refreshed one, so call_count==2 holds only if the window was NOT
+        // ~keep refreshed. Probing later than 100ms (as this test first did) expires under both
+        // ~keep behaviours and cannot distinguish them.
+        tokio::time::sleep(Duration::from_millis(35)).await;
+        let _ = svc.ready().await.unwrap().call(LlmRequest::Chat(req_body)).await;
+        assert_eq!(
+            call_count.load(std::sync::atomic::Ordering::SeqCst),
+            2,
+            "upstream must be contacted again once the ORIGINAL 60ms window elapses (~120ms total \
+             elapsed here); if replays had refreshed expires_at on every poll, this would still be 1 \
+             and the entry would never expire under continuous polling"
         );
     }
 

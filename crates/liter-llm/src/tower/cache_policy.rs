@@ -1,9 +1,9 @@
 //! Per-request cache tier selection and bypass policy.
 //!
 //! [`CachePolicy`] is consulted for every incoming request to decide which
-//! tiers to try (exact hash, semantic, streaming-replay), whether to bypass the
-//! cache entirely (e.g. to honour a `cache: no-store` directive), and whether
-//! to apply a TTL or similarity-threshold override for this request.
+//! tiers to try (exact hash, semantic), whether to bypass the cache entirely
+//! (e.g. to honour a `cache: no-store` directive), and whether to apply a TTL
+//! or similarity-threshold override for this request.
 //!
 //! # Built-in implementation
 //!
@@ -39,20 +39,12 @@ pub struct CacheDecision {
     pub use_exact: bool,
     /// Try the semantic-similarity tier.
     pub use_semantic: bool,
-    /// Attempt to join an in-progress streaming response as a follower
-    /// (requires the singleflight coordinator to be wired up).
-    pub use_streaming_replay: bool,
     /// Bypass the cache entirely for this request (read and write).
     pub bypass: bool,
     /// Per-request TTL override (overrides the global `CacheConfig::ttl`).
     pub ttl_override: Option<Duration>,
     /// Minimum cosine similarity for the semantic tier to count as a hit.
     pub similarity_threshold: f32,
-    /// Serve a stale entry while re-fetching in the background.
-    ///
-    /// `None` disables stale-while-revalidate.  `Some(window)` allows serving
-    /// a stale entry for up to `window` duration after its TTL has expired.
-    pub stale_while_revalidate: Option<Duration>,
 }
 
 impl Default for CacheDecision {
@@ -60,11 +52,9 @@ impl Default for CacheDecision {
         Self {
             use_exact: true,
             use_semantic: false,
-            use_streaming_replay: false,
             bypass: false,
             ttl_override: None,
             similarity_threshold: 0.95,
-            stale_while_revalidate: None,
         }
     }
 }
@@ -97,7 +87,17 @@ pub trait CachePolicy: Send + Sync + 'static {
 pub struct StandardCachePolicy {
     /// TTL for exact-cache entries.
     pub exact_ttl: Duration,
-    /// TTL for semantic-cache entries (`None` disables the semantic tier).
+    /// Gates the semantic tier: `Some` enables it, `None` disables it.
+    ///
+    /// The duration value itself is *not* applied as a separate TTL. A
+    /// semantic hit resolves to the same underlying exact-key store entry as
+    /// an exact hit (`CacheService` looks it up via
+    /// `store.get(best.metadata.cache_key, ...)`), and that entry has exactly
+    /// one TTL — the one `decide()` returns in `ttl_override`, currently
+    /// always `exact_ttl`. Giving the semantic tier its own independent TTL
+    /// would require a second physical entry per response, which the current
+    /// single-store design (see the module docs' "why a shared error value"
+    /// rationale) does not support. ~keep
     pub semantic_ttl: Option<Duration>,
     /// Minimum cosine similarity for a semantic cache hit.
     pub similarity_threshold: f32,
@@ -127,11 +127,9 @@ impl CachePolicy for StandardCachePolicy {
         CacheDecision {
             use_exact: true,
             use_semantic: self.semantic_ttl.is_some(),
-            use_streaming_replay: ctx.stream,
             bypass,
             ttl_override: if bypass { None } else { Some(self.exact_ttl) },
             similarity_threshold: self.similarity_threshold,
-            stale_while_revalidate: None,
         }
     }
 }
@@ -233,13 +231,5 @@ mod tests {
         let meta = HashMap::new();
         let decision = policy.decide(&ctx("gpt-4", false, &meta));
         assert!((decision.similarity_threshold - 0.88).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn standard_policy_streaming_replay_when_stream_is_true() {
-        let policy = StandardCachePolicy::default();
-        let meta = HashMap::new();
-        let decision = policy.decide(&ctx("gpt-4", true, &meta));
-        assert!(decision.use_streaming_replay);
     }
 }

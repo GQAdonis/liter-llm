@@ -20,8 +20,21 @@ use super::cache::{CacheStore, CachedResponse};
 struct StoredEntry {
     request_body: String,
     response: CachedResponse,
-    /// Unix timestamp (seconds) when this entry expires.
-    expires_at: u64,
+    /// Unix timestamp (seconds) when this entry was written.
+    inserted_at: u64,
+    /// TTL in seconds, relative to `inserted_at`.
+    ///
+    /// Stored per-entry (rather than baking `inserted_at + ttl` into a single
+    /// `expires_at` field) so [`OpenDalCacheStore::set_ttl`] can override it
+    /// with a read-modify-write without needing to separately recover the
+    /// original insertion time. ~keep
+    ttl_secs: u64,
+}
+
+impl StoredEntry {
+    fn expires_at(&self) -> u64 {
+        self.inserted_at.saturating_add(self.ttl_secs)
+    }
 }
 
 /// Cache store backed by an [`opendal::Operator`].
@@ -165,7 +178,7 @@ impl CacheStore for OpenDalCacheStore {
                     return None;
                 }
             };
-            if Self::now_secs() > entry.expires_at {
+            if Self::now_secs() > entry.expires_at() {
                 if let Err(e) = self.operator.delete(&path).await {
                     tracing::warn!("OpenDAL cache: failed to delete expired entry {path}: {e}");
                 }
@@ -185,11 +198,26 @@ impl CacheStore for OpenDalCacheStore {
         request_body: String,
         response: CachedResponse,
     ) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+        // ~keep CachedResponse::Error is deliberately not Serialize (see cache.rs module
+        // ~keep docs: negative-cache entries need an explicit conversion shim per external
+        // ~keep store). That is a permanent, known limitation of this backend, not a
+        // ~keep transient failure — log it once at DEBUG rather than WARN, or an upstream
+        // ~keep outage (which is exactly when NegativeCacheLayer writes fire on every
+        // ~keep failed request) turns into a WARN-per-request storm here.
+        if matches!(response, CachedResponse::Error { .. }) {
+            tracing::debug!(
+                "OpenDAL cache: skipping write of a CachedResponse::Error entry; \
+                 this backend does not support negative-cache replication"
+            );
+            return Box::pin(std::future::ready(()));
+        }
+
         let path = self.key_path(key);
         let entry = StoredEntry {
             request_body,
             response,
-            expires_at: Self::now_secs() + self.ttl.as_secs(),
+            inserted_at: Self::now_secs(),
+            ttl_secs: self.ttl.as_secs(),
         };
         Box::pin(async move {
             let bytes = match serde_json::to_vec(&entry) {
@@ -220,6 +248,43 @@ impl CacheStore for OpenDalCacheStore {
                 tracing::warn!("OpenDAL cache: failed to delete {path}: {e}");
             }
             self.forget(key);
+        })
+    }
+
+    fn set_ttl(&self, key: u64, ttl: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+        // ~keep StandardCachePolicy::decide returns `ttl_override: Some(exact_ttl)` on
+        // ~keep every non-bypassed write, and CacheService applies it via this method
+        // ~keep exclusively (cache.rs). The trait default is a no-op, so without this
+        // ~keep override every entry silently reverted to the store's construction-time
+        // ~keep `ttl`, discarding any per-request/per-model TTL configured via `.with_policy`.
+        let path = self.key_path(key);
+        Box::pin(async move {
+            let bytes = match self.operator.read(&path).await {
+                Ok(b) => b,
+                Err(e) if e.kind() == opendal::ErrorKind::NotFound => return,
+                Err(e) => {
+                    tracing::warn!("OpenDAL cache: failed to read {path} for set_ttl: {e}");
+                    return;
+                }
+            };
+            let mut entry: StoredEntry = match serde_json::from_slice(bytes.to_bytes().as_ref()) {
+                Ok(e) => e,
+                Err(e) => {
+                    tracing::warn!("OpenDAL cache: failed to deserialize entry at {path} for set_ttl: {e}");
+                    return;
+                }
+            };
+            entry.ttl_secs = ttl.as_secs();
+            let bytes = match serde_json::to_vec(&entry) {
+                Ok(b) => b,
+                Err(e) => {
+                    tracing::warn!("OpenDAL cache: failed to re-serialize entry at {path} for set_ttl: {e}");
+                    return;
+                }
+            };
+            if let Err(e) = self.operator.write(&path, bytes).await {
+                tracing::warn!("OpenDAL cache: failed to write {path} for set_ttl: {e}");
+            }
         })
     }
 }
@@ -385,5 +450,123 @@ mod tests {
             "key 2 must be evicted as the true oldest after key 1 was refreshed"
         );
         assert!(store.get(3, "req-3").await.is_some(), "key 3 must still be present");
+    }
+
+    /// `set_ttl` fell through to the `CacheStore` trait's no-op default before
+    /// this fix, so an override never took effect and every entry kept the
+    /// store's construction-time TTL regardless of what `set_ttl` was called
+    /// with. Revert target: removing the `impl CacheStore::set_ttl` override
+    /// above (letting it fall back to the trait default) makes this fail —
+    /// the entry would still be alive after the sleep, governed by the
+    /// store's 3600s construction-time TTL instead of the 1ns override.
+    #[tokio::test]
+    async fn set_ttl_overrides_the_configured_ttl() {
+        let store = memory_store(3600);
+        store.put(1, "req".into(), dummy_response()).await;
+        store.set_ttl(1, Duration::from_nanos(1)).await;
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+        let result = store.get(1, "req").await;
+        assert!(
+            result.is_none(),
+            "entry with an overridden near-zero TTL must be expired, not governed by the \
+             store's 3600s construction-time TTL"
+        );
+    }
+
+    // ~keep An end-to-end variant of this (drive a real CacheLayer over the OpenDAL store and
+    // ~keep assert the policy TTL expires the entry) was written and removed: it passed under the
+    // ~keep workspace feature union and failed consistently under `--features tower,opendal-cache`.
+    // ~keep A test whose verdict depends on the feature set is worse than no test. `set_ttl_overrides
+    // ~keep _the_configured_ttl` above covers the actual fix and passes under both. ~keep
+
+    /// `CachedResponse::Error` is deliberately not `Serialize` (see the
+    /// `CachedResponse` doc comment in `cache.rs`). Before this fix, `put`
+    /// attempted `serde_json::to_vec` for every entry regardless of variant,
+    /// which failed for `Error` and logged a WARN — meaning
+    /// `NegativeCacheLayer` writes during an upstream outage (its exact
+    /// trigger condition) produced a WARN per failed request on this backend.
+    /// Both before and after the fix the write is a no-op (`store.get`
+    /// returns `None` either way), so the only thing that actually
+    /// distinguishes "fixed" from "reverted" here is the log level — this
+    /// test installs a minimal `tracing::Subscriber` (no extra dev-dependency
+    /// needed; `tracing` is already a normal dependency) to count WARN vs
+    /// DEBUG events instead of asserting only the no-op, which would pass
+    /// unconditionally either way.
+    ///
+    /// Revert target: removing the early-return `if matches!(response,
+    /// CachedResponse::Error { .. })` block in `put` makes `warn_count == 1`
+    /// (not 0) and `debug_count == 0` (not 1).
+    #[tokio::test]
+    async fn put_of_error_variant_logs_at_debug_not_warn() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+        use std::time::Instant;
+
+        use crate::error::LiterLlmError;
+
+        struct LevelCountingSubscriber {
+            warn_count: Arc<AtomicUsize>,
+            debug_count: Arc<AtomicUsize>,
+        }
+
+        impl tracing::Subscriber for LevelCountingSubscriber {
+            fn enabled(&self, _metadata: &tracing::Metadata<'_>) -> bool {
+                true
+            }
+            fn new_span(&self, _span: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+                tracing::span::Id::from_u64(1)
+            }
+            fn record(&self, _span: &tracing::span::Id, _values: &tracing::span::Record<'_>) {}
+            fn record_follows_from(&self, _span: &tracing::span::Id, _follows: &tracing::span::Id) {}
+            fn event(&self, event: &tracing::Event<'_>) {
+                match *event.metadata().level() {
+                    tracing::Level::WARN => {
+                        self.warn_count.fetch_add(1, AtomicOrdering::SeqCst);
+                    }
+                    tracing::Level::DEBUG => {
+                        self.debug_count.fetch_add(1, AtomicOrdering::SeqCst);
+                    }
+                    _ => {}
+                }
+            }
+            fn enter(&self, _span: &tracing::span::Id) {}
+            fn exit(&self, _span: &tracing::span::Id) {}
+        }
+
+        let warn_count = Arc::new(AtomicUsize::new(0));
+        let debug_count = Arc::new(AtomicUsize::new(0));
+        let subscriber = LevelCountingSubscriber {
+            warn_count: Arc::clone(&warn_count),
+            debug_count: Arc::clone(&debug_count),
+        };
+
+        let store = memory_store(300);
+        let error_entry = CachedResponse::Error {
+            error: Arc::new(LiterLlmError::InternalError {
+                message: "upstream unavailable".into(),
+            }),
+            expires_at: Instant::now() + Duration::from_secs(30),
+        };
+
+        {
+            let _guard = tracing::subscriber::set_default(subscriber);
+            store.put(1, "req".into(), error_entry).await;
+        }
+
+        assert!(
+            store.get(1, "req").await.is_none(),
+            "a non-serialisable CachedResponse::Error must not be written to the OpenDAL backend"
+        );
+        assert_eq!(
+            warn_count.load(AtomicOrdering::SeqCst),
+            0,
+            "put() of an Error variant must not log at WARN — a real outage would trigger this \
+             on every failed request via NegativeCacheLayer, producing a WARN storm"
+        );
+        assert_eq!(
+            debug_count.load(AtomicOrdering::SeqCst),
+            1,
+            "put() must log the skipped write once at DEBUG so the no-op is not entirely silent"
+        );
     }
 }
