@@ -23,6 +23,11 @@ pub struct CreateResponseRequest {
     /// Optional metadata.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
+    /// Provider-specific extra parameters merged into the request body.
+    /// Use for provider extensions not modeled directly, such as OpenAI's
+    /// Responses API `reasoning.effort` field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra_body: Option<serde_json::Value>,
     /// Whether to stream the response.
     ///
     /// Managed by the client layer — do not set directly.

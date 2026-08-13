@@ -166,6 +166,7 @@ api_key = "sk-test"
             temperature: None,
             max_output_tokens: None,
             metadata: None,
+            extra_body: None,
             stream: None,
         };
 

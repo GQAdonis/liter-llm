@@ -486,6 +486,7 @@ async fn create_response_should_send_post_with_json_body() {
         temperature: None,
         max_output_tokens: None,
         metadata: None,
+        extra_body: None,
         stream: None,
     };
     let result = client.create_response(req).await;
@@ -646,6 +647,7 @@ async fn create_response_stream_should_yield_ordered_events_and_terminate_on_com
         temperature: None,
         max_output_tokens: None,
         metadata: None,
+        extra_body: None,
         stream: None,
     };
 

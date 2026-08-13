@@ -201,6 +201,31 @@ fn merge_extra_body(body: &mut serde_json::Value) {
     }
 }
 
+/// Serialize a Responses API request body with `extra_body` merged in,
+/// via [`merge_extra_body`] — the same merge semantics as the chat path.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn response_request_body(req: &CreateResponseRequest) -> Result<serde_json::Value> {
+    let mut body = serde_json::to_value(req)?;
+    merge_extra_body(&mut body);
+    Ok(body)
+}
+
+/// Like [`response_request_body`], but for `create_response_stream`: forces
+/// `stream: true` in the request, both before and after the `extra_body`
+/// merge.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn response_stream_request_body(mut req: CreateResponseRequest) -> Result<serde_json::Value> {
+    req.stream = Some(true);
+    let mut body = response_request_body(&req)?;
+    // ~keep extra_body must never override `stream`: the transport path (post_json_raw vs
+    // post_stream) is chosen by the calling method, not the body, so a mismatched wire flag
+    // would desync request from response parsing.
+    if let Some(obj) = body.as_object_mut() {
+        obj.insert("stream".into(), serde_json::Value::Bool(true));
+    }
+    Ok(body)
+}
+
 /// Human-readable JSON type name, used only for diagnostic tracing fields.
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 fn json_value_type_name(value: &serde_json::Value) -> &'static str {
@@ -2020,8 +2045,8 @@ impl ResponseClient for DefaultClient {
     fn create_response(&self, req: CreateResponseRequest) -> BoxFuture<'_, Result<ResponseObject>> {
         Box::pin(async move {
             let url = self.provider.build_url(self.provider.responses_path(), "");
-            let body_bytes = bytes::Bytes::from(serde_json::to_vec(&req)?);
-            let body_json = serde_json::to_value(&req)?;
+            let body_json = response_request_body(&req)?;
+            let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
 
             let auth_header = self.resolve_auth_header().await?;
             let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
@@ -2036,15 +2061,13 @@ impl ResponseClient for DefaultClient {
 
     fn create_response_stream(
         &self,
-        mut req: CreateResponseRequest,
+        req: CreateResponseRequest,
     ) -> BoxFuture<'_, Result<BoxStream<'static, Result<ResponseStreamEvent>>>> {
         Box::pin(async move {
-            // ~keep Force streaming on the wire regardless of what the caller set.
-            req.stream = Some(true);
-
+            // ~keep Force streaming on the wire regardless of what the caller (or extra_body) set.
             let url = self.provider.build_stream_url(self.provider.responses_path(), "");
-            let body_bytes = bytes::Bytes::from(serde_json::to_vec(&req)?);
-            let body_json = serde_json::to_value(&req)?;
+            let body_json = response_stream_request_body(req)?;
+            let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
 
             let auth_header = self.resolve_auth_header().await?;
             let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
@@ -2262,6 +2285,74 @@ mod build_provider_tests {
             "anthropic's own transform_request already strips extra_body"
         );
         assert_eq!(prepared.body_json["thinking"]["budget_tokens"], 16384);
+    }
+
+    fn base_response_request() -> CreateResponseRequest {
+        CreateResponseRequest {
+            model: "gpt-5".into(),
+            input: serde_json::json!("What is the capital of France?"),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn responses_extra_body_object_is_merged_and_overrides_existing_key() {
+        let mut req = base_response_request();
+        req.extra_body = Some(serde_json::json!({
+            "reasoning": {"effort": "none"},
+            "model": "extra-body-override"
+        }));
+
+        let body = response_request_body(&req).expect("body should serialize");
+
+        assert!(
+            body.get("extra_body").is_none(),
+            "extra_body key must be removed from the final Responses body"
+        );
+        assert_eq!(body["reasoning"], serde_json::json!({"effort": "none"}));
+        assert_eq!(
+            body["model"], "extra-body-override",
+            "extra_body keys must override identically named top-level keys, matching chat-path semantics"
+        );
+    }
+
+    #[test]
+    fn responses_extra_body_non_object_is_dropped_without_reaching_the_body() {
+        let mut req = base_response_request();
+        req.extra_body = Some(serde_json::json!(["not", "an", "object"]));
+
+        let body = response_request_body(&req).expect("body should serialize");
+
+        assert!(
+            body.get("extra_body").is_none(),
+            "non-object extra_body must never reach the wire"
+        );
+        assert_eq!(
+            body["model"], "gpt-5",
+            "a dropped extra_body must leave the real fields untouched"
+        );
+    }
+
+    #[test]
+    fn responses_streaming_path_also_merges_extra_body_and_keeps_stream_forced() {
+        let mut req = base_response_request();
+        req.extra_body = Some(serde_json::json!({
+            "reasoning": {"effort": "none"},
+            "stream": false
+        }));
+
+        let body = response_stream_request_body(req).expect("body should serialize");
+
+        assert!(
+            body.get("extra_body").is_none(),
+            "extra_body key must be removed from the streaming Responses body too"
+        );
+        assert_eq!(body["reasoning"], serde_json::json!({"effort": "none"}));
+        assert_eq!(
+            body["stream"],
+            serde_json::json!(true),
+            "the streaming transport's stream flag must win over extra_body"
+        );
     }
 
     /// When the resolved provider is Vertex AI and the caller supplied neither
