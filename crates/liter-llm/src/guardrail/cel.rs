@@ -33,11 +33,17 @@
 //! # Input bounding at construction time
 //!
 //! [`CelGuardrail::new`] rejects expressions that exceed [`MAX_CEL_EXPRESSION_LEN`]
-//! bytes or nest `(`/`[`/`{` deeper than [`MAX_CEL_NESTING_DEPTH`], *before* the
-//! expression is handed to the parser. The parser is a recursive-descent ANTLR
-//! parser: a sufficiently deep nesting can exhaust the native stack, which is an
-//! abort rather than a panic and cannot be caught by `catch_unwind`. Bounding the
-//! input is the only available defense against that failure mode.
+//! bytes, nest `(`/`[`/`{` deeper than [`MAX_CEL_NESTING_DEPTH`], or chain more
+//! than [`MAX_CEL_OPERATOR_TOKENS`] operators, *before* the expression is handed
+//! to the parser. The parser is a recursive-descent ANTLR parser: a sufficiently
+//! deep nesting can exhaust the native stack, which is an abort rather than a
+//! panic and cannot be caught by `catch_unwind`. Bounding the input is the only
+//! available defense against that failure mode.
+//!
+//! Depth and operator count are separate bounds because they describe different
+//! shapes. Such a grammar descends once per operator in an unparenthesized
+//! chain, so `!!!!…true` reaches thousands of frames at a bracket depth of zero
+//! — the depth cap alone cannot see it.
 //!
 //! # CEL variables available in expressions
 //!
@@ -94,6 +100,17 @@ const MAX_CEL_EXPRESSION_LEN: usize = 4096;
 /// reaches the parser, is the only defense available for that failure mode.
 /// ~keep
 const MAX_CEL_NESTING_DEPTH: usize = 64;
+
+/// Maximum accepted count of operator characters in a CEL expression.
+///
+/// Bracket depth alone does not bound parser recursion. A recursive-descent
+/// grammar descends once per operator in an unparenthesized chain, so
+/// `!!!!…!!!!true` or `true&&true&&…&&true` reaches thousands of frames at a
+/// bracket depth of zero — within [`MAX_CEL_EXPRESSION_LEN`] and completely
+/// untouched by [`MAX_CEL_NESTING_DEPTH`]. This is the same stack-exhaustion
+/// abort that the depth cap exists to prevent, reached by a different shape,
+/// so it needs its own bound. ~keep
+const MAX_CEL_OPERATOR_TOKENS: usize = 256;
 
 /// The action taken when a [`CelGuardrail`]'s expression evaluates to `true`.
 #[cfg_attr(alef, alef(skip))]
@@ -169,14 +186,22 @@ pub enum CelCompileError {
         /// The maximum accepted nesting depth.
         max: usize,
     },
+    /// The expression's operator count exceeded [`MAX_CEL_OPERATOR_TOKENS`].
+    #[error("CEL expression exceeds maximum operator count of {max} (got {actual})")]
+    TooManyOperators {
+        /// The operator count reached before rejection.
+        actual: usize,
+        /// The maximum accepted operator count.
+        max: usize,
+    },
     /// The parser rejected the expression as syntactically invalid, or
     /// panicked while attempting to parse it.
     #[error("invalid CEL expression: {0}")]
     Invalid(String),
 }
 
-/// Reject a CEL expression before it reaches the parser if it is too long or
-/// nests `(`/`[`/`{` too deeply.
+/// Reject a CEL expression before it reaches the parser if it is too long,
+/// nests `(`/`[`/`{` too deeply, or chains too many operators.
 ///
 /// This is a defense-in-depth measure for a parser that recurses on nesting
 /// depth: bounding the input here costs O(length) time and O(1) additional
@@ -191,6 +216,7 @@ fn validate_expression(expression: &str) -> Result<(), CelCompileError> {
     }
 
     let mut depth: usize = 0;
+    let mut operators: usize = 0;
     for ch in expression.chars() {
         match ch {
             '(' | '[' | '{' => {
@@ -204,6 +230,19 @@ fn validate_expression(expression: &str) -> Result<(), CelCompileError> {
             }
             ')' | ']' | '}' => {
                 depth = depth.saturating_sub(1);
+            }
+            // ~keep Counts characters, not parsed tokens, so `&&` scores 2 and a string
+            // ~keep literal containing `+` is counted too. Both directions are safe for a
+            // ~keep bound whose only job is to keep the chain far below the native stack
+            // ~keep limit; being approximate here is much cheaper than tokenising CEL.
+            '!' | '&' | '|' | '+' | '-' | '*' | '/' | '%' | '<' | '>' | '=' | '?' => {
+                operators += 1;
+                if operators > MAX_CEL_OPERATOR_TOKENS {
+                    return Err(CelCompileError::TooManyOperators {
+                        actual: operators,
+                        max: MAX_CEL_OPERATOR_TOKENS,
+                    });
+                }
             }
             _ => {}
         }
@@ -890,5 +929,49 @@ mod tests {
             result.is_err(),
             "5000 nested parens must be rejected before reaching the CEL parser"
         );
+    }
+
+    /// A recursive-descent grammar descends once per operator in an
+    /// unparenthesized chain, so these reach thousands of parser frames at a
+    /// bracket depth of zero — inside `MAX_CEL_EXPRESSION_LEN` and invisible to
+    /// the nesting-depth cap, which counts only brackets. Same stack-exhaustion
+    /// abort as the nested-paren case, reached by a shape the depth cap alone
+    /// does not see.
+    #[tokio::test]
+    async fn cel_guardrail_rejects_long_operator_chains_that_bracket_depth_cannot_see() {
+        for expression in [
+            "!".repeat(2000) + "true",
+            "true".to_owned() + &"&&true".repeat(600),
+            "1".to_owned() + &"+1".repeat(1500),
+        ] {
+            assert_eq!(
+                count_brackets(&expression),
+                0,
+                "the chain must stay at bracket depth zero, or it would be caught by the \
+                 depth cap and this test would prove nothing"
+            );
+
+            let result = CelGuardrail::new(
+                "pathological-operator-chain",
+                &expression,
+                CelAction::Block {
+                    code: 1399,
+                    reason: "test".into(),
+                },
+                INPUT_STAGES,
+            );
+
+            // ~keep `CelGuardrail` has no `Debug`, so the Ok arm cannot be formatted;
+            // ~keep match rather than `assert!(matches!(..), "{result:?}")`.
+            match result {
+                Err(CelCompileError::TooManyOperators { .. }) => {}
+                Ok(_) => panic!("an operator chain must be rejected before reaching the CEL parser"),
+                Err(other) => panic!("expected TooManyOperators, got {other:?}"),
+            }
+        }
+    }
+
+    fn count_brackets(expression: &str) -> usize {
+        expression.chars().filter(|c| matches!(c, '(' | '[' | '{')).count()
     }
 }
