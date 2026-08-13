@@ -236,8 +236,10 @@ impl ServicePool {
 
     /// Return the first available raw client.
     ///
-    /// Used by File, Batch, and Response API endpoints that do not carry a
-    /// model field in the request body.
+    /// Used by File, Batch, and Response API endpoints, which bypass model
+    /// routing and talk to a single upstream account. File and Batch carry no
+    /// model at all; `CreateResponseRequest` does carry a required `model`, but
+    /// it is only forwarded on the wire — it never selects a provider here.
     pub fn first_client(&self) -> Result<Arc<DefaultClient>, ProxyError> {
         self.default_client
             .clone()

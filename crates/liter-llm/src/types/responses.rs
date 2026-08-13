@@ -1,10 +1,32 @@
 use serde::{Deserialize, Serialize};
 
-/// Request to create a structured response.
+/// Request to create a response via the OpenAI Responses API (`POST /responses`).
+///
+/// # Provider support
+///
+/// **The Responses API path is OpenAI-only.** This type models the OpenAI Responses
+/// wire format, and unlike [`ChatCompletionRequest`] the body is sent to the provider
+/// verbatim: neither `Provider::transform_request` nor `Provider::transform_response`
+/// runs for Responses calls, and no provider in `schemas/providers.json` declares a
+/// `responses` endpoint.
+///
+/// Pointing a Responses call at a provider that does not natively serve the OpenAI
+/// `/responses` contract (Anthropic, Vertex, Bedrock, Cohere, Google AI, Azure) is not
+/// supported: the request goes out unmodified, so the provider rejects it or returns a
+/// body that cannot be deserialized into [`ResponseObject`]. Use
+/// [`ChatCompletionRequest`] for cross-provider work — that path applies the
+/// per-provider request and response normalization this one does not.
+///
+/// [`ChatCompletionRequest`]: crate::types::ChatCompletionRequest
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CreateResponseRequest {
-    /// Model ID.
+    /// Model ID, as named by the OpenAI Responses API (e.g. `"gpt-5"`).
+    ///
+    /// Sent to the wire exactly as given. The Responses path performs none of the
+    /// chat path's model handling: a `provider/model` routing prefix is **not**
+    /// stripped and does **not** re-route the request, which stays pinned to the
+    /// provider the client was constructed with.
     pub model: String,
     /// Input data to process (e.g., a document to extract from).
     pub input: serde_json::Value,
@@ -23,9 +45,18 @@ pub struct CreateResponseRequest {
     /// Optional metadata.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
-    /// Provider-specific extra parameters merged into the request body.
-    /// Use for provider extensions not modeled directly, such as OpenAI's
-    /// Responses API `reasoning.effort` field.
+    /// Extra top-level parameters shallow-merged into the request body, OpenAI-Python
+    /// style (`{**body, **extra_body}`) — keys here override identically named fields
+    /// above. Use it for OpenAI Responses fields this struct does not model directly,
+    /// such as the top-level `reasoning.effort`.
+    ///
+    /// This is an OpenAI escape hatch, not a cross-provider one. On the chat path the
+    /// providers that consume `extra_body` natively (Anthropic, Vertex, Bedrock) claim
+    /// it inside their own `transform_request`; here no provider transform runs, so the
+    /// merged keys always travel to the wire as literal OpenAI Responses fields.
+    ///
+    /// A non-object value cannot be merged into the body root and is dropped with a
+    /// warning rather than sent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extra_body: Option<serde_json::Value>,
     /// Whether to stream the response.

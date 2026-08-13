@@ -174,12 +174,16 @@ fn str_pair(pair: &(String, String)) -> (&str, &str) {
 /// style: `{**body, **extra_body}` — extra_body keys override identically
 /// named top-level keys.
 ///
-/// Providers that consume `extra_body` themselves (Anthropic, Vertex,
-/// Bedrock) already strip it inside their own `transform_request`, so by the
-/// time this runs there is nothing left for them to merge; this only has an
+/// On the chat path, providers that consume `extra_body` themselves (Anthropic,
+/// Vertex, Bedrock) already strip it inside their own `transform_request`, so by the
+/// time this runs there is nothing left for them to merge; there it only has an
 /// effect for OpenAI-compatible providers, which pass `extra_body` through
-/// unchanged. A non-object `extra_body` cannot be merged into the body root,
-/// so it is dropped with a warning rather than sent to the wire.
+/// unchanged. That caveat is chat-path-only: the Responses path
+/// ([`response_request_body`]) runs no provider transform at all, so the merged keys
+/// always reach the wire as literal OpenAI Responses fields.
+///
+/// A non-object `extra_body` cannot be merged into the body root, so it is dropped
+/// with a warning rather than sent to the wire.
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 fn merge_extra_body(body: &mut serde_json::Value) {
     let Some(obj) = body.as_object_mut() else {
@@ -203,6 +207,12 @@ fn merge_extra_body(body: &mut serde_json::Value) {
 
 /// Serialize a Responses API request body with `extra_body` merged in,
 /// via [`merge_extra_body`] — the same merge semantics as the chat path.
+///
+/// The merge is the *only* thing shared with the chat path. There is deliberately no
+/// [`Provider::transform_request`] call here: the Responses body is a different wire
+/// shape from the chat body, and the provider transforms are written against the chat
+/// shape, so applying them would mangle the request rather than adapt it. The Responses
+/// path is OpenAI-only — see [`ResponseClient`](trait@ResponseClient).
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 fn response_request_body(req: &CreateResponseRequest) -> Result<serde_json::Value> {
     let mut body = serde_json::to_value(req)?;
@@ -540,7 +550,37 @@ pub trait BatchClient {
     fn cancel_batch(&self, batch_id: &str) -> BoxFuture<'_, Result<BatchObject>>;
 }
 
-/// Responses API operations (create, retrieve, cancel).
+/// OpenAI Responses API operations (create, retrieve, cancel).
+///
+/// # Provider support: OpenAI only
+///
+/// Every other client trait in this module is provider-agnostic — requests go through
+/// a shared `prepare_request` step that resolves the provider from the model prefix,
+/// strips that prefix, and applies [`Provider::transform_request`] /
+/// [`Provider::transform_response`]. **This trait does none of that.** The
+/// implementation sends [`CreateResponseRequest`] to
+/// `{base_url}` + [`Provider::responses_path`] verbatim and deserializes the reply
+/// straight into [`ResponseObject`], so both directions assume the OpenAI Responses
+/// wire format.
+///
+/// Consequently:
+///
+/// - No provider overrides [`Provider::responses_path`], and no entry in
+///   `schemas/providers.json` declares a `responses` endpoint — provider Responses
+///   support is not modeled anywhere in the registry.
+/// - Requests stay pinned to the provider the client was constructed with. A
+///   `provider/model` prefix in [`CreateResponseRequest::model`] is neither stripped
+///   nor used for routing; it travels to the wire intact.
+/// - Providers that rewrite the request or normalize the response for chat (Anthropic,
+///   Vertex, Bedrock, Cohere, Google AI) get no such chance here. Their transforms are
+///   written against the Chat Completions body shape and would corrupt a Responses body,
+///   which is why they are not applied rather than merely forgotten.
+/// - Providers that embed the model in the URL (Azure, Bedrock) cannot form a valid
+///   Responses URL at all: the model passed to [`Provider::build_url`] is empty, so
+///   Azure yields `.../openai/deployments//responses`.
+///
+/// Use these methods with OpenAI, or with a gateway that serves OpenAI's `/responses`
+/// contract natively. For cross-provider work use [`LlmClient::chat`].
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg_attr(alef, alef(skip))]
 pub trait ResponseClient: Send + Sync {
@@ -569,7 +609,15 @@ pub trait ResponseClient: Send + Sync {
     fn cancel_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>>;
 }
 
-/// Responses API operations (create, retrieve, cancel) (WASM variant).
+/// OpenAI Responses API operations (create, retrieve, cancel) (WASM variant).
+///
+/// # Provider support: OpenAI only
+///
+/// See the non-WASM `ResponseClient` for the full rationale. In short: this path sends
+/// `CreateResponseRequest` verbatim and parses the reply as the OpenAI Responses wire
+/// format. It applies no provider request/response transform, performs no model-prefix
+/// routing, and no provider in `schemas/providers.json` declares a `responses`
+/// endpoint. Use the chat path for cross-provider work.
 #[cfg(target_arch = "wasm32")]
 #[cfg_attr(alef, alef(skip))]
 pub trait ResponseClient {
@@ -2025,9 +2073,11 @@ impl DefaultClient {
 
 /// Parse a single Responses API SSE `data:` payload into a [`ResponseStreamEvent`].
 ///
-/// Unlike [`Provider::parse_stream_event`], this is not provider-specific:
-/// the Responses API streaming event shape is uniform across providers that
-/// support it. Unrecognized `type` values decode into
+/// Unlike [`Provider::parse_stream_event`], this has no provider dispatch: it always
+/// decodes the OpenAI Responses `response.*` event vocabulary. That is not evidence
+/// that the format is portable — the Responses path is OpenAI-only (see
+/// [`ResponseClient`](trait@ResponseClient)), so there is no second format to dispatch
+/// on. Unrecognized `type` values decode into
 /// [`ResponseStreamEvent::Unknown`] rather than failing (see
 /// `ResponseStreamEvent`'s `Deserialize` impl), so this only returns `Err`
 /// for payloads that are not valid JSON at all.
