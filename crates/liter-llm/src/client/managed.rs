@@ -212,7 +212,7 @@ fn build_service_stack(
 
     let svc = if let Some(ref cache_cfg) = config.cache_config {
         let layer = if let Some(ref store) = config.cache_store {
-            CacheLayer::with_store(Arc::clone(store))
+            CacheLayer::with_store_and_config(Arc::clone(store), cache_cfg)
         } else {
             match &cache_cfg.backend {
                 CacheBackend::Memory => CacheLayer::new(cache_cfg.clone()),
@@ -222,7 +222,7 @@ fn build_service_stack(
                     config: backend_config,
                 } => {
                     match OpenDalCacheStore::from_config(scheme, backend_config.clone(), "llm-cache/", cache_cfg.ttl) {
-                        Ok(store) => CacheLayer::with_store(Arc::new(store)),
+                        Ok(store) => CacheLayer::with_store_and_config(Arc::new(store), cache_cfg),
                         Err(e) => {
                             tracing::warn!("Failed to create OpenDAL cache store, falling back to in-memory: {e}");
                             CacheLayer::new(cache_cfg.clone())

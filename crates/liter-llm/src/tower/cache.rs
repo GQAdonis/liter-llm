@@ -618,13 +618,40 @@ impl CacheLayer {
         }
     }
 
-    /// Create a new cache layer with a custom [`CacheStore`] backend.
+    /// Create a new cache layer with a custom [`CacheStore`] backend, using the
+    /// default cache policy.
+    ///
+    /// This constructor takes no [`CacheConfig`], so it cannot honour a
+    /// configured TTL — entries expire at [`StandardCachePolicy`]'s default.
+    /// Prefer [`Self::with_store_and_config`] whenever a config is available. ~keep
     #[must_use]
     pub fn with_store(store: Arc<dyn CacheStore>) -> Self {
         Self {
             store,
             key_strategy: Arc::new(ExactHashStrategy),
             cache_policy: Arc::new(StandardCachePolicy::default()),
+            embedding_provider: None,
+            vector_store: None,
+        }
+    }
+
+    /// Create a new cache layer with a custom [`CacheStore`] backend that
+    /// honours `config`'s TTL.
+    ///
+    /// `decide` returns `ttl_override: Some(exact_ttl)` on every non-bypassed
+    /// write and that override wins over the store's own TTL, so a policy left
+    /// at its default silently discards `config.ttl` — the same defect
+    /// [`Self::new`] carried. A custom store that implements `set_ttl` is
+    /// overridden by the policy regardless of what TTL it was built with. ~keep
+    #[must_use]
+    pub fn with_store_and_config(store: Arc<dyn CacheStore>, config: &CacheConfig) -> Self {
+        Self {
+            store,
+            key_strategy: Arc::new(ExactHashStrategy),
+            cache_policy: Arc::new(StandardCachePolicy {
+                exact_ttl: config.ttl,
+                ..StandardCachePolicy::default()
+            }),
             embedding_provider: None,
             vector_store: None,
         }
@@ -1494,6 +1521,40 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(150)).await;
 
         svc.call(LlmRequest::Chat(chat_req("ttl-model"))).await.unwrap();
+        assert_eq!(
+            call_count.load(Ordering::SeqCst),
+            2,
+            "entry must expire after the CONFIGURED 60ms, not the 300s policy default"
+        );
+    }
+
+    /// The same TTL defect survived on the custom-store path after `CacheLayer::new`
+    /// was fixed. `ManagedClient` routes every user-supplied store and every OpenDAL
+    /// backend through `with_store`, which takes no config at all — so a configured
+    /// TTL was still discarded there in favour of the 300s policy default.
+    #[tokio::test]
+    async fn configured_ttl_expires_the_entry_on_the_custom_store_path() {
+        let config = CacheConfig {
+            max_entries: 10,
+            ttl: Duration::from_millis(60),
+            backend: CacheBackend::default(),
+        };
+        let store: Arc<dyn CacheStore> = Arc::new(InMemoryStore::new(&config));
+        let client = MockClient::ok();
+        let call_count = Arc::clone(&client.call_count);
+        let mut svc = CacheLayer::with_store_and_config(store, &config).layer(LlmService::new(client));
+
+        svc.call(LlmRequest::Chat(chat_req("ttl-store-model"))).await.unwrap();
+        svc.call(LlmRequest::Chat(chat_req("ttl-store-model"))).await.unwrap();
+        assert_eq!(
+            call_count.load(Ordering::SeqCst),
+            1,
+            "second call within the TTL must be served from cache"
+        );
+
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        svc.call(LlmRequest::Chat(chat_req("ttl-store-model"))).await.unwrap();
         assert_eq!(
             call_count.load(Ordering::SeqCst),
             2,
