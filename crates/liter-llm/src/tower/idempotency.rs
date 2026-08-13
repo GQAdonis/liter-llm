@@ -85,8 +85,13 @@ const IDEM_HASH_SEED_3: u64 = 0x315f_6c6c_6d00_0000;
 fn idem_random_state() -> &'static ahash::RandomState {
     use std::sync::OnceLock;
     static STATE: OnceLock<ahash::RandomState> = OnceLock::new();
+    // ~keep `with_seeds`, not `generate_with`: the latter folds a per-process random
+    // ~keep component into the seeds, so the digest was stable only WITHIN one process
+    // ~keep (the OnceLock hid it). Every restart and every replica produced a different
+    // ~keep hash for the same body — which silently breaks the distributed-store use
+    // ~keep case documented above, turning a repeat request into a spurious conflict.
     STATE.get_or_init(|| {
-        ahash::RandomState::generate_with(IDEM_HASH_SEED_0, IDEM_HASH_SEED_1, IDEM_HASH_SEED_2, IDEM_HASH_SEED_3)
+        ahash::RandomState::with_seeds(IDEM_HASH_SEED_0, IDEM_HASH_SEED_1, IDEM_HASH_SEED_2, IDEM_HASH_SEED_3)
     })
 }
 
@@ -222,23 +227,108 @@ pub trait IdempotencyStore: Send + Sync + 'static {
 /// In-memory idempotency store backed by a [`DashMap`].
 ///
 /// Per-entry TTLs are checked lazily on every `get` call; there is no
-/// background expiry task.
+/// background expiry task, so `try_insert` additionally reclaims room once
+/// the store reaches its capacity (see `Self::DEFAULT_MAX_ENTRIES` and the
+/// `with_max_entries` builder).
 ///
 /// # Concurrency
 ///
 /// `DashMap` provides lock-striped concurrent access.  `try_insert` uses an
 /// atomic `entry()` operation to guarantee that exactly one concurrent caller
 /// wins the insertion race.
-#[derive(Default)]
 pub struct InMemoryIdempotencyStore {
     map: DashMap<String, IdempotencyEntry>,
+    max_entries: usize,
+}
+
+impl Default for InMemoryIdempotencyStore {
+    fn default() -> Self {
+        Self {
+            map: DashMap::new(),
+            max_entries: Self::DEFAULT_MAX_ENTRIES,
+        }
+    }
 }
 
 impl InMemoryIdempotencyStore {
+    /// Default cap on stored idempotency entries.
+    ///
+    /// The key is a tenant-prefixed, CLIENT-SUPPLIED `Idempotency-Key` header,
+    /// so without a cap a client sending unique keys grows the store without
+    /// bound for the full TTL (24h by default) — expiry is only checked lazily
+    /// on `get`, so nothing is reclaimed unless something is looked up again.
+    /// Matches the cap used by the other unbounded-key-cardinality caches in
+    /// this crate (`ClassifierVerdictCache`, the metrics attribute caches). ~keep
+    pub const DEFAULT_MAX_ENTRIES: usize = 4096;
+
     /// Create a new empty store.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Override the cap on stored idempotency entries.
+    #[must_use]
+    pub fn with_max_entries(mut self, max_entries: usize) -> Self {
+        self.max_entries = max_entries.max(1);
+        self
+    }
+
+    /// Reclaim room for a new entry once the store is at capacity.
+    ///
+    /// First drops entries whose TTL has elapsed. Only if that is
+    /// insufficient does it evict further — and even then, only entries that
+    /// are both unexpired AND already finalised (`response.is_some()`).
+    ///
+    /// CRITICAL: an unexpired entry with `response: None` is a placeholder
+    /// backing a request that is still in flight (see
+    /// [`IdempotencyInFlightGuard`]); evicting it would let a second caller
+    /// with the same key miss the in-flight check and re-run the request
+    /// against upstream, turning a correct dedup into a duplicate call. This
+    /// method never removes such an entry — only `is_expired()` entries and
+    /// entries with a stored `response` are eviction candidates. ~keep
+    fn make_room(&self) {
+        if self.map.len() < self.max_entries {
+            return;
+        }
+
+        // ~keep Reclaim genuinely expired entries first; placeholders are included
+        // ~keep here too, but only once their own TTL has elapsed, which is the
+        // ~keep existing (correct) bound on how long an in-flight request may block.
+        self.map.retain(|_, entry| !entry.is_expired());
+
+        if self.map.len() < self.max_entries {
+            return;
+        }
+
+        // ~keep Oldest-first, not DashMap iteration order: evicting a finalised entry
+        // ~keep means a client retrying that key re-runs the request upstream, so the
+        // ~keep entry closest to expiring is the one whose loss costs least.
+        let mut candidates: Vec<(Instant, String)> = self
+            .map
+            .iter()
+            .filter(|entry| entry.response.is_some())
+            .map(|entry| (entry.inserted_at, entry.key().clone()))
+            .collect();
+        candidates.sort_unstable_by_key(|(inserted_at, _)| *inserted_at);
+
+        let mut evicted = 0usize;
+        for (_, key) in candidates {
+            if self.map.len() < self.max_entries {
+                break;
+            }
+            if self.map.remove(&key).is_some() {
+                evicted += 1;
+            }
+        }
+
+        if evicted > 0 {
+            tracing::warn!(
+                cap = self.max_entries,
+                evicted,
+                "idempotency store reached its cap; evicted completed entries early"
+            );
+        }
     }
 }
 
@@ -261,6 +351,11 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
         ttl: Duration,
     ) -> Pin<Box<dyn Future<Output = Result<bool, IdempotencyStoreError>> + Send + 'a>> {
         use dashmap::mapref::entry::Entry;
+
+        // ~keep Reclaim room, if any is needed, before taking the shard lock via
+        // ~keep entry() below — a Vacant match here is exactly the case that grows
+        // ~keep the map by one entry.
+        self.make_room();
 
         let inserted = match self.map.entry(key.to_owned()) {
             Entry::Vacant(slot) => {
@@ -583,6 +678,24 @@ mod tests {
     use super::*;
     use crate::error::LiterLlmError;
     use crate::tower::service::LlmService;
+
+    /// The body hash is documented as safe for distributed stores, which requires
+    /// every process and replica to agree on it. A `OnceLock` makes any seeding
+    /// strategy look stable within one process, so the only way to detect a
+    /// per-process random component is to build two states independently and
+    /// compare — `generate_with` fails this, `with_seeds` passes.
+    #[test]
+    fn body_hash_seeding_is_identical_across_independent_constructions() {
+        let build =
+            || ahash::RandomState::with_seeds(IDEM_HASH_SEED_0, IDEM_HASH_SEED_1, IDEM_HASH_SEED_2, IDEM_HASH_SEED_3);
+
+        assert_eq!(
+            build().hash_one("the-same-body"),
+            build().hash_one("the-same-body"),
+            "two independently constructed states must agree, or the hash is only stable \
+             within a single process and cannot back a shared idempotency store"
+        );
+    }
     use crate::tower::tests_common::{MockClient, chat_req};
     use crate::tower::types::{LlmRequest, LlmResponse};
 
@@ -640,6 +753,148 @@ mod tests {
 
         let entry = store.get("k4").await.unwrap().expect("entry must exist");
         assert!(entry.response.is_some(), "response must be populated");
+    }
+
+    /// The store's key is a tenant-prefixed, CLIENT-SUPPLIED `Idempotency-Key`
+    /// header, with expiry checked lazily only on `get` — nothing sweeps stale
+    /// entries in the background. Before `make_room`, a client sending unique
+    /// keys grew the map without bound for the full 24h default TTL. Each
+    /// insertion here is immediately finalised via `store_response` (as the
+    /// real `IdempotencyService` does once the inner call returns), so every
+    /// prior entry is a legitimate eviction candidate; this drives insertions
+    /// well past the cap and asserts the map never exceeds it.
+    #[tokio::test]
+    async fn store_try_insert_is_bounded_by_max_entries() {
+        const CAP: usize = 8;
+        let store = InMemoryIdempotencyStore::new().with_max_entries(CAP);
+
+        for i in 0..CAP * 10 {
+            let key = format!("key-{i}");
+            store.try_insert(&key, "hash", Duration::from_secs(60)).await.unwrap();
+            let resp = CachedResponse::Chat(crate::tower::tests_common::make_chat_response("gpt-4"));
+            store.store_response(&key, resp).await.unwrap();
+        }
+
+        assert!(
+            store.map.len() <= CAP,
+            "store must stay within its cap; held {} entries with a cap of {CAP}",
+            store.map.len()
+        );
+    }
+
+    /// Evicting a finalised entry makes a client retrying that key re-run the
+    /// request upstream — a duplicate LLM call and a duplicate charge. So when
+    /// eviction is unavoidable, it must fall on the entry closest to expiring,
+    /// not on whichever key `DashMap` happens to yield first. Pins oldest-first
+    /// ordering: the newest entry must outlive the oldest.
+    #[tokio::test]
+    async fn store_make_room_evicts_the_oldest_finalised_entry_first() {
+        const CAP: usize = 4;
+        let store = InMemoryIdempotencyStore::new().with_max_entries(CAP);
+
+        for i in 0..CAP {
+            let key = format!("aged-{i}");
+            store.try_insert(&key, "hash", Duration::from_secs(60)).await.unwrap();
+            let resp = CachedResponse::Chat(crate::tower::tests_common::make_chat_response("gpt-4"));
+            store.store_response(&key, resp).await.unwrap();
+            // ~keep Instant has coarse resolution on some platforms; separate the
+            // ~keep insertions so the ordering under test is actually observable.
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+
+        store
+            .try_insert("newcomer", "hash", Duration::from_secs(60))
+            .await
+            .unwrap();
+
+        assert!(
+            store.get("aged-0").await.unwrap().is_none(),
+            "the oldest finalised entry must be the one evicted"
+        );
+        assert!(
+            store.get(&format!("aged-{}", CAP - 1)).await.unwrap().is_some(),
+            "the newest finalised entry must survive while an older one is available to evict"
+        );
+    }
+
+    /// Reaching the cap must first reclaim entries that are merely stale
+    /// rather than immediately discarding entries that are still within TTL.
+    #[tokio::test]
+    async fn store_make_room_reclaims_expired_entries_before_evicting_live_ones() {
+        const CAP: usize = 4;
+        let store = InMemoryIdempotencyStore::new().with_max_entries(CAP);
+
+        for i in 0..CAP {
+            let key = format!("stale-{i}");
+            store.try_insert(&key, "hash", Duration::from_nanos(1)).await.unwrap();
+        }
+        assert_eq!(store.map.len(), CAP);
+
+        tokio::time::sleep(Duration::from_millis(5)).await;
+
+        store
+            .try_insert("fresh", "hash", Duration::from_secs(60))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            store.map.len(),
+            1,
+            "the expired entries must be reclaimed, leaving only the fresh one"
+        );
+        assert!(
+            store.get("fresh").await.unwrap().is_some(),
+            "the fresh entry must survive"
+        );
+    }
+
+    /// CRITICAL regression: an unexpired entry with `response: None` is a
+    /// placeholder backing a request that is still in flight
+    /// ([`IdempotencyInFlightGuard`]). If `make_room` ever evicted it to make
+    /// space, a second caller with the same key would miss the in-flight
+    /// check and re-run the request against upstream — turning a correct
+    /// dedup into a duplicate upstream call. This test fills the store with
+    /// unexpired, unfinalised placeholders up to the cap, then forces another
+    /// insertion past the cap, and asserts every placeholder is still present
+    /// with `response` still `None`.
+    #[tokio::test]
+    async fn store_make_room_never_evicts_an_unexpired_in_flight_placeholder() {
+        const CAP: usize = 4;
+        let store = InMemoryIdempotencyStore::new().with_max_entries(CAP);
+
+        for i in 0..CAP {
+            let key = format!("in-flight-{i}");
+            let inserted = store.try_insert(&key, "hash", Duration::from_secs(60)).await.unwrap();
+            assert!(inserted, "placeholder {i} must be inserted");
+        }
+
+        // ~keep Force another insertion attempt at the cap; make_room runs but must
+        // ~keep find no evictable candidate since every entry is an unexpired placeholder.
+        store
+            .try_insert("in-flight-extra", "hash", Duration::from_secs(60))
+            .await
+            .unwrap();
+
+        for i in 0..CAP {
+            let key = format!("in-flight-{i}");
+            let entry = store
+                .get(&key)
+                .await
+                .unwrap()
+                .unwrap_or_else(|| panic!("in-flight placeholder {key} must not be evicted"));
+            assert!(
+                entry.response.is_none(),
+                "placeholder {key} must remain unfinalised, not silently dropped and re-inserted"
+            );
+        }
+
+        // ~keep The store exceeds its cap here by exactly the placeholders it correctly
+        // ~keep refused to evict; that is the documented trade-off (correctness over a
+        // ~keep strict cap) — see make_room's doc comment.
+        assert!(
+            store.map.len() > CAP,
+            "extra placeholder only fits by exceeding the cap"
+        );
     }
 
     #[tokio::test]
