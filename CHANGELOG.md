@@ -119,6 +119,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `refusal` (present even when `null`) to satisfy OpenAI's response schema. See "Upgrade notes."
 - `Choice` gained a `logprobs` field; `CreateResponseRequest` gained an `extra_body` field;
   `GuardrailService` gained an `S: Clone` bound. See "Upgrade notes."
+- **An Azure-routed Responses call sent a malformed URL instead of failing.** All four
+  `ResponseClient` methods pass an empty model to `build_url` — none of create/retrieve/cancel has
+  one to give — and Azure embeds the model in the path unconditionally, so the request went out to
+  `.../openai/deployments//responses` and relied on Azure's 404. It now returns
+  `EndpointNotSupported` before any network call. The check tests the URL shape rather than the
+  provider name, so it cannot reject OpenAI-compatible gateways running under a different provider
+  name, and will catch any future provider with the same URL-embedding pattern. Bedrock, Vertex and
+  Google AI were never affected — contrary to what the `ResponseClient` doc claimed, they fall
+  through to the plain `{base}{path}` branch; that doc is corrected too.
 - **`top_p` never reached Cohere at any value.** Cohere's v2 `/chat` endpoint has no `top_p` field
   — its nucleus-sampling parameter is named `p` — so the value was forwarded under a name Cohere
   does not recognise and silently dropped, leaving nucleus sampling entirely unset on every Cohere
