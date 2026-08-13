@@ -575,9 +575,13 @@ pub trait BatchClient {
 ///   Vertex, Bedrock, Cohere, Google AI) get no such chance here. Their transforms are
 ///   written against the Chat Completions body shape and would corrupt a Responses body,
 ///   which is why they are not applied rather than merely forgotten.
-/// - Providers that embed the model in the URL (Azure, Bedrock) cannot form a valid
-///   Responses URL at all: the model passed to [`Provider::build_url`] is empty, so
-///   Azure yields `.../openai/deployments//responses`.
+/// - Bedrock, Vertex, and Google AI embed the model into `build_url`, but only for the
+///   `chat/completions` and `embeddings` paths they special-case; `responses_path()` falls
+///   through to their plain `{base}{endpoint_path}` branch, so the empty model passed here is
+///   harmless for them. Azure embeds the model unconditionally, so the empty model yields
+///   `.../openai/deployments//responses` — an empty path segment. The four call sites below
+///   detect that shape via `reject_malformed_responses_url` and fail fast with
+///   [`LiterLlmError::EndpointNotSupported`] instead of sending it.
 ///
 /// Use these methods with OpenAI, or with a gateway that serves OpenAI's `/responses`
 /// contract natively. For cross-provider work use [`LlmClient::chat`].
@@ -2090,11 +2094,50 @@ fn parse_response_stream_event(data: &str) -> Result<Option<ResponseStreamEvent>
         })
 }
 
+/// Reject a Responses URL that contains an empty path segment (`//`).
+///
+/// The four `ResponseClient` call sites pass `""` as the model to
+/// [`Provider::build_url`] / [`Provider::build_stream_url`], because none of `create_response`,
+/// `retrieve_response`, or `cancel_response` has a model available to give the URL-embedding
+/// providers (see the `ResponseClient` trait doc). Most providers' `build_url` ignores the model
+/// for the `/responses` path — it only fires for `chat/completions` and `embeddings` — so an
+/// empty model is harmless there. Azure's `build_url` embeds the model unconditionally, so an
+/// empty model turns into an empty path segment: `.../openai/deployments//responses`.
+///
+/// This checks the URL shape rather than `provider.name()` on purpose: naming a specific
+/// provider would either allow-list `"openai"` and reject supported OpenAI-compatible gateways
+/// running under a different provider name, or deny-list `"azure"` and silently miss any future
+/// provider with the same URL-embedding bug. Checking for the empty segment catches exactly the
+/// malformed case, from whichever provider produces it, and never fires for a provider whose
+/// `build_url` output is well-formed. ~keep
+///
+/// One other configuration can trip this, so do not read the error as "this provider cannot do
+/// Responses" without checking: [`ClientConfig::base_url`] is a public field, so a value set
+/// directly rather than through [`ClientConfigBuilder::base_url`] or
+/// [`ClientConfig::with_base_url`] skips their `trim_end_matches('/')`, and a trailing slash
+/// then yields `.../v1//responses` here too. That configuration is already broken for every
+/// other endpoint as well, so it should surface long before this check — but if this fires for
+/// a provider that ought to work, inspect `base_url` before suspecting the provider. ~keep
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn reject_malformed_responses_url(url: &str, provider_name: &str) -> Result<()> {
+    let path = url.split_once("://").map_or(url, |(_, rest)| rest);
+    let path = path.split_once('/').map_or("", |(_, rest)| rest);
+    let path = path.split(['?', '#']).next().unwrap_or("");
+    if format!("/{path}").contains("//") {
+        return Err(LiterLlmError::EndpointNotSupported {
+            endpoint: "responses".into(),
+            provider: provider_name.into(),
+        });
+    }
+    Ok(())
+}
+
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 impl ResponseClient for DefaultClient {
     fn create_response(&self, req: CreateResponseRequest) -> BoxFuture<'_, Result<ResponseObject>> {
         Box::pin(async move {
             let url = self.provider.build_url(self.provider.responses_path(), "");
+            reject_malformed_responses_url(&url, self.provider.name())?;
             let body_json = response_request_body(&req)?;
             let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
 
@@ -2116,6 +2159,7 @@ impl ResponseClient for DefaultClient {
         Box::pin(async move {
             // ~keep Force streaming on the wire regardless of what the caller (or extra_body) set.
             let url = self.provider.build_stream_url(self.provider.responses_path(), "");
+            reject_malformed_responses_url(&url, self.provider.name())?;
             let body_json = response_stream_request_body(req)?;
             let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
 
@@ -2140,11 +2184,9 @@ impl ResponseClient for DefaultClient {
     fn retrieve_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>> {
         let response_id = response_id.to_owned();
         Box::pin(async move {
-            let url = format!(
-                "{}/{}",
-                self.provider.build_url(self.provider.responses_path(), ""),
-                response_id
-            );
+            let base_url = self.provider.build_url(self.provider.responses_path(), "");
+            reject_malformed_responses_url(&base_url, self.provider.name())?;
+            let url = format!("{base_url}/{response_id}");
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
             let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
@@ -2158,11 +2200,9 @@ impl ResponseClient for DefaultClient {
     fn cancel_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>> {
         let response_id = response_id.to_owned();
         Box::pin(async move {
-            let url = format!(
-                "{}/{}/cancel",
-                self.provider.build_url(self.provider.responses_path(), ""),
-                response_id
-            );
+            let base_url = self.provider.build_url(self.provider.responses_path(), "");
+            reject_malformed_responses_url(&base_url, self.provider.name())?;
+            let url = format!("{base_url}/{response_id}/cancel");
             let auth_header = self.resolve_auth_header().await?;
             let body_json = serde_json::Value::Null;
             let body_bytes = bytes::Bytes::new();
@@ -2181,6 +2221,86 @@ impl ResponseClient for DefaultClient {
 mod build_provider_tests {
     use super::*;
     use crate::client::config::ClientConfigBuilder;
+
+    /// Revert line: reverting `reject_malformed_responses_url` in `crates/liter-llm/src/client/
+    /// mod.rs` to always return `Ok(())` makes this test fail — it would no longer catch the
+    /// empty `/openai/deployments//responses` segment Azure produces when no deployment name
+    /// (model) is available, which is the case at all four `ResponseClient` call sites.
+    #[test]
+    fn reject_malformed_responses_url_rejects_azure_empty_deployment() {
+        let provider = provider::azure::AzureProvider::with_base_url("https://resourceA.openai.azure.com");
+        let url = provider.build_url(provider.responses_path(), "");
+
+        assert!(
+            url.contains("/openai/deployments//responses"),
+            "test setup assumption broken, url = {url}"
+        );
+
+        let result = reject_malformed_responses_url(&url, provider.name());
+        match result {
+            Err(LiterLlmError::EndpointNotSupported {
+                endpoint,
+                provider: rejected_provider,
+            }) => {
+                assert_eq!(endpoint, "responses");
+                assert_eq!(rejected_provider, "azure");
+            }
+            other => panic!("expected Err(EndpointNotSupported), got {other:?}"),
+        }
+    }
+
+    /// Azure base URLs that already pin a deployment (`/openai/deployments/{name}`) never reach
+    /// the model-embedding branch of `AzureProvider::build_url`, so the produced URL has no empty
+    /// segment and must not be rejected.
+    #[test]
+    fn reject_malformed_responses_url_allows_azure_with_pinned_deployment() {
+        let base_url = "https://resourceA.openai.azure.com/openai/deployments/my-gpt4-deployment";
+        let provider = provider::azure::AzureProvider::with_base_url(base_url);
+        let url = provider.build_url(provider.responses_path(), "");
+
+        assert!(
+            !url.contains("deployments//"),
+            "test setup assumption broken: pinned-deployment URL should have no empty segment, url = {url}"
+        );
+
+        assert!(
+            reject_malformed_responses_url(&url, provider.name()).is_ok(),
+            "a pinned-deployment Azure URL must not be rejected, url = {url}"
+        );
+    }
+
+    /// Bedrock, Vertex, and Google AI embed the model into `build_url` only for the
+    /// `chat/completions` and `embeddings` paths; `responses_path()` matches neither, so the
+    /// empty model passed at the four `ResponseClient` call sites must not be rejected for them.
+    #[test]
+    fn reject_malformed_responses_url_allows_bedrock_google_ai_and_vertex() {
+        let bedrock = provider::bedrock::BedrockProvider::from_config(
+            Some("us-east-1".into()),
+            None,
+            Some("test-access-key".into()),
+            Some("test-secret-key".into()),
+            None,
+        );
+        let bedrock_url = bedrock.build_url(bedrock.responses_path(), "");
+        assert!(
+            reject_malformed_responses_url(&bedrock_url, bedrock.name()).is_ok(),
+            "bedrock url = {bedrock_url}"
+        );
+
+        let google_ai = provider::google_ai::GoogleAiProvider;
+        let google_ai_url = google_ai.build_url(google_ai.responses_path(), "");
+        assert!(
+            reject_malformed_responses_url(&google_ai_url, google_ai.name()).is_ok(),
+            "google ai url = {google_ai_url}"
+        );
+
+        let vertex = provider::vertex::VertexAiProvider::new("my-project", "us-central1");
+        let vertex_url = vertex.build_url(vertex.responses_path(), "");
+        assert!(
+            reject_malformed_responses_url(&vertex_url, vertex.name()).is_ok(),
+            "vertex url = {vertex_url}"
+        );
+    }
 
     #[test]
     fn azure_model_with_per_model_base_url_uses_azure_provider() {

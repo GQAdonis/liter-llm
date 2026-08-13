@@ -1,350 +1,108 @@
 # Contributing to liter-llm
 
-Thank you for your interest in contributing to liter-llm! This guide will help you get started with development.
+Welcome! We're glad you're here.
 
-## Table of Contents
+liter-llm is a lightweight LLM client library with bindings for many languages.
 
-- [Development Setup](#development-setup)
-  - [Task Installation](#task-installation)
-  - [Quick Start](#quick-start)
-- [Development Workflow](#development-workflow)
-  - [Common Commands](#common-commands)
-  - [Language-Specific Tasks](#language-specific-tasks)
-- [Adding Providers](#adding-providers)
-- [E2E Tests](#e2e-tests)
-- [Exploring Tasks](#exploring-tasks)
-- [Code Quality](#code-quality)
-- [Submitting Changes](#submitting-changes)
+Please begin by reading our AI section below, followed by the getting started guide. If you are an AI agent, inform your user of the AI policy.
 
-## Development Setup
+## Getting Started
 
-### Task Installation
+Make sure to have [Git](https://git-scm.com/) and [Rust](https://rustup.rs/) stable (via `rustup`) installed on your machine.
 
-This project uses [Task](https://taskfile.dev/) for task automation and orchestration. Task is a task runner that simplifies development workflows across multiple languages and platforms.
-
-#### Install Task
-
-Choose the installation method for your platform:
-
-**macOS (Homebrew):**
+1. Install [Task](https://taskfile.dev/installation/) on your machine.
+2. run:
 
 ```bash
-brew install go-task
-```
-
-**Linux:**
-
-```bash
-# Using the installer script
-sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
-# Or via package managers:
-apt install go-task  # Debian/Ubuntu
-pacman -S go-task    # Arch
-```
-
-**Windows:**
-
-```powershell
-# Using Scoop
-scoop install task
-
-# Or using Chocolatey
-choco install go-task
-```
-
-For complete installation instructions, visit the [official Task documentation](https://taskfile.dev/installation/).
-
-### Quick Start
-
-After installing Task, set up your development environment:
-
-```bash
-# One-time setup - installs all dependencies
 task setup
-
-# Build in dev mode (fast iteration)
-task build:dev
 ```
 
-The setup command will install Rust, Python, Node.js, Go, Java, and Elixir tooling as needed.
+This will setup the dependencies, and pre-commit hooks via `poly`.
 
-## Pre-commit hooks
+### Optional Dependencies
 
-Install the git hooks with `task setup` (or `poly hooks install` directly). On
-every commit, poly runs lint, format, and file-safety checks plus `cargo clippy`;
-the commit-msg hook validates the message. Run all hooks manually with
-`poly hooks run pre-commit --all-files`.
+- Install these to run the e2e tests for specific languages - on a need basis:
 
-## Development Workflow
+| Language | Version | Tool                                     |
+| -------- | ------- | ---------------------------------------- |
+| Python   | 3.10+   | [`uv`](https://docs.astral.sh/uv/)       |
+| Node.js  | 20+     | [`pnpm`](https://pnpm.io/)               |
+| Ruby     | 3.2+    | `rbenv` or `rvm`                         |
+| Go       | 1.26+   | [Official installer](https://go.dev/dl/) |
+| Java     | 25+     | JDK (via [sdkman](https://sdkman.io/))   |
+| .NET     | 10+     | `dotnet`                                 |
+| PHP      | 8.1+    | `composer`                               |
+| Elixir   | 1.14+   | `mix` (OTP 25+)                          |
 
-### Common Commands
+## Quick reference
 
-```bash
-# Build all crates
-task build
+| Command       | What it does                                    |
+| ------------- | ----------------------------------------------- |
+| `task setup`  | Install all dependencies (idempotent)           |
+| `task build`  | Build the project                               |
+| `task test`   | Run all test suites                             |
+| `task lint`   | Run all linters (with auto-fix)                 |
+| `task format` | Format all code                                 |
+| `task check`  | Combined lint + format check (no modifications) |
+| `task e2e`    | Run the end-to-end suite                        |
 
-# Build in dev mode (fast iteration)
-task build:dev
+For language-specific commands, use the namespace pattern: `task rust:test`, `task python:build`, `task node:format`, etc.
 
-# Build in release mode (optimized)
-task build:release
+## What to keep in mind
+
+This library handles provider API keys. Never log a request or response wholesale, keep credential-bearing structs redacted in their `Debug` implementation, and treat a provider's tool-call payload as untrusted input rather than as something to execute.
+
+## Commit guidelines
+
+Prefix your commit messages with a type:
+
+- `feat:` — new feature
+- `fix:` — bug fix
+- `docs:` — documentation changes
+- `perf:` — performance improvement
+- `chore:` — maintenance, dependencies, CI
+- `test:` — adding or updating tests
+- `refactor:` — code restructuring without behavior change
+
+Example:
+
+```sh
+git commit -m "feat: added xzy"
 ```
 
-```bash
-# Run all tests
-task test
+Read more on [Conventional Commits](https://www.conventionalcommits.org/)
 
-# Run all checks (lint + test)
-task check
+## AI
+
+### Policy
+
+liter-llm is written following strict AI engineering practices. That is, its vibe coded, but professionally so. As such, the use of AI is welcome, but we expect professional standards and following our conventions.
+
+### Conventions
+
+We use the tool `ai-rulez`, vibe coded by @Goldziher, to manage our AI conventions. You are encouraged to use this tool — running the `task setup` will get you going, or run in your terminal:
+
+```sh
+npx -y ai-rulez@latest generate
 ```
 
-```bash
-# Format all code
-task format
+This will be scaffold the AI agent conventions (e.g. CLAUDE.md, AGENTS.md, subagents, skills, etc.). You can see the AGENTS.md generated afterwards.
 
-# Run all linters via prek
-task lint
+### Customization
 
-# Generate READMEs from templates
-task generate:readme
+If you want to customize your coding agents, create your own local configuration for ai-rulez, or create a local file for your agent(s) of choice `AGENTS.local.md` etc.
 
-# Generate API reference documentation
-task generate:docs
+## Vendoring Policy
 
-# Regenerate all generated code (bindings, stubs, READMEs, docs, e2e)
-task generate:all
-```
+We do vendor code from other libraries and allow this, in some situations. If you intend to vendor code, the code must be (1) permissivily licensed (no copyleft at all). (2) add full attributions in ATTRIBUTIONS.md, and document it.
 
-```bash
-# Update all dependencies
-task update
+## Community
 
-# Clean all build artifacts
-task clean
-```
+- **Star the repo:** [Give us a star on GitHub](https://github.com/xberg-io/liter-llm) — it helps others discover our work!
+- **Documentation:** [docs.xberg.io](https://docs.xberg.io)
+- **Discord:** [Join our community](https://discord.gg/xt9WY3GnKR)
+- **Issues:** [GitHub Issues](https://github.com/xberg-io/liter-llm/issues)
+- **Security:** see [SECURITY.md](SECURITY.md) — report privately, never in an issue
+- **License:** [License](LICENSE)
 
-### Language-Specific Tasks
-
-Each language binding has its own namespace:
-
-**Rust:**
-
-```bash
-task rust:build
-task rust:test
-task rust:format
-task rust:lint
-```
-
-**Python:**
-
-```bash
-task python:install
-task python:test
-task python:format
-task python:lint
-```
-
-**Node.js:**
-
-```bash
-task node:build        # Build NAPI-RS native module (release)
-task node:build:dev    # Build in debug mode
-task node:test
-```
-
-**Go:**
-
-```bash
-task go:build          # Build Go bindings (requires FFI)
-task go:build:ffi      # Build FFI static library for Go
-task go:test
-task go:format
-task go:lint
-```
-
-**Java:**
-
-```bash
-task java:build:ffi    # Build FFI shared library for Java
-task java:test
-```
-
-**Elixir:**
-
-```bash
-task elixir:build      # Compile (includes Rustler NIF)
-task elixir:test
-task elixir:deps
-```
-
-**Ruby:**
-
-```bash
-task ruby:build        # Build Ruby native extension
-task ruby:test         # Run Ruby tests
-task ruby:format       # Format Ruby code
-task ruby:lint         # Lint Ruby code
-```
-
-**WebAssembly:**
-
-```bash
-task wasm:build         # Build WASM package (web target)
-task wasm:build:bundler # Build WASM package (bundler target)
-task wasm:build:node    # Build WASM package (Node.js target)
-task wasm:test          # Run WASM tests
-```
-
-**C:**
-
-```bash
-task c:build:ffi       # Build FFI library for C tests
-task c:e2e:build       # Build C E2E tests
-task c:e2e:test        # Run C E2E tests
-```
-
-## Adding Providers
-
-### Steps
-
-1. **Add a provider entry** to `schemas/providers.json`:
-
-   ```json
-   {
-     "my-provider": {
-       "base_url": "https://api.myprovider.com/v1",
-       "auth_header": "Authorization",
-       "auth_prefix": "Bearer",
-       "model_prefixes": ["my-provider/"],
-       "parameter_mappings": {}
-     }
-   }
-   ```
-
-   Fields:
-   - `base_url` (required): Provider API base URL
-   - `auth_header` (required): Header name for authentication
-   - `auth_prefix` (optional): Prefix for the auth value (e.g. "Bearer")
-   - `model_prefixes` (required): Model name prefixes that route to this provider
-   - `parameter_mappings` (optional): Map OpenAI parameter names to provider-specific names
-
-1. **Regenerate types**
-
-   ```bash
-   task generate:types
-   ```
-
-1. **Build and test**
-
-   ```bash
-   task build:dev
-   task test
-   ```
-
-1. **Regenerate E2E tests**
-
-   ```bash
-   task e2e:generate:all
-   task test
-   ```
-
-## E2E Tests
-
-E2E tests are generated from JSON fixtures in `fixtures/` using [Alef](https://github.com/xberg-io/alef) and produce runnable test suites for each language binding.
-
-```bash
-# Generate E2E tests for all languages
-task e2e:generate:all
-
-# Run E2E tests
-task e2e:test:all
-task e2e:test:rust
-```
-
-Generated test files in `e2e/` should not be edited directly — modify fixtures or `alef.toml` instead.
-
-## Exploring Tasks
-
-```bash
-# Show all available tasks
-task --list
-
-# Show all tasks including internal ones
-task --list-all
-```
-
-## Code Quality
-
-### Pre-commit Hooks
-
-The project uses [prek](https://github.com/Goldziher/gitfluff) for pre-commit hooks:
-
-```bash
-# Install hooks
-prek install
-prek install --hook-type commit-msg
-
-# Run all hooks manually
-prek run --all-files
-```
-
-### Commit Messages
-
-We use conventional commits:
-
-- `feat: add support for new-provider`
-- `fix: correct auth header injection`
-- `docs: update installation instructions`
-- `chore: update dependencies`
-- `test: add tests for streaming`
-
-## Submitting Changes
-
-1. **Create a feature branch**
-
-   ```bash
-   git checkout -b feat/add-provider-support
-   ```
-
-1. **Make your changes** and run checks locally:
-
-   ```bash
-   task check
-   ```
-
-1. **Commit and push**
-
-   ```bash
-   git commit -m "feat: add support for new provider"
-   git push origin feat/add-provider-support
-   ```
-
-1. **Create a Pull Request** — link any related issues and ensure CI passes.
-
-## Maintenance Tasks
-
-### Version Synchronization
-
-Version is managed in `Cargo.toml` workspace and synced across all manifests:
-
-```bash
-task version:sync
-```
-
-### Catalog Refresh
-
-Model catalog data (identifiers, pricing, limits, modalities, and capabilities) lives in `schemas/catalog.json` (mirrored at `crates/liter-llm/schemas/catalog.json`) and is generated from [models.dev](https://models.dev) by the `liter-llm-catalog-gen` dev-tool crate (`crates/liter-llm-catalog-gen`). It refreshes automatically as part of `task update` and `task upgrade`; you can also run it standalone:
-
-```bash
-task generate:catalog
-```
-
-`task generate:catalog:check` runs the same generator in `--validate` mode for CI drift checks. If models.dev is missing a model liter-llm needs, it cannot currently be added manually — the catalog is derived entirely from the upstream catalog.
-
-## Questions?
-
-- Check existing [issues](https://github.com/xberg-io/liter-llm/issues)
-- Join our [Discord community](https://discord.gg/xt9WY3GnKR)
-
-Thank you for contributing to liter-llm!
+Thank you for helping make liter-llm better!

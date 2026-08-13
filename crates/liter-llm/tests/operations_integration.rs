@@ -19,6 +19,7 @@ use liter_llm::client::{BatchClient, DefaultClient, FileClient, ResponseClient};
 use liter_llm::types::batch::{BatchListQuery, CreateBatchRequest};
 use liter_llm::types::files::FileListQuery;
 use liter_llm::types::responses::CreateResponseRequest;
+use liter_llm::{LiterLlmError, Result};
 
 /// A captured HTTP request.
 #[derive(Debug, Clone)]
@@ -549,6 +550,145 @@ async fn cancel_response_should_post_to_cancel_endpoint() {
     let requests = mock.requests();
     assert_eq!(requests[0].method, "POST");
     assert_eq!(requests[0].path, "/responses/resp-001/cancel");
+}
+
+/// Builds an Azure-routed client whose `base_url` does not already embed a deployment
+/// segment (`/openai/deployments/...`), which is the configuration under which
+/// `AzureProvider::build_url` embeds the model into the path.
+fn build_azure_client(mock: &MockServer) -> DefaultClient {
+    let config = ClientConfigBuilder::new("test-api-key")
+        .base_url(mock.url())
+        .max_retries(0)
+        .build();
+    DefaultClient::new(config, Some("azure/gpt-4o")).expect("client creation should succeed")
+}
+
+fn assert_responses_endpoint_not_supported_by_azure<T>(result: &Result<T>) {
+    match result {
+        Err(LiterLlmError::EndpointNotSupported { endpoint, provider }) => {
+            assert_eq!(endpoint, "responses");
+            assert_eq!(provider, "azure");
+        }
+        Err(other) => panic!("expected EndpointNotSupported, got a different error: {other}"),
+        Ok(_) => panic!("expected Err(EndpointNotSupported), got Ok"),
+    }
+}
+
+/// Revert line: removing `reject_malformed_responses_url(&url, self.provider.name())?;` from
+/// `DefaultClient::create_response` in `crates/liter-llm/src/client/mod.rs` makes this test fail
+/// — the request would instead be sent to `.../openai/deployments//responses` and this mock
+/// server would record it.
+#[tokio::test]
+async fn create_response_rejects_azure_empty_deployment_before_any_request() {
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "POST".into(),
+        path_prefix: "/responses".into(),
+        status: 200,
+        body: response_object_json(),
+    }]);
+    let client = build_azure_client(&mock);
+
+    let req = CreateResponseRequest {
+        model: "gpt-4o".into(),
+        input: serde_json::json!("What is the capital of France?"),
+        instructions: None,
+        tools: None,
+        temperature: None,
+        max_output_tokens: None,
+        metadata: None,
+        extra_body: None,
+        stream: None,
+    };
+    let result = client.create_response(req).await;
+
+    assert_responses_endpoint_not_supported_by_azure(&result);
+    assert!(
+        mock.requests().is_empty(),
+        "the malformed URL must be rejected before any HTTP request is sent, got {:?}",
+        mock.requests()
+    );
+}
+
+/// Revert line: removing `reject_malformed_responses_url(&url, self.provider.name())?;` from
+/// `DefaultClient::create_response_stream` in `crates/liter-llm/src/client/mod.rs` makes this
+/// test fail — the stream would instead try to open against `.../openai/deployments//responses`.
+#[tokio::test]
+async fn create_response_stream_rejects_azure_empty_deployment_before_any_request() {
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "POST".into(),
+        path_prefix: "/responses".into(),
+        status: 200,
+        body: response_object_json(),
+    }]);
+    let client = build_azure_client(&mock);
+
+    let req = CreateResponseRequest {
+        model: "gpt-4o".into(),
+        input: serde_json::json!("What is the capital of France?"),
+        instructions: None,
+        tools: None,
+        temperature: None,
+        max_output_tokens: None,
+        metadata: None,
+        extra_body: None,
+        stream: None,
+    };
+    let result = client.create_response_stream(req).await;
+
+    assert_responses_endpoint_not_supported_by_azure(&result);
+    assert!(
+        mock.requests().is_empty(),
+        "the malformed URL must be rejected before any HTTP request is sent, got {:?}",
+        mock.requests()
+    );
+}
+
+/// Revert line: removing `reject_malformed_responses_url(&base_url, self.provider.name())?;`
+/// from `DefaultClient::retrieve_response` in `crates/liter-llm/src/client/mod.rs` makes this
+/// test fail — the request would instead be sent to
+/// `.../openai/deployments//responses/resp-001`.
+#[tokio::test]
+async fn retrieve_response_rejects_azure_empty_deployment_before_any_request() {
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "GET".into(),
+        path_prefix: "/responses/".into(),
+        status: 200,
+        body: response_object_json(),
+    }]);
+    let client = build_azure_client(&mock);
+
+    let result = client.retrieve_response("resp-001").await;
+
+    assert_responses_endpoint_not_supported_by_azure(&result);
+    assert!(
+        mock.requests().is_empty(),
+        "the malformed URL must be rejected before any HTTP request is sent, got {:?}",
+        mock.requests()
+    );
+}
+
+/// Revert line: removing `reject_malformed_responses_url(&base_url, self.provider.name())?;`
+/// from `DefaultClient::cancel_response` in `crates/liter-llm/src/client/mod.rs` makes this test
+/// fail — the request would instead be sent to
+/// `.../openai/deployments//responses/resp-001/cancel`.
+#[tokio::test]
+async fn cancel_response_rejects_azure_empty_deployment_before_any_request() {
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "POST".into(),
+        path_prefix: "/responses/".into(),
+        status: 200,
+        body: response_object_json(),
+    }]);
+    let client = build_azure_client(&mock);
+
+    let result = client.cancel_response("resp-001").await;
+
+    assert_responses_endpoint_not_supported_by_azure(&result);
+    assert!(
+        mock.requests().is_empty(),
+        "the malformed URL must be rejected before any HTTP request is sent, got {:?}",
+        mock.requests()
+    );
 }
 
 #[tokio::test]
