@@ -900,11 +900,20 @@ impl DefaultClient {
             }
         }
         prov.transform_request(&mut body)?;
+        // ~keep Whether the provider's wire format carries `stream` at all is the provider's
+        // decision, recorded here by whether the key survived `transform_request`. Providers that
+        // rebuild the body into a native format (Vertex/Gemini `generateContent`, Bedrock
+        // `converse`) drop it deliberately -- those APIs select streaming by endpoint and reject
+        // the field outright ("Unknown name \"stream\": Cannot find field", HTTP 400). Providers
+        // whose format does carry it (OpenAI-compatible, Anthropic, Cohere) keep it.
+        let provider_wire_carries_stream = body.get("stream").is_some();
         merge_extra_body(&mut body);
         // ~keep extra_body must never override `stream`: the transport path
         // (post_json_raw vs post_stream) is chosen by the calling method, not the
         // body, so a mismatched wire flag would desync request from response parsing.
-        if let Some(s) = stream
+        // Restoring it is therefore scoped to providers that had it after the transform.
+        if provider_wire_carries_stream
+            && let Some(s) = stream
             && let Some(obj) = body.as_object_mut()
         {
             obj.insert("stream".into(), serde_json::Value::Bool(s));
@@ -2680,6 +2689,116 @@ mod build_provider_tests {
                 assert_eq!(t.expose_secret(), "static-token");
             }
             _ => panic!("expected BearerToken"),
+        }
+    }
+
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    fn vertex_client() -> DefaultClient {
+        DefaultClient::new(
+            ClientConfigBuilder::new("ya29.pre-obtained-token").load_env(false).build(),
+            Some("vertex_ai/gemini-2.5-flash"),
+        )
+        .expect("DefaultClient::new should succeed")
+    }
+
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    struct VertexProjectGuard(Option<String>);
+
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    impl VertexProjectGuard {
+        fn set() -> Self {
+            let prior = std::env::var("VERTEXAI_PROJECT").ok();
+            unsafe {
+                std::env::set_var("VERTEXAI_PROJECT", "test-project");
+            }
+            Self(prior)
+        }
+    }
+
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    impl Drop for VertexProjectGuard {
+        fn drop(&mut self) {
+            unsafe {
+                match &self.0 {
+                    Some(value) => std::env::set_var("VERTEXAI_PROJECT", value),
+                    None => std::env::remove_var("VERTEXAI_PROJECT"),
+                }
+            }
+        }
+    }
+
+    /// Vertex/Gemini rebuilds the body into native `generateContent` shape, which has no
+    /// `stream` field. Restoring the transport flag after `transform_request` therefore shipped
+    /// `"stream": false` on every non-streaming call, and Vertex rejects the whole request with
+    /// HTTP 400 `Invalid JSON payload received. Unknown name "stream": Cannot find field.`
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    #[test]
+    #[serial_test::serial]
+    fn vertex_non_streaming_request_carries_no_stream_key() {
+        let _guard = VertexProjectGuard::set();
+        let client = vertex_client();
+        let req = ChatCompletionRequest {
+            model: "vertex_ai/gemini-2.5-flash".into(),
+            messages: vec![],
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("stream").is_none(),
+            "generateContent has no `stream` field; sending it is a hard 400, body was: {}",
+            prepared.body_json
+        );
+    }
+
+    /// Streaming against Vertex is selected by endpoint (`streamGenerateContent`), not by a body
+    /// flag, so the streaming path must not reintroduce the key either.
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    #[test]
+    #[serial_test::serial]
+    fn vertex_streaming_request_carries_no_stream_key() {
+        let _guard = VertexProjectGuard::set();
+        let client = vertex_client();
+        let req = ChatCompletionRequest {
+            model: "vertex_ai/gemini-2.5-flash".into(),
+            messages: vec![],
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(true))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("stream").is_none(),
+            "streaming is endpoint-selected on Vertex; body was: {}",
+            prepared.body_json
+        );
+    }
+
+    /// Guard against over-correcting: providers whose wire format does carry `stream` must still
+    /// get the transport-controlled flag, so the request cannot desync from the response parser.
+    #[test]
+    fn openai_shaped_provider_still_carries_the_stream_flag() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("gpt-4"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            ..Default::default()
+        };
+
+        for streaming in [false, true] {
+            let prepared = client
+                .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(streaming))
+                .expect("prepare_request should not fail");
+            assert_eq!(
+                prepared.body_json["stream"], streaming,
+                "OpenAI-shaped bodies must keep the transport-controlled stream flag"
+            );
         }
     }
 }

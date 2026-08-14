@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **client**: stop re-inserting `stream` into request bodies that providers rebuilt without it.
+  `prepare_request` set the transport-controlled `stream` flag before `transform_request`, then
+  restored it after the `extra_body` merge so `extra_body` could not desync the wire flag from the
+  chosen transport. That restore ran for every provider, including those whose native wire format
+  has no `stream` field at all. Vertex/Gemini rebuilds the body into `generateContent` shape and
+  deliberately drops the key, so a plain non-streaming call shipped `"stream": false` and Vertex
+  rejected the entire request with HTTP 400 `Invalid JSON payload received. Unknown name "stream":
+  Cannot find field.` — breaking **every** non-streaming chat completion against Vertex AI,
+  including vision and structured-extraction calls, which surfaced only as a silently absent
+  result. The restore is now scoped to providers whose body still carried `stream` after their own
+  transform, so OpenAI-compatible, Anthropic, and Cohere bodies keep the flag while Vertex and
+  Bedrock — which select streaming by endpoint — no longer receive a field their native request
+  formats do not define.
+
 ## [1.17.0] - 2026-08-13
 
 ### Upgrade notes
