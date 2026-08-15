@@ -110,6 +110,10 @@ tasks:
     cmds:
       - task: rust:build
       - task: python:build
+      # ~keep node:build runs `pnpm install` across the workspace, and e2e/wasm
+      # depends on `file:../../crates/liter-llm-wasm/pkg/nodejs`. Only the nodejs
+      # target emits that directory, so it must exist before pnpm resolves.
+      - task: wasm:build:node
       - task: node:build
       - task: go:build
       - task: java:build
