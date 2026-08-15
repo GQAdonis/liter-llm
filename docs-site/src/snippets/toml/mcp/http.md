@@ -1,7 +1,7 @@
 ---
 id: legacy_toml_mcp_http
-language: toml
-target: toml
+language: bash
+target: bash
 level: syntax
 requires: []
 side_effect: network
