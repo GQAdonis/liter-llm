@@ -3190,7 +3190,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-dart"
-version = "1.16.0"
+version = "1.17.0"
 dependencies = [
  "flutter_rust_bridge",
  "futures-util",
