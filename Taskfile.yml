@@ -119,6 +119,9 @@ tasks:
       - task: java:build
       - task: csharp:build
       - task: php:build
+      # ~keep `setup` does not install per-language deps, so on a pristine tree
+      # `mix compile` fails with every Hex dependency unavailable.
+      - task: elixir:deps
       - task: elixir:build
       - task: ruby:build
       - task: wasm:build
