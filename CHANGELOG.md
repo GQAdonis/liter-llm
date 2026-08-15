@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.1] - 2026-08-15
+
+### Changed
+
+- **catalog**: refreshed the bundled model catalog (`schemas/catalog.json`) from models.dev. The
+  catalog is embedded via `include_str!` and backs pricing and capability lookups in `cost.rs`.
+  Providers went from 184 to 185 and models from 6293 to 6321: **70 models added, 42 removed, and
+  no existing model repriced** — input and output costs are byte-identical for every model present
+  both before and after. The single new provider is `crusoe`.
+
+  The removals are the upgrade risk, since a removed identifier no longer resolves for cost
+  lookup. 36 of the 42 are under `cloudflare-ai-gateway`, and they are genuine deletions rather
+  than renames — nothing was added back under those names. Notably **every** Anthropic model
+  behind that gateway is gone (`claude-3-haiku`, `claude-3-sonnet`, `claude-3-opus`,
+  `claude-3.5-haiku`, `claude-3-5-haiku`, `claude-3.5-sonnet`, `claude-sonnet-4`,
+  `claude-opus-4`, `claude-opus-4-1`), along with 24 `workers-ai` models,
+  `openai/gpt-5.1-codex`, `openai/gpt-5.2-codex`, and `moonshotai/kimi-k3`. The remaining six
+  removals are `inclusionai/ling-3.0-tiny` variants across `kilo`, `nano-gpt`, `openrouter`, and
+  `vercel`, plus `nano-gpt/TEE/minimax-m2.5`. If you route Anthropic models through
+  `cloudflare-ai-gateway`, cost lookup for those ids will no longer resolve after this upgrade.
+
 ### Fixed
 
 - **client**: stop re-inserting `stream` into request bodies that providers rebuilt without it.
@@ -22,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transform, so OpenAI-compatible, Anthropic, and Cohere bodies keep the flag while Vertex and
   Bedrock — which select streaming by endpoint — no longer receive a field their native request
   formats do not define.
+- **version**: stop the per-language binding crates from drifting behind the core workspace
+  version, so a binding crate published from this release carries the same version as the
+  `liter-llm` core it was built against.
+- **docs**: label the MCP HTTP transport snippet as `bash` instead of `toml` so it renders with the
+  correct syntax highlighting.
 
 ## [1.17.0] - 2026-08-13
 
