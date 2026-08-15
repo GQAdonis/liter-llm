@@ -13,6 +13,25 @@ importers:
       '@napi-rs/cli':
         specifier: ^3.7.3
         version: 3.7.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@26.1.1)
+    optionalDependencies:
+      '@xberg-io/liter-llm-darwin-arm64':
+        specifier: 1.16.0
+        version: 1.16.0
+      '@xberg-io/liter-llm-darwin-x64':
+        specifier: 1.16.0
+        version: 1.16.0
+      '@xberg-io/liter-llm-linux-arm64-gnu':
+        specifier: 1.16.0
+        version: 1.16.0
+      '@xberg-io/liter-llm-linux-x64-gnu':
+        specifier: 1.16.0
+        version: 1.16.0
+      '@xberg-io/liter-llm-win32-arm64-msvc':
+        specifier: 1.16.0
+        version: 1.16.0
+      '@xberg-io/liter-llm-win32-x64-msvc':
+        specifier: 1.16.0
+        version: 1.16.0
 
   crates/liter-llm-wasm: {}
 
@@ -1075,6 +1094,44 @@ packages:
   '@vitest/utils@4.1.10':
     resolution: {integrity: sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA==}
 
+  '@xberg-io/liter-llm-darwin-arm64@1.16.0':
+    resolution: {integrity: sha512-siP+jBD0ba/8eaBQor73cn/dXSdCvmu7BHQzsUuGeEwfND7Z7u8ydZbueeBAuhVonF6chdCgRZA+Fm4OOjbGAQ==}
+    engines: {node: '>= 22'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@xberg-io/liter-llm-darwin-x64@1.16.0':
+    resolution: {integrity: sha512-BhKA+3/Nj5V+B/Rq+yNoN3W9ZV5LGPYfOR6eb6GQnXBMvMpomPebqmZ09AEAUwWm9l1NTxy4ptmh8QIEIls3CA==}
+    engines: {node: '>= 22'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@xberg-io/liter-llm-linux-arm64-gnu@1.16.0':
+    resolution: {integrity: sha512-WuZuPlp8+DxClADE7pqKZs5erVjIRv6T7JkxIZSL1zXT1coEjbTJGbtnmrPF/TKl9JPeHn0z++r+g/sO5eVHqg==}
+    engines: {node: '>= 22'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@xberg-io/liter-llm-linux-x64-gnu@1.16.0':
+    resolution: {integrity: sha512-WEo9SPND4SkacarR7jpZwATGrjXubJ9TuN7MtkuPdlkbmkodJq0/+Wb2RhMVreKOJj/z/qKpqJhtWSt3sQqqtA==}
+    engines: {node: '>= 22'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@xberg-io/liter-llm-win32-arm64-msvc@1.16.0':
+    resolution: {integrity: sha512-AUA5xEJkj6z7AGdUe2RRCShklT791Y+H3fFy82Yg/IUI/o2eOgUM0uoy7fMcUkxWOrCH0T8GKihetQNgIXsflA==}
+    engines: {node: '>= 22'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@xberg-io/liter-llm-win32-x64-msvc@1.16.0':
+    resolution: {integrity: sha512-x7Kkqu2hti+zveG0Eq+E11LH7bhMBeIM3cSzamluKv7niCF7L7DmLSSDZSxJr34DyOfvSfQOLbAR81Ss0IZvkQ==}
+    engines: {node: '>= 22'}
+    cpu: [x64]
+    os: [win32]
+
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
 
@@ -2124,6 +2181,24 @@ snapshots:
       '@vitest/pretty-format': 4.1.10
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
+
+  '@xberg-io/liter-llm-darwin-arm64@1.16.0':
+    optional: true
+
+  '@xberg-io/liter-llm-darwin-x64@1.16.0':
+    optional: true
+
+  '@xberg-io/liter-llm-linux-arm64-gnu@1.16.0':
+    optional: true
+
+  '@xberg-io/liter-llm-linux-x64-gnu@1.16.0':
+    optional: true
+
+  '@xberg-io/liter-llm-win32-arm64-msvc@1.16.0':
+    optional: true
+
+  '@xberg-io/liter-llm-win32-x64-msvc@1.16.0':
+    optional: true
 
   argparse@2.0.1: {}
 
