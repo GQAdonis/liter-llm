@@ -5,6 +5,12 @@ dist/
 wheelhouse/
 .gradle/
 
+# Git worktrees checked out inside the repo. Untracked-but-not-ignored, poly
+# walks them and reports the worktree's own copies of files as failures, so a
+# single worktree turns `poly fmt --check .` red for reasons unrelated to the
+# tree being checked. ~keep
+.worktrees/
+
 # Astro docs-site
 docs-site/dist/
 docs-site/.astro/
