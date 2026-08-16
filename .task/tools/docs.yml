@@ -67,8 +67,19 @@ tasks:
       - alef snippets audit --snippets docs-site/src/snippets
 
   snippets:all:
-    desc: Run audit + gaps + validate (canonical docs:snippets gate)
+    desc: Audit + gaps + configured validation (canonical docs:snippets gate)
+    # `check` is the validation gate: it reads alef.toml, so it honours
+    # validation_level, strict, and the sessions blocks. `validate` does not —
+    # it takes CLI flags only, defaults to syntax, and runs with an empty
+    # session map, so it validates weaker than this repo is configured for.
+    #
+    # `check` does NOT subsume audit and gaps, despite its --help claiming
+    # "discovery, validation, audit, and gap checks": run_check calls
+    # discover_snippets, run_validation and missing_generated_snippets, and
+    # never audit() or detect_gaps(). Verified against alef 3871e437f. So
+    # structural audit, orphaned snippets, missing language variants and broken
+    # MDX import targets still need their own commands. ~keep
     cmds:
       - alef snippets audit --snippets docs-site/src/snippets
       - alef snippets gaps --snippets docs-site/src/snippets --docs docs-site/src/content/docs
-      - alef snippets validate --snippets docs-site/src/snippets --timeout 120
+      - alef snippets check --strict
