@@ -12,7 +12,7 @@ side_effect: network
 ```csharp
 using LiterLlm;
 
-using var client = LiterLlmLib.CreateClient(
+using var client = LiterLlmConverter.CreateClient(
     apiKey: Environment.GetEnvironmentVariable("OPENAI_API_KEY")!,
     baseUrl: null, timeoutSecs: null, maxRetries: null, modelHint: null);
 

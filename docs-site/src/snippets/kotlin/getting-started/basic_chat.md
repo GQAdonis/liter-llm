@@ -17,7 +17,7 @@ fun main() = runBlocking {
     val client = LiterLlm.createClient(System.getenv("OPENAI_API_KEY") ?: "")
     val request = ChatCompletionRequest(
         model = "openai/gpt-4o",
-        messages = listOf(Message.User(UserMessage(content = UserContent.of("Hello!"))))
+        messages = listOf(Message.User(UserMessage(content = UserContent.Text("Hello!"))))
     )
     val response = client.chat(request)
     println(response.choices[0].message.content)

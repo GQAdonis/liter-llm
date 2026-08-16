@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# {{ name | replace("#", "\\#") }}
+# {{ name }}
 
 {% include 'partials/badges.html' %}
 {% include 'partials/banner.html' %}

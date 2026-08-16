@@ -134,6 +134,13 @@ Each release at <https://github.com/xberg-io/liter-llm/releases> attaches:
 
 > The repository's checked-in `Package.swift` on `main` uses placeholder values and is not usable as-is. The `.package(url: ..., from: ...)` SwiftPM pattern is **not supported** because release tags carry the placeholder file; pull the release-attached `Package.swift` or use `.binaryTarget` directly.
 
+{% elif install_command %}
+Install:
+
+```bash
+{{ install_command }}
+```
+
 {% endif %}
 {% else %}
 Install via one of the supported package managers:
@@ -232,6 +239,13 @@ end
 dotnet add package {{ package_name }}
 ```
 
+{% elif install_command %}
+**{{ pm }}:**
+
+```bash
+{{ install_command }}
+```
+
 {% endif %}
 {% endfor %}
 {% endif %}
@@ -280,6 +294,16 @@ Pre-built binaries available for:
 - **Swift 6.0+** with SwiftPM
 - Pre-built artifact bundle for macOS (arm64, x86_64), iOS, iOS Simulator
 - API keys via environment variables (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+  {% elif language == "dart" %}
+- **Dart 3.11+** required
+- API keys via environment variables (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+  {% elif language == "zig" %}
+- **Zig 0.16.0+** required
+- API keys via environment variables (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+  {% elif language == "kotlin_android" %}
+- **Android API 24+** (Android 7.0)
+- Bundled JNI libraries for `arm64-v8a` and `x86_64`
+- API keys via environment variables (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
   {% else %}
-- See [Installation Guide](https://github.com/xberg-io/liter-llm#installation) for requirements
+- API keys via environment variables (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
   {% endif %}

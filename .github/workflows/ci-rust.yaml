@@ -91,8 +91,9 @@ jobs:
         if: runner.os == 'Linux'
         uses: xberg-io/actions/install-alef@v1
 
-      # ~keep `alef verify` prints "Stale bindings detected" but exits 0 without --exit-code,
-      # so nothing in CI noticed generated files drifting from alef.toml.
+      # ~keep This gate catches generated files drifting from alef.toml. `--exit-code` is no
+      # longer required -- it is a hidden, deprecated no-op that alef discards, and verification
+      # fails by default -- but it is kept so this step still fails on an older pinned alef.
       - name: Verify binding freshness (Linux only)
         if: runner.os == 'Linux'
         run: alef verify --exit-code
