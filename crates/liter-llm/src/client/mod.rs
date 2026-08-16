@@ -2695,7 +2695,9 @@ mod build_provider_tests {
     #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
     fn vertex_client() -> DefaultClient {
         DefaultClient::new(
-            ClientConfigBuilder::new("ya29.pre-obtained-token").load_env(false).build(),
+            ClientConfigBuilder::new("ya29.pre-obtained-token")
+                .load_env(false)
+                .build(),
             Some("vertex_ai/gemini-2.5-flash"),
         )
         .expect("DefaultClient::new should succeed")
