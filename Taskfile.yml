@@ -265,16 +265,6 @@ tasks:
     cmds:
       - alef verify --exit-code
 
-  generate:docs:normalize:
-    desc: Normalize generated docs to match pre-commit formatting
-    internal: true
-    cmds:
-      - |
-        for f in docs/reference/*.md; do
-          # Strip trailing whitespace (portable across macOS/Linux)
-          sed -i.bak 's/[[:space:]]*$//' "$f" && rm -f "$f.bak"
-        done
-
   generate:readme:
     desc: Generate package READMEs
     cmds:
