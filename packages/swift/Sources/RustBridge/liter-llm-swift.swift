@@ -97,12 +97,6 @@ public func defaultClientCancelResponse<GenericIntoRustString: IntoRustString>(_
 public func singleflight_result_noop(_ client: SingleflightResultRef) {
     __swift_bridge__$singleflight_result_noop(client.ptr)
 }
-public func createClient<GenericIntoRustString: IntoRustString>(_ api_key: GenericIntoRustString, _ base_url: Optional<GenericIntoRustString>, _ timeout_secs: Optional<UInt64>, _ max_retries: Optional<UInt32>, _ model_hint: Optional<GenericIntoRustString>) throws -> DefaultClient {
-    try { let val = __swift_bridge__$create_client({ let rustString = api_key.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let rustString = optionalStringIntoRustString(base_url) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), timeout_secs.intoFfiRepr(), max_retries.intoFfiRepr(), { if let rustString = optionalStringIntoRustString(model_hint) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()); if val.is_ok { return DefaultClient(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func createClientFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> DefaultClient {
-    try { let val = __swift_bridge__$create_client_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return DefaultClient(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
 public func encodeDataUrl<GenericIntoRustString: IntoRustString>(_ bytes: RustVec<UInt8>, _ mime: Optional<GenericIntoRustString>) -> RustString {
     RustString(ptr: __swift_bridge__$encode_data_url({ let val = bytes; val.isOwned = false; return val.ptr }(), { if let rustString = optionalStringIntoRustString(mime) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()))
 }
@@ -133,15 +127,6 @@ public func modelInfo<GenericIntoRustString: IntoRustString>(_ model: GenericInt
 public func clear() -> () {
     __swift_bridge__$clear()
 }
-public func countTokens<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ text: GenericIntoRustString) throws -> UInt {
-    try { let val = __swift_bridge__$count_tokens({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = text.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); switch val.tag { case __swift_bridge__$ResultUIntAndString$ResultOk: return val.payload.ok case __swift_bridge__$ResultUIntAndString$ResultErr: throw RustString(ptr: val.payload.err) default: fatalError() } }()
-}
-public func countRequestTokens<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ req: ChatCompletionRequest) throws -> UInt {
-    try { let val = __swift_bridge__$count_request_tokens({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), {req.isOwned = false; return req.ptr;}()); switch val.tag { case __swift_bridge__$ResultUIntAndString$ResultOk: return val.payload.ok case __swift_bridge__$ResultUIntAndString$ResultErr: throw RustString(ptr: val.payload.err) default: fatalError() } }()
-}
-public func recordCostUsd<GenericIntoRustString: IntoRustString>(_ system: GenericIntoRustString, _ model: GenericIntoRustString, _ operation: GenericIntoRustString, _ cost_usd: Double) -> () {
-    __swift_bridge__$record_cost_usd({ let rustString = system.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = operation.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), cost_usd)
-}
 public func checkBound<GenericIntoRustString: IntoRustString>(_ context: GenericIntoRustString, _ current_len: UInt, _ incoming: UInt, _ limit: UInt) throws -> () {
     try { let val = __swift_bridge__$check_bound({ let rustString = context.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), current_len, incoming, limit); if val != nil { throw RustString(ptr: val!) } else { return } }()
 }
@@ -154,92 +139,35 @@ public func clearCatalogOverlay() -> () {
 public func refreshCatalog(_ config: CatalogRefreshConfig) throws -> RefreshOutcome {
     try { let val = __swift_bridge__$refresh_catalog({config.isOwned = false; return config.ptr;}()); if val.is_ok { return RefreshOutcome(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func createClient<GenericIntoRustString: IntoRustString>(_ api_key: GenericIntoRustString, _ base_url: Optional<GenericIntoRustString>, _ timeout_secs: Optional<UInt64>, _ max_retries: Optional<UInt32>, _ model_hint: Optional<GenericIntoRustString>) throws -> DefaultClient {
+    try { let val = __swift_bridge__$create_client({ let rustString = api_key.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { if let rustString = optionalStringIntoRustString(base_url) { rustString.isOwned = false; return rustString.ptr } else { return nil } }(), timeout_secs.intoFfiRepr(), max_retries.intoFfiRepr(), { if let rustString = optionalStringIntoRustString(model_hint) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()); if val.is_ok { return DefaultClient(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func createClientFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> DefaultClient {
+    try { let val = __swift_bridge__$create_client_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return DefaultClient(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func ensureCryptoProvider() -> () {
     __swift_bridge__$ensure_crypto_provider()
+}
+public func countTokens<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ text: GenericIntoRustString) throws -> UInt {
+    try { let val = __swift_bridge__$count_tokens({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = text.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); switch val.tag { case __swift_bridge__$ResultUIntAndString$ResultOk: return val.payload.ok case __swift_bridge__$ResultUIntAndString$ResultErr: throw RustString(ptr: val.payload.err) default: fatalError() } }()
+}
+public func countRequestTokens<GenericIntoRustString: IntoRustString>(_ model: GenericIntoRustString, _ req: ChatCompletionRequest) throws -> UInt {
+    try { let val = __swift_bridge__$count_request_tokens({ let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), {req.isOwned = false; return req.ptr;}()); switch val.tag { case __swift_bridge__$ResultUIntAndString$ResultOk: return val.payload.ok case __swift_bridge__$ResultUIntAndString$ResultErr: throw RustString(ptr: val.payload.err) default: fatalError() } }()
+}
+public func recordCostUsd<GenericIntoRustString: IntoRustString>(_ system: GenericIntoRustString, _ model: GenericIntoRustString, _ operation: GenericIntoRustString, _ cost_usd: Double) -> () {
+    __swift_bridge__$record_cost_usd({ let rustString = system.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = model.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = operation.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), cost_usd)
 }
 public func defaultClientChatStreamStart(_ client: DefaultClientRef, _ req: ChatCompletionRequestRef) throws -> DefaultClientChatStreamStreamHandle {
     try { let val = __swift_bridge__$default_client_chat_stream_start(client.ptr, req.ptr); if val.is_ok { return DefaultClientChatStreamStreamHandle(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
-public func chatCompletionRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ChatCompletionRequest {
-    try { let val = __swift_bridge__$chat_completion_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ChatCompletionRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func chatCompletionChunkFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ChatCompletionChunk {
-    try { let val = __swift_bridge__$chat_completion_chunk_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ChatCompletionChunk(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func embeddingRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> EmbeddingRequest {
-    try { let val = __swift_bridge__$embedding_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return EmbeddingRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func createImageRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateImageRequest {
-    try { let val = __swift_bridge__$create_image_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateImageRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func createSpeechRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateSpeechRequest {
-    try { let val = __swift_bridge__$create_speech_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateSpeechRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func createTranscriptionRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateTranscriptionRequest {
-    try { let val = __swift_bridge__$create_transcription_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateTranscriptionRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func moderationRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ModerationRequest {
-    try { let val = __swift_bridge__$moderation_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ModerationRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func rerankRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> RerankRequest {
-    try { let val = __swift_bridge__$rerank_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return RerankRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func searchRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> SearchRequest {
-    try { let val = __swift_bridge__$search_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return SearchRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func ocrRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> OcrRequest {
-    try { let val = __swift_bridge__$ocr_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return OcrRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func createFileRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateFileRequest {
-    try { let val = __swift_bridge__$create_file_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateFileRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func fileListQueryFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> FileListQuery {
-    try { let val = __swift_bridge__$file_list_query_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return FileListQuery(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func createBatchRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateBatchRequest {
-    try { let val = __swift_bridge__$create_batch_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateBatchRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func batchListQueryFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> BatchListQuery {
-    try { let val = __swift_bridge__$batch_list_query_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return BatchListQuery(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func createResponseRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateResponseRequest {
-    try { let val = __swift_bridge__$create_response_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateResponseRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func waitForBatchConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> WaitForBatchConfig {
-    try { let val = __swift_bridge__$wait_for_batch_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return WaitForBatchConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func customProviderConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CustomProviderConfig {
-    try { let val = __swift_bridge__$custom_provider_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CustomProviderConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func catalogRefreshConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CatalogRefreshConfig {
-    try { let val = __swift_bridge__$catalog_refresh_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CatalogRefreshConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func systemMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> SystemMessage {
-    try { let val = __swift_bridge__$system_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return SystemMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func userMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> UserMessage {
-    try { let val = __swift_bridge__$user_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return UserMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
 public func imageUrlFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ImageUrl {
     try { let val = __swift_bridge__$image_url_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ImageUrl(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func documentContentFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> DocumentContent {
-    try { let val = __swift_bridge__$document_content_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return DocumentContent(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func audioContentFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> AudioContent {
     try { let val = __swift_bridge__$audio_content_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return AudioContent(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func assistantMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> AssistantMessage {
     try { let val = __swift_bridge__$assistant_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return AssistantMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func toolMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ToolMessage {
-    try { let val = __swift_bridge__$tool_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ToolMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func developerMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> DeveloperMessage {
-    try { let val = __swift_bridge__$developer_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return DeveloperMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func functionMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> FunctionMessage {
-    try { let val = __swift_bridge__$function_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return FunctionMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func chatCompletionToolFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ChatCompletionTool {
     try { let val = __swift_bridge__$chat_completion_tool_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ChatCompletionTool(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -253,20 +181,17 @@ public func toolCallFromJson<GenericIntoRustString: IntoRustString>(_ json: Gene
 public func functionCallFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> FunctionCall {
     try { let val = __swift_bridge__$function_call_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return FunctionCall(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
-public func specificToolChoiceFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> SpecificToolChoice {
-    try { let val = __swift_bridge__$specific_tool_choice_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return SpecificToolChoice(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
 public func specificFunctionFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> SpecificFunction {
     try { let val = __swift_bridge__$specific_function_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return SpecificFunction(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func jsonSchemaFormatFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> JsonSchemaFormat {
-    try { let val = __swift_bridge__$json_schema_format_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return JsonSchemaFormat(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func usageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> Usage {
     try { let val = __swift_bridge__$usage_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return Usage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func promptTokensDetailsFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> PromptTokensDetails {
     try { let val = __swift_bridge__$prompt_tokens_details_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return PromptTokensDetails(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func chatCompletionRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ChatCompletionRequest {
+    try { let val = __swift_bridge__$chat_completion_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ChatCompletionRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func streamOptionsFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> StreamOptions {
     try { let val = __swift_bridge__$stream_options_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return StreamOptions(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -289,11 +214,17 @@ public func streamToolCallFromJson<GenericIntoRustString: IntoRustString>(_ json
 public func streamFunctionCallFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> StreamFunctionCall {
     try { let val = __swift_bridge__$stream_function_call_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return StreamFunctionCall(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func embeddingRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> EmbeddingRequest {
+    try { let val = __swift_bridge__$embedding_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return EmbeddingRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func embeddingResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> EmbeddingResponse {
     try { let val = __swift_bridge__$embedding_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return EmbeddingResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func embeddingObjectFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> EmbeddingObject {
     try { let val = __swift_bridge__$embedding_object_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return EmbeddingObject(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func createImageRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateImageRequest {
+    try { let val = __swift_bridge__$create_image_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateImageRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func imagesResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ImagesResponse {
     try { let val = __swift_bridge__$images_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ImagesResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -304,11 +235,20 @@ public func imageFromJson<GenericIntoRustString: IntoRustString>(_ json: Generic
 public func decodedDataUrlFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> DecodedDataUrl {
     try { let val = __swift_bridge__$decoded_data_url_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return DecodedDataUrl(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func createSpeechRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateSpeechRequest {
+    try { let val = __swift_bridge__$create_speech_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateSpeechRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func createTranscriptionRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateTranscriptionRequest {
+    try { let val = __swift_bridge__$create_transcription_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateTranscriptionRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func transcriptionResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> TranscriptionResponse {
     try { let val = __swift_bridge__$transcription_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return TranscriptionResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func transcriptionSegmentFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> TranscriptionSegment {
     try { let val = __swift_bridge__$transcription_segment_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return TranscriptionSegment(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func moderationRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ModerationRequest {
+    try { let val = __swift_bridge__$moderation_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ModerationRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func moderationResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ModerationResponse {
     try { let val = __swift_bridge__$moderation_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ModerationResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -322,6 +262,9 @@ public func moderationCategoriesFromJson<GenericIntoRustString: IntoRustString>(
 public func moderationCategoryScoresFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ModerationCategoryScores {
     try { let val = __swift_bridge__$moderation_category_scores_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ModerationCategoryScores(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func rerankRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> RerankRequest {
+    try { let val = __swift_bridge__$rerank_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return RerankRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func rerankResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> RerankResponse {
     try { let val = __swift_bridge__$rerank_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return RerankResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
@@ -331,11 +274,17 @@ public func rerankResultFromJson<GenericIntoRustString: IntoRustString>(_ json: 
 public func rerankResultDocumentFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> RerankResultDocument {
     try { let val = __swift_bridge__$rerank_result_document_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return RerankResultDocument(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func searchRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> SearchRequest {
+    try { let val = __swift_bridge__$search_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return SearchRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func searchResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> SearchResponse {
     try { let val = __swift_bridge__$search_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return SearchResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func searchResultFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> SearchResult {
     try { let val = __swift_bridge__$search_result_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return SearchResult(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func ocrRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> OcrRequest {
+    try { let val = __swift_bridge__$ocr_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return OcrRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func ocrResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> OcrResponse {
     try { let val = __swift_bridge__$ocr_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return OcrResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -355,14 +304,23 @@ public func modelsListResponseFromJson<GenericIntoRustString: IntoRustString>(_ 
 public func modelObjectFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ModelObject {
     try { let val = __swift_bridge__$model_object_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ModelObject(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func createFileRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateFileRequest {
+    try { let val = __swift_bridge__$create_file_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateFileRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func fileObjectFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> FileObject {
     try { let val = __swift_bridge__$file_object_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return FileObject(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func fileListResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> FileListResponse {
     try { let val = __swift_bridge__$file_list_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return FileListResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func fileListQueryFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> FileListQuery {
+    try { let val = __swift_bridge__$file_list_query_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return FileListQuery(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func deleteResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> DeleteResponse {
     try { let val = __swift_bridge__$delete_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return DeleteResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func createBatchRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateBatchRequest {
+    try { let val = __swift_bridge__$create_batch_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateBatchRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func batchObjectFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> BatchObject {
     try { let val = __swift_bridge__$batch_object_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return BatchObject(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -372,6 +330,12 @@ public func batchRequestCountsFromJson<GenericIntoRustString: IntoRustString>(_ 
 }
 public func batchListResponseFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> BatchListResponse {
     try { let val = __swift_bridge__$batch_list_response_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return BatchListResponse(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func batchListQueryFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> BatchListQuery {
+    try { let val = __swift_bridge__$batch_list_query_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return BatchListQuery(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func createResponseRequestFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CreateResponseRequest {
+    try { let val = __swift_bridge__$create_response_request_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CreateResponseRequest(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func responseToolFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ResponseTool {
     try { let val = __swift_bridge__$response_tool_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ResponseTool(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -384,9 +348,6 @@ public func responseOutputItemFromJson<GenericIntoRustString: IntoRustString>(_ 
 }
 public func responseUsageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ResponseUsage {
     try { let val = __swift_bridge__$response_usage_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ResponseUsage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func llmConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> LlmConfig {
-    try { let val = __swift_bridge__$llm_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return LlmConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func llmCacheConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> LlmCacheConfig {
     try { let val = __swift_bridge__$llm_cache_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return LlmCacheConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -403,11 +364,14 @@ public func llmProviderConfigFromJson<GenericIntoRustString: IntoRustString>(_ j
 public func bedrockConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> BedrockConfig {
     try { let val = __swift_bridge__$bedrock_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return BedrockConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func waitForBatchConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> WaitForBatchConfig {
+    try { let val = __swift_bridge__$wait_for_batch_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return WaitForBatchConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func customProviderConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CustomProviderConfig {
+    try { let val = __swift_bridge__$custom_provider_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CustomProviderConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func providerCapabilitiesFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ProviderCapabilities {
     try { let val = __swift_bridge__$provider_capabilities_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ProviderCapabilities(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
-}
-public func providerConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ProviderConfig {
-    try { let val = __swift_bridge__$provider_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ProviderConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func authConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> AuthConfig {
     try { let val = __swift_bridge__$auth_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return AuthConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -426,6 +390,42 @@ public func cacheConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: G
 }
 public func rateLimitConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> RateLimitConfig {
     try { let val = __swift_bridge__$rate_limit_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return RateLimitConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func catalogRefreshConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> CatalogRefreshConfig {
+    try { let val = __swift_bridge__$catalog_refresh_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return CatalogRefreshConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func chatCompletionChunkFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ChatCompletionChunk {
+    try { let val = __swift_bridge__$chat_completion_chunk_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ChatCompletionChunk(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func systemMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> SystemMessage {
+    try { let val = __swift_bridge__$system_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return SystemMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func userMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> UserMessage {
+    try { let val = __swift_bridge__$user_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return UserMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func documentContentFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> DocumentContent {
+    try { let val = __swift_bridge__$document_content_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return DocumentContent(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func toolMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ToolMessage {
+    try { let val = __swift_bridge__$tool_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ToolMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func developerMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> DeveloperMessage {
+    try { let val = __swift_bridge__$developer_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return DeveloperMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func functionMessageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> FunctionMessage {
+    try { let val = __swift_bridge__$function_message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return FunctionMessage(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func specificToolChoiceFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> SpecificToolChoice {
+    try { let val = __swift_bridge__$specific_tool_choice_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return SpecificToolChoice(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func jsonSchemaFormatFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> JsonSchemaFormat {
+    try { let val = __swift_bridge__$json_schema_format_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return JsonSchemaFormat(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func llmConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> LlmConfig {
+    try { let val = __swift_bridge__$llm_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return LlmConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func providerConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ProviderConfig {
+    try { let val = __swift_bridge__$provider_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ProviderConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func messageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> Message {
     try { let val = __swift_bridge__$message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return Message(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -742,9 +742,6 @@ public func __alef_phantom_vec_llm_provider_config() -> RustVec<LlmProviderConfi
 public func __alef_phantom_vec_bedrock_config() -> RustVec<BedrockConfig> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_bedrock_config())
 }
-public func __alef_phantom_vec_wait_for_batch_config() -> RustVec<WaitForBatchConfig> {
-    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_wait_for_batch_config())
-}
 public func __alef_phantom_vec_custom_provider_config() -> RustVec<CustomProviderConfig> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_custom_provider_config())
 }
@@ -762,21 +759,6 @@ public func __alef_phantom_vec_model_info() -> RustVec<ModelInfo> {
 }
 public func __alef_phantom_vec_model_tier() -> RustVec<ModelTier> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_model_tier())
-}
-public func __alef_phantom_vec_budget_config() -> RustVec<BudgetConfig> {
-    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_budget_config())
-}
-public func __alef_phantom_vec_cache_config() -> RustVec<CacheConfig> {
-    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_cache_config())
-}
-public func __alef_phantom_vec_singleflight_result() -> RustVec<SingleflightResult> {
-    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_singleflight_result())
-}
-public func __alef_phantom_vec_rate_limit_config() -> RustVec<RateLimitConfig> {
-    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_rate_limit_config())
-}
-public func __alef_phantom_vec_intent_prototype() -> RustVec<IntentPrototype> {
-    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_intent_prototype())
 }
 public func __alef_phantom_vec_catalog_refresh_config() -> RustVec<CatalogRefreshConfig> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_catalog_refresh_config())
@@ -853,6 +835,27 @@ public func __alef_phantom_vec_stream_format() -> RustVec<StreamFormat> {
 public func __alef_phantom_vec_auth_type() -> RustVec<AuthType> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_auth_type())
 }
+public func __alef_phantom_vec_refresh_outcome() -> RustVec<RefreshOutcome> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_refresh_outcome())
+}
+public func __alef_phantom_vec_wait_for_batch_config() -> RustVec<WaitForBatchConfig> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_wait_for_batch_config())
+}
+public func __alef_phantom_vec_budget_config() -> RustVec<BudgetConfig> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_budget_config())
+}
+public func __alef_phantom_vec_cache_config() -> RustVec<CacheConfig> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_cache_config())
+}
+public func __alef_phantom_vec_singleflight_result() -> RustVec<SingleflightResult> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_singleflight_result())
+}
+public func __alef_phantom_vec_rate_limit_config() -> RustVec<RateLimitConfig> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_rate_limit_config())
+}
+public func __alef_phantom_vec_intent_prototype() -> RustVec<IntentPrototype> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_intent_prototype())
+}
 public func __alef_phantom_vec_enforcement() -> RustVec<Enforcement> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_enforcement())
 }
@@ -864,9 +867,6 @@ public func __alef_phantom_vec_circuit_state() -> RustVec<CircuitState> {
 }
 public func __alef_phantom_vec_health_status() -> RustVec<HealthStatus> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_health_status())
-}
-public func __alef_phantom_vec_refresh_outcome() -> RustVec<RefreshOutcome> {
-    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_refresh_outcome())
 }
 
 public class SystemMessage: SystemMessageRefMut {
@@ -2596,6 +2596,42 @@ extension ChatCompletionRequestRef {
         RustString(ptr: __swift_bridge__$ChatCompletionRequest$modalities(ptr))
     }
 
+    public func logprobs() -> Optional<Bool> {
+        __swift_bridge__$ChatCompletionRequest$logprobs(ptr).intoSwiftRepr()
+    }
+
+    public func topLogprobs() -> Optional<UInt32> {
+        __swift_bridge__$ChatCompletionRequest$top_logprobs(ptr).intoSwiftRepr()
+    }
+
+    public func maxCompletionTokens() -> Optional<UInt64> {
+        __swift_bridge__$ChatCompletionRequest$max_completion_tokens(ptr).intoSwiftRepr()
+    }
+
+    public func serviceTier() -> Optional<RustString> {
+        { let val = __swift_bridge__$ChatCompletionRequest$service_tier(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
+    public func store() -> Optional<Bool> {
+        __swift_bridge__$ChatCompletionRequest$store(ptr).intoSwiftRepr()
+    }
+
+    public func metadata() -> RustString {
+        RustString(ptr: __swift_bridge__$ChatCompletionRequest$metadata(ptr))
+    }
+
+    public func prediction() -> Optional<RustString> {
+        { let val = __swift_bridge__$ChatCompletionRequest$prediction(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
+    public func audio() -> Optional<RustString> {
+        { let val = __swift_bridge__$ChatCompletionRequest$audio(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
+    public func webSearchOptions() -> Optional<RustString> {
+        { let val = __swift_bridge__$ChatCompletionRequest$web_search_options(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
     public func extraBody() -> Optional<RustString> {
         { let val = __swift_bridge__$ChatCompletionRequest$extra_body(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
     }
@@ -2782,7 +2818,7 @@ extension ChatCompletionResponseRef {
         RustString(ptr: __swift_bridge__$ChatCompletionResponse$model(ptr))
     }
 
-    public func choices() -> RustVec<RustString> {
+    public func choices() -> RustVec<Choice> {
         RustVec(ptr: __swift_bridge__$ChatCompletionResponse$choices(ptr))
     }
 
@@ -2862,8 +2898,8 @@ public class Choice: ChoiceRefMut {
     }
 }
 extension Choice {
-    public convenience init(_ index: UInt32, _ message: AssistantMessage, _ finish_reason: Optional<FinishReason>) {
-        self.init(ptr: __swift_bridge__$Choice$new(index, {message.isOwned = false; return message.ptr;}(), { if let val = finish_reason { val.isOwned = false; return val.ptr } else { return nil } }()))
+    public convenience init<GenericIntoRustString: IntoRustString>(_ index: UInt32, _ message: AssistantMessage, _ finish_reason: Optional<FinishReason>, _ logprobs: Optional<GenericIntoRustString>) {
+        self.init(ptr: __swift_bridge__$Choice$new(index, {message.isOwned = false; return message.ptr;}(), { if let val = finish_reason { val.isOwned = false; return val.ptr } else { return nil } }(), { if let rustString = optionalStringIntoRustString(logprobs) { rustString.isOwned = false; return rustString.ptr } else { return nil } }()))
     }
 }
 public class ChoiceRefMut: ChoiceRef {
@@ -2889,6 +2925,10 @@ extension ChoiceRef {
 
     public func finishReason() -> Optional<RustString> {
         { let val = __swift_bridge__$Choice$finish_reason(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
+    public func logprobs() -> Optional<RustString> {
+        { let val = __swift_bridge__$Choice$logprobs(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
     }
 }
 extension Choice: Vectorizable {
@@ -7318,6 +7358,10 @@ extension CreateResponseRequestRef {
 
     public func metadata() -> Optional<RustString> {
         { let val = __swift_bridge__$CreateResponseRequest$metadata(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
+    public func extraBody() -> Optional<RustString> {
+        { let val = __swift_bridge__$CreateResponseRequest$extra_body(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
     }
 
     public func stream() -> Optional<Bool> {

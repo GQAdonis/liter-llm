@@ -1445,6 +1445,7 @@ fn wire__crate__complex_provider_names_impl(
         },
     )
 }
+#[cfg(feature = "tokenizer")]
 fn wire__crate__count_request_tokens_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1474,6 +1475,7 @@ fn wire__crate__count_request_tokens_impl(
         },
     )
 }
+#[cfg(feature = "tokenizer")]
 fn wire__crate__count_tokens_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1951,6 +1953,7 @@ fn wire__crate__create_choice_from_json_impl(
         },
     )
 }
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
 fn wire__crate__create_client_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1989,6 +1992,7 @@ fn wire__crate__create_client_impl(
         },
     )
 }
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
 fn wire__crate__create_client_from_json_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -4288,6 +4292,7 @@ fn wire__crate__model_info_impl(
         },
     )
 }
+#[cfg(feature = "tower")]
 fn wire__crate__record_cost_usd_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -4581,6 +4586,15 @@ const _: fn() = || {
         let _: Option<i64> = ChatCompletionRequest.seed;
         let _: Option<crate::ReasoningEffort> = ChatCompletionRequest.reasoning_effort;
         let _: Option<Vec<crate::Modality>> = ChatCompletionRequest.modalities;
+        let _: Option<bool> = ChatCompletionRequest.logprobs;
+        let _: Option<i64> = ChatCompletionRequest.top_logprobs;
+        let _: Option<i64> = ChatCompletionRequest.max_completion_tokens;
+        let _: Option<String> = ChatCompletionRequest.service_tier;
+        let _: Option<bool> = ChatCompletionRequest.store;
+        let _: Option<std::collections::HashMap<String, String>> = ChatCompletionRequest.metadata;
+        let _: Option<String> = ChatCompletionRequest.prediction;
+        let _: Option<String> = ChatCompletionRequest.audio;
+        let _: Option<String> = ChatCompletionRequest.web_search_options;
         let _: Option<String> = ChatCompletionRequest.extra_body;
     }
     {
@@ -4604,6 +4618,7 @@ const _: fn() = || {
         let _: i64 = Choice.index;
         let _: crate::AssistantMessage = Choice.message;
         let _: Option<crate::FinishReason> = Choice.finish_reason;
+        let _: Option<String> = Choice.logprobs;
     }
     match None::<crate::ContentPart>.unwrap() {
         crate::ContentPart::Text { text } => {
@@ -4652,6 +4667,7 @@ const _: fn() = || {
         let _: Option<f64> = CreateResponseRequest.temperature;
         let _: Option<i64> = CreateResponseRequest.max_output_tokens;
         let _: Option<String> = CreateResponseRequest.metadata;
+        let _: Option<String> = CreateResponseRequest.extra_body;
         let _: Option<bool> = CreateResponseRequest.stream;
     }
     {
@@ -5766,6 +5782,15 @@ impl SseDecode for crate::ChatCompletionRequest {
         let mut var_seed = <Option<i64>>::sse_decode(deserializer);
         let mut var_reasoningEffort = <Option<crate::ReasoningEffort>>::sse_decode(deserializer);
         let mut var_modalities = <Option<Vec<crate::Modality>>>::sse_decode(deserializer);
+        let mut var_logprobs = <Option<bool>>::sse_decode(deserializer);
+        let mut var_topLogprobs = <Option<i64>>::sse_decode(deserializer);
+        let mut var_maxCompletionTokens = <Option<i64>>::sse_decode(deserializer);
+        let mut var_serviceTier = <Option<String>>::sse_decode(deserializer);
+        let mut var_store = <Option<bool>>::sse_decode(deserializer);
+        let mut var_metadata = <Option<std::collections::HashMap<String, String>>>::sse_decode(deserializer);
+        let mut var_prediction = <Option<String>>::sse_decode(deserializer);
+        let mut var_audio = <Option<String>>::sse_decode(deserializer);
+        let mut var_webSearchOptions = <Option<String>>::sse_decode(deserializer);
         let mut var_extraBody = <Option<String>>::sse_decode(deserializer);
         return crate::ChatCompletionRequest {
             model: var_model,
@@ -5788,6 +5813,15 @@ impl SseDecode for crate::ChatCompletionRequest {
             seed: var_seed,
             reasoning_effort: var_reasoningEffort,
             modalities: var_modalities,
+            logprobs: var_logprobs,
+            top_logprobs: var_topLogprobs,
+            max_completion_tokens: var_maxCompletionTokens,
+            service_tier: var_serviceTier,
+            store: var_store,
+            metadata: var_metadata,
+            prediction: var_prediction,
+            audio: var_audio,
+            web_search_options: var_webSearchOptions,
             extra_body: var_extraBody,
         };
     }
@@ -5835,10 +5869,12 @@ impl SseDecode for crate::Choice {
         let mut var_index = <i64>::sse_decode(deserializer);
         let mut var_message = <crate::AssistantMessage>::sse_decode(deserializer);
         let mut var_finishReason = <Option<crate::FinishReason>>::sse_decode(deserializer);
+        let mut var_logprobs = <Option<String>>::sse_decode(deserializer);
         return crate::Choice {
             index: var_index,
             message: var_message,
             finish_reason: var_finishReason,
+            logprobs: var_logprobs,
         };
     }
 }
@@ -5952,6 +5988,7 @@ impl SseDecode for crate::CreateResponseRequest {
         let mut var_temperature = <Option<f64>>::sse_decode(deserializer);
         let mut var_maxOutputTokens = <Option<i64>>::sse_decode(deserializer);
         let mut var_metadata = <Option<String>>::sse_decode(deserializer);
+        let mut var_extraBody = <Option<String>>::sse_decode(deserializer);
         let mut var_stream = <Option<bool>>::sse_decode(deserializer);
         return crate::CreateResponseRequest {
             model: var_model,
@@ -5961,6 +5998,7 @@ impl SseDecode for crate::CreateResponseRequest {
             temperature: var_temperature,
             max_output_tokens: var_maxOutputTokens,
             metadata: var_metadata,
+            extra_body: var_extraBody,
             stream: var_stream,
         };
     }
@@ -8514,7 +8552,9 @@ fn pde_ffi_dispatcher_primary_impl(
         31 => wire__crate__completion_cost_impl(port, ptr, rust_vec_len, data_len),
         32 => wire__crate__completion_cost_with_cache_impl(port, ptr, rust_vec_len, data_len),
         33 => wire__crate__complex_provider_names_impl(port, ptr, rust_vec_len, data_len),
+        #[cfg(feature = "tokenizer")]
         34 => wire__crate__count_request_tokens_impl(port, ptr, rust_vec_len, data_len),
+        #[cfg(feature = "tokenizer")]
         35 => wire__crate__count_tokens_impl(port, ptr, rust_vec_len, data_len),
         36 => wire__crate__create_assistant_message_from_json_impl(port, ptr, rust_vec_len, data_len),
         37 => wire__crate__create_audio_content_from_json_impl(port, ptr, rust_vec_len, data_len),
@@ -8532,7 +8572,9 @@ fn pde_ffi_dispatcher_primary_impl(
         49 => wire__crate__create_chat_completion_response_from_json_impl(port, ptr, rust_vec_len, data_len),
         50 => wire__crate__create_chat_completion_tool_from_json_impl(port, ptr, rust_vec_len, data_len),
         51 => wire__crate__create_choice_from_json_impl(port, ptr, rust_vec_len, data_len),
+        #[cfg(any(feature = "native-http", feature = "wasm-http"))]
         52 => wire__crate__create_client_impl(port, ptr, rust_vec_len, data_len),
+        #[cfg(any(feature = "native-http", feature = "wasm-http"))]
         53 => wire__crate__create_client_from_json_impl(port, ptr, rust_vec_len, data_len),
         54 => wire__crate__create_create_batch_request_from_json_impl(port, ptr, rust_vec_len, data_len),
         55 => wire__crate__create_create_file_request_from_json_impl(port, ptr, rust_vec_len, data_len),
@@ -8616,6 +8658,7 @@ fn pde_ffi_dispatcher_primary_impl(
         132 => wire__crate__liter_llm_error_is_transient_impl(port, ptr, rust_vec_len, data_len),
         133 => wire__crate__liter_llm_error_status_code_impl(port, ptr, rust_vec_len, data_len),
         134 => wire__crate__model_info_impl(port, ptr, rust_vec_len, data_len),
+        #[cfg(feature = "tower")]
         135 => wire__crate__record_cost_usd_impl(port, ptr, rust_vec_len, data_len),
         136 => wire__crate__refresh_catalog_impl(port, ptr, rust_vec_len, data_len),
         137 => wire__crate__register_custom_provider_impl(port, ptr, rust_vec_len, data_len),
@@ -9068,6 +9111,15 @@ impl flutter_rust_bridge::IntoDart for FrbWrapper<crate::ChatCompletionRequest> 
             self.0.seed.into_into_dart().into_dart(),
             self.0.reasoning_effort.into_into_dart().into_dart(),
             self.0.modalities.into_into_dart().into_dart(),
+            self.0.logprobs.into_into_dart().into_dart(),
+            self.0.top_logprobs.into_into_dart().into_dart(),
+            self.0.max_completion_tokens.into_into_dart().into_dart(),
+            self.0.service_tier.into_into_dart().into_dart(),
+            self.0.store.into_into_dart().into_dart(),
+            self.0.metadata.into_into_dart().into_dart(),
+            self.0.prediction.into_into_dart().into_dart(),
+            self.0.audio.into_into_dart().into_dart(),
+            self.0.web_search_options.into_into_dart().into_dart(),
             self.0.extra_body.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -9124,6 +9176,7 @@ impl flutter_rust_bridge::IntoDart for FrbWrapper<crate::Choice> {
             self.0.index.into_into_dart().into_dart(),
             self.0.message.into_into_dart().into_dart(),
             self.0.finish_reason.into_into_dart().into_dart(),
+            self.0.logprobs.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -9245,6 +9298,7 @@ impl flutter_rust_bridge::IntoDart for FrbWrapper<crate::CreateResponseRequest> 
             self.0.temperature.into_into_dart().into_dart(),
             self.0.max_output_tokens.into_into_dart().into_dart(),
             self.0.metadata.into_into_dart().into_dart(),
+            self.0.extra_body.into_into_dart().into_dart(),
             self.0.stream.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -11355,6 +11409,15 @@ impl SseEncode for crate::ChatCompletionRequest {
         <Option<i64>>::sse_encode(self.seed, serializer);
         <Option<crate::ReasoningEffort>>::sse_encode(self.reasoning_effort, serializer);
         <Option<Vec<crate::Modality>>>::sse_encode(self.modalities, serializer);
+        <Option<bool>>::sse_encode(self.logprobs, serializer);
+        <Option<i64>>::sse_encode(self.top_logprobs, serializer);
+        <Option<i64>>::sse_encode(self.max_completion_tokens, serializer);
+        <Option<String>>::sse_encode(self.service_tier, serializer);
+        <Option<bool>>::sse_encode(self.store, serializer);
+        <Option<std::collections::HashMap<String, String>>>::sse_encode(self.metadata, serializer);
+        <Option<String>>::sse_encode(self.prediction, serializer);
+        <Option<String>>::sse_encode(self.audio, serializer);
+        <Option<String>>::sse_encode(self.web_search_options, serializer);
         <Option<String>>::sse_encode(self.extra_body, serializer);
     }
 }
@@ -11387,6 +11450,7 @@ impl SseEncode for crate::Choice {
         <i64>::sse_encode(self.index, serializer);
         <crate::AssistantMessage>::sse_encode(self.message, serializer);
         <Option<crate::FinishReason>>::sse_encode(self.finish_reason, serializer);
+        <Option<String>>::sse_encode(self.logprobs, serializer);
     }
 }
 
@@ -11477,6 +11541,7 @@ impl SseEncode for crate::CreateResponseRequest {
         <Option<f64>>::sse_encode(self.temperature, serializer);
         <Option<i64>>::sse_encode(self.max_output_tokens, serializer);
         <Option<String>>::sse_encode(self.metadata, serializer);
+        <Option<String>>::sse_encode(self.extra_body, serializer);
         <Option<bool>>::sse_encode(self.stream, serializer);
     }
 }

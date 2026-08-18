@@ -6128,8 +6128,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ChatCompletionRequest dco_decode_chat_completion_request(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 21)
-      throw Exception('unexpected arr length: expect 21 but see ${arr.length}');
+    if (arr.length != 30)
+      throw Exception('unexpected arr length: expect 30 but see ${arr.length}');
     return ChatCompletionRequest(
       model: dco_decode_String(arr[0]),
       messages: dco_decode_list_message(arr[1]),
@@ -6151,7 +6151,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       seed: dco_decode_opt_box_autoadd_i_64(arr[17]),
       reasoningEffort: dco_decode_opt_box_autoadd_reasoning_effort(arr[18]),
       modalities: dco_decode_opt_list_modality(arr[19]),
-      extraBody: dco_decode_opt_String(arr[20]),
+      logprobs: dco_decode_opt_box_autoadd_bool(arr[20]),
+      topLogprobs: dco_decode_opt_box_autoadd_i_64(arr[21]),
+      maxCompletionTokens: dco_decode_opt_box_autoadd_i_64(arr[22]),
+      serviceTier: dco_decode_opt_String(arr[23]),
+      store: dco_decode_opt_box_autoadd_bool(arr[24]),
+      metadata: dco_decode_opt_Map_String_String_None(arr[25]),
+      prediction: dco_decode_opt_String(arr[26]),
+      audio: dco_decode_opt_String(arr[27]),
+      webSearchOptions: dco_decode_opt_String(arr[28]),
+      extraBody: dco_decode_opt_String(arr[29]),
     );
   }
 
@@ -6189,12 +6198,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Choice dco_decode_choice(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return Choice(
       index: dco_decode_i_64(arr[0]),
       message: dco_decode_assistant_message(arr[1]),
       finishReason: dco_decode_opt_box_autoadd_finish_reason(arr[2]),
+      logprobs: dco_decode_opt_String(arr[3]),
     );
   }
 
@@ -6276,8 +6286,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CreateResponseRequest dco_decode_create_response_request(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return CreateResponseRequest(
       model: dco_decode_String(arr[0]),
       input: dco_decode_String(arr[1]),
@@ -6286,7 +6296,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       temperature: dco_decode_opt_box_autoadd_f_64(arr[4]),
       maxOutputTokens: dco_decode_opt_box_autoadd_i_64(arr[5]),
       metadata: dco_decode_opt_String(arr[6]),
-      stream: dco_decode_opt_box_autoadd_bool(arr[7]),
+      extraBody: dco_decode_opt_String(arr[7]),
+      stream: dco_decode_opt_box_autoadd_bool(arr[8]),
     );
   }
 
@@ -8970,6 +8981,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       deserializer,
     );
     var var_modalities = sse_decode_opt_list_modality(deserializer);
+    var var_logprobs = sse_decode_opt_box_autoadd_bool(deserializer);
+    var var_topLogprobs = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_maxCompletionTokens = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_serviceTier = sse_decode_opt_String(deserializer);
+    var var_store = sse_decode_opt_box_autoadd_bool(deserializer);
+    var var_metadata = sse_decode_opt_Map_String_String_None(deserializer);
+    var var_prediction = sse_decode_opt_String(deserializer);
+    var var_audio = sse_decode_opt_String(deserializer);
+    var var_webSearchOptions = sse_decode_opt_String(deserializer);
     var var_extraBody = sse_decode_opt_String(deserializer);
     return ChatCompletionRequest(
       model: var_model,
@@ -8992,6 +9012,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       seed: var_seed,
       reasoningEffort: var_reasoningEffort,
       modalities: var_modalities,
+      logprobs: var_logprobs,
+      topLogprobs: var_topLogprobs,
+      maxCompletionTokens: var_maxCompletionTokens,
+      serviceTier: var_serviceTier,
+      store: var_store,
+      metadata: var_metadata,
+      prediction: var_prediction,
+      audio: var_audio,
+      webSearchOptions: var_webSearchOptions,
       extraBody: var_extraBody,
     );
   }
@@ -9039,10 +9068,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_finishReason = sse_decode_opt_box_autoadd_finish_reason(
       deserializer,
     );
+    var var_logprobs = sse_decode_opt_String(deserializer);
     return Choice(
       index: var_index,
       message: var_message,
       finishReason: var_finishReason,
+      logprobs: var_logprobs,
     );
   }
 
@@ -9147,6 +9178,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_temperature = sse_decode_opt_box_autoadd_f_64(deserializer);
     var var_maxOutputTokens = sse_decode_opt_box_autoadd_i_64(deserializer);
     var var_metadata = sse_decode_opt_String(deserializer);
+    var var_extraBody = sse_decode_opt_String(deserializer);
     var var_stream = sse_decode_opt_box_autoadd_bool(deserializer);
     return CreateResponseRequest(
       model: var_model,
@@ -9156,6 +9188,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       temperature: var_temperature,
       maxOutputTokens: var_maxOutputTokens,
       metadata: var_metadata,
+      extraBody: var_extraBody,
       stream: var_stream,
     );
   }
@@ -12441,6 +12474,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       serializer,
     );
     sse_encode_opt_list_modality(self.modalities, serializer);
+    sse_encode_opt_box_autoadd_bool(self.logprobs, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.topLogprobs, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.maxCompletionTokens, serializer);
+    sse_encode_opt_String(self.serviceTier, serializer);
+    sse_encode_opt_box_autoadd_bool(self.store, serializer);
+    sse_encode_opt_Map_String_String_None(self.metadata, serializer);
+    sse_encode_opt_String(self.prediction, serializer);
+    sse_encode_opt_String(self.audio, serializer);
+    sse_encode_opt_String(self.webSearchOptions, serializer);
     sse_encode_opt_String(self.extraBody, serializer);
   }
 
@@ -12476,6 +12518,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_64(self.index, serializer);
     sse_encode_assistant_message(self.message, serializer);
     sse_encode_opt_box_autoadd_finish_reason(self.finishReason, serializer);
+    sse_encode_opt_String(self.logprobs, serializer);
   }
 
   @protected
@@ -12555,6 +12598,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_box_autoadd_f_64(self.temperature, serializer);
     sse_encode_opt_box_autoadd_i_64(self.maxOutputTokens, serializer);
     sse_encode_opt_String(self.metadata, serializer);
+    sse_encode_opt_String(self.extraBody, serializer);
     sse_encode_opt_box_autoadd_bool(self.stream, serializer);
   }
 

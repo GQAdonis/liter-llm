@@ -13,6 +13,7 @@
 # entries; run `alef adopt <path>`, read the diff it prints, and let it write.
 
 owned_paths = [
+  "docs-site/src/snippets/.alef-snippet-coverage.json",
   "e2e/c/Makefile",
   "packages/python/liter_llm/_internal_bindings.pyi",
   "packages/ruby/sig/types.rbs",

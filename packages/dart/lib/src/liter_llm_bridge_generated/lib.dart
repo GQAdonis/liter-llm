@@ -719,6 +719,9 @@ class AssistantMessage {
   final List<ToolCall>? toolCalls;
 
   /// Refusal reason, if the model declined to respond per safety policies.
+  ///
+  /// OpenAI's response schema requires this key to be present even when null,
+  /// so it is deliberately not `skip_serializing_if`.
   final String? refusal;
 
   /// Deprecated legacy function_call field; retained for API compatibility.
@@ -790,7 +793,7 @@ sealed class AssistantPart with _$AssistantPart {
 
 /// Audio content part for speech-capable models.
 ///
-/// ~keep No `deny_unknown_fields`: shared with the response side (see
+/// No `deny_unknown_fields`: shared with the response side (see
 /// [`AssistantPart::OutputAudio`]), same rationale as [`ImageUrl`] (#51).
 class AudioContent {
   /// Base64-encoded audio data.
@@ -1377,10 +1380,23 @@ class ChatCompletionRequest {
   /// Conversation history from oldest to newest.
   final List<Message> messages;
 
-  /// Sampling temperature in `[0.0, 2.0]`. Higher increases randomness. Defaults to 1.0.
+  /// Sampling temperature. Higher increases randomness, lower is more deterministic.
+  /// Defaults to 1.0.
+  ///
+  /// The accepted range depends on the provider the request is routed to. OpenAI-compatible
+  /// providers accept `[0.0, 2.0]`; Anthropic and Amazon Bedrock both cap it at `1.0`, and
+  /// for those two a value above the cap is rejected with a `BadRequest` error before the
+  /// request is sent, rather than being silently clamped or left for the provider to reject.
+  ///
+  /// No range is enforced for providers whose own documentation does not state one — the
+  /// value is forwarded and the provider decides. Consult the target provider's reference
+  /// rather than assuming `[0.0, 2.0]` is portable.
   final double? temperature;
 
-  /// Nucleus sampling parameter in `[0.0, 1.0]`. Lower is more focused.
+  /// Nucleus sampling parameter. Lower is more focused.
+  ///
+  /// Accepted ranges vary by provider (most document `[0.0, 1.0]`, but this is not
+  /// universal — check the target provider's own documentation for its exact bounds).
   final double? topP;
 
   /// Number of chat completions to generate. Defaults to 1.
@@ -1437,6 +1453,46 @@ class ChatCompletionRequest {
   /// translates these to `generationConfig.responseModalities` (uppercase).
   final List<Modality>? modalities;
 
+  /// Whether to return log probabilities of the output tokens.
+  final bool? logprobs;
+
+  /// Number of most-likely tokens to return log probabilities for, `0..=20`.
+  /// Requires `logprobs` to be `true`.
+  final PlatformInt64? topLogprobs;
+
+  /// Upper bound on generated tokens, including reasoning tokens.
+  ///
+  /// Supersedes `max_tokens` on OpenAI reasoning models, which reject
+  /// `max_tokens` outright.
+  final PlatformInt64? maxCompletionTokens;
+
+  /// Latency tier to process the request under (e.g. `"auto"`, `"default"`,
+  /// `"flex"`).
+  final String? serviceTier;
+
+  /// Whether to store the completion for later retrieval by the provider.
+  final bool? store;
+
+  /// Developer-defined tags attached to the completion.
+  final Map<String, String>? metadata;
+
+  /// Predicted output, for latency reduction when much of the response is
+  /// known ahead of time.
+  ///
+  /// Untyped: the shape is provider-defined and still evolving, and the
+  /// value is forwarded verbatim.
+  final String? prediction;
+
+  /// Audio output parameters, required when `modalities` includes `audio`.
+  ///
+  /// Untyped for the same reason as `prediction`.
+  final String? audio;
+
+  /// Web-search tool configuration for search-enabled models.
+  ///
+  /// Untyped for the same reason as `prediction`.
+  final String? webSearchOptions;
+
   /// Provider-specific extra parameters merged into the request body.
   /// Use for guardrails, safety settings, grounding config, etc.
   final String? extraBody;
@@ -1462,6 +1518,15 @@ class ChatCompletionRequest {
     this.seed,
     this.reasoningEffort,
     this.modalities,
+    this.logprobs,
+    this.topLogprobs,
+    this.maxCompletionTokens,
+    this.serviceTier,
+    this.store,
+    this.metadata,
+    this.prediction,
+    this.audio,
+    this.webSearchOptions,
     this.extraBody,
   });
 
@@ -1487,6 +1552,15 @@ class ChatCompletionRequest {
       seed.hashCode ^
       reasoningEffort.hashCode ^
       modalities.hashCode ^
+      logprobs.hashCode ^
+      topLogprobs.hashCode ^
+      maxCompletionTokens.hashCode ^
+      serviceTier.hashCode ^
+      store.hashCode ^
+      metadata.hashCode ^
+      prediction.hashCode ^
+      audio.hashCode ^
+      webSearchOptions.hashCode ^
       extraBody.hashCode;
 
   @override
@@ -1514,6 +1588,15 @@ class ChatCompletionRequest {
           seed == other.seed &&
           reasoningEffort == other.reasoningEffort &&
           modalities == other.modalities &&
+          logprobs == other.logprobs &&
+          topLogprobs == other.topLogprobs &&
+          maxCompletionTokens == other.maxCompletionTokens &&
+          serviceTier == other.serviceTier &&
+          store == other.store &&
+          metadata == other.metadata &&
+          prediction == other.prediction &&
+          audio == other.audio &&
+          webSearchOptions == other.webSearchOptions &&
           extraBody == other.extraBody;
 }
 
@@ -1609,15 +1692,35 @@ class Choice {
   final PlatformInt64 index;
 
   /// The assistant's message response.
+  ///
+  /// Serialized with an explicit `role: "assistant"`. The field is not stored
+  /// on [`AssistantMessage`] because [`Message`] is an internally-tagged enum
+  /// keyed on `role`, so a stored field would emit the key twice inside a
+  /// request. OpenAI's response schema requires it here.
   final AssistantMessage message;
 
   /// Why the model stopped generating (stop, length, tool_calls, content_filter, etc.).
   final FinishReason? finishReason;
 
-  const Choice({required this.index, required this.message, this.finishReason});
+  /// Per-token log probabilities, when the request asked for them.
+  ///
+  /// Required by OpenAI's response schema as an always-present, nullable key,
+  /// so this is deliberately not `skip_serializing_if`.
+  final String? logprobs;
+
+  const Choice({
+    required this.index,
+    required this.message,
+    this.finishReason,
+    this.logprobs,
+  });
 
   @override
-  int get hashCode => index.hashCode ^ message.hashCode ^ finishReason.hashCode;
+  int get hashCode =>
+      index.hashCode ^
+      message.hashCode ^
+      finishReason.hashCode ^
+      logprobs.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1626,7 +1729,8 @@ class Choice {
           runtimeType == other.runtimeType &&
           index == other.index &&
           message == other.message &&
-          finishReason == other.finishReason;
+          finishReason == other.finishReason &&
+          logprobs == other.logprobs;
 }
 
 /// Observable state of a circuit breaker.
@@ -1793,9 +1897,31 @@ class CreateImageRequest {
           user == other.user;
 }
 
-/// Request to create a structured response.
+/// Request to create a response via the OpenAI Responses API (`POST /responses`).
+///
+/// # Provider support
+///
+/// **The Responses API path is OpenAI-only.** This type models the OpenAI Responses
+/// wire format, and unlike [`ChatCompletionRequest`] the body is sent to the provider
+/// verbatim: neither `Provider::transform_request` nor `Provider::transform_response`
+/// runs for Responses calls, and no provider in `schemas/providers.json` declares a
+/// `responses` endpoint.
+///
+/// Pointing a Responses call at a provider that does not natively serve the OpenAI
+/// `/responses` contract (Anthropic, Vertex, Bedrock, Cohere, Google AI, Azure) is not
+/// supported: the request goes out unmodified, so the provider rejects it or returns a
+/// body that cannot be deserialized into [`ResponseObject`]. Use
+/// [`ChatCompletionRequest`] for cross-provider work — that path applies the
+/// per-provider request and response normalization this one does not.
+///
+/// [`ChatCompletionRequest`]: crate::types::ChatCompletionRequest
 class CreateResponseRequest {
-  /// Model ID.
+  /// Model ID, as named by the OpenAI Responses API (e.g. `"gpt-5"`).
+  ///
+  /// Sent to the wire exactly as given. The Responses path performs none of the
+  /// chat path's model handling: a `provider/model` routing prefix is **not**
+  /// stripped and does **not** re-route the request, which stays pinned to the
+  /// provider the client was constructed with.
   final String model;
 
   /// Input data to process (e.g., a document to extract from).
@@ -1816,6 +1942,20 @@ class CreateResponseRequest {
   /// Optional metadata.
   final String? metadata;
 
+  /// Extra top-level parameters shallow-merged into the request body, OpenAI-Python
+  /// style (`{**body, **extra_body}`) — keys here override identically named fields
+  /// above. Use it for OpenAI Responses fields this struct does not model directly,
+  /// such as the top-level `reasoning.effort`.
+  ///
+  /// This is an OpenAI escape hatch, not a cross-provider one. On the chat path the
+  /// providers that consume `extra_body` natively (Anthropic, Vertex, Bedrock) claim
+  /// it inside their own `transform_request`; here no provider transform runs, so the
+  /// merged keys always travel to the wire as literal OpenAI Responses fields.
+  ///
+  /// A non-object value cannot be merged into the body root and is dropped with a
+  /// warning rather than sent.
+  final String? extraBody;
+
   /// Whether to stream the response.
   ///
   /// Managed by the client layer — do not set directly.
@@ -1829,6 +1969,7 @@ class CreateResponseRequest {
     this.temperature,
     this.maxOutputTokens,
     this.metadata,
+    this.extraBody,
     this.stream,
   });
 
@@ -1841,6 +1982,7 @@ class CreateResponseRequest {
       temperature.hashCode ^
       maxOutputTokens.hashCode ^
       metadata.hashCode ^
+      extraBody.hashCode ^
       stream.hashCode;
 
   @override
@@ -1855,6 +1997,7 @@ class CreateResponseRequest {
           temperature == other.temperature &&
           maxOutputTokens == other.maxOutputTokens &&
           metadata == other.metadata &&
+          extraBody == other.extraBody &&
           stream == other.stream;
 }
 
@@ -2520,7 +2663,7 @@ enum ImageDetail {
 
 /// An image URL reference with optional detail level for processing.
 ///
-/// ~keep No `deny_unknown_fields`: this type is shared with the response side
+/// No `deny_unknown_fields`: this type is shared with the response side
 /// (see [`AssistantPart::OutputImage`]) where it is deserialized from
 /// provider output, not just constructed as request input (see #51). A
 /// provider adding a new field to its image-output object must not hard-fail

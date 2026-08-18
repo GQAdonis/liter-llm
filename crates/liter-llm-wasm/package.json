@@ -22,6 +22,15 @@
   "main": "pkg/nodejs/liter_llm_wasm.js",
   "module": "pkg/web/liter_llm_wasm.js",
   "types": "pkg/nodejs/liter_llm_wasm.d.ts",
+  "exports": {
+    ".": {
+      "types": "./pkg/nodejs/liter_llm_wasm.d.ts",
+      "browser": "./pkg/web/liter_llm_wasm.js",
+      "import": "./pkg/nodejs/liter_llm_wasm.js",
+      "require": "./pkg/nodejs/liter_llm_wasm.js",
+      "default": "./pkg/nodejs/liter_llm_wasm.js"
+    }
+  },
   "engines": {
     "node": ">= 22"
   },
