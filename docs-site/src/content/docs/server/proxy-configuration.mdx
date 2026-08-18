@@ -3,20 +3,20 @@ description: "Full TOML reference for liter-llm-proxy.toml: server, models, alia
 title: "Proxy Configuration"
 ---
 
-import { Content as Snip_toml_server_minimal } from "../../../snippets/toml/server/minimal.md";
-import { Content as Snip_toml_server_server } from "../../../snippets/toml/server/server.md";
-import { Content as Snip_toml_server_general } from "../../../snippets/toml/server/general.md";
-import { Content as Snip_toml_server_security } from "../../../snippets/toml/server/security.md";
-import { Content as Snip_toml_server_models } from "../../../snippets/toml/server/models.md";
-import { Content as Snip_toml_server_aliases } from "../../../snippets/toml/server/aliases.md";
-import { Content as Snip_toml_server_keys } from "../../../snippets/toml/server/keys.md";
-import { Content as Snip_toml_server_rate_limit } from "../../../snippets/toml/server/rate_limit.md";
-import { Content as Snip_toml_server_budget } from "../../../snippets/toml/server/budget.md";
-import { Content as Snip_toml_server_cache } from "../../../snippets/toml/server/cache.md";
-import { Content as Snip_toml_server_files } from "../../../snippets/toml/server/files.md";
-import { Content as Snip_toml_server_health } from "../../../snippets/toml/server/health.md";
-import { Content as Snip_toml_server_cooldown } from "../../../snippets/toml/server/cooldown.md";
-import { Content as Snip_toml_server_env_interpolation } from "../../../snippets/toml/server/env_interpolation.md";
+import { Content as Snip_toml_server_minimal } from "../../../handwritten-snippets/toml/server/minimal.md";
+import { Content as Snip_toml_server_server } from "../../../handwritten-snippets/toml/server/server.md";
+import { Content as Snip_toml_server_general } from "../../../handwritten-snippets/toml/server/general.md";
+import { Content as Snip_toml_server_security } from "../../../handwritten-snippets/toml/server/security.md";
+import { Content as Snip_toml_server_models } from "../../../handwritten-snippets/toml/server/models.md";
+import { Content as Snip_toml_server_aliases } from "../../../handwritten-snippets/toml/server/aliases.md";
+import { Content as Snip_toml_server_keys } from "../../../handwritten-snippets/toml/server/keys.md";
+import { Content as Snip_toml_server_rate_limit } from "../../../handwritten-snippets/toml/server/rate_limit.md";
+import { Content as Snip_toml_server_budget } from "../../../handwritten-snippets/toml/server/budget.md";
+import { Content as Snip_toml_server_cache } from "../../../handwritten-snippets/toml/server/cache.md";
+import { Content as Snip_toml_server_files } from "../../../handwritten-snippets/toml/server/files.md";
+import { Content as Snip_toml_server_health } from "../../../handwritten-snippets/toml/server/health.md";
+import { Content as Snip_toml_server_cooldown } from "../../../handwritten-snippets/toml/server/cooldown.md";
+import { Content as Snip_toml_server_env_interpolation } from "../../../handwritten-snippets/toml/server/env_interpolation.md";
 
 The proxy loads a single TOML file named `liter-llm-proxy.toml`. Pass `--config <path>` to the `liter-llm api` command or place the file in the current working directory (or any parent) and the server will discover it automatically.
 

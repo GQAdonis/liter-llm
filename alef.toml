@@ -172,6 +172,7 @@ exclude = [
   ".cargo/config.toml",
   # xberg-baseline generic hygiene excludes (tool output, doc snippets, patches).
   "docs-site/src/snippets/**",
+  "docs-site/src/handwritten-snippets/**",
   "**/coverage/**",
   "**/pkg/**",
   "**/.next/**",
