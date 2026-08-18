@@ -10,6 +10,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.1] - 2026-08-15
+
+### Changed
+
+- **catalog**: refreshed the bundled model catalog (`schemas/catalog.json`) from models.dev.
+  Providers increased from 184 to 185, models from 6293 to 6321. The single new provider is
+  `crusoe`.
+- **client**: scoped restoring of the transport `stream` field to only providers that preserve it
+  after request transformations.
+
+### Fixed
+
+- **client**: fixed Vertex/Gemini non-streaming requests that previously shipped `"stream": false` and
+  failed with `Invalid JSON payload received`.
+- **version**: aligned per-language binding crate versions with the core workspace version for this
+  release.
+- **docs**: fixed MCP HTTP transport snippet highlighting by marking it as `bash` instead of `toml`.
+
 ## [1.13.0] - 2026-08-02
 
 ### Added
