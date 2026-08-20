@@ -36,8 +36,14 @@ on:
   repository_dispatch:
     types: [publish-release]
 
+# Keyed on the workflow alone, deliberately not on the tag: registries that resolve a
+# "newest" pointer by publish order rather than by version (npm dist-tags, Homebrew
+# formula HEAD, GitHub Release assets) are corrupted when two release runs overlap. The
+# v1.15.0 run stayed alive for 24h and published `@xberg-io/liter-llm-wasm@1.15.0` three
+# hours after the v1.16.0 run had published 1.16.0, leaving `latest` pinned to 1.15.0.
+# Releases must therefore run strictly one at a time. ~keep
 concurrency:
-  group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.tag)) || github.ref || github.run_id }}
+  group: ${{ github.workflow }}
   cancel-in-progress: false
 
 permissions:
