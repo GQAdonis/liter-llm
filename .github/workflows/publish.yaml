@@ -2867,8 +2867,11 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
+      # Only ever un-draft a release that actually shipped. v1.17.1 finalized green with
+      # zero assets and not one registry published, because this step ran unconditionally
+      # under the job's `always()`. Skipped targets are fine here; failures are not. ~keep
       - name: Finalize release
-        if: needs.prepare.outputs.dry_run != 'true'
+        if: ${{ needs.prepare.outputs.dry_run != 'true' && !contains(needs.*.result, 'failure') }}
         uses: xberg-io/actions/finalize-release@v1
         with:
           tag: ${{ needs.prepare.outputs.tag }}
@@ -2910,6 +2913,17 @@ jobs:
             report "Homebrew"    "${{ needs.publish-homebrew-bottles.result }}"
             report "Swift"       "${{ needs.upload-swift-release.result }}"
           } >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
+
+      # Runs after the summary table so a failed release still reports which targets
+      # shipped, then fails the job so the run cannot be mistaken for a good release. ~keep
+      - name: Hold release as draft
+        if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.*.result, 'failure') }}
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          echo "::error::One or more publish jobs failed; leaving ${TAG} as a draft release."
+          exit 1
         shell: bash
 
   announce-discord:
