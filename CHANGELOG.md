@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **wasm/typescript**: `#[serde(untagged)]` data enums now generate real structural TypeScript
+  types instead of `any`. Six types change shape in the generated `.d.ts`: `ModerationInput` and
+  `EmbeddingInput` (`string | string[]`), `StopSequence` (`string | string[]`), `RerankDocument`
+  (`string | { text: string; }`), `UserContent` (`string | any[]`), and `ToolChoice`
+  (`"auto" | "required" | "none" | WasmSpecificToolChoice`). TypeScript consumers may see **new
+  compile errors** at call sites that previously typechecked only because `any` hid a genuine
+  mismatch between the value passed and the shape the binding actually accepts. These are
+  pre-existing bugs the old typing concealed, not new runtime restrictions — the accepted runtime
+  values are unchanged. `AssistantContent` is deliberately exempt via `untagged_union_text_types`
+  and continues to bridge as a plain `string` on its field, getter, and setter.
+
 - **catalog**: refreshed the bundled model catalog (`schemas/catalog.json`) from models.dev. The
   catalog is embedded via `include_str!` and backs pricing and capability lookups in `cost.rs`.
   Providers went from 184 to 185 and models from 6293 to 6321: **70 models added, 42 removed, and
