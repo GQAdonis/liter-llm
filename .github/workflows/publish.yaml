@@ -1641,12 +1641,22 @@ jobs:
           package: "@xberg-io/liter-llm"
           version: ${{ needs.prepare.outputs.version }}
 
+      # The platform packages version in lockstep with the main package, so one
+      # resolution against @xberg-io/liter-llm governs the whole set. ~keep
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        uses: ./.github/actions/resolve-npm-dist-tag
+        with:
+          package: "@xberg-io/liter-llm"
+          version: ${{ needs.prepare.outputs.version }}
+          requested-tag: ${{ needs.prepare.outputs.npm_tag }}
+
       - name: Publish native binary packages
         if: ${{ needs.prepare.outputs.dry_run != 'true' && steps.recheck.outputs.exists != 'true' }}
         uses: xberg-io/actions/publish-npm@v1
         with:
           packages-dir: crates/liter-llm-node/npm
-          npm-tag: ${{ needs.prepare.outputs.npm_tag }}
+          npm-tag: ${{ steps.dist_tag.outputs.tag }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
 
       - name: Wait for npm indexing (x64)
@@ -1672,7 +1682,7 @@ jobs:
         uses: xberg-io/actions/publish-npm@v1
         with:
           package-dir: crates/liter-llm-node
-          npm-tag: ${{ needs.prepare.outputs.npm_tag }}
+          npm-tag: ${{ steps.dist_tag.outputs.tag }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           provenance: "true"
 
@@ -1704,6 +1714,13 @@ jobs:
       id-token: write
     timeout-minutes: 30
     steps:
+      # Needed only so `./.github/actions/resolve-npm-dist-tag` resolves; the package
+      # itself is published from the downloaded `dist` artifact. ~keep
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
       - name: Download WASM artifact
         uses: actions/download-artifact@v7
         with:
@@ -1728,12 +1745,20 @@ jobs:
         if: ${{ needs.prepare.outputs.dry_run == 'true' }}
         run: (echo "Dry run requested; WASM tarball staged:" && find dist -type f -print) >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        uses: ./.github/actions/resolve-npm-dist-tag
+        with:
+          package: "@xberg-io/liter-llm-wasm"
+          version: ${{ needs.prepare.outputs.version }}
+          requested-tag: ${{ needs.prepare.outputs.npm_tag }}
+
       - name: Publish to npm
         if: ${{ needs.prepare.outputs.dry_run != 'true' && steps.npm_check.outputs.exists != 'true' }}
         uses: xberg-io/actions/publish-npm@v1
         with:
           package-dir: dist
-          npm-tag: ${{ needs.prepare.outputs.npm_tag }}
+          npm-tag: ${{ steps.dist_tag.outputs.tag }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           provenance: "true"
 
