@@ -162,7 +162,7 @@ jobs:
             gem=packages/ruby/liter_llm.gemspec
             maven=packages/java/pom.xml
             mix=packages/elixir/mix.exs
-            csproj=packages/csharp/LiterLlm.csproj
+            csproj=packages/csharp/LiterLlm/LiterLlm.csproj
             composer=composer.json
 
   check-registries:
@@ -181,7 +181,7 @@ jobs:
           {"name": "maven", "registry": "maven", "package": "io.xberg.literllm:liter-llm"},
           {"name": "hex", "registry": "hex", "package": "liter_llm"},
           {"name": "packagist", "registry": "packagist", "package": "xberg-io/liter-llm"},
-          {"name": "nuget", "registry": "nuget", "package": "LiterLlm"},
+          {"name": "nuget", "registry": "nuget", "package": "XbergIo.LiterLlm"},
           {"name": "go", "registry": "github-release", "package": "liter-llm", "repo": "xberg-io/liter-llm", "asset-prefix": "liter-llm-go-v"}
         ]
 
