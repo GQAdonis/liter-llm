@@ -103,13 +103,18 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
 
+      # The App token has to go through the action's `token` INPUT, not the caller's `env`.
+      # retag-for-republish is a composite action whose own step sets
+      # `GH_TOKEN: ${{ inputs.token }}`, and a step-level env in a composite action overrides
+      # anything the caller set — so the App token here was silently discarded and the action
+      # fell back to its `github.token` default. GITHUB_TOKEN cannot write git refs, which is
+      # the HTTP 403 on `POST /git/refs` that made `republish: true` unusable. ~keep
       - name: Retag for republish
         if: ${{ inputs.republish == true || github.event.client_payload.republish == true }}
         uses: xberg-io/actions/retag-for-republish@v1
         with:
           tag: ${{ inputs.tag || github.event.client_payload.tag }}
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Extract release metadata
         id: meta
