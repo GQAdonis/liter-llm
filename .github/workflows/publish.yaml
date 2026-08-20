@@ -77,7 +77,13 @@ jobs:
       release_csharp: ${{ steps.meta.outputs.release_csharp }}
       release_php: ${{ steps.meta.outputs.release_php }}
       release_homebrew: ${{ steps.meta.outputs.release_homebrew }}
-      release_kotlin: ${{ steps.meta.outputs.release_kotlin }}
+      # kotlin-android is deliberately OFF this pipeline, not merely absent from
+      # `available-targets` below: the generated SingleflightResult.kt calls
+      # LiterLlmBridge.nativeFreeSingleflightResult, which alef emits on neither the bridge
+      # nor the JNI side, so the AAR cannot build. The build/upload/publish jobs are kept
+      # intact and gated on this value. To re-enable, add `kotlin` back to
+      # `available-targets` and restore this to `steps.meta.outputs.release_kotlin`. ~keep
+      release_kotlin: "false"
       release_dart: ${{ steps.meta.outputs.release_dart }}
       release_zig: ${{ steps.meta.outputs.release_zig }}
       release_swift: ${{ steps.meta.outputs.release_swift }}
