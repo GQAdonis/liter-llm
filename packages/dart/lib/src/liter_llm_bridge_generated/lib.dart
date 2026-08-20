@@ -186,54 +186,6 @@ Future<ModelInfo?> modelInfo({required String model}) =>
 /// the poisoned state is recovered rather than propagating the panic.
 Future<void> clear() => RustLib.instance.api.crateClear();
 
-/// Count tokens in a text string using the tokenizer for the given model.
-///
-/// The tokenizer is resolved from the model name prefix (e.g. `"gpt-4o"` maps
-/// to the `Xenova/gpt-4o` HuggingFace tokenizer). Tokenizers are cached after
-/// first load.
-///
-/// **Errors:**
-///
-/// Returns `LiterLlmError.BadRequest` if the tokenizer cannot be loaded
-/// (e.g. network failure on first use) or if tokenization itself fails.
-Future<PlatformInt64> countTokens({
-  required String model,
-  required String text,
-}) => RustLib.instance.api.crateCountTokens(model: model, text: text);
-
-/// Count tokens for a full `ChatCompletionRequest`.
-///
-/// Sums tokens across all message text contents plus a per-message overhead
-/// of ~4 tokens (for role, separators, and formatting metadata). Tool
-/// definitions and multimodal content parts (images, audio, documents) are
-/// not counted — only textual content contributes to the token total.
-///
-/// **Errors:**
-///
-/// Returns `LiterLlmError.BadRequest` if the tokenizer cannot be loaded or
-/// if tokenization fails for any message.
-Future<PlatformInt64> countRequestTokens({
-  required String model,
-  required ChatCompletionRequest req,
-}) => RustLib.instance.api.crateCountRequestTokens(model: model, req: req);
-
-/// Record the estimated USD cost of a completion.
-///
-/// Call from `CostTrackingService` once a
-/// completion's cost has been computed. Emits `gen_ai.client.cost.usd`.
-/// If the meter has not been initialized, this call is a no-op.
-Future<void> recordCostUsd({
-  required String system,
-  required String model,
-  required String operation,
-  required double costUsd,
-}) => RustLib.instance.api.crateRecordCostUsd(
-  system: system,
-  model: model,
-  operation: operation,
-  costUsd: costUsd,
-);
-
 /// Assert that `current_len + incoming` does not exceed `limit`.
 ///
 /// Call this before appending `incoming` bytes to any buffer that must
@@ -5022,4 +4974,49 @@ class WaitForBatchConfig {
           maxIntervalSecs == other.maxIntervalSecs &&
           backoffMultiplier == other.backoffMultiplier &&
           timeoutSecs == other.timeoutSecs;
+}
+
+
+extension AssistantContentTextExt on AssistantContent {
+  /// Returns the plain-text display value of this content.
+  ///
+  /// - If this is a Text variant, returns its string content verbatim.
+  /// - If this is a Parts variant, concatenates the text fields from all text-type
+  ///   parts, skipping non-text parts like images, audio, or refusals.
+  /// - Otherwise returns an empty string.
+  String text() {
+    return switch (this) {
+      AssistantContent_Text(:final field0) => field0,
+      AssistantContent_Parts(:final field0) => _extractTextFromContentParts(field0),
+      _ => '',
+    };
+  }
+}
+
+/// Helper: Extract and concatenate text from content parts.
+/// Expects parts to be a List of sealed class instances (typically ContentPart
+/// or similar union types where each variant is a sealed class, e.g. ContentPart_Text).
+/// Only instances of *_Text variants (containing a text field) contribute to output.
+String _extractTextFromContentParts(List<dynamic> parts) {
+  final sb = StringBuffer();
+  for (final part in parts) {
+    // For FRB-generated sealed class instances, we can check the runtime type
+    // and access properties dynamically. Sealed class variants follow the pattern
+    // TypeName_VariantName, and text-type variants have a 'text' property.
+    final typeString = part.runtimeType.toString();
+    // Check if this is a text-type variant (e.g., 'ContentPart_Text(...)' or similar)
+    if (typeString.contains('_Text')) {
+      try {
+        // Use dynamic access to get the 'text' field from the variant instance
+        final text = (part as dynamic).text;
+        if (text is String) {
+          sb.write(text);
+        }
+      } catch (_) {
+        // If field access fails, skip this part (it's not actually a text variant)
+        continue;
+      }
+    }
+  }
+  return sb.toString();
 }

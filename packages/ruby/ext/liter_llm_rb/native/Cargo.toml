@@ -17,10 +17,12 @@ path = "../src/lib.rs"
 crate-type = ["cdylib"]
 
 [features]
-default = ["native-http", "opendal-cache", "wasm-http"]
+default = ["native-http", "opendal-cache", "wasm-http", "tokenizer", "tower"]
 native-http = ["liter-llm/native-http"]
 opendal-cache = ["liter-llm/opendal-cache"]
 wasm-http = ["liter-llm/wasm-http"]
+tokenizer = ["liter-llm/tokenizer"]
+tower = ["liter-llm/tower"]
 
 [dependencies]
 futures = "0.3"

@@ -32,7 +32,7 @@ importers:
     devDependencies:
       '@xberg-io/liter-llm-wasm':
         specifier: file:../../crates/liter-llm-wasm/pkg/nodejs
-        version: liter-llm-wasm@file:crates/liter-llm-wasm/pkg/nodejs
+        version: file:crates/liter-llm-wasm/pkg/nodejs
       rollup:
         specifier: ^4.53.3
         version: 4.60.2
@@ -1075,6 +1075,9 @@ packages:
   '@vitest/utils@4.1.10':
     resolution: {integrity: sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA==}
 
+  '@xberg-io/liter-llm-wasm@file:crates/liter-llm-wasm/pkg/nodejs':
+    resolution: {directory: crates/liter-llm-wasm/pkg/nodejs, type: directory}
+
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
 
@@ -1178,9 +1181,6 @@ packages:
 
   json-with-bigint@3.5.8:
     resolution: {integrity: sha512-eq/4KP6K34kwa7TcFdtvnftvHCD9KvHOGGICWwMFc4dOOKF5t4iYqnfLK8otCRCRv06FXOzGGyqE8h8ElMvvdw==}
-
-  liter-llm-wasm@file:crates/liter-llm-wasm/pkg/nodejs:
-    resolution: {directory: crates/liter-llm-wasm/pkg/nodejs, type: directory}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -2125,6 +2125,8 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
+  '@xberg-io/liter-llm-wasm@file:crates/liter-llm-wasm/pkg/nodejs': {}
+
   argparse@2.0.1: {}
 
   assertion-error@2.0.1: {}
@@ -2218,8 +2220,6 @@ snapshots:
       argparse: 2.0.1
 
   json-with-bigint@3.5.8: {}
-
-  liter-llm-wasm@file:crates/liter-llm-wasm/pkg/nodejs: {}
 
   magic-string@0.30.21:
     dependencies:
