@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.3] - 2026-08-21
+
+### Fixed
+
+- **The release actually publishes.** v1.17.2 was tagged and released but published nothing to any
+  registry: the `Validate versions` gate failed on stale `Cargo.lock` files under `e2e/rust` and
+  `packages/ruby/ext/liter_llm_rb/native`, which skipped the crates.io publish job. Every
+  language-package build behind it then failed with
+  `failed to select a version for the requirement ^1.17.2`, because `alef publish prepare` was
+  retrying against a registry version that had never been pushed. The lockfiles are refreshed and
+  the gate passes. Note that Packagist did ingest the 1.17.2 tag through its own webhook,
+  independently of CI, so PHP is the one ecosystem where 1.17.2 resolves; every other ecosystem is
+  still on 1.17.1. Use this version instead.
+
 ## [1.17.2] - 2026-08-21
 
 ### Fixed
