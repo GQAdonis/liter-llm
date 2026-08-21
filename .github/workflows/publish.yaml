@@ -173,7 +173,7 @@ jobs:
   check-registries:
     name: Check registries
     needs: [prepare]
-    uses: xberg-io/actions/.github/workflows/reusable-check-registries.yml@main
+    uses: xberg-io/actions/.github/workflows/reusable-check-registries.yml@v1
     with:
       version: ${{ needs.prepare.outputs.version }}
       registries: >-
