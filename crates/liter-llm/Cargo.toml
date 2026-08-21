@@ -111,10 +111,11 @@ opendal = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }
 pin-project-lite = { workspace = true }
 # ~keep Only for RoutingStrategy::WeightedRandom's per-router PRNG (tower/router.rs);
-# ~keep os_rng seeds it once at Router::new, small_rng is the fast generator itself.
+# ~keep sys_rng seeds it once at Router::new; SmallRng itself is unconditionally
+# ~keep compiled in rand >=0.10 (no small_rng feature gate anymore).
 # ~keep Not enabled for wasm32: the `tower` feature (and this dep) never builds there
 # ~keep today — liter-llm-wasm pins `default-features = false, features = ["wasm-http"]`.
-rand = { version = "0.9", default-features = false, features = ["std", "small_rng", "os_rng"], optional = true }
+rand = { version = "0.10", default-features = false, features = ["std", "sys_rng"], optional = true }
 regex = "1"
 rust_decimal = { workspace = true }
 secrecy = { workspace = true }

@@ -30,7 +30,7 @@ use std::time::Instant;
 use dashmap::DashMap;
 use futures_core::Stream;
 use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::{Rng, RngExt};
 use tower::Service;
 use tower::discover::{Change, Discover};
 use tower::limit::ConcurrencyLimit;
@@ -288,7 +288,7 @@ impl<S> Router<S> {
             counter: Arc::new(AtomicUsize::new(0)),
             state: RouterState::new(),
             deployment_models,
-            weighted_random_rng: Arc::new(Mutex::new(SmallRng::from_os_rng())),
+            weighted_random_rng: Arc::new(Mutex::new(rand::make_rng::<SmallRng>())),
         })
     }
 
@@ -897,6 +897,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 
     use futures_core::Stream;
+    use rand::SeedableRng;
     use tower::Service as _;
 
     use super::*;
