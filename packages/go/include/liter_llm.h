@@ -230,11 +230,15 @@ typedef struct LITERLLMDeveloperMessage LITERLLMDeveloperMessage;
  */
 typedef struct LITERLLMDocumentContent LITERLLMDocumentContent;
 /**
+ * A content part in a multimodal embedding input.
+ */
+typedef struct LITERLLMEmbeddingContentPart LITERLLMEmbeddingContentPart;
+/**
  * The format in which the embedding vectors are returned.
  */
 typedef struct LITERLLMEmbeddingFormat LITERLLMEmbeddingFormat;
 /**
- * Text or texts to embed.
+ * Text, texts, or multimodal content to embed.
  */
 typedef struct LITERLLMEmbeddingInput LITERLLMEmbeddingInput;
 /**
@@ -319,6 +323,10 @@ typedef struct LITERLLMImageUrl LITERLLMImageUrl;
  */
 typedef struct LITERLLMImagesResponse LITERLLMImagesResponse;
 /**
+ * Configuration for the global per-client in-flight request limit.
+ */
+typedef struct LITERLLMInFlightLimitConfig LITERLLMInFlightLimitConfig;
+/**
  * An intent prototype: `(intent_name, prototype_embedding, target_model_id)`.
  */
 typedef struct LITERLLMIntentPrototype LITERLLMIntentPrototype;
@@ -355,6 +363,10 @@ typedef struct LITERLLMLlmCacheConfig LITERLLMLlmCacheConfig;
  * redacted rather than printed in full.
  */
 typedef struct LITERLLMLlmConfig LITERLLMLlmConfig;
+/**
+ * Global per-client in-flight provider request limit.
+ */
+typedef struct LITERLLMLlmInFlightLimitConfig LITERLLMLlmInFlightLimitConfig;
 /**
  * A custom provider configuration entry.
  */
@@ -5189,6 +5201,15 @@ LITERLLMAlefHandle literllm_llm_config_budget(LITERLLMAlefHandle handle);
 LITERLLMAlefHandle literllm_llm_config_rate_limit(LITERLLMAlefHandle handle);
 
 /**
+ * Get the `in_flight_limit` field from a `LlmConfig`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_llm_in_flight_limit_config_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_llm_config_in_flight_limit(LITERLLMAlefHandle handle);
+
+/**
  * Get the `cost_tracking` field from a `LlmConfig`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
@@ -5371,6 +5392,36 @@ uint64_t literllm_llm_rate_limit_config_tpm(LITERLLMAlefHandle handle);
  * Pointer must be a valid handle returned by this library.
  */
 uint64_t literllm_llm_rate_limit_config_window_seconds(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `LlmInFlightLimitConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_in_flight_limit_config_free`.
+ */
+LITERLLMAlefHandle literllm_llm_in_flight_limit_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmInFlightLimitConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_in_flight_limit_config_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `LlmInFlightLimitConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_llm_in_flight_limit_config_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `max_in_flight` field from a `LlmInFlightLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uintptr_t literllm_llm_in_flight_limit_config_max_in_flight(LITERLLMAlefHandle handle);
 
 /**
  * Create a `LlmProviderConfig` from a JSON string. Returns null on failure.
@@ -6473,6 +6524,44 @@ void literllm_singleflight_result_free(LITERLLMAlefHandle handle);
 
 #if defined(LITERLLM_FEATURE_TOWER)
 /**
+ * Create a `InFlightLimitConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_in_flight_limit_config_free`.
+ */
+LITERLLMAlefHandle literllm_in_flight_limit_config_from_json(const char *json);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Serialize a `InFlightLimitConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_in_flight_limit_config_to_json(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Free a `InFlightLimitConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_in_flight_limit_config_free(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `max_in_flight` field from a `InFlightLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uintptr_t literllm_in_flight_limit_config_max_in_flight(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
  * Create a `RateLimitConfig` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
@@ -6877,6 +6966,21 @@ int32_t literllm_embedding_input_from_i32(int32_t value);
  * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
  */
 int32_t literllm_embedding_input_from_str(const char *name);
+
+/**
+ * Convert an integer to a `EmbeddingContentPart` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_embedding_content_part_from_i32(int32_t value);
+
+/**
+ * Convert a `EmbeddingContentPart` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_embedding_content_part_from_str(const char *name);
 
 /**
  * Convert an integer to a `ModerationInput` variant. Returns -1 on invalid input.

@@ -6,7 +6,7 @@ description: Use when running the `liter-llm api` OpenAI-compatible gateway — 
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
 Content-Hash: blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60
-Source-Hash: blake3:68df7efe580c1c04ccff4e46c8dfec6a2ffeef30e3c5f7d075efb4a2fe274eab
+Source-Hash: blake3:0435784d34a1f2f5ad6deb54c9cbd2e10c6a0193a31699cc50251c273d9e18f4
 Schema-Version: v1
 -->
 

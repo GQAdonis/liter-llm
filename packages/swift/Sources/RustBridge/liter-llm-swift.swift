@@ -358,6 +358,9 @@ public func llmBudgetConfigFromJson<GenericIntoRustString: IntoRustString>(_ jso
 public func llmRateLimitConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> LlmRateLimitConfig {
     try { let val = __swift_bridge__$llm_rate_limit_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return LlmRateLimitConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func llmInFlightLimitConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> LlmInFlightLimitConfig {
+    try { let val = __swift_bridge__$llm_in_flight_limit_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return LlmInFlightLimitConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func llmProviderConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> LlmProviderConfig {
     try { let val = __swift_bridge__$llm_provider_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return LlmProviderConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
@@ -427,6 +430,9 @@ public func llmConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: Gen
 public func providerConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ProviderConfig {
     try { let val = __swift_bridge__$provider_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ProviderConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
+public func inFlightLimitConfigFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> InFlightLimitConfig {
+    try { let val = __swift_bridge__$in_flight_limit_config_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return InFlightLimitConfig(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
 public func messageFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> Message {
     try { let val = __swift_bridge__$message_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return Message(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
@@ -474,6 +480,9 @@ public func embeddingFormatFromJson<GenericIntoRustString: IntoRustString>(_ jso
 }
 public func embeddingInputFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> EmbeddingInput {
     try { let val = __swift_bridge__$embedding_input_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return EmbeddingInput(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
+}
+public func embeddingContentPartFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> EmbeddingContentPart {
+    try { let val = __swift_bridge__$embedding_content_part_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return EmbeddingContentPart(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
 }
 public func moderationInputFromJson<GenericIntoRustString: IntoRustString>(_ json: GenericIntoRustString) throws -> ModerationInput {
     try { let val = __swift_bridge__$moderation_input_from_json({ let rustString = json.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_ok { return ModerationInput(ptr: val.ok_or_err!) } else { throw RustString(ptr: val.ok_or_err!) } }()
@@ -736,6 +745,9 @@ public func __alef_phantom_vec_llm_budget_config() -> RustVec<LlmBudgetConfig> {
 public func __alef_phantom_vec_llm_rate_limit_config() -> RustVec<LlmRateLimitConfig> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_llm_rate_limit_config())
 }
+public func __alef_phantom_vec_llm_in_flight_limit_config() -> RustVec<LlmInFlightLimitConfig> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_llm_in_flight_limit_config())
+}
 public func __alef_phantom_vec_llm_provider_config() -> RustVec<LlmProviderConfig> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_llm_provider_config())
 }
@@ -811,6 +823,9 @@ public func __alef_phantom_vec_embedding_format() -> RustVec<EmbeddingFormat> {
 public func __alef_phantom_vec_embedding_input() -> RustVec<EmbeddingInput> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_embedding_input())
 }
+public func __alef_phantom_vec_embedding_content_part() -> RustVec<EmbeddingContentPart> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_embedding_content_part())
+}
 public func __alef_phantom_vec_moderation_input() -> RustVec<ModerationInput> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_moderation_input())
 }
@@ -849,6 +864,9 @@ public func __alef_phantom_vec_cache_config() -> RustVec<CacheConfig> {
 }
 public func __alef_phantom_vec_singleflight_result() -> RustVec<SingleflightResult> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_singleflight_result())
+}
+public func __alef_phantom_vec_in_flight_limit_config() -> RustVec<InFlightLimitConfig> {
+    RustVec(ptr: __swift_bridge__$__alef_phantom_vec_in_flight_limit_config())
 }
 public func __alef_phantom_vec_rate_limit_config() -> RustVec<RateLimitConfig> {
     RustVec(ptr: __swift_bridge__$__alef_phantom_vec_rate_limit_config())
@@ -7880,6 +7898,10 @@ extension LlmConfigRef {
         { let val = __swift_bridge__$LlmConfig$rate_limit(ptr); if val != nil { return LlmRateLimitConfig(ptr: val!) } else { return nil } }()
     }
 
+    public func inFlightLimit() -> Optional<LlmInFlightLimitConfig> {
+        { let val = __swift_bridge__$LlmConfig$in_flight_limit(ptr); if val != nil { return LlmInFlightLimitConfig(ptr: val!) } else { return nil } }()
+    }
+
     public func costTracking() -> Optional<Bool> {
         __swift_bridge__$LlmConfig$cost_tracking(ptr).intoSwiftRepr()
     }
@@ -8219,6 +8241,91 @@ extension LlmRateLimitConfig: Vectorizable {
 
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
         __swift_bridge__$Vec_LlmRateLimitConfig$len(vecPtr)
+    }
+}
+
+
+public class LlmInFlightLimitConfig: LlmInFlightLimitConfigRefMut {
+    public var isOwned: Bool = true
+
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+
+    deinit {
+        if isOwned {
+            __swift_bridge__$LlmInFlightLimitConfig$_free(ptr)
+        }
+    }
+}
+extension LlmInFlightLimitConfig {
+    public convenience init(_ max_in_flight: Optional<UInt>) {
+        self.init(ptr: __swift_bridge__$LlmInFlightLimitConfig$new(max_in_flight.intoFfiRepr()))
+    }
+}
+public class LlmInFlightLimitConfigRefMut: LlmInFlightLimitConfigRef {
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+}
+public class LlmInFlightLimitConfigRef {
+    public var ptr: UnsafeMutableRawPointer
+
+    public init(ptr: UnsafeMutableRawPointer) {
+        self.ptr = ptr
+    }
+}
+extension LlmInFlightLimitConfigRef {
+    public func maxInFlight() -> Optional<UInt> {
+        __swift_bridge__$LlmInFlightLimitConfig$max_in_flight(ptr).intoSwiftRepr()
+    }
+}
+extension LlmInFlightLimitConfig: Vectorizable {
+    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
+        __swift_bridge__$Vec_LlmInFlightLimitConfig$new()
+    }
+
+    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
+        __swift_bridge__$Vec_LlmInFlightLimitConfig$drop(vecPtr)
+    }
+
+    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: LlmInFlightLimitConfig) {
+        __swift_bridge__$Vec_LlmInFlightLimitConfig$push(vecPtr, {value.isOwned = false; return value.ptr;}())
+    }
+
+    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
+        let pointer = __swift_bridge__$Vec_LlmInFlightLimitConfig$pop(vecPtr)
+        if pointer == nil {
+            return nil
+        } else {
+            return (LlmInFlightLimitConfig(ptr: pointer!) as! Self)
+        }
+    }
+
+    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<LlmInFlightLimitConfigRef> {
+        let pointer = __swift_bridge__$Vec_LlmInFlightLimitConfig$get(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return LlmInFlightLimitConfigRef(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<LlmInFlightLimitConfigRefMut> {
+        let pointer = __swift_bridge__$Vec_LlmInFlightLimitConfig$get_mut(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return LlmInFlightLimitConfigRefMut(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<LlmInFlightLimitConfigRef> {
+        UnsafePointer<LlmInFlightLimitConfigRef>(OpaquePointer(__swift_bridge__$Vec_LlmInFlightLimitConfig$as_ptr(vecPtr)))
+    }
+
+    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
+        __swift_bridge__$Vec_LlmInFlightLimitConfig$len(vecPtr)
     }
 }
 
@@ -9504,6 +9611,91 @@ extension SingleflightResult: Vectorizable {
 
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
         __swift_bridge__$Vec_SingleflightResult$len(vecPtr)
+    }
+}
+
+
+public class InFlightLimitConfig: InFlightLimitConfigRefMut {
+    public var isOwned: Bool = true
+
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+
+    deinit {
+        if isOwned {
+            __swift_bridge__$InFlightLimitConfig$_free(ptr)
+        }
+    }
+}
+extension InFlightLimitConfig {
+    public convenience init(_ max_in_flight: Optional<UInt>) {
+        self.init(ptr: __swift_bridge__$InFlightLimitConfig$new(max_in_flight.intoFfiRepr()))
+    }
+}
+public class InFlightLimitConfigRefMut: InFlightLimitConfigRef {
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+}
+public class InFlightLimitConfigRef {
+    public var ptr: UnsafeMutableRawPointer
+
+    public init(ptr: UnsafeMutableRawPointer) {
+        self.ptr = ptr
+    }
+}
+extension InFlightLimitConfigRef {
+    public func maxInFlight() -> Optional<UInt> {
+        __swift_bridge__$InFlightLimitConfig$max_in_flight(ptr).intoSwiftRepr()
+    }
+}
+extension InFlightLimitConfig: Vectorizable {
+    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
+        __swift_bridge__$Vec_InFlightLimitConfig$new()
+    }
+
+    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
+        __swift_bridge__$Vec_InFlightLimitConfig$drop(vecPtr)
+    }
+
+    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: InFlightLimitConfig) {
+        __swift_bridge__$Vec_InFlightLimitConfig$push(vecPtr, {value.isOwned = false; return value.ptr;}())
+    }
+
+    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
+        let pointer = __swift_bridge__$Vec_InFlightLimitConfig$pop(vecPtr)
+        if pointer == nil {
+            return nil
+        } else {
+            return (InFlightLimitConfig(ptr: pointer!) as! Self)
+        }
+    }
+
+    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<InFlightLimitConfigRef> {
+        let pointer = __swift_bridge__$Vec_InFlightLimitConfig$get(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return InFlightLimitConfigRef(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<InFlightLimitConfigRefMut> {
+        let pointer = __swift_bridge__$Vec_InFlightLimitConfig$get_mut(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return InFlightLimitConfigRefMut(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<InFlightLimitConfigRef> {
+        UnsafePointer<InFlightLimitConfigRef>(OpaquePointer(__swift_bridge__$Vec_InFlightLimitConfig$as_ptr(vecPtr)))
+    }
+
+    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
+        __swift_bridge__$Vec_InFlightLimitConfig$len(vecPtr)
     }
 }
 
@@ -11062,6 +11254,86 @@ extension EmbeddingInput: Vectorizable {
 
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
         __swift_bridge__$Vec_EmbeddingInput$len(vecPtr)
+    }
+}
+
+
+public class EmbeddingContentPart: EmbeddingContentPartRefMut {
+    public var isOwned: Bool = true
+
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+
+    deinit {
+        if isOwned {
+            __swift_bridge__$EmbeddingContentPart$_free(ptr)
+        }
+    }
+}
+public class EmbeddingContentPartRefMut: EmbeddingContentPartRef {
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+}
+public class EmbeddingContentPartRef {
+    public var ptr: UnsafeMutableRawPointer
+
+    public init(ptr: UnsafeMutableRawPointer) {
+        self.ptr = ptr
+    }
+}
+extension EmbeddingContentPartRef {
+    public func to_string() -> RustString {
+        RustString(ptr: __swift_bridge__$EmbeddingContentPart$to_string(ptr))
+    }
+}
+extension EmbeddingContentPart: Vectorizable {
+    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
+        __swift_bridge__$Vec_EmbeddingContentPart$new()
+    }
+
+    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
+        __swift_bridge__$Vec_EmbeddingContentPart$drop(vecPtr)
+    }
+
+    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: EmbeddingContentPart) {
+        __swift_bridge__$Vec_EmbeddingContentPart$push(vecPtr, {value.isOwned = false; return value.ptr;}())
+    }
+
+    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
+        let pointer = __swift_bridge__$Vec_EmbeddingContentPart$pop(vecPtr)
+        if pointer == nil {
+            return nil
+        } else {
+            return (EmbeddingContentPart(ptr: pointer!) as! Self)
+        }
+    }
+
+    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<EmbeddingContentPartRef> {
+        let pointer = __swift_bridge__$Vec_EmbeddingContentPart$get(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return EmbeddingContentPartRef(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<EmbeddingContentPartRefMut> {
+        let pointer = __swift_bridge__$Vec_EmbeddingContentPart$get_mut(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return EmbeddingContentPartRefMut(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<EmbeddingContentPartRef> {
+        UnsafePointer<EmbeddingContentPartRef>(OpaquePointer(__swift_bridge__$Vec_EmbeddingContentPart$as_ptr(vecPtr)))
+    }
+
+    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
+        __swift_bridge__$Vec_EmbeddingContentPart$len(vecPtr)
     }
 }
 

@@ -1085,6 +1085,18 @@ void* __swift_bridge__$Vec_LlmRateLimitConfig$get_mut(void* vec_ptr, uintptr_t i
 uintptr_t __swift_bridge__$Vec_LlmRateLimitConfig$len(void* vec_ptr);
 void* __swift_bridge__$Vec_LlmRateLimitConfig$as_ptr(void* vec_ptr);
 
+typedef struct LlmInFlightLimitConfig LlmInFlightLimitConfig;
+void __swift_bridge__$LlmInFlightLimitConfig$_free(void* self);
+
+void* __swift_bridge__$Vec_LlmInFlightLimitConfig$new(void);
+void __swift_bridge__$Vec_LlmInFlightLimitConfig$drop(void* vec_ptr);
+void __swift_bridge__$Vec_LlmInFlightLimitConfig$push(void* vec_ptr, void* item_ptr);
+void* __swift_bridge__$Vec_LlmInFlightLimitConfig$pop(void* vec_ptr);
+void* __swift_bridge__$Vec_LlmInFlightLimitConfig$get(void* vec_ptr, uintptr_t index);
+void* __swift_bridge__$Vec_LlmInFlightLimitConfig$get_mut(void* vec_ptr, uintptr_t index);
+uintptr_t __swift_bridge__$Vec_LlmInFlightLimitConfig$len(void* vec_ptr);
+void* __swift_bridge__$Vec_LlmInFlightLimitConfig$as_ptr(void* vec_ptr);
+
 typedef struct LlmProviderConfig LlmProviderConfig;
 void __swift_bridge__$LlmProviderConfig$_free(void* self);
 
@@ -1240,6 +1252,18 @@ void* __swift_bridge__$Vec_SingleflightResult$get(void* vec_ptr, uintptr_t index
 void* __swift_bridge__$Vec_SingleflightResult$get_mut(void* vec_ptr, uintptr_t index);
 uintptr_t __swift_bridge__$Vec_SingleflightResult$len(void* vec_ptr);
 void* __swift_bridge__$Vec_SingleflightResult$as_ptr(void* vec_ptr);
+
+typedef struct InFlightLimitConfig InFlightLimitConfig;
+void __swift_bridge__$InFlightLimitConfig$_free(void* self);
+
+void* __swift_bridge__$Vec_InFlightLimitConfig$new(void);
+void __swift_bridge__$Vec_InFlightLimitConfig$drop(void* vec_ptr);
+void __swift_bridge__$Vec_InFlightLimitConfig$push(void* vec_ptr, void* item_ptr);
+void* __swift_bridge__$Vec_InFlightLimitConfig$pop(void* vec_ptr);
+void* __swift_bridge__$Vec_InFlightLimitConfig$get(void* vec_ptr, uintptr_t index);
+void* __swift_bridge__$Vec_InFlightLimitConfig$get_mut(void* vec_ptr, uintptr_t index);
+uintptr_t __swift_bridge__$Vec_InFlightLimitConfig$len(void* vec_ptr);
+void* __swift_bridge__$Vec_InFlightLimitConfig$as_ptr(void* vec_ptr);
 
 typedef struct RateLimitConfig RateLimitConfig;
 void __swift_bridge__$RateLimitConfig$_free(void* self);
@@ -1468,6 +1492,18 @@ void* __swift_bridge__$Vec_EmbeddingInput$get(void* vec_ptr, uintptr_t index);
 void* __swift_bridge__$Vec_EmbeddingInput$get_mut(void* vec_ptr, uintptr_t index);
 uintptr_t __swift_bridge__$Vec_EmbeddingInput$len(void* vec_ptr);
 void* __swift_bridge__$Vec_EmbeddingInput$as_ptr(void* vec_ptr);
+
+typedef struct EmbeddingContentPart EmbeddingContentPart;
+void __swift_bridge__$EmbeddingContentPart$_free(void* self);
+
+void* __swift_bridge__$Vec_EmbeddingContentPart$new(void);
+void __swift_bridge__$Vec_EmbeddingContentPart$drop(void* vec_ptr);
+void __swift_bridge__$Vec_EmbeddingContentPart$push(void* vec_ptr, void* item_ptr);
+void* __swift_bridge__$Vec_EmbeddingContentPart$pop(void* vec_ptr);
+void* __swift_bridge__$Vec_EmbeddingContentPart$get(void* vec_ptr, uintptr_t index);
+void* __swift_bridge__$Vec_EmbeddingContentPart$get_mut(void* vec_ptr, uintptr_t index);
+uintptr_t __swift_bridge__$Vec_EmbeddingContentPart$len(void* vec_ptr);
+void* __swift_bridge__$Vec_EmbeddingContentPart$as_ptr(void* vec_ptr);
 
 typedef struct ModerationInput ModerationInput;
 void __swift_bridge__$ModerationInput$_free(void* self);
@@ -2008,6 +2044,7 @@ void* __swift_bridge__$LlmConfig$providers(void* self);
 void* __swift_bridge__$LlmConfig$cache(void* self);
 void* __swift_bridge__$LlmConfig$budget(void* self);
 void* __swift_bridge__$LlmConfig$rate_limit(void* self);
+void* __swift_bridge__$LlmConfig$in_flight_limit(void* self);
 struct __private__OptionBool __swift_bridge__$LlmConfig$cost_tracking(void* self);
 struct __private__OptionBool __swift_bridge__$LlmConfig$tracing(void* self);
 struct __private__OptionU64 __swift_bridge__$LlmConfig$cooldown_secs(void* self);
@@ -2025,6 +2062,8 @@ void* __swift_bridge__$LlmRateLimitConfig$new(struct __private__OptionU32 rpm, s
 struct __private__OptionU32 __swift_bridge__$LlmRateLimitConfig$rpm(void* self);
 struct __private__OptionU64 __swift_bridge__$LlmRateLimitConfig$tpm(void* self);
 struct __private__OptionU64 __swift_bridge__$LlmRateLimitConfig$window_seconds(void* self);
+void* __swift_bridge__$LlmInFlightLimitConfig$new(struct __private__OptionUsize max_in_flight);
+struct __private__OptionUsize __swift_bridge__$LlmInFlightLimitConfig$max_in_flight(void* self);
 void* __swift_bridge__$LlmProviderConfig$new(void* name, void* base_url, void* auth_header, void* model_prefixes);
 void* __swift_bridge__$LlmProviderConfig$name(void* self);
 void* __swift_bridge__$LlmProviderConfig$base_url(void* self);
@@ -2124,6 +2163,8 @@ uintptr_t __swift_bridge__$CacheConfig$max_entries(void* self);
 uint64_t __swift_bridge__$CacheConfig$ttl(void* self);
 void* __swift_bridge__$CacheConfig$backend(void* self);
 void __swift_bridge__$singleflight_result_noop(void* client);
+void* __swift_bridge__$InFlightLimitConfig$new(struct __private__OptionUsize max_in_flight);
+struct __private__OptionUsize __swift_bridge__$InFlightLimitConfig$max_in_flight(void* self);
 void* __swift_bridge__$RateLimitConfig$new(struct __private__OptionU32 rpm, struct __private__OptionU64 tpm, uint64_t window);
 struct __private__OptionU32 __swift_bridge__$RateLimitConfig$rpm(void* self);
 struct __private__OptionU64 __swift_bridge__$RateLimitConfig$tpm(void* self);
@@ -2152,6 +2193,7 @@ void* __swift_bridge__$FinishReason$to_string(void* self);
 void* __swift_bridge__$ReasoningEffort$to_string(void* self);
 void* __swift_bridge__$EmbeddingFormat$to_string(void* self);
 void* __swift_bridge__$EmbeddingInput$to_string(void* self);
+void* __swift_bridge__$EmbeddingContentPart$to_string(void* self);
 void* __swift_bridge__$ModerationInput$to_string(void* self);
 void* __swift_bridge__$RerankDocument$to_string(void* self);
 void* __swift_bridge__$OcrDocument$to_string(void* self);
@@ -2253,6 +2295,7 @@ struct __private__ResultPtrAndPtr __swift_bridge__$response_usage_from_json(void
 struct __private__ResultPtrAndPtr __swift_bridge__$llm_cache_config_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$llm_budget_config_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$llm_rate_limit_config_from_json(void* json);
+struct __private__ResultPtrAndPtr __swift_bridge__$llm_in_flight_limit_config_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$llm_provider_config_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$bedrock_config_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$wait_for_batch_config_from_json(void* json);
@@ -2276,6 +2319,7 @@ struct __private__ResultPtrAndPtr __swift_bridge__$specific_tool_choice_from_jso
 struct __private__ResultPtrAndPtr __swift_bridge__$json_schema_format_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$llm_config_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$provider_config_from_json(void* json);
+struct __private__ResultPtrAndPtr __swift_bridge__$in_flight_limit_config_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$message_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$user_content_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$content_part_from_json(void* json);
@@ -2292,6 +2336,7 @@ struct __private__ResultPtrAndPtr __swift_bridge__$finish_reason_from_json(void*
 struct __private__ResultPtrAndPtr __swift_bridge__$reasoning_effort_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$embedding_format_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$embedding_input_from_json(void* json);
+struct __private__ResultPtrAndPtr __swift_bridge__$embedding_content_part_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$moderation_input_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$rerank_document_from_json(void* json);
 struct __private__ResultPtrAndPtr __swift_bridge__$ocr_document_from_json(void* json);
@@ -2379,6 +2424,7 @@ void* __swift_bridge__$__alef_phantom_vec_llm_config(void);
 void* __swift_bridge__$__alef_phantom_vec_llm_cache_config(void);
 void* __swift_bridge__$__alef_phantom_vec_llm_budget_config(void);
 void* __swift_bridge__$__alef_phantom_vec_llm_rate_limit_config(void);
+void* __swift_bridge__$__alef_phantom_vec_llm_in_flight_limit_config(void);
 void* __swift_bridge__$__alef_phantom_vec_llm_provider_config(void);
 void* __swift_bridge__$__alef_phantom_vec_bedrock_config(void);
 void* __swift_bridge__$__alef_phantom_vec_custom_provider_config(void);
@@ -2404,6 +2450,7 @@ void* __swift_bridge__$__alef_phantom_vec_finish_reason(void);
 void* __swift_bridge__$__alef_phantom_vec_reasoning_effort(void);
 void* __swift_bridge__$__alef_phantom_vec_embedding_format(void);
 void* __swift_bridge__$__alef_phantom_vec_embedding_input(void);
+void* __swift_bridge__$__alef_phantom_vec_embedding_content_part(void);
 void* __swift_bridge__$__alef_phantom_vec_moderation_input(void);
 void* __swift_bridge__$__alef_phantom_vec_rerank_document(void);
 void* __swift_bridge__$__alef_phantom_vec_ocr_document(void);
@@ -2417,6 +2464,7 @@ void* __swift_bridge__$__alef_phantom_vec_wait_for_batch_config(void);
 void* __swift_bridge__$__alef_phantom_vec_budget_config(void);
 void* __swift_bridge__$__alef_phantom_vec_cache_config(void);
 void* __swift_bridge__$__alef_phantom_vec_singleflight_result(void);
+void* __swift_bridge__$__alef_phantom_vec_in_flight_limit_config(void);
 void* __swift_bridge__$__alef_phantom_vec_rate_limit_config(void);
 void* __swift_bridge__$__alef_phantom_vec_intent_prototype(void);
 void* __swift_bridge__$__alef_phantom_vec_enforcement(void);

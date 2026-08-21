@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Multimodal embedding inputs can combine tagged text, image URL, and base64 image parts. Self-hosted
+  embedding providers forward the complete input, and vector metadata can retain an image payload
+  and convert it directly to `ContentPart::ImageUrl` for multimodal RAG.
+- A queueing `InFlightLimitLayer` and managed-client configuration now bound simultaneous provider
+  requests globally per client. Cache hits bypass the limiter, `None` remains unlimited, and zero is
+  rejected as invalid configuration.
+
+### Changed
+
+- **Breaking:** `EmbeddingProvider::embed` now accepts `&EmbeddingInput` instead of `&str`, and
+  `VectorMetadata` adds an `image_url` field. Custom provider implementations and metadata struct
+  literals must be updated. Built-in Bedrock, Google AI, and Vertex AI embedding adapters reject
+  multimodal inputs explicitly; use a compatible custom or self-hosted endpoint for image embeddings.
+
 ## [1.17.3] - 2026-08-21
 
 ### Fixed

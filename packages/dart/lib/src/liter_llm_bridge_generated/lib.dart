@@ -9,7 +9,7 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'lib.freezed.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `IntentPrototype`, `SingleflightResult`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// Create a new LLM client with simple scalar configuration.
 ///
@@ -185,54 +185,6 @@ Future<ModelInfo?> modelInfo({required String model}) =>
 /// If the lock was poisoned by a panicking guardrail on a previous access,
 /// the poisoned state is recovered rather than propagating the panic.
 Future<void> clear() => RustLib.instance.api.crateClear();
-
-/// Count tokens in a text string using the tokenizer for the given model.
-///
-/// The tokenizer is resolved from the model name prefix (e.g. `"gpt-4o"` maps
-/// to the `Xenova/gpt-4o` HuggingFace tokenizer). Tokenizers are cached after
-/// first load.
-///
-/// **Errors:**
-///
-/// Returns `LiterLlmError.BadRequest` if the tokenizer cannot be loaded
-/// (e.g. network failure on first use) or if tokenization itself fails.
-Future<PlatformInt64> countTokens({
-  required String model,
-  required String text,
-}) => RustLib.instance.api.crateCountTokens(model: model, text: text);
-
-/// Count tokens for a full `ChatCompletionRequest`.
-///
-/// Sums tokens across all message text contents plus a per-message overhead
-/// of ~4 tokens (for role, separators, and formatting metadata). Tool
-/// definitions and multimodal content parts (images, audio, documents) are
-/// not counted — only textual content contributes to the token total.
-///
-/// **Errors:**
-///
-/// Returns `LiterLlmError.BadRequest` if the tokenizer cannot be loaded or
-/// if tokenization fails for any message.
-Future<PlatformInt64> countRequestTokens({
-  required String model,
-  required ChatCompletionRequest req,
-}) => RustLib.instance.api.crateCountRequestTokens(model: model, req: req);
-
-/// Record the estimated USD cost of a completion.
-///
-/// Call from `CostTrackingService` once a
-/// completion's cost has been computed. Emits `gen_ai.client.cost.usd`.
-/// If the meter has not been initialized, this call is a no-op.
-Future<void> recordCostUsd({
-  required String system,
-  required String model,
-  required String operation,
-  required double costUsd,
-}) => RustLib.instance.api.crateRecordCostUsd(
-  system: system,
-  model: model,
-  operation: operation,
-  costUsd: costUsd,
-);
 
 /// Assert that `current_len + incoming` does not exceed `limit`.
 ///
@@ -590,6 +542,11 @@ Future<LlmRateLimitConfig> createLlmRateLimitConfigFromJson({
   required String json,
 }) => RustLib.instance.api.crateCreateLlmRateLimitConfigFromJson(json: json);
 
+Future<LlmInFlightLimitConfig> createLlmInFlightLimitConfigFromJson({
+  required String json,
+}) =>
+    RustLib.instance.api.crateCreateLlmInFlightLimitConfigFromJson(json: json);
+
 Future<LlmProviderConfig> createLlmProviderConfigFromJson({
   required String json,
 }) => RustLib.instance.api.crateCreateLlmProviderConfigFromJson(json: json);
@@ -626,6 +583,10 @@ Future<BudgetConfig> createBudgetConfigFromJson({required String json}) =>
 
 Future<CacheConfig> createCacheConfigFromJson({required String json}) =>
     RustLib.instance.api.crateCreateCacheConfigFromJson(json: json);
+
+Future<InFlightLimitConfig> createInFlightLimitConfigFromJson({
+  required String json,
+}) => RustLib.instance.api.crateCreateInFlightLimitConfigFromJson(json: json);
 
 Future<RateLimitConfig> createRateLimitConfigFromJson({required String json}) =>
     RustLib.instance.api.crateCreateRateLimitConfigFromJson(json: json);
@@ -2235,6 +2196,24 @@ class DocumentContent {
           mediaType == other.mediaType;
 }
 
+@freezed
+sealed class EmbeddingContentPart with _$EmbeddingContentPart {
+  const EmbeddingContentPart._();
+
+  /// Plain text.
+  const factory EmbeddingContentPart.text({required String text}) =
+      EmbeddingContentPart_Text;
+
+  /// Image identified by a data URL or HTTP/HTTPS URL.
+  const factory EmbeddingContentPart.imageUrl({required ImageUrl imageUrl}) =
+      EmbeddingContentPart_ImageUrl;
+
+  /// Image encoded as a complete data URL.
+  const factory EmbeddingContentPart.imageBase64({
+    required String imageBase64,
+  }) = EmbeddingContentPart_ImageBase64;
+}
+
 /// The format in which the embedding vectors are returned.
 enum EmbeddingFormat {
   /// 32-bit floating-point numbers (default).
@@ -2255,6 +2234,11 @@ sealed class EmbeddingInput with _$EmbeddingInput {
   /// Multiple text strings (batch embedding).
   const factory EmbeddingInput.multiple({required List<String> field0}) =
       EmbeddingInput_Multiple;
+
+  /// Text and image parts for a single multimodal embedding.
+  const factory EmbeddingInput.multimodal({
+    required List<EmbeddingContentPart> field0,
+  }) = EmbeddingInput_Multimodal;
 }
 
 /// A single embedding vector.
@@ -2298,7 +2282,7 @@ class EmbeddingRequest {
   /// Model ID (e.g., `"text-embedding-3-small"`).
   final String model;
 
-  /// Text or texts to embed.
+  /// Text, texts, or multimodal content to embed.
   final EmbeddingInput input;
 
   /// Output format: float (native) or base64.
@@ -2711,6 +2695,24 @@ class ImagesResponse {
           data == other.data;
 }
 
+/// Configuration for the global per-client in-flight request limit.
+class InFlightLimitConfig {
+  /// Maximum simultaneously outstanding provider requests. `None` means unlimited.
+  final PlatformInt64? maxInFlight;
+
+  const InFlightLimitConfig({this.maxInFlight});
+
+  @override
+  int get hashCode => maxInFlight.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InFlightLimitConfig &&
+          runtimeType == other.runtimeType &&
+          maxInFlight == other.maxInFlight;
+}
+
 /// JSON Schema specification for constrained output.
 class JsonSchemaFormat {
   /// Name of the schema (must be unique in the request).
@@ -2997,6 +2999,9 @@ class LlmConfig {
   /// Per-model rate limiting configuration.
   final LlmRateLimitConfig? rateLimit;
 
+  /// Global per-client in-flight provider request limit.
+  final LlmInFlightLimitConfig? inFlightLimit;
+
   /// Enable per-request cost tracking.
   final bool? costTracking;
 
@@ -3026,6 +3031,7 @@ class LlmConfig {
     this.cache,
     this.budget,
     this.rateLimit,
+    this.inFlightLimit,
     this.costTracking,
     this.tracing,
     this.cooldownSecs,
@@ -3048,6 +3054,7 @@ class LlmConfig {
       cache.hashCode ^
       budget.hashCode ^
       rateLimit.hashCode ^
+      inFlightLimit.hashCode ^
       costTracking.hashCode ^
       tracing.hashCode ^
       cooldownSecs.hashCode ^
@@ -3072,11 +3079,30 @@ class LlmConfig {
           cache == other.cache &&
           budget == other.budget &&
           rateLimit == other.rateLimit &&
+          inFlightLimit == other.inFlightLimit &&
           costTracking == other.costTracking &&
           tracing == other.tracing &&
           cooldownSecs == other.cooldownSecs &&
           healthCheckSecs == other.healthCheckSecs &&
           bedrock == other.bedrock;
+}
+
+/// Global per-client in-flight provider request limit.
+class LlmInFlightLimitConfig {
+  /// Maximum simultaneously outstanding provider requests. `None` means unlimited.
+  final PlatformInt64? maxInFlight;
+
+  const LlmInFlightLimitConfig({this.maxInFlight});
+
+  @override
+  int get hashCode => maxInFlight.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmInFlightLimitConfig &&
+          runtimeType == other.runtimeType &&
+          maxInFlight == other.maxInFlight;
 }
 
 /// A custom provider configuration entry.
