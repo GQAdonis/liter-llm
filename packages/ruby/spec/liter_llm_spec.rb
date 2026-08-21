@@ -13,6 +13,6 @@ RSpec.describe LiterLlm do
   # alef never regenerates over this file, so replace it with a real suite. ~keep
   it "constructs the generated `DocumentContent` class from keyword arguments" do
     instance = described_class::DocumentContent.new(data: "alef-scaffold", media_type: "alef-scaffold")
-    expect([instance.data, instance.media_type]).to eq(["alef-scaffold", "alef-scaffold"])
+    expect([instance.data, instance.media_type]).to eq(%w[alef-scaffold alef-scaffold])
   end
 end
