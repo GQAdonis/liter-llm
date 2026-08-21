@@ -183,7 +183,7 @@ packages:
       path: "../../packages/dart"
       relative: true
     source: path
-    version: "1.17.1"
+    version: "1.17.2"
   logging:
     dependency: transitive
     description:

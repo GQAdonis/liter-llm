@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-08-21
+
+### Fixed
+
+- Generated bindings regenerated on alef 0.62.8. This carries alef's fixes for JNI and FFI casts to
+  a value's own type (which tripped `clippy::unnecessary_cast` in the JNI crate, linted with
+  `-D warnings`), a dead `java.util.List` import, and a `kotlin.test.assertNotNull` import emitted
+  where nothing referenced it.
+
+- `packages/ruby/ext/liter_llm_rb/native/Cargo.toml` and `e2e/rust/Cargo.toml` now follow the
+  project version. Both are alef-owned but were never reached by the version sync, so each release
+  left them pinned to the previous version.
+
+- The publish workflow pins `xberg-io/actions` at `@v1` rather than `@main`, so it no longer tracks
+  untagged changes to that repository.
+
+### Security
+
+- `h2` advanced to 0.4.18, resolving RUSTSEC-2026-0258 (unbounded empty DATA frames: a peer could
+  queue empty frames without limit, risking unbounded memory use or a panic on length overflow).
+  Low severity.
+
+### Changed
+
+- All Rust dependencies taken to their latest versions (`cargo upgrade --incompatible` followed by
+  `cargo update`): `jsonschema` 0.49 to 0.50 and `rand` 0.9 to 0.10 as direct dependencies, plus 105
+  transitive bumps and two new packages. Nothing was downgraded. `rand` 0.10 required source
+  changes: the `os_rng` feature is now `sys_rng`, `small_rng` is gone (`SmallRng` compiles
+  unconditionally), `SmallRng::from_os_rng()` becomes `rand::make_rng::<SmallRng>()`, and
+  `Rng::random_range` moved to a new `RngExt` trait.
+
+- alef pinned to 0.62.8.
+
+### Known issues
+
+- The Dart package does not analyze cleanly. `packages/dart/lib/src/liter_llm.dart` calls
+  `countTokens`, `countRequestTokens` and `recordCostUsd`, which the committed
+  flutter_rust_bridge bridge does not declare, so `dart analyze` reports three
+  `undefined_function` errors. The three functions are declared in the bridge facade; the bridge
+  generator emits them only when invoked as a `cargo` build-script subprocess and not when invoked
+  as a bare CLI, which is how alef calls it. Tracked upstream; other language bindings are
+  unaffected.
+
 ## [1.17.1] - 2026-08-15
 
 ### Changed
