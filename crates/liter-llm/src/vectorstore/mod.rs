@@ -26,6 +26,7 @@ use std::pin::Pin;
 use std::time::SystemTime;
 
 use crate::error::Result;
+use crate::types::{ContentPart, ImageUrl};
 
 /// Metadata stored alongside each vector entry.
 #[cfg_attr(alef, alef(skip))]
@@ -45,12 +46,24 @@ pub struct VectorMetadata {
     /// because the current request body differs from the stored one by
     /// definition (they are only semantically similar, not byte-identical).
     pub original_request_body: String,
+    /// Image payload associated with this vector, when the embedded item is an image.
+    pub image_url: Option<ImageUrl>,
     /// Optional tenant identifier (for multi-tenant deployments).
     pub tenant_id: Option<String>,
     /// Wall-clock time when this vector was inserted.
     pub inserted_at: SystemTime,
     /// Arbitrary key-value metadata (model name, prompt hash, etc.).
     pub extra: HashMap<String, String>,
+}
+
+impl VectorMetadata {
+    /// Convert the stored image payload into a chat content part.
+    #[must_use]
+    pub fn image_content_part(&self) -> Option<ContentPart> {
+        self.image_url
+            .clone()
+            .map(|image_url| ContentPart::ImageUrl { image_url })
+    }
 }
 
 /// Return `true` if an entry carrying `entry_tenant` is visible to a query

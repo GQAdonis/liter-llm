@@ -859,8 +859,15 @@ fn transform_bedrock_embed_request(body: &mut serde_json::Value) -> Result<()> {
     let input = body.get("input").cloned().unwrap_or_default();
     let texts: Vec<String> = match &input {
         serde_json::Value::String(s) => vec![s.clone()],
-        serde_json::Value::Array(arr) => arr.iter().filter_map(|v| v.as_str().map(ToOwned::to_owned)).collect(),
-        _ => vec![],
+        serde_json::Value::Array(arr) if arr.iter().all(serde_json::Value::is_string) => {
+            arr.iter().filter_map(|v| v.as_str().map(ToOwned::to_owned)).collect()
+        }
+        _ => {
+            return Err(LiterLlmError::BadRequest {
+                message: "Bedrock embedding adapters support text input only; use a multimodal-compatible custom provider for image embeddings".into(),
+                status: 400,
+            });
+        }
     };
 
     if model.starts_with("amazon.titan-embed") {
@@ -2434,6 +2441,22 @@ mod tests {
             .expect("a single-element batch is within Titan's one-input limit");
 
         assert_eq!(body["inputText"], "only");
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_embedding_multimodal_input_is_rejected() {
+        let p = provider();
+        let mut body = json!({
+            "model": "amazon.titan-embed-text-v2:0",
+            "input": [{"type": "image_url", "image_url": {"url": "https://example.com/image.png"}}]
+        });
+
+        let error = p
+            .transform_request(&mut body)
+            .expect_err("multimodal input should be rejected");
+        assert_eq!(error.status_code(), 400);
+        assert!(error.to_string().contains("text input only"));
     }
 
     #[test]

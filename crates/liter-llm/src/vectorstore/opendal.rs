@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{VectorMatch, VectorMetadata, VectorStore, tenant_matches};
 use crate::error::{LiterLlmError, Result};
+use crate::types::ImageUrl;
 
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
@@ -45,6 +46,8 @@ struct StoredVector {
     /// the body comparison succeeds even though the current request differs.
     #[serde(default)]
     original_request_body: String,
+    #[serde(default)]
+    image_url: Option<ImageUrl>,
     tenant_id: Option<String>,
     /// Unix timestamp (seconds) of insertion.
     inserted_at_secs: u64,
@@ -56,6 +59,7 @@ impl StoredVector {
         VectorMetadata {
             cache_key: self.cache_key,
             original_request_body: self.original_request_body,
+            image_url: self.image_url,
             tenant_id: self.tenant_id,
             inserted_at: UNIX_EPOCH + Duration::from_secs(self.inserted_at_secs),
             extra: self.extra,
@@ -188,6 +192,7 @@ impl VectorStore for OpenDalVectorStore {
                 vec,
                 cache_key: metadata.cache_key,
                 original_request_body: metadata.original_request_body,
+                image_url: metadata.image_url,
                 tenant_id: metadata.tenant_id,
                 inserted_at_secs: Self::to_unix_secs(metadata.inserted_at),
                 extra: metadata.extra,
@@ -239,6 +244,7 @@ mod tests {
         VectorMetadata {
             cache_key,
             original_request_body: String::new(),
+            image_url: None,
             tenant_id: None,
             inserted_at: SystemTime::now(),
             extra: HashMap::new(),
@@ -253,6 +259,30 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].id, "e1");
         assert_eq!(results[0].metadata.cache_key, 7);
+    }
+
+    #[tokio::test]
+    async fn image_metadata_round_trips() {
+        let store = memory_store(2);
+        let mut metadata = meta(8);
+        metadata.image_url = Some(ImageUrl {
+            url: "data:image/png;base64,aW1hZ2U=".into(),
+            detail: None,
+        });
+        store.upsert("image".into(), vec![1.0, 0.0], metadata).await.unwrap();
+
+        let result = store.search(&[1.0, 0.0], 1, 0.99, None).await.remove(0);
+        assert_eq!(
+            result.metadata.image_url.as_ref().map(|image| image.url.as_str()),
+            Some("data:image/png;base64,aW1hZ2U=")
+        );
+    }
+
+    #[test]
+    fn stored_vector_without_image_metadata_remains_readable() {
+        let json = r#"{"vec":[1.0],"cache_key":1,"original_request_body":"body","tenant_id":null,"inserted_at_secs":0,"extra":{}}"#;
+        let stored: StoredVector = serde_json::from_str(json).expect("legacy vector should deserialize");
+        assert!(stored.image_url.is_none());
     }
 
     #[tokio::test]

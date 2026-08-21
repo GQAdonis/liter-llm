@@ -962,7 +962,8 @@ where
                 && let Some((_, ref body, ref tenant_id)) = key_and_body
             {
                 let maybe_cached = async {
-                    let query_vec = ep.embed(body).await.ok()?;
+                    let input = crate::types::EmbeddingInput::Single(body.clone());
+                    let query_vec = ep.embed(&input).await.ok()?;
                     let best = vs
                         .search(&query_vec, 1, decision.similarity_threshold, tenant_id.as_deref())
                         .await
@@ -1008,11 +1009,12 @@ where
 
                     if decision.use_semantic
                         && let (Some(ep), Some(vs)) = (&embedding_provider, &vector_store)
-                        && let Ok(vec) = ep.embed(&body).await
+                        && let Ok(vec) = ep.embed(&crate::types::EmbeddingInput::Single(body.clone())).await
                     {
                         let metadata = crate::vectorstore::VectorMetadata {
                             cache_key: k,
                             original_request_body: body.clone(),
+                            image_url: None,
                             tenant_id,
                             inserted_at: std::time::SystemTime::now(),
                             extra: HashMap::new(),
@@ -1372,6 +1374,7 @@ mod tests {
             VectorMetadata {
                 cache_key: exact_key,
                 original_request_body: sentinel_body.into(),
+                image_url: None,
                 tenant_id: None,
                 inserted_at: SystemTime::now(),
                 extra: HashMap::new(),

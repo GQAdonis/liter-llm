@@ -496,14 +496,22 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
 /// OpenAI: `{"model": "...", "input": "text"}`
 /// Gemini: `{"content": {"parts": [{"text": "text"}]}}`
 fn transform_gemini_embed_request(body: &mut serde_json::Value) -> Result<()> {
+    use crate::error::LiterLlmError;
     use serde_json::json;
 
     let input = body.get("input").cloned().unwrap_or_default();
 
     let text = match &input {
         serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Array(arr) => arr.first().and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        _ => String::new(),
+        serde_json::Value::Array(arr) if arr.iter().all(serde_json::Value::is_string) => {
+            arr.first().and_then(|v| v.as_str()).unwrap_or("").to_string()
+        }
+        _ => {
+            return Err(LiterLlmError::BadRequest {
+                message: "Google AI embedding adapters support text input only; use a multimodal-compatible custom provider for image embeddings".into(),
+                status: 400,
+            });
+        }
     };
 
     let new_body = json!({
@@ -521,14 +529,22 @@ fn transform_gemini_embed_request(body: &mut serde_json::Value) -> Result<()> {
 /// OpenAI: `{"model": "...", "input": "text"}`
 /// Vertex: `{"instances": [{"content": "text"}]}`
 fn transform_vertex_embed_request(body: &mut serde_json::Value) -> Result<()> {
+    use crate::error::LiterLlmError;
     use serde_json::json;
 
     let input = body.get("input").cloned().unwrap_or_default();
 
     let text = match &input {
         serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Array(arr) => arr.first().and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        _ => String::new(),
+        serde_json::Value::Array(arr) if arr.iter().all(serde_json::Value::is_string) => {
+            arr.first().and_then(|v| v.as_str()).unwrap_or("").to_string()
+        }
+        _ => {
+            return Err(LiterLlmError::BadRequest {
+                message: "Vertex AI embedding adapters support text input only; use a multimodal-compatible custom provider for image embeddings".into(),
+                status: 400,
+            });
+        }
     };
 
     *body = json!({
@@ -1023,6 +1039,31 @@ mod tests {
             err.to_string().contains("VERTEXAI_PROJECT"),
             "error should mention VERTEXAI_PROJECT"
         );
+    }
+
+    #[test]
+    fn gemini_embedding_rejects_multimodal_input() {
+        let mut body = json!({
+            "input": [
+                {"type": "text", "text": "caption"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/image.png"}}
+            ]
+        });
+
+        let error = transform_gemini_embed_request(&mut body).expect_err("multimodal input should be rejected");
+        assert_eq!(error.status_code(), 400);
+        assert!(error.to_string().contains("text input only"));
+    }
+
+    #[test]
+    fn vertex_embedding_rejects_multimodal_input() {
+        let mut body = json!({
+            "input": [{"type": "image_base64", "image_base64": "data:image/png;base64,aW1hZ2U="}]
+        });
+
+        let error = transform_vertex_embed_request(&mut body).expect_err("multimodal input should be rejected");
+        assert_eq!(error.status_code(), 400);
+        assert!(error.to_string().contains("text input only"));
     }
 
     #[test]

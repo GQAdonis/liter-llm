@@ -54,6 +54,7 @@ struct Entry {
 ///     VectorMetadata {
 ///         cache_key: 42,
 ///         original_request_body: "body".into(),
+///         image_url: None,
 ///         tenant_id: None,
 ///         inserted_at: SystemTime::now(),
 ///         extra: HashMap::new(),
@@ -154,6 +155,7 @@ mod tests {
         VectorMetadata {
             cache_key,
             original_request_body: String::new(),
+            image_url: None,
             tenant_id: None,
             inserted_at: SystemTime::now(),
             extra: HashMap::new(),
@@ -197,6 +199,23 @@ mod tests {
         assert_eq!(results[0].id, "v1");
         assert!((results[0].similarity - 1.0).abs() < 1e-5);
         assert_eq!(results[0].metadata.cache_key, 42);
+    }
+
+    #[tokio::test]
+    async fn image_metadata_converts_to_chat_content_part() {
+        let store = InMemoryVectorStore::new(2);
+        let mut metadata = meta(7);
+        metadata.image_url = Some(crate::types::ImageUrl {
+            url: "https://example.com/result.png".into(),
+            detail: None,
+        });
+        store.upsert("image".into(), vec![1.0, 0.0], metadata).await.unwrap();
+
+        let result = store.search(&[1.0, 0.0], 1, 0.99, None).await.remove(0);
+        assert_eq!(
+            result.metadata.image_content_part(),
+            Some(crate::types::ContentPart::image_url("https://example.com/result.png"))
+        );
     }
 
     #[tokio::test]

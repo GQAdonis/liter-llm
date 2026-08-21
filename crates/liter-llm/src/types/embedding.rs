@@ -1,7 +1,7 @@
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
-use super::common::Usage;
+use super::common::{ImageUrl, Usage};
 use crate::cost;
 
 /// The format in which the embedding vectors are returned.
@@ -20,7 +20,7 @@ pub enum EmbeddingFormat {
 pub struct EmbeddingRequest {
     /// Model ID (e.g., `"text-embedding-3-small"`).
     pub model: String,
-    /// Text or texts to embed.
+    /// Text, texts, or multimodal content to embed.
     pub input: EmbeddingInput,
     /// Output format: float (native) or base64.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -33,7 +33,7 @@ pub struct EmbeddingRequest {
     pub user: Option<String>,
 }
 
-/// Text or texts to embed.
+/// Text, texts, or multimodal content to embed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EmbeddingInput {
@@ -41,12 +41,58 @@ pub enum EmbeddingInput {
     Single(String),
     /// Multiple text strings (batch embedding).
     Multiple(Vec<String>),
+    /// Text and image parts for a single multimodal embedding.
+    Multimodal(Vec<EmbeddingContentPart>),
 }
 
 #[cfg_attr(alef, alef(skip))]
 impl Default for EmbeddingInput {
     fn default() -> Self {
         Self::Single(String::new())
+    }
+}
+
+/// A content part in a multimodal embedding input.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum EmbeddingContentPart {
+    /// Plain text.
+    #[serde(rename = "text")]
+    Text { text: String },
+    /// Image identified by a data URL or HTTP/HTTPS URL.
+    #[serde(rename = "image_url")]
+    ImageUrl { image_url: ImageUrl },
+    /// Image encoded as a complete data URL.
+    #[serde(rename = "image_base64")]
+    ImageBase64 { image_base64: String },
+}
+
+impl EmbeddingContentPart {
+    /// Create a text embedding part.
+    pub fn text(text: impl Into<String>) -> Self {
+        Self::Text { text: text.into() }
+    }
+
+    /// Create an image embedding part from a data URL or HTTP/HTTPS URL.
+    pub fn image_url(url: impl Into<String>) -> Self {
+        Self::ImageUrl {
+            image_url: ImageUrl {
+                url: url.into(),
+                detail: None,
+            },
+        }
+    }
+
+    /// Create an image embedding part from a complete data URL.
+    pub fn image_base64(data_url: impl Into<String>) -> Self {
+        Self::ImageBase64 {
+            image_base64: data_url.into(),
+        }
+    }
+
+    /// Create an image embedding part from raw bytes.
+    pub fn image_bytes(bytes: &[u8], mime_type: Option<&str>) -> Self {
+        Self::image_base64(crate::image::encode_data_url(bytes, mime_type))
     }
 }
 
@@ -169,6 +215,33 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn multimodal_input_round_trips_text_and_image_url() {
+        let input = EmbeddingInput::Multimodal(vec![
+            EmbeddingContentPart::text("a red bicycle"),
+            EmbeddingContentPart::image_url("https://example.com/bicycle.png"),
+        ]);
+
+        let json = serde_json::to_string(&input).expect("serialization should not fail");
+        assert_eq!(
+            json,
+            r#"[{"type":"text","text":"a red bicycle"},{"type":"image_url","image_url":{"url":"https://example.com/bicycle.png"}}]"#
+        );
+        let parsed: EmbeddingInput = serde_json::from_str(&json).expect("deserialization should not fail");
+        assert_eq!(parsed, input);
+    }
+
+    #[test]
+    fn image_bytes_encode_as_data_url() {
+        let part = EmbeddingContentPart::image_bytes(b"image", Some("image/png"));
+        assert_eq!(
+            part,
+            EmbeddingContentPart::ImageBase64 {
+                image_base64: "data:image/png;base64,aW1hZ2U=".into(),
+            }
+        );
+    }
 
     fn embedding_body(embedding_json: &str) -> String {
         format!(r#"{{"object":"embedding","index":0,"embedding":{embedding_json}}}"#)

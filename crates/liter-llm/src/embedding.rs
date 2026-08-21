@@ -1,6 +1,6 @@
 //! Embedding provider abstraction.
 //!
-//! [`EmbeddingProvider`] converts text into a dense float vector suitable for
+//! [`EmbeddingProvider`] converts text or multimodal content into a dense float vector suitable for
 //! similarity lookup in a [`VectorStore`][crate::vectorstore::VectorStore].
 //!
 //! # Built-in implementations
@@ -16,11 +16,11 @@ use std::sync::Arc;
 
 use crate::client::LlmClient;
 use crate::error::Result;
-use crate::types::EmbeddingRequest;
+use crate::types::{EmbeddingInput, EmbeddingRequest};
 
 /// Pluggable embedding provider.
 ///
-/// Implement this trait to convert arbitrary text into a dense vector for
+/// Implement this trait to convert embedding input into a dense vector for
 /// semantic cache lookup.
 ///
 /// # Object safety
@@ -29,10 +29,10 @@ use crate::types::EmbeddingRequest;
 /// `Arc<dyn EmbeddingProvider>`.
 #[cfg_attr(alef, alef(skip))]
 pub trait EmbeddingProvider: Send + Sync + 'static {
-    /// Embed `text` and return a dense float vector.
+    /// Embed `input` and return a dense float vector.
     ///
     /// The returned vector must have length equal to [`dim`][Self::dim].
-    fn embed<'a>(&'a self, text: &'a str) -> Pin<Box<dyn Future<Output = Result<Vec<f32>>> + Send + 'a>>;
+    fn embed<'a>(&'a self, input: &'a EmbeddingInput) -> Pin<Box<dyn Future<Output = Result<Vec<f32>>> + Send + 'a>>;
 
     /// Expected output dimensionality.
     ///
@@ -85,10 +85,10 @@ impl SelfHostedEmbeddingProvider {
 }
 
 impl EmbeddingProvider for SelfHostedEmbeddingProvider {
-    fn embed<'a>(&'a self, text: &'a str) -> Pin<Box<dyn Future<Output = Result<Vec<f32>>> + Send + 'a>> {
+    fn embed<'a>(&'a self, input: &'a EmbeddingInput) -> Pin<Box<dyn Future<Output = Result<Vec<f32>>> + Send + 'a>> {
         let req = EmbeddingRequest {
             model: self.model.clone(),
-            input: crate::types::EmbeddingInput::Single(text.to_owned()),
+            input: input.clone(),
             encoding_format: None,
             dimensions: Some(self.dim as u32),
             user: None,
@@ -124,7 +124,7 @@ pub struct NoOpEmbeddingProvider {
 }
 
 impl EmbeddingProvider for NoOpEmbeddingProvider {
-    fn embed<'a>(&'a self, _text: &'a str) -> Pin<Box<dyn Future<Output = Result<Vec<f32>>> + Send + 'a>> {
+    fn embed<'a>(&'a self, _input: &'a EmbeddingInput) -> Pin<Box<dyn Future<Output = Result<Vec<f32>>> + Send + 'a>> {
         Box::pin(std::future::ready(Ok(vec![0.0_f32; self.dim])))
     }
 
@@ -135,15 +135,15 @@ impl EmbeddingProvider for NoOpEmbeddingProvider {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
 
     use super::*;
     use crate::client::LlmClient;
     use crate::client::{BoxFuture, BoxStream};
     use crate::error::LiterLlmError;
     use crate::types::{
-        ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, EmbeddingObject, EmbeddingRequest,
-        EmbeddingResponse, ModelsListResponse, Usage,
+        ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, EmbeddingContentPart, EmbeddingObject,
+        EmbeddingRequest, EmbeddingResponse, ModelsListResponse, Usage,
         audio::{CreateSpeechRequest, CreateTranscriptionRequest, TranscriptionResponse},
         image::{CreateImageRequest, ImagesResponse},
         moderation::{ModerationRequest, ModerationResponse},
@@ -155,7 +155,8 @@ mod tests {
     #[tokio::test]
     async fn no_op_embedding_provider_returns_zero_vector() {
         let provider = NoOpEmbeddingProvider { dim: 4 };
-        let vec = provider.embed("hello world").await.unwrap();
+        let input = EmbeddingInput::Single("hello world".into());
+        let vec = provider.embed(&input).await.unwrap();
         assert_eq!(vec.len(), 4);
         assert!(vec.iter().all(|&x| x == 0.0));
     }
@@ -164,7 +165,8 @@ mod tests {
     async fn no_op_embedding_provider_dim_is_consistent() {
         let provider = NoOpEmbeddingProvider { dim: 128 };
         assert_eq!(provider.dim(), 128);
-        let vec = provider.embed("test").await.unwrap();
+        let input = EmbeddingInput::Single("test".into());
+        let vec = provider.embed(&input).await.unwrap();
         assert_eq!(vec.len(), provider.dim());
     }
 
@@ -172,11 +174,15 @@ mod tests {
     #[derive(Clone)]
     struct MockEmbedClient {
         embedding: Vec<f32>,
+        input: Arc<Mutex<Option<EmbeddingInput>>>,
     }
 
     impl MockEmbedClient {
         fn new(embedding: Vec<f32>) -> Self {
-            Self { embedding }
+            Self {
+                embedding,
+                input: Arc::new(Mutex::new(None)),
+            }
         }
     }
 
@@ -205,6 +211,7 @@ mod tests {
 
         fn embed(&self, req: EmbeddingRequest) -> BoxFuture<'_, crate::error::Result<EmbeddingResponse>> {
             let embedding: Vec<f32> = self.embedding.clone();
+            *self.input.lock().expect("input lock should not be poisoned") = Some(req.input.clone());
             Box::pin(async move {
                 Ok(EmbeddingResponse {
                     object: "list".into(),
@@ -305,8 +312,26 @@ mod tests {
         let client = Arc::new(MockEmbedClient::new(expected_vec.clone()));
         let provider = SelfHostedEmbeddingProvider::new(client, "openai/text-embedding-3-small", 4);
 
-        let result = provider.embed("hello world").await.unwrap();
+        let input = EmbeddingInput::Single("hello world".into());
+        let result = provider.embed(&input).await.unwrap();
         assert_eq!(result, expected_vec, "should return the mock client's embedding vector");
+    }
+
+    #[tokio::test]
+    async fn self_hosted_embedding_provider_forwards_multimodal_input() {
+        let client = Arc::new(MockEmbedClient::new(vec![0.1, 0.2]));
+        let provider = SelfHostedEmbeddingProvider::new(client.clone(), "custom/multimodal", 2);
+        let input = EmbeddingInput::Multimodal(vec![
+            EmbeddingContentPart::text("caption"),
+            EmbeddingContentPart::image_url("https://example.com/image.png"),
+        ]);
+
+        provider.embed(&input).await.unwrap();
+
+        assert_eq!(
+            *client.input.lock().expect("input lock should not be poisoned"),
+            Some(input)
+        );
     }
 
     #[tokio::test]

@@ -1,5 +1,5 @@
 ---
-description: "Generate text embeddings and rerank documents with liter-llm."
+description: "Generate text and image embeddings and rerank documents with liter-llm."
 title: "Embeddings & Rerank"
 ---
 
@@ -27,7 +27,7 @@ import { Content as Snip_wasm_usage_rerank } from "../../../snippets/wasm/usage/
 
 ## Embeddings
 
-Generate vector embeddings from text. Embeddings are fixed-length numeric arrays that capture semantic meaning -- useful for search, clustering, and RAG.
+Generate vector embeddings from text or multimodal content. Embeddings are fixed-length numeric arrays that capture semantic meaning -- useful for search, clustering, and RAG.
 
 <Tabs syncKey="lang">
 <TabItem label="Python">
@@ -87,7 +87,7 @@ Generate vector embeddings from text. Embeddings are fixed-length numeric arrays
 | Parameter         | Type         | Description                                              |
 | ----------------- | ------------ | -------------------------------------------------------- |
 | `model`           | string       | Embedding model (e.g. `"openai/text-embedding-3-small"`) |
-| `input`           | string/array | Text(s) to embed                                         |
+| `input`           | string/array | Text, text batches, or tagged text and image parts       |
 | `encoding_format` | string       | Output format (`"float"` or `"base64"`)                  |
 | `dimensions`      | int          | Output dimensionality (model-dependent)                  |
 
@@ -110,6 +110,42 @@ Generate vector embeddings from text. Embeddings are fixed-length numeric arrays
 | Jina AI          | `jina_ai/`   | `jina-embeddings-v3`                               |
 
 See the [Providers](/providers/) page for the complete capability matrix.
+
+### Multimodal RAG
+
+Send a tagged array of text and image parts to a multimodal-compatible custom or self-hosted embedding endpoint:
+
+```rust
+use liter_llm::types::{EmbeddingContentPart, EmbeddingInput, EmbeddingRequest};
+
+let request = EmbeddingRequest {
+    model: "custom/multimodal-embedding".into(),
+    input: EmbeddingInput::Multimodal(vec![
+        EmbeddingContentPart::text("product photo"),
+        EmbeddingContentPart::image_url("https://example.com/product.png"),
+    ]),
+    ..Default::default()
+};
+```
+
+Use `EmbeddingContentPart::image_bytes` to encode raw bytes as a data URL. The custom endpoint must accept the tagged multimodal payload. The built-in Bedrock, Google AI, and Vertex AI embedding adapters remain text-only and return a bad-request error for multimodal input.
+
+Store the source image alongside its vector and pass a retrieved match directly into a chat request:
+
+```rust
+use liter_llm::types::ImageUrl;
+
+metadata.image_url = Some(ImageUrl {
+    url: "https://example.com/product.png".into(),
+    detail: None,
+});
+
+if let Some(image_part) = matched.metadata.image_content_part() {
+    // ~keep Add image_part to UserContent::Parts for a vision-capable chat model.
+}
+```
+
+Existing `EmbeddingProvider` implementations must change `embed` to accept `&EmbeddingInput` instead of `&str`. Existing `VectorMetadata` literals must set `image_url`, usually to `None`.
 
 ## Rerank
 
