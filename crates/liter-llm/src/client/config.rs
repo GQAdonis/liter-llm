@@ -8,7 +8,7 @@ use crate::auth::CredentialProvider;
 use crate::error::{LiterLlmError, Result};
 use crate::http::transport::TransportConfig;
 #[cfg(feature = "tower")]
-use crate::tower::{BudgetConfig, CacheConfig, CacheStore, LlmHook, RateLimitConfig};
+use crate::tower::{BudgetConfig, CacheConfig, CacheStore, InFlightLimitConfig, LlmHook, RateLimitConfig};
 
 /// Configuration for an LLM client.
 ///
@@ -77,6 +77,10 @@ pub struct ClientConfig {
     /// Per-model rate limiting configuration (RPM/TPM).
     #[cfg(feature = "tower")]
     pub rate_limit_config: Option<RateLimitConfig>,
+
+    /// Global per-client in-flight provider request limit.
+    #[cfg(feature = "tower")]
+    pub in_flight_limit_config: Option<InFlightLimitConfig>,
 
     /// Background health check interval. When set, periodically probes the provider
     /// and rejects requests when the provider is unhealthy.
@@ -160,6 +164,8 @@ impl ClientConfig {
             #[cfg(feature = "tower")]
             rate_limit_config: None,
             #[cfg(feature = "tower")]
+            in_flight_limit_config: None,
+            #[cfg(feature = "tower")]
             health_check_interval: None,
             #[cfg(feature = "tower")]
             enable_cost_tracking: false,
@@ -217,6 +223,7 @@ impl std::fmt::Debug for ClientConfig {
                 .field("hooks_count", &self.hooks.len())
                 .field("cooldown_duration", &self.cooldown_duration)
                 .field("rate_limit_config", &self.rate_limit_config)
+                .field("in_flight_limit_config", &self.in_flight_limit_config)
                 .field("health_check_interval", &self.health_check_interval)
                 .field("enable_cost_tracking", &self.enable_cost_tracking)
                 .field("enable_tracing", &self.enable_tracing);
@@ -396,6 +403,13 @@ impl ClientConfigBuilder {
     #[cfg(feature = "tower")]
     pub fn rate_limit(mut self, config: RateLimitConfig) -> Self {
         self.config.rate_limit_config = Some(config);
+        self
+    }
+
+    /// Set the global per-client in-flight provider request limit.
+    #[cfg(feature = "tower")]
+    pub fn in_flight_limit(mut self, config: InFlightLimitConfig) -> Self {
+        self.config.in_flight_limit_config = Some(config);
         self
     }
 

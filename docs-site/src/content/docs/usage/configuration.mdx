@@ -59,6 +59,9 @@ rpm = 60
 tpm = 100000
 window_seconds = 60
 
+[in_flight_limit]
+max_in_flight = 8
+
 [[providers]]
 name = "my-provider"
 base_url = "https://my-llm.example.com/v1"
@@ -107,6 +110,12 @@ The `backend` and `backend_config` fields are only honored when liter-llm is com
 | `rpm`            | int  | Maximum requests per window.              |
 | `tpm`            | int  | Maximum tokens per window.                |
 | `window_seconds` | int  | Window duration in seconds (default: 60). |
+
+### `[in_flight_limit]`
+
+| Field           | Type | Description                                                   |
+| --------------- | ---- | ------------------------------------------------------------- |
+| `max_in_flight` | int  | Maximum outstanding provider requests. Must be greater than 0. |
 
 ### `[[providers]]`
 
@@ -446,6 +455,33 @@ let config = RateLimitConfig {
     window: Duration::from_secs(60),
 };
 let layer = ModelRateLimitLayer::new(config);
+```
+
+</TabItem>
+</Tabs>
+
+## In-flight concurrency limiting
+
+Bound simultaneous provider requests across all operations that share a managed client. Requests wait for a permit; cached responses do not consume one.
+
+<Tabs syncKey="lang">
+<TabItem label="TOML">
+
+```toml
+[in_flight_limit]
+max_in_flight = 8
+```
+
+</TabItem>
+<TabItem label="Rust">
+
+```rust
+use liter_llm::InFlightLimitConfig;
+
+let config = InFlightLimitConfig {
+    max_in_flight: Some(8),
+};
+let builder = builder.in_flight_limit(config);
 ```
 
 </TabItem>

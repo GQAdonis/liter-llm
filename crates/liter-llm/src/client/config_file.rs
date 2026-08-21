@@ -52,6 +52,7 @@ pub struct FileConfig {
     pub budget: Option<FileBudgetConfig>,
     pub cooldown_secs: Option<u64>,
     pub rate_limit: Option<FileRateLimitConfig>,
+    pub in_flight_limit: Option<FileInFlightLimitConfig>,
     pub health_check_secs: Option<u64>,
     pub cost_tracking: Option<bool>,
     pub tracing: Option<bool>,
@@ -84,6 +85,13 @@ pub struct FileRateLimitConfig {
     pub rpm: Option<u32>,
     pub tpm: Option<u64>,
     pub window_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(alef, alef(skip))]
+pub struct FileInFlightLimitConfig {
+    pub max_in_flight: Option<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -209,6 +217,13 @@ impl FileConfig {
                 });
             }
 
+            if let Some(limit) = self.in_flight_limit {
+                use crate::tower::InFlightLimitConfig;
+                builder = builder.in_flight_limit(InFlightLimitConfig {
+                    max_in_flight: limit.max_in_flight,
+                });
+            }
+
             if let Some(secs) = self.health_check_secs {
                 builder = builder.health_check(Duration::from_secs(secs));
             }
@@ -273,6 +288,9 @@ enforcement = "hard"
 rpm = 60
 tpm = 100000
 
+[in_flight_limit]
+max_in_flight = 8
+
 [extra_headers]
 "X-Custom" = "value"
 
@@ -287,6 +305,7 @@ model_prefixes = ["my-provider/"]
         assert_eq!(config.max_retries, Some(5));
         assert!(config.cache.is_some());
         assert!(config.budget.is_some());
+        assert_eq!(config.in_flight_limit.as_ref().and_then(|c| c.max_in_flight), Some(8));
         assert_eq!(config.providers().len(), 1);
         assert_eq!(config.providers()[0].name, "my-provider");
     }

@@ -103,6 +103,7 @@ Layers run outermost to innermost. `CacheLayer` short-circuits the stack on a hi
 | `CacheLayer`          | `tower/cache.rs`      | In-memory response cache (LRU, configurable TTL)   |
 | `BudgetLayer`         | `tower/budget.rs`     | Hard/soft spend caps per key                       |
 | `ModelRateLimitLayer` | `tower/rate_limit.rs` | RPM / TPM sliding-window limits                    |
+| `InFlightLimitLayer`  | `tower/in_flight.rs`  | Global per-client provider concurrency limit       |
 | `CooldownLayer`       | `tower/cooldown.rs`   | Per-provider backoff after transient errors        |
 | `HealthCheckLayer`    | `tower/health.rs`     | Marks providers unhealthy after failure threshold  |
 | `HooksLayer`          | `tower/hooks.rs`      | Pre/post-request hook execution                    |

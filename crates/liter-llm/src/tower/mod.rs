@@ -35,6 +35,8 @@
 //!   with pluggable [`circuit::CircuitPolicy`].
 //! - [`hedge::HedgeLayer`] / [`hedge::HedgeService`] — hedged retry that races
 //!   concurrent requests and cancels losers.
+//! - [`in_flight::InFlightLimitLayer`] / [`in_flight::InFlightLimitService`] —
+//!   global per-client provider concurrency limiting.
 //!
 //! # Example
 //!
@@ -84,6 +86,8 @@ pub mod hedge;
 pub mod hooks;
 /// Idempotency-Key dedup layer (OpenAI convention, pluggable store, 24h default TTL).
 pub mod idempotency;
+/// Global per-client in-flight provider request limiter.
+pub mod in_flight;
 /// OTel-native GenAI semantic-convention metrics layer.
 pub mod metrics;
 /// Per-provider rate limiter.
@@ -153,6 +157,7 @@ pub use idempotency::{
     IdempotencyEntry, IdempotencyLayer, IdempotencyService, IdempotencyStore, IdempotencyStoreError,
     InMemoryIdempotencyStore,
 };
+pub use in_flight::{InFlightLimitConfig, InFlightLimitLayer, InFlightLimitService};
 pub use metrics::{MetricsLayer, MetricsService};
 pub use rate_limit::{
     CostRateLimitConfig, CostRateLimitLayer, CostRateLimitService, ModelRateLimitLayer, ModelRateLimitService,

@@ -47,7 +47,8 @@ pub use builder::{ClientBuilder, NoApiKey, NoProvider, WithApiKey, WithProvider}
 pub use config::{ClientConfig, ClientConfigBuilder};
 pub use config_file::FileConfig;
 pub use llm_config::{
-    BedrockConfig, LlmBudgetConfig, LlmCacheConfig, LlmConfig, LlmProviderConfig, LlmRateLimitConfig,
+    BedrockConfig, LlmBudgetConfig, LlmCacheConfig, LlmConfig, LlmInFlightLimitConfig, LlmProviderConfig,
+    LlmRateLimitConfig,
 };
 
 use crate::types::batch::BatchStatus;

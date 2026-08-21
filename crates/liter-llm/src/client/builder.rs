@@ -37,7 +37,7 @@ use crate::auth::CredentialProvider;
 use crate::error::Result;
 use crate::http::transport::TransportConfig;
 #[cfg(feature = "tower")]
-use crate::tower::{BudgetConfig, CacheConfig, CacheStore, LlmHook, RateLimitConfig};
+use crate::tower::{BudgetConfig, CacheConfig, CacheStore, InFlightLimitConfig, LlmHook, RateLimitConfig};
 
 /// Marker: no API key has been set on this builder.
 pub struct NoApiKey;
@@ -105,6 +105,8 @@ pub struct ClientBuilder<K = NoApiKey, P = NoProvider> {
     #[cfg(feature = "tower")]
     rate_limit_config: Option<RateLimitConfig>,
     #[cfg(feature = "tower")]
+    in_flight_limit_config: Option<InFlightLimitConfig>,
+    #[cfg(feature = "tower")]
     health_check_interval: Option<Duration>,
     #[cfg(feature = "tower")]
     enable_cost_tracking: bool,
@@ -141,6 +143,8 @@ impl ClientBuilder<NoApiKey, NoProvider> {
             cooldown_duration: None,
             #[cfg(feature = "tower")]
             rate_limit_config: None,
+            #[cfg(feature = "tower")]
+            in_flight_limit_config: None,
             #[cfg(feature = "tower")]
             health_check_interval: None,
             #[cfg(feature = "tower")]
@@ -190,6 +194,8 @@ impl<K, P> ClientBuilder<K, P> {
             #[cfg(feature = "tower")]
             rate_limit_config: self.rate_limit_config,
             #[cfg(feature = "tower")]
+            in_flight_limit_config: self.in_flight_limit_config,
+            #[cfg(feature = "tower")]
             health_check_interval: self.health_check_interval,
             #[cfg(feature = "tower")]
             enable_cost_tracking: self.enable_cost_tracking,
@@ -231,6 +237,8 @@ impl<K, P> ClientBuilder<K, P> {
             cooldown_duration: self.cooldown_duration,
             #[cfg(feature = "tower")]
             rate_limit_config: self.rate_limit_config,
+            #[cfg(feature = "tower")]
+            in_flight_limit_config: self.in_flight_limit_config,
             #[cfg(feature = "tower")]
             health_check_interval: self.health_check_interval,
             #[cfg(feature = "tower")]
@@ -344,6 +352,13 @@ impl<K, P> ClientBuilder<K, P> {
         self
     }
 
+    /// Set the global per-client in-flight provider request limit.
+    #[cfg(feature = "tower")]
+    pub fn in_flight_limit(mut self, config: InFlightLimitConfig) -> Self {
+        self.in_flight_limit_config = Some(config);
+        self
+    }
+
     /// Set the background health check interval.
     #[cfg(feature = "tower")]
     pub fn health_check(mut self, interval: Duration) -> Self {
@@ -411,6 +426,8 @@ impl ClientBuilder<WithApiKey, WithProvider> {
             cooldown_duration: self.cooldown_duration,
             #[cfg(feature = "tower")]
             rate_limit_config: self.rate_limit_config,
+            #[cfg(feature = "tower")]
+            in_flight_limit_config: self.in_flight_limit_config,
             #[cfg(feature = "tower")]
             health_check_interval: self.health_check_interval,
             #[cfg(feature = "tower")]

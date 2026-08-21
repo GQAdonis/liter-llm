@@ -71,6 +71,9 @@ pub struct LlmConfig {
     /// Per-model rate limiting configuration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_limit: Option<LlmRateLimitConfig>,
+    /// Global per-client in-flight provider request limit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub in_flight_limit: Option<LlmInFlightLimitConfig>,
     /// Enable per-request cost tracking.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost_tracking: Option<bool>,
@@ -134,6 +137,15 @@ pub struct LlmRateLimitConfig {
     /// Rate limit window, in seconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window_seconds: Option<u64>,
+}
+
+/// Global per-client in-flight provider request limit.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+pub struct LlmInFlightLimitConfig {
+    /// Maximum simultaneously outstanding provider requests. `None` means unlimited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_in_flight: Option<usize>,
 }
 
 /// A custom provider configuration entry.
@@ -225,6 +237,7 @@ impl std::fmt::Debug for LlmConfig {
             .field("cache", &self.cache)
             .field("budget", &self.budget)
             .field("rate_limit", &self.rate_limit)
+            .field("in_flight_limit", &self.in_flight_limit)
             .field("cost_tracking", &self.cost_tracking)
             .field("tracing", &self.tracing)
             .field("cooldown_secs", &self.cooldown_secs)
@@ -313,6 +326,13 @@ impl LlmConfig {
                     rpm: rl.rpm,
                     tpm: rl.tpm,
                     window: Duration::from_secs(rl.window_seconds.unwrap_or(60)),
+                });
+            }
+
+            if let Some(limit) = self.in_flight_limit {
+                use crate::tower::InFlightLimitConfig;
+                builder = builder.in_flight_limit(InFlightLimitConfig {
+                    max_in_flight: limit.max_in_flight,
                 });
             }
 
