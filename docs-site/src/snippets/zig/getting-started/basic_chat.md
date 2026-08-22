@@ -1,0 +1,25 @@
+---
+id: readme_zig_basic_chat
+language: zig
+target: zig
+level: syntax
+requires: []
+side_effect: network
+---
+
+Send a message to any provider using the `provider/model` prefix.
+
+```zig
+const liter_llm = @import("liter_llm");
+const std = @import("std");
+
+pub fn main() !void {
+    const api_key = "sk-...";
+    var client = try liter_llm.create_client(api_key, null, null, null, null);
+    defer client.close();
+    const req = "{\"model\":\"openai/gpt-4o\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello!\"}]}";
+    const response = try client.chat(req);
+    defer liter_llm._free_string(response);
+    std.debug.print("Response: {s}\n", .{response});
+}
+```
