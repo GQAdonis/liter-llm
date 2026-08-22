@@ -14,7 +14,7 @@ on:
       dry_run:
         description: "Dry run — build everything but skip registry publishes"
         required: false
-        default: "false"
+        default: false
         type: boolean
       force_republish:
         description: "Force publish even if the version already exists in registries"

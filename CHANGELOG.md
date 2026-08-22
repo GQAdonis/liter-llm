@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `.github/workflows/publish.yaml`: the `dry_run` workflow_dispatch input declared
+  `default: "false"` (a quoted string) against `type: boolean`, which made the whole `on:` block
+  fail GitHub's workflow schema (`gau --check` reported
+  `schema validation failed at /on: ... is not valid under any of the schemas listed in the 'oneOf' keyword`).
+  Its sibling inputs `force_republish` and `republish` already used an unquoted `false`. No job
+  behaviour changes: every `if:` in the workflow gates on the normalized string outputs
+  `steps.meta.outputs.dry_run` / `needs.prepare.outputs.dry_run`, never on `inputs.dry_run`.
+
 ### Removed
 
 - Retired 18 of 20 `legacy_python_*` hand-maintained doc snippets under `docs-site/src/snippets/python`
