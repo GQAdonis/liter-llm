@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `legacy_zig_guides_error_handling` is kept.
 
   This completes the doc-snippet triage across all 14 languages that carried `legacy_*` snippets
-  (269 files total): 251 retired as superseded by alef-generated fixtures, 18 kept
+  (269 files total): 252 retired as superseded by alef-generated fixtures, 17 kept
   (`guides_error_handling` in every language, plus `usage_multimodal` in go/php and
   `python_multimodal` in python) because they demonstrate patterns — per-exception-type branching,
   and multimodal/audio/document/structured-output/typed-constructor usage — that the generated
