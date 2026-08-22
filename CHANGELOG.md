@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `legacy_python_guides_error_handling` and `legacy_python_multimodal` are kept: they demonstrate
   per-exception-type branching and multimodal/audio/document/structured-output patterns that the
   generated fixtures do not currently express.
+- Retired 18 of 19 `legacy_csharp_*` hand-maintained doc snippets under `docs-site/src/snippets/csharp`
+  covering the same topic set as the Python legacy snippets (the C# tree has no `multimodal` legacy
+  file). `legacy_csharp_guides_error_handling` is kept for the same reason as its Python counterpart.
 
 ## [1.18.0] - 2026-08-22
 
