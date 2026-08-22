@@ -49,6 +49,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is kept.
 - Retired 18 of 19 `legacy_wasm_*` hand-maintained doc snippets under `docs-site/src/snippets/wasm`,
   same triage as csharp. `legacy_wasm_guides_error_handling` is kept.
+- Retired 18 of 19 `legacy_zig_*` hand-maintained doc snippets under `docs-site/src/snippets/zig`,
+  same topic set and same triage as dart/swift (catalog-only references).
+  `legacy_zig_guides_error_handling` is kept.
+
+  This completes the doc-snippet triage across all 14 languages that carried `legacy_*` snippets
+  (269 files total): 251 retired as superseded by alef-generated fixtures, 18 kept
+  (`guides_error_handling` in every language, plus `usage_multimodal` in go/php and
+  `python_multimodal` in python) because they demonstrate patterns — per-exception-type branching,
+  and multimodal/audio/document/structured-output/typed-constructor usage — that the generated
+  fixtures do not currently express.
 
 ## [1.18.0] - 2026-08-22
 
