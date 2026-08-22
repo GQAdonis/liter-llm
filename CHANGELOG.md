@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Alef's generated fixtures for this target live under `docs-site/src/snippets/kotlin-android`
   (the crate key is `kotlin_android`, not `kotlin`); the legacy-snippet-catalog page now points there.
   `legacy_kotlin_guides_error_handling` is kept.
+- Retired 18 of 20 `legacy_php_*` hand-maintained doc snippets under `docs-site/src/snippets/php`,
+  same triage as python/go. `legacy_php_guides_error_handling` and `legacy_php_usage_multimodal` are
+  kept.
 
 ## [1.18.0] - 2026-08-22
 
