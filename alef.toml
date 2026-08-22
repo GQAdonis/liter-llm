@@ -2242,9 +2242,9 @@ search = true
 ocr = true
 caching = true
 
-[crates.readme.languages.go.snippets]
-basic_chat = "getting-started/basic_chat.md"
-streaming = "getting-started/streaming.md"
+# ~keep No `[crates.readme.languages.go.snippets]`: Go renders from `go.md`, which
+# never includes `partials/quick_start.md` and so never consumes these keys. Declaring
+# them only made `alef snippets check` demand two snippet files nothing reads.
 
 [crates.readme.languages.java]
 template = "language_package.md"
