@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   kept.
 - Retired 18 of 19 `legacy_ruby_*` hand-maintained doc snippets under `docs-site/src/snippets/ruby`,
   same triage as csharp. `legacy_ruby_guides_error_handling` is kept.
+- Retired 18 of 19 `legacy_rust_*` hand-maintained doc snippets under `docs-site/src/snippets/rust`,
+  same triage as csharp. `legacy_rust_guides_error_handling` is kept.
 
 ## [1.18.0] - 2026-08-22
 
