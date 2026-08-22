@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-08-22
+
 ### Fixed
+
+- `packages/ruby/sig/types.rbs`: the `fine-tune` enum value was emitted as a bare symbol,
+  `:fine-tune`, which is not valid RBS — the hyphen terminates an unquoted symbol literal, so the
+  declaration failed to parse and steep could not type-check the Ruby package. It is now emitted
+  quoted, `:"fine-tune"`, and `poly lint`'s steep check passes again. Fixed upstream in alef 0.64.0
+  and picked up here by regenerating the bindings.
 
 - `.task/tools/docs.yml`: `docs:snippets:validate` and `docs:snippets:validate:lang` invoked
   `alef snippets validate`, a subcommand that does not exist (`alef snippets` has only `list`,
