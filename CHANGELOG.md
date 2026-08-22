@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same topic set and same triage as csharp/python. `legacy_dart_guides_error_handling` is kept.
   These snippets were only referenced from `reference/legacy-snippet-catalog.mdx`; that page now
   points at the equivalent generated fixtures instead.
+- Retired 18 of 19 `legacy_elixir_*` hand-maintained doc snippets under `docs-site/src/snippets/elixir`,
+  same triage as csharp. `legacy_elixir_guides_error_handling` is kept.
 
 ## [1.18.0] - 2026-08-22
 
