@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   triage as python. `legacy_go_guides_error_handling` and `legacy_go_usage_multimodal` are kept.
 - Retired 18 of 19 `legacy_java_*` hand-maintained doc snippets under `docs-site/src/snippets/java`,
   same triage as csharp. `legacy_java_guides_error_handling` is kept.
+- Retired 18 of 19 `legacy_kotlin_*` hand-maintained doc snippets under `docs-site/src/snippets/kotlin`.
+  Alef's generated fixtures for this target live under `docs-site/src/snippets/kotlin-android`
+  (the crate key is `kotlin_android`, not `kotlin`); the legacy-snippet-catalog page now points there.
+  `legacy_kotlin_guides_error_handling` is kept.
 
 ## [1.18.0] - 2026-08-22
 
