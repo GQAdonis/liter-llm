@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same triage as csharp. `legacy_elixir_guides_error_handling` is kept.
 - Retired 18 of 20 `legacy_go_*` hand-maintained doc snippets under `docs-site/src/snippets/go`, same
   triage as python. `legacy_go_guides_error_handling` and `legacy_go_usage_multimodal` are kept.
+- Retired 18 of 19 `legacy_java_*` hand-maintained doc snippets under `docs-site/src/snippets/java`,
+  same triage as csharp. `legacy_java_guides_error_handling` is kept.
 
 ## [1.18.0] - 2026-08-22
 
