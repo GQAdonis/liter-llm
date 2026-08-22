@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Retired 18 of 19 `legacy_swift_*` hand-maintained doc snippets under `docs-site/src/snippets/swift`,
   same topic set and same triage as dart (catalog-only references).
   `legacy_swift_guides_error_handling` is kept.
+- Retired 18 of 19 `legacy_typescript_*` hand-maintained doc snippets under
+  `docs-site/src/snippets/typescript`, same triage as python. `legacy_typescript_guides_error_handling`
+  is kept.
 
 ## [1.18.0] - 2026-08-22
 
