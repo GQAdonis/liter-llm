@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Retired 18 of 19 `legacy_csharp_*` hand-maintained doc snippets under `docs-site/src/snippets/csharp`
   covering the same topic set as the Python legacy snippets (the C# tree has no `multimodal` legacy
   file). `legacy_csharp_guides_error_handling` is kept for the same reason as its Python counterpart.
+- Retired 18 of 19 `legacy_dart_*` hand-maintained doc snippets under `docs-site/src/snippets/dart`,
+  same topic set and same triage as csharp/python. `legacy_dart_guides_error_handling` is kept.
+  These snippets were only referenced from `reference/legacy-snippet-catalog.mdx`; that page now
+  points at the equivalent generated fixtures instead.
 
 ## [1.18.0] - 2026-08-22
 
