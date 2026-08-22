@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `.task/tools/docs.yml`: `docs:snippets:validate` and `docs:snippets:validate:lang` invoked
+  `alef snippets validate`, a subcommand that does not exist (`alef snippets` has only `list`,
+  `check`, `parse`, `audit`, `gaps`), so both targets failed immediately with
+  `error: unrecognized subcommand 'validate'`. Both now call `alef snippets check --strict`, with
+  the per-language target using `--lang`. The canonical `docs:snippets:all` gate was never affected
+  — it already called `check` directly. The removed `LEVEL` variable has no replacement: validation
+  level is config-owned (`validation_level = "typecheck"`), so per-language runs now typecheck
+  instead of defaulting to syntax.
+
 - `.github/workflows/publish.yaml`: the `dry_run` workflow_dispatch input declared
   `default: "false"` (a quoted string) against `type: boolean`, which made the whole `on:` block
   fail GitHub's workflow schema (`gau --check` reported

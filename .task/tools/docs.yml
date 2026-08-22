@@ -42,19 +42,23 @@ tasks:
     cmds:
       - alef snippets list --snippets docs-site/src/snippets --languages {{.LANGUAGES}}
 
+  # These two are the validation-only slice of `snippets:all`: `check` without the
+  # audit and gaps passes, for fast iteration. They used to call `alef snippets
+  # validate`, which no longer exists — `alef snippets` has only list, check, parse,
+  # audit and gaps. The old `--level` flag has no replacement: the validation level is
+  # config-owned (`validation_level = "typecheck"` in alef.toml), so per-language runs
+  # now typecheck rather than defaulting to syntax. ~keep
   snippets:validate:
-    desc: Syntax-validate all snippet entries via alef
+    desc: Validate all snippet entries via alef (configured validation level)
     cmds:
-      - alef snippets validate --snippets docs-site/src/snippets --timeout 120
+      - alef snippets check --strict
 
   snippets:validate:lang:
-    desc: Validate snippets for specific languages (LANGUAGES=rust,python LEVEL=syntax)
+    desc: Validate snippets for specific languages (LANGUAGES=rust,python)
     requires:
       vars: [LANGUAGES]
-    vars:
-      LEVEL: '{{ .LEVEL | default "syntax" }}'
     cmds:
-      - alef snippets validate --snippets docs-site/src/snippets --languages {{.LANGUAGES}} --level {{.LEVEL}}
+      - alef snippets check --strict --lang {{.LANGUAGES}}
 
   snippets:gaps:
     desc: Report unreferenced snippets + missing language variants
