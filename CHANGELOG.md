@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Retired 18 of 20 `legacy_python_*` hand-maintained doc snippets under `docs-site/src/snippets/python`
+  whose API surface (basic/streaming/tool-calling chat, multi-turn, configuration, embeddings, batches,
+  files, responses, image generation, local providers, moderation, OCR, rerank, search, speech,
+  transcription) is already covered by alef-generated fixture snippets. Doc pages under
+  `docs-site/src/content/docs/usage/*.mdx` now import the equivalent generated fixtures instead.
+  `legacy_python_guides_error_handling` and `legacy_python_multimodal` are kept: they demonstrate
+  per-exception-type branching and multimodal/audio/document/structured-output patterns that the
+  generated fixtures do not currently express.
+
 ## [1.18.0] - 2026-08-22
 
 ### Added
