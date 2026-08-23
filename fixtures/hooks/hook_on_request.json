@@ -1,6 +1,11 @@
 {
   "id": "hook_on_request",
   "description": "Tests that on_request hook is called before the request",
+  "docs": {
+    "topic": "hooks",
+    "stem": "hook-on-request",
+    "title": "Tests that on_request hook is called before the request"
+  },
   "category": "hooks",
   "tags": ["hooks"],
   "skip": {

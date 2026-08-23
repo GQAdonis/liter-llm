@@ -1,27 +1,33 @@
 pub mod files;
+pub mod guardrail;
 pub mod key;
 pub mod mcp;
 pub mod model;
 pub mod provider;
+pub mod routing;
 pub mod security;
 pub mod server;
 pub mod watcher;
 
 pub use files::FileStorageConfig;
+pub use guardrail::{CelActionConfig, GuardrailEntry, GuardrailStageConfig, RegexActionConfig};
 pub use key::VirtualKeyConfig;
 pub use mcp::McpConfig;
 pub use model::{AliasEntry, ModelEntry};
 #[cfg(feature = "etcd-watch")]
 pub use provider::EtcdConfigProvider;
 pub use provider::{ConfigError, ConfigEvent, ConfigProvider, FileWatchConfigProvider, StaticFileConfigProvider};
+pub use routing::{ClassifierConfig, KeywordRuleConfig, PrototypeConfig, RoutingConfig};
 pub use security::{OutboundPolicyKind, SecurityConfig};
 pub use server::ServerConfig;
 
 use std::collections::HashMap;
 use std::path::Path;
 
-use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
+
+use crate::auth::MASTER_TENANT_ID;
 
 fn default_timeout() -> u64 {
     120
@@ -149,6 +155,17 @@ pub struct ProxyConfig {
     pub mcp: McpConfig,
     #[serde(default)]
     pub security: SecurityConfig,
+    /// Routing strategy applied to every multi-deployment `[[models]]`
+    /// group. Absent means round-robin, matching pre-existing behaviour.
+    /// See [`routing::RoutingConfig`].
+    pub routing: Option<RoutingConfig>,
+    /// Content-filtering and policy guardrails enforced on every request, on
+    /// both the unary and realtime paths. Absent or empty means no guardrails.
+    ///
+    /// Any entry that fails to build aborts startup — see
+    /// [`guardrail::GuardrailEntry`] and [`crate::guardrail::build_registry`].
+    #[serde(default)]
+    pub guardrails: Vec<GuardrailEntry>,
 }
 
 /// Replace all `${VAR_NAME}` occurrences in `s` with the value of the
@@ -187,6 +204,143 @@ pub fn interpolate_env_vars(s: &str) -> String {
     result
 }
 
+/// Keys accepted in `[routing]` for each `strategy` value.
+///
+/// `strategy` itself is always permitted; the second element lists the extra
+/// keys that strategy takes.
+const ROUTING_KEYS_BY_STRATEGY: &[(&str, &[&str])] = &[
+    ("round_robin", &[]),
+    ("fallback", &[]),
+    ("latency_based", &[]),
+    ("cost_based", &[]),
+    ("weighted_random", &["weights"]),
+    ("semantic", &["classifier"]),
+];
+
+/// Keys accepted in `[routing.classifier]` for each `kind` value.
+///
+/// `kind` itself is always permitted; the second element lists the extra
+/// keys that kind takes.
+const CLASSIFIER_KEYS_BY_KIND: &[(&str, &[&str])] = &[
+    ("keyword", &["rules"]),
+    (
+        "embedding",
+        &["embedding_model", "api_key", "base_url", "threshold", "prototypes"],
+    ),
+];
+
+/// Reject unknown keys in the `[routing]` table and, when
+/// `strategy = "semantic"`, in the nested `[routing.classifier]` table.
+///
+/// `RoutingConfig` and `ClassifierConfig` both carry
+/// `#[serde(deny_unknown_fields)]`, but serde ignores it on an
+/// internally-tagged enum (`tag = "strategy"` / `tag = "kind"`) because tag
+/// dispatch buffers the content first. Without this check a misspelled key —
+/// `weight` instead of `weights`, or `threshold` with a letter dropped —
+/// parses successfully and is silently discarded, which is exactly the
+/// silent-misconfiguration failure this config surface exists to prevent. ~keep
+fn validate_routing_keys(expanded: &str) -> Result<(), String> {
+    // ~keep The typed parse has already succeeded by the time this runs, so a failure here
+    // ~keep would mean the two parsers disagree — surface it rather than skipping the check.
+    let root: toml::Table =
+        toml::from_str(expanded).map_err(|e| format!("invalid TOML config: re-parse for validation failed: {e}"))?;
+    let Some(routing) = root.get("routing").and_then(toml::Value::as_table) else {
+        return Ok(());
+    };
+    reject_unknown_keys(routing, "strategy", ROUTING_KEYS_BY_STRATEGY, "[routing]")?;
+
+    if let Some(classifier) = routing.get("classifier").and_then(toml::Value::as_table) {
+        reject_unknown_keys(classifier, "kind", CLASSIFIER_KEYS_BY_KIND, "[routing.classifier]")?;
+    }
+    Ok(())
+}
+
+/// Reject keys in `table` other than `tag_field` and the extra keys
+/// registered for `table[tag_field]`'s value in `allowed`.
+///
+/// A no-op — rather than an error — when `tag_field` is absent, not a
+/// string, or its value isn't a recognised tag: those cases either mean
+/// there is nothing to validate here, or they already failed serde's own
+/// typed parse in [`parse_with_env_interpolation`] before this runs.
+fn reject_unknown_keys(
+    table: &toml::Table,
+    tag_field: &str,
+    allowed: &[(&str, &[&str])],
+    context: &str,
+) -> Result<(), String> {
+    let Some(tag_value) = table.get(tag_field).and_then(toml::Value::as_str) else {
+        return Ok(());
+    };
+    let Some((_, extra)) = allowed.iter().find(|(name, _)| *name == tag_value) else {
+        return Ok(());
+    };
+
+    let unknown: Vec<&str> = table
+        .keys()
+        .map(String::as_str)
+        .filter(|key| *key != tag_field && !extra.contains(key))
+        .collect();
+
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    let mut allowed_keys = vec![tag_field];
+    allowed_keys.extend_from_slice(extra);
+    Err(format!(
+        "invalid TOML config: unknown key(s) in {context} for {tag_field} \"{tag_value}\": {}. Accepted keys: {}",
+        unknown.join(", "),
+        allowed_keys.join(", ")
+    ))
+}
+
+/// Reject unknown keys in every `[[guardrails]]` entry and in each entry's
+/// nested `action` table.
+///
+/// Same serde limitation `validate_routing_keys` works around: `GuardrailEntry`
+/// carries `#[serde(deny_unknown_fields)]` but it is internally tagged
+/// (`tag = "type"`), so tag dispatch buffers the table and the attribute is a
+/// documented no-op. A misspelled `patern` would otherwise be discarded, and a
+/// guardrail built from a discarded pattern is a guardrail that does not guard.
+///
+/// Unlike `validate_routing_keys` this runs **before** the typed parse: a
+/// misspelled key almost always leaves the correctly-spelled one missing, so
+/// the typed parse would otherwise win the race and report `missing field
+/// "pattern"` while the operator stares at the line reading `patern`. Naming
+/// the key that is actually wrong is worth the ordering difference. ~keep
+fn validate_guardrail_keys(expanded: &str) -> Result<(), String> {
+    // ~keep A TOML syntax error is reported far better by the typed parse that
+    // ~keep follows; this check only has an opinion about key names.
+    let Ok(root) = toml::from_str::<toml::Table>(expanded) else {
+        return Ok(());
+    };
+    let Some(entries) = root.get("guardrails").and_then(toml::Value::as_array) else {
+        return Ok(());
+    };
+
+    for (index, entry) in entries.iter().enumerate() {
+        let Some(table) = entry.as_table() else {
+            continue;
+        };
+        let context = format!("[[guardrails]] entry {index}");
+        reject_unknown_keys(table, "type", guardrail::GUARDRAIL_KEYS_BY_TYPE, &context)?;
+
+        let Some(action) = table.get("action").and_then(toml::Value::as_table) else {
+            continue;
+        };
+        let action_context = format!("[[guardrails]] entry {index} `action`");
+        match table.get("type").and_then(toml::Value::as_str) {
+            Some("regex") => {
+                reject_unknown_keys(action, "kind", guardrail::REGEX_ACTION_KEYS_BY_KIND, &action_context)?;
+            }
+            Some("cel") => {
+                reject_unknown_keys(action, "kind", guardrail::CEL_ACTION_KEYS_BY_KIND, &action_context)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 /// Apply env-var interpolation to a raw TOML string, then deserialize.
 ///
 /// This is the simplest correct approach: interpolate the whole TOML source
@@ -194,7 +348,77 @@ pub fn interpolate_env_vars(s: &str) -> String {
 /// gets expanded uniformly.
 fn parse_with_env_interpolation(raw: &str) -> Result<ProxyConfig, String> {
     let expanded = interpolate_env_vars(raw);
-    toml::from_str(&expanded).map_err(|e| format!("invalid TOML config: {e}"))
+    validate_guardrail_keys(&expanded)?;
+    let config: ProxyConfig = toml::from_str(&expanded).map_err(|e| format!("invalid TOML config: {e}"))?;
+    validate_routing_keys(&expanded)?;
+    validate_secrets_non_empty(&config)?;
+    validate_virtual_key_tenant_ids(&config)?;
+    Ok(config)
+}
+
+/// Reject credentials that interpolated away to the empty string.
+///
+/// `interpolate_env_vars` substitutes an unset `${VAR}` with `""`, and the
+/// documented idiom for every secret in this file is `key = "${SOME_VAR}"`.
+/// An empty master key is not a weak key, it is a total authentication bypass:
+/// `KeyStore::is_master_key` compares with `ct_eq`, two zero-length byte slices
+/// compare EQUAL, and `Authorization: Bearer ` (trailing space) strips to `""`
+/// — so any unauthenticated caller is promoted to master. Fail at load rather
+/// than serve in that state. ~keep
+fn validate_secrets_non_empty(config: &ProxyConfig) -> Result<(), String> {
+    if config
+        .general
+        .master_key
+        .as_ref()
+        .is_some_and(|k| k.expose_secret().is_empty())
+    {
+        return Err(
+            "[general] master_key is set but empty — an unset ${VAR} interpolates to \"\", and an empty master key \
+             authenticates every request. Set the variable or remove the key."
+                .to_string(),
+        );
+    }
+    for key in &config.keys {
+        if key.key.is_empty() {
+            return Err(format!(
+                "virtual key '{}' has an empty token — an unset ${{VAR}} interpolates to \"\". Set the variable or \
+                 remove the key.",
+                key.description.as_deref().unwrap_or("<no description>")
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Reject a virtual key's explicit `tenant_id` when it is empty or collides
+/// with [`MASTER_TENANT_ID`].
+///
+/// An empty value is the same interpolated-away-`${VAR}` hazard as
+/// `validate_secrets_non_empty` guards against for `key`. `"master"` is
+/// reserved: `KeyContext::master()` always resolves to `MASTER_TENANT_ID`, so
+/// a virtual key configured to share it would fold that key's spend into the
+/// master key's budget-ledger bucket and cache namespace — a budget-tracking
+/// bypass introduced by config, not by code. ~keep
+fn validate_virtual_key_tenant_ids(config: &ProxyConfig) -> Result<(), String> {
+    for key in &config.keys {
+        let Some(tenant_id) = key.tenant_id.as_deref() else {
+            continue;
+        };
+        let name = key.description.as_deref().unwrap_or("<no description>");
+        if tenant_id.is_empty() {
+            return Err(format!(
+                "virtual key '{name}' has an empty tenant_id — an unset ${{VAR}} interpolates to \"\". Set the \
+                 variable or remove the tenant_id key."
+            ));
+        }
+        if tenant_id == MASTER_TENANT_ID {
+            return Err(format!(
+                "virtual key '{name}' sets tenant_id = \"{MASTER_TENANT_ID}\", which is reserved for master-key \
+                 traffic. Choose a different tenant_id."
+            ));
+        }
+    }
+    Ok(())
 }
 
 impl ProxyConfig {
@@ -357,6 +581,10 @@ duration_secs = 60
         assert_eq!(config.keys[0].key, "vk-team-a");
         assert_eq!(config.keys[0].models, vec!["gpt-4o"]);
         assert_eq!(config.keys[0].rpm, Some(60));
+        assert_eq!(
+            config.keys[0].tenant_id, None,
+            "a config with no tenant_id key must keep working and default to None"
+        );
 
         let rl = config.rate_limit.expect("rate_limit should be present");
         assert_eq!(rl.rpm, Some(120));
@@ -385,6 +613,109 @@ duration_secs = 60
         assert_eq!(health.probe_model.as_deref(), Some("openai/gpt-4o-mini"));
 
         assert_eq!(config.cooldown.expect("cooldown should be present").duration_secs, 60);
+    }
+
+    /// A `master_key` whose `${VAR}` is unset interpolates to `""`, and an
+    /// empty master key authenticates every caller. Refuse to load rather than
+    /// start a proxy that is open to the world.
+    #[test]
+    fn rejects_master_key_that_interpolated_to_empty() {
+        let toml = r#"
+[general]
+master_key = "${SURELY_NONEXISTENT_MASTER_KEY_VAR_98765}"
+"#;
+        let Err(err) = ProxyConfig::from_toml_str(toml) else {
+            panic!("an empty master key must be rejected — it authenticates every request");
+        };
+        assert!(
+            err.contains("master_key") && err.contains("empty"),
+            "error must name the offending key and why: {err}"
+        );
+    }
+
+    /// Same hazard one level down: a virtual key token that interpolated away.
+    #[test]
+    fn rejects_virtual_key_that_interpolated_to_empty() {
+        let toml = r#"
+[general]
+master_key = "sk-real-master"
+
+[[keys]]
+key = "${SURELY_NONEXISTENT_VIRTUAL_KEY_VAR_98765}"
+description = "billing-team"
+"#;
+        let Err(err) = ProxyConfig::from_toml_str(toml) else {
+            panic!("an empty virtual key token must be rejected");
+        };
+        assert!(
+            err.contains("billing-team"),
+            "error must identify WHICH key is empty so an operator can fix it: {err}"
+        );
+    }
+
+    /// An operator-set `tenant_id` must parse and be distinguishable from the
+    /// key token — the config-level way to name a tenant directly instead of
+    /// letting the key double as its own tenant id.
+    #[test]
+    fn parses_explicit_virtual_key_tenant_id() {
+        let toml = r#"
+[[keys]]
+key = "vk-team-a-user-1"
+tenant_id = "team-a"
+"#;
+        let config = ProxyConfig::from_toml_str(toml).expect("TOML config should parse");
+        assert_eq!(config.keys[0].tenant_id.as_deref(), Some("team-a"));
+    }
+
+    /// Same interpolated-away-`${VAR}` hazard as the key token itself: an
+    /// empty tenant_id must be rejected at load, not silently accepted.
+    #[test]
+    fn rejects_virtual_key_tenant_id_that_interpolated_to_empty() {
+        let toml = r#"
+[[keys]]
+key = "vk-team-a"
+description = "billing-team"
+tenant_id = "${SURELY_NONEXISTENT_TENANT_ID_VAR_98765}"
+"#;
+        let Err(err) = ProxyConfig::from_toml_str(toml) else {
+            panic!("an empty tenant_id must be rejected");
+        };
+        assert!(
+            err.contains("billing-team") && err.contains("tenant_id"),
+            "error must identify WHICH key and WHY: {err}"
+        );
+    }
+
+    /// `"master"` is reserved for `KeyContext::master()`. A virtual key
+    /// configured to share it would fold its spend into the master tenant's
+    /// budget-ledger bucket — a config-introduced budget bypass.
+    #[test]
+    fn rejects_virtual_key_tenant_id_that_collides_with_master() {
+        let toml = r#"
+[[keys]]
+key = "vk-team-a"
+description = "billing-team"
+tenant_id = "master"
+"#;
+        let Err(err) = ProxyConfig::from_toml_str(toml) else {
+            panic!("tenant_id = \"master\" must be rejected — it collides with the reserved master tenant");
+        };
+        assert!(
+            err.contains("billing-team") && err.contains("master"),
+            "error must identify WHICH key and WHY: {err}"
+        );
+    }
+
+    /// The guard must not reject a legitimately absent master key — a proxy
+    /// with only virtual keys configured is a supported deployment.
+    #[test]
+    fn absent_master_key_is_still_allowed() {
+        let toml = r#"
+[general]
+default_timeout_secs = 30
+"#;
+        let config = ProxyConfig::from_toml_str(toml).expect("a config with no master key must still load");
+        assert!(config.general.master_key.is_none());
     }
 
     #[test]

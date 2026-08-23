@@ -1,22 +1,22 @@
 ---
-description: "Full TOML reference for liter-llm-proxy.toml: server, models, aliases, virtual keys, security, rate limits, budgets, cache, files, health, cooldown."
+description: "Full TOML reference for liter-llm-proxy.toml: server, models, aliases, virtual keys, security, rate limits, budgets, cache, files, health, cooldown, routing."
 title: "Proxy Configuration"
 ---
 
-import { Content as Snip_toml_server_minimal } from "../../../snippets/toml/server/minimal.md";
-import { Content as Snip_toml_server_server } from "../../../snippets/toml/server/server.md";
-import { Content as Snip_toml_server_general } from "../../../snippets/toml/server/general.md";
-import { Content as Snip_toml_server_security } from "../../../snippets/toml/server/security.md";
-import { Content as Snip_toml_server_models } from "../../../snippets/toml/server/models.md";
-import { Content as Snip_toml_server_aliases } from "../../../snippets/toml/server/aliases.md";
-import { Content as Snip_toml_server_keys } from "../../../snippets/toml/server/keys.md";
-import { Content as Snip_toml_server_rate_limit } from "../../../snippets/toml/server/rate_limit.md";
-import { Content as Snip_toml_server_budget } from "../../../snippets/toml/server/budget.md";
-import { Content as Snip_toml_server_cache } from "../../../snippets/toml/server/cache.md";
-import { Content as Snip_toml_server_files } from "../../../snippets/toml/server/files.md";
-import { Content as Snip_toml_server_health } from "../../../snippets/toml/server/health.md";
-import { Content as Snip_toml_server_cooldown } from "../../../snippets/toml/server/cooldown.md";
-import { Content as Snip_toml_server_env_interpolation } from "../../../snippets/toml/server/env_interpolation.md";
+import { Content as Snip_toml_server_minimal } from "../../../handwritten-snippets/toml/server/minimal.md";
+import { Content as Snip_toml_server_server } from "../../../handwritten-snippets/toml/server/server.md";
+import { Content as Snip_toml_server_general } from "../../../handwritten-snippets/toml/server/general.md";
+import { Content as Snip_toml_server_security } from "../../../handwritten-snippets/toml/server/security.md";
+import { Content as Snip_toml_server_models } from "../../../handwritten-snippets/toml/server/models.md";
+import { Content as Snip_toml_server_aliases } from "../../../handwritten-snippets/toml/server/aliases.md";
+import { Content as Snip_toml_server_keys } from "../../../handwritten-snippets/toml/server/keys.md";
+import { Content as Snip_toml_server_rate_limit } from "../../../handwritten-snippets/toml/server/rate_limit.md";
+import { Content as Snip_toml_server_budget } from "../../../handwritten-snippets/toml/server/budget.md";
+import { Content as Snip_toml_server_cache } from "../../../handwritten-snippets/toml/server/cache.md";
+import { Content as Snip_toml_server_files } from "../../../handwritten-snippets/toml/server/files.md";
+import { Content as Snip_toml_server_health } from "../../../handwritten-snippets/toml/server/health.md";
+import { Content as Snip_toml_server_cooldown } from "../../../handwritten-snippets/toml/server/cooldown.md";
+import { Content as Snip_toml_server_env_interpolation } from "../../../handwritten-snippets/toml/server/env_interpolation.md";
 
 The proxy loads a single TOML file named `liter-llm-proxy.toml`. Pass `--config <path>` to the `liter-llm api` command or place the file in the current working directory (or any parent) and the server will discover it automatically.
 
@@ -112,9 +112,9 @@ Virtual API keys. Each key is a Bearer token with its own model allowlist, rate 
 | `key`          | string       | required | The Bearer token clients present.                                         |
 | `description`  | string?      | none     | Free-text label surfaced in logs and the admin API.                       |
 | `models`       | `list<string>` | `[]`     | Allowed model names. Empty means all models are allowed.                  |
-| `rpm`          | u32?         | none     | Per-key request-per-minute cap.                                           |
-| `tpm`          | u64?         | none     | Per-key token-per-minute cap.                                             |
-| `budget_limit` | f64?         | none     | Lifetime spend cap in USD. Requests that would exceed the cap return 402. |
+| `rpm`          | u32?         | none     | **Not yet enforced.** Parsed into `VirtualKeyConfig` but no per-key rate-limit layer reads it; only the global `[rate_limit]` table is wired to `ModelRateLimitLayer`. Setting this silently does nothing. |
+| `tpm`          | u64?         | none     | **Not yet enforced.** Same gap as `rpm` — no per-key layer consumes it.   |
+| `budget_limit` | f64?         | none     | **Not yet enforced.** Mapped into `ResolvedKey.monthly_budget` but nothing reads that field to reject requests. Only the global `[budget]` table is enforced via `BudgetLayer`. Requests are **not** rejected with 402 when a key's lifetime spend exceeds this value. |
 
 <Snip_toml_server_keys />
 
@@ -199,14 +199,74 @@ Storage backend for the `/v1/files` endpoints.
 
 ## `[health]`
 
-Periodic upstream probes. When configured, the proxy sends a small request to `probe_model` every `interval_secs` seconds and marks failing providers unhealthy so the fallback layer can skip them.
+Periodic upstream probes. When `interval_secs` is set, the proxy installs `HealthCheckLayer` on that interval to mark failing providers unhealthy so the fallback layer can skip them.
 
 | Field           | Type    | Default | Description                                                |
 | --------------- | ------- | ------- | ---------------------------------------------------------- |
 | `interval_secs` | u64?    | none    | Probe interval. Disabled when omitted.                     |
-| `probe_model`   | string? | none    | Model name used for the probe. Usually a cheap chat model. |
+| `probe_model`   | string? | none    | **Not yet enforced.** Parsed into `HealthConfig` but `HealthCheckLayer::new` only takes `interval_secs` — the configured model name is never read, so it does not select what gets probed. |
 
 <Snip_toml_server_health />
+
+## `[routing]`
+
+Routing strategy applied to every multi-deployment `[[models]]` group — a model `name` declared by more than one `[[models]]` entry. Has no effect on single-deployment models or on `fallbacks` resolution (see [Fallback and Routing](/usage/fallback-routing/)). Omit the table to keep the default: round-robin.
+
+| Field       | Type                                                                                          | Default  | Description                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------- |
+| `strategy`  | `"round_robin"` \| `"fallback"` \| `"latency_based"` \| `"cost_based"` \| `"weighted_random"` \| `"semantic"` | `"round_robin"` (table omitted) | Selects the `RoutingStrategy`. An unrecognised value is rejected at parse time. |
+| `weights`   | `list<f64>`                                                                                      | —        | Required when `strategy = "weighted_random"`. One entry per deployment, in `[[models]]` declaration order; a mismatched length is rejected when the router is built. |
+| `classifier` | table                                                                                            | —        | Required when `strategy = "semantic"`. See below.                                  |
+
+```toml
+[routing]
+strategy = "weighted_random"
+weights = [3.0, 2.0, 1.0]
+```
+
+### `[routing.classifier]`
+
+Required when `strategy = "semantic"`. `kind` selects which classifier drives `RoutingStrategy::Semantic`.
+
+**`kind = "keyword"`** — regex-rule routing; the first matching rule wins.
+
+| Field   | Type                              | Default  | Description                          |
+| ------- | ---------------------------------- | -------- | ------------------------------------- |
+| `rules` | `list<{ pattern: string, model: string }>` | required | Evaluated in order.                   |
+
+```toml
+[routing.classifier]
+kind = "keyword"
+
+[[routing.classifier.rules]]
+pattern = "(?i)sql|database"
+model = "gpt-4o"
+```
+
+**`kind = "embedding"`** — cosine-similarity routing against precomputed intent-prototype embeddings.
+
+| Field             | Type                                                    | Default | Description                                                                                          |
+| ----------------- | -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| `embedding_model` | string                                                    | required | Model used to embed the *live request prompt*, e.g. `"openai/text-embedding-3-small"`.                       |
+| `api_key`         | string?                                                   | none    | Credential for the embedding call. Falls back to the provider's environment variable.                         |
+| `base_url`        | string?                                                   | none    | Endpoint override for the embedding call.                                                                     |
+| `threshold`       | f64                                                       | required | Minimum cosine similarity in `[0, 1]` for the classifier to commit instead of deferring.                      |
+| `prototypes`      | `list<{ name: string, model: string, embedding: list<f64> }>` | required | Intent prototypes. `embedding` must be **precomputed offline** — the proxy does not embed prototype text for you. |
+
+```toml
+[routing.classifier]
+kind = "embedding"
+embedding_model = "openai/text-embedding-3-small"
+threshold = 0.75
+
+[[routing.classifier.prototypes]]
+name = "coding"
+model = "gpt-4o"
+# Precomputed offline; truncated here for brevity — paste the full vector.
+embedding = [0.0123, -0.0456, 0.0789]
+```
+
+An invalid `keyword` regex, or an `embedding` classifier client that fails to construct, is rejected at proxy startup with a clear error — never a silent fallback to round-robin.
 
 ## `[cooldown]`
 

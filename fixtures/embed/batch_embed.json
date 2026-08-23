@@ -1,6 +1,11 @@
 {
   "id": "batch_embed",
   "description": "Embedding request with multiple input strings returns one embedding object per input",
+  "docs": {
+    "topic": "embed",
+    "stem": "batch-embed",
+    "title": "Embedding request with multiple input strings returns one embedding object per input"
+  },
   "category": "embed",
   "tags": ["embed"],
   "call": "embed",

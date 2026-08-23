@@ -1,6 +1,11 @@
 {
   "id": "smoke_transcribe_with_language",
   "description": "Audio transcription with explicit language hint",
+  "docs": {
+    "topic": "transcribe",
+    "stem": "smoke-transcribe-with-language",
+    "title": "Audio transcription with explicit language hint"
+  },
   "category": "transcribe",
   "tags": ["smoke", "transcribe"],
   "call": "transcribe",

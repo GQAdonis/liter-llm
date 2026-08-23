@@ -463,6 +463,18 @@ mod serde_tests {
             seed: None,
             reasoning_effort: None,
             modalities: None,
+            logprobs: Some(true),
+            top_logprobs: Some(5),
+            max_completion_tokens: Some(2048),
+            service_tier: Some("flex".into()),
+            store: Some(true),
+            metadata: Some(std::collections::BTreeMap::from([(
+                "run".to_owned(),
+                "nightly".to_owned(),
+            )])),
+            prediction: Some(serde_json::json!({"type": "content", "content": "draft"})),
+            audio: Some(serde_json::json!({"voice": "alloy", "format": "wav"})),
+            web_search_options: Some(serde_json::json!({"search_context_size": "medium"})),
             extra_body: None,
         };
 
@@ -526,6 +538,7 @@ mod serde_tests {
         let json = serde_json::to_string(&msg).expect("serialization should not fail");
         let parsed: Message = serde_json::from_str(&json).expect("deserialization should not fail");
         if let Message::Tool(t) = parsed {
+            assert_eq!(t.content, UserContent::Text(r#"{"result": "sunny"}"#.into()));
             assert_eq!(t.tool_call_id, "call_456");
             assert_eq!(t.name.as_deref(), Some("get_weather"));
         } else {
@@ -873,7 +886,7 @@ mod provider_tests {
     #[test]
     fn anthropic_extra_headers_contain_version() {
         use crate::provider::anthropic::AnthropicProvider;
-        let p = AnthropicProvider;
+        let p = AnthropicProvider::default();
         let extras = p.extra_headers();
         assert_eq!(extras.len(), 1);
         assert_eq!(extras[0].0, "anthropic-version");
@@ -892,7 +905,7 @@ mod provider_tests {
     #[test]
     fn anthropic_bare_model_not_stripped() {
         use crate::provider::anthropic::AnthropicProvider;
-        let p = AnthropicProvider;
+        let p = AnthropicProvider::default();
         assert_eq!(
             p.strip_model_prefix("claude-3-5-sonnet-20241022"),
             "claude-3-5-sonnet-20241022"
@@ -1039,11 +1052,14 @@ mod provider_tests {
     }
 
     #[test]
+    #[cfg(not(feature = "bedrock"))]
     fn bedrock_signing_headers_without_feature_returns_empty() {
         use crate::provider::bedrock::BedrockProvider;
         let p = BedrockProvider::new("us-east-1");
-        let headers = p.signing_headers("POST", "http://localhost/chat/completions", b"{}");
-        let _ = headers;
+        let headers = p
+            .signing_headers("POST", "http://localhost/chat/completions", b"{}")
+            .expect("signing_headers is infallible without the bedrock feature");
+        assert!(headers.is_empty());
     }
 
     fn make_provider_with_mappings(mappings: HashMap<String, String>) -> ConfigDrivenProvider {
@@ -1222,6 +1238,26 @@ mod error_tests {
             None,
         );
         assert!(matches!(err, LiterLlmError::RateLimited { .. }));
+    }
+
+    /// The parsed `Retry-After` delay must be readable through an accessor.
+    ///
+    /// It reached the Rust core correctly but had no getter, so every generated
+    /// binding could only see the status code — a rate-limited caller in Python,
+    /// Node, PHP or WASM had to invent its own backoff.
+    #[test]
+    fn rate_limited_error_exposes_retry_after() {
+        let err = LiterLlmError::from_status(429, "slow down", Some(std::time::Duration::from_secs(30)));
+
+        assert_eq!(err.retry_after(), Some(std::time::Duration::from_secs(30)));
+    }
+
+    /// A 429 without the header, and every non-rate-limit error, must report
+    /// `None` rather than a fabricated delay.
+    #[test]
+    fn retry_after_is_none_when_the_server_did_not_advertise_one() {
+        assert_eq!(LiterLlmError::from_status(429, "slow down", None).retry_after(), None);
+        assert_eq!(LiterLlmError::from_status(500, "boom", None).retry_after(), None);
     }
 
     #[test]

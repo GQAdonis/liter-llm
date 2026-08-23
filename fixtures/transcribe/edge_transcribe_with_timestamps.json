@@ -1,6 +1,11 @@
 {
   "id": "edge_transcribe_with_timestamps",
   "description": "Transcription with verbose JSON response format including timestamp segments",
+  "docs": {
+    "topic": "transcribe",
+    "stem": "edge-transcribe-with-timestamps",
+    "title": "Transcription with verbose JSON response format including timestamp segments"
+  },
   "category": "transcribe",
   "tags": ["transcribe", "edge-case"],
   "call": "transcribe",

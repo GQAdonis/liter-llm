@@ -10,6 +10,163 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.1] - 2026-08-15
+
+### Changed
+
+- **catalog**: refreshed the bundled model catalog (`schemas/catalog.json`) from models.dev.
+  Providers increased from 184 to 185, models from 6293 to 6321. The single new provider is
+  `crusoe`.
+- **client**: scoped restoring of the transport `stream` field to only providers that preserve it
+  after request transformations.
+
+### Fixed
+
+- **client**: fixed Vertex/Gemini non-streaming requests that previously shipped `"stream": false` and
+  failed with `Invalid JSON payload received`.
+- **version**: aligned per-language binding crate versions with the core workspace version for this
+  release.
+- **docs**: fixed MCP HTTP transport snippet highlighting by marking it as `bash` instead of `toml`.
+
+## [1.13.0] - 2026-08-02
+
+### Added
+
+- Anthropic-compatible providers can now target a custom base URL (#159).
+  `anthropic/`-prefixed models with a `base_url` override route to the
+  Anthropic provider, so the Messages-API transforms (system extraction,
+  content blocks, tool use, thinking) work against Anthropic-compatible
+  endpoints such as DeepSeek's `https://api.deepseek.com/anthropic`.
+- `ReasoningEffort` gains `Minimal` and `Max` variants (#160), covering
+  DeepSeek's `max` thinking level and OpenAI's `minimal` level. Variants are
+  appended, so existing FFI integer discriminants are unchanged.
+
+### Changed
+
+- `extra_body` is now shallow-merged into the request body root for
+  OpenAI-compatible providers (#160), matching the OpenAI SDK. Top-level
+  fields such as DeepSeek's `thinking` switch reach the wire instead of being
+  sent as a literal `extra_body` object. The transport-controlled `stream`
+  flag cannot be overridden via `extra_body`.
+- Synced the model catalog from models.dev.
+- Upgraded dependencies (`cargo upgrade --incompatible`).
+
+## [1.12.2] - 2026-08-01
+
+### Added
+
+- `cargo binstall liter-llm-cli` support — prebuilt CLI binaries can now be installed
+  directly from GitHub Releases without compiling from source. Adds
+  `[package.metadata.binstall]` to the CLI crate plus a release-time `verify-binstall`
+  CI job that installs via `cargo binstall`, smoke-tests the binary, and gates
+  release-finalize.
+
+### Changed
+
+- Synced the model catalog from models.dev (#158).
+- Updated dependencies.
+
+## [1.12.1] - 2026-08-01
+
+### Added
+
+- MiniMax now exposes region-specific endpoints (#157): the global region
+  (`https://api.minimax.io/v1` for the OpenAI protocol, `https://api.minimax.io/anthropic`
+  for the Anthropic protocol) and the China region (`https://api.minimaxi.com/v1`,
+  `https://api.minimaxi.com/anthropic`), each with its own docs root.
+
+### Changed
+
+- Regenerated the bundled model catalog, refreshing provider/model data and provenance.
+
+### Fixed
+
+- The ai-rulez-generated `plugin/.mcp.json` bundle is now committed instead of being
+  swept up by the broad `.mcp.json` gitignore rule, so a fresh CI checkout no longer
+  fails `ai-rulez verify --plugin` with a missing-file error.
+
+## [1.12.0] - 2026-07-31
+
+### Added
+
+- `liter-llm-cli` installs a real OTLP export pipeline under the `otel` feature: it builds an OTLP
+  span exporter + SDK tracer/meter providers, registers the W3C TraceContext propagator, and bridges
+  `tracing` spans (and the library's `gen_ai.*` metric instruments) to OpenTelemetry via a
+  `tracing-opentelemetry` layer. Export is activated at runtime by `OTEL_EXPORTER_OTLP_ENDPOINT`;
+  without it the CLI falls back to the console subscriber. Both the `api` proxy server and the `mcp`
+  server share this install path, and the server Docker image is built with `--features otel`.
+  (Previously the `otel` feature only compiled the OTel API with no exporter, so nothing was
+  exported standalone — the instruments only reached a collector when a host such as xberg-enterprise
+  installed the providers.)
+
+### Changed
+
+- Raw `println!`/`eprintln!`/`print!`/`eprint!`/`dbg!` are denied in production code across the
+  workspace (clippy `print_stdout`/`print_stderr`/`dbg_macro`); `tracing` is the sole diagnostic
+  surface. Genuinely non-diagnostic output opts back in per site with `#[expect(...)]` (the
+  interactive GitHub Copilot device-flow auth prompt and the CLI's top-level error report), and the
+  `catalog-gen` dev tool keeps its stdout/stderr contract. Language bindings regenerated with alef
+  0.48.12.
+- **The `tracing` Cargo feature is removed; `tracing` is now an always-on dependency.** Spans and
+  events compile unconditionally (near-zero cost with no subscriber installed), aligning with the
+  org feature-flag contract that tracing is never optional. `otel` remains the opt-in OTLP export
+  layer.
+
+### Fixed
+
+- Streaming no longer aborts on a trailing metadata-only SSE event that omits `id`. OpenAI-compatible
+  providers such as OpenCode Zen/Go (`https://opencode.ai/zen/go/v1`) emit an `inference-cost` event
+  with empty `choices` and no `id`/`object`/`created`/`model` immediately before `[DONE]`; these
+  header fields on `ChatCompletionChunk` are now `#[serde(default)]`, so the event decodes to an
+  empty chunk instead of failing with `missing field 'id'`. (#155)
+
+## [1.11.5] - 2026-07-30
+
+### Changed
+
+- Upgrade the MCP server to `rmcp` 3.0, adopting the MCP 2026-07-28 protocol
+  revision and its sessionless streamable-HTTP transport. The existing
+  `validate_api_key` middleware and per-request `KeyContext` auth model are
+  retained.
+
+## [1.11.4] - 2026-07-28
+
+### Fixed
+
+- **SSE streams no longer abort with "invalid UTF-8" when a provider splits a
+  multi-byte character across HTTP chunks.** The SSE parser now buffers the
+  trailing bytes of a codepoint that lands on a chunk boundary and reassembles it
+  with the next chunk, instead of treating the incomplete sequence as corruption
+  and terminating the stream. Common with CJK text, accented characters, emoji, or
+  any sufficiently long response. Genuinely malformed UTF-8 still errors. (#152)
+
+### Changed
+
+- Refresh the model catalog from models.dev (now 165 providers).
+- Refresh `Cargo.lock` to the latest compatible dependency versions.
+
+## [1.11.3] - 2026-07-27
+
+### Changed
+
+- Refresh the model catalog from models.dev.
+- Regenerate all language bindings on alef 0.48.4, which lowers the Maven
+  enforcer floor (fixes Java/Maven publishing) and generates the C#
+  `runtime.json` template (fixes C#/NuGet publishing).
+- Upgrade dependencies to their latest incompatible versions (base64
+  0.22 → 0.23).
+
+## [1.11.2] - 2026-07-26
+
+### Changed
+
+- Regenerate all language bindings on alef 0.48.2.
+- Update dependencies to their latest compatible versions.
+
+### Removed
+
+- Remove unused Java PMD ruleset and stale linter configuration.
+
 ## [1.11.1] - 2026-07-26
 
 ### Fixed

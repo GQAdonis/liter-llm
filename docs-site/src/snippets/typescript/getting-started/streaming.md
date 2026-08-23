@@ -1,4 +1,13 @@
-<!-- snippet:compile-only -->
+---
+id: readme_node_streaming
+language: typescript
+target: node
+level: syntax
+requires: []
+side_effect: network
+---
+
+Stream tokens in real time.
 
 ```typescript
 import { createClient } from "@xberg-io/liter-llm";

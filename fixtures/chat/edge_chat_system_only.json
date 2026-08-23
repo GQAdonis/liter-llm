@@ -1,6 +1,11 @@
 {
   "id": "edge_chat_system_only",
   "description": "Chat request with system message and user message",
+  "docs": {
+    "topic": "chat",
+    "stem": "edge-chat-system-only",
+    "title": "Chat request with system message and user message"
+  },
   "category": "chat",
   "tags": ["chat", "edge-case"],
   "call": "chat",

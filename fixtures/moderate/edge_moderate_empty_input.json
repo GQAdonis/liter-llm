@@ -1,6 +1,11 @@
 {
   "id": "edge_moderate_empty_input",
   "description": "Moderation with empty string input",
+  "docs": {
+    "topic": "moderate",
+    "stem": "edge-moderate-empty-input",
+    "title": "Moderation with empty string input"
+  },
   "category": "moderate",
   "tags": ["edge-case", "moderate"],
   "call": "moderate",

@@ -38,7 +38,12 @@ impl std::fmt::Debug for ProviderCredential {
 
 /// A virtual API key with optional model restrictions, rate/budget limits,
 /// and a per-provider credential pool for automatic key rotation.
-#[derive(Debug, Clone, Deserialize)]
+///
+/// `key` is the raw bearer token clients present. `Debug` is implemented
+/// manually below (mirroring [`ProviderCredential`]'s redaction above)
+/// instead of derived, so the token never appears in a `{:?}`-formatted
+/// trace event, panic message, or error context.
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VirtualKeyConfig {
     pub key: String,
@@ -49,6 +54,18 @@ pub struct VirtualKeyConfig {
     pub rpm: Option<u32>,
     pub tpm: Option<u64>,
     pub budget_limit: Option<f64>,
+    /// Explicit tenant identity for this key.
+    ///
+    /// ~keep Absent by default (`#[serde(default)]`) so existing configs keep
+    /// ~keep loading unchanged. When set, every key that shares this value is
+    /// ~keep billed, cached, and rate-limited as one tenant — the supported way to
+    /// ~keep issue several keys against one budget, which is impossible when the
+    /// ~keep tenant id is the key itself. When absent, `KeyContext::from_config`
+    /// ~keep derives a stable, non-secret id from the key rather than using the
+    /// ~keep raw token; see that function's doc comment for why, and for the
+    /// ~keep upgrade note on existing deployments.
+    #[serde(default)]
+    pub tenant_id: Option<String>,
     /// Per-provider credential pool.
     ///
     /// When non-empty, each provider listed here gets an
@@ -73,4 +90,68 @@ pub struct VirtualKeyConfig {
     /// ```
     #[serde(default)]
     pub provider_credentials: Vec<ProviderCredential>,
+}
+
+impl std::fmt::Debug for VirtualKeyConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VirtualKeyConfig")
+            .field("key", &"[REDACTED]")
+            .field("description", &self.description)
+            .field("models", &self.models)
+            .field("rpm", &self.rpm)
+            .field("tpm", &self.tpm)
+            .field("budget_limit", &self.budget_limit)
+            .field("tenant_id", &self.tenant_id)
+            .field("provider_credentials", &self.provider_credentials)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn virtual_key_config_debug_redacts_key() {
+        let key = VirtualKeyConfig {
+            key: "vk-do-not-leak-me".to_string(),
+            description: Some("team-a".to_string()),
+            models: vec!["gpt-4o".to_string()],
+            rpm: Some(60),
+            tpm: None,
+            budget_limit: None,
+            tenant_id: None,
+            provider_credentials: vec![],
+        };
+
+        let debug_output = format!("{key:?}");
+        assert!(
+            !debug_output.contains("vk-do-not-leak-me"),
+            "key must not appear in Debug output: {debug_output}"
+        );
+        assert!(
+            debug_output.contains("team-a"),
+            "non-secret fields should still be visible: {debug_output}"
+        );
+    }
+
+    #[test]
+    fn provider_credential_debug_redacts_api_key() {
+        let cred = ProviderCredential {
+            provider: "openai".to_string(),
+            id: "primary".to_string(),
+            api_key: SecretString::from("sk-do-not-leak".to_string()),
+            model_allowlist: None,
+        };
+
+        let debug_output = format!("{cred:?}");
+        assert!(
+            !debug_output.contains("sk-do-not-leak"),
+            "api_key must not appear in Debug output: {debug_output}"
+        );
+        assert!(
+            debug_output.contains("openai"),
+            "non-secret fields should still be visible: {debug_output}"
+        );
+    }
 }

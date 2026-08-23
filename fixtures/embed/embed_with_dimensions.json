@@ -1,6 +1,11 @@
 {
   "id": "embed_with_dimensions",
   "description": "Embedding request with explicit dimensions parameter returns embeddings of the requested size",
+  "docs": {
+    "topic": "embed",
+    "stem": "embed-with-dimensions",
+    "title": "Embedding request with explicit dimensions parameter returns embeddings of the requested size"
+  },
   "category": "embed",
   "tags": ["embed"],
   "call": "embed",

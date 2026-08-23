@@ -2229,6 +2229,370 @@ as AudioContent,
 }
 
 /// @nodoc
+mixin _$EmbeddingContentPart {
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EmbeddingContentPart);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'EmbeddingContentPart()';
+}
+
+
+}
+
+/// @nodoc
+class $EmbeddingContentPartCopyWith<$Res>  {
+$EmbeddingContentPartCopyWith(EmbeddingContentPart _, $Res Function(EmbeddingContentPart) __);
+}
+
+
+/// Adds pattern-matching-related methods to [EmbeddingContentPart].
+extension EmbeddingContentPartPatterns on EmbeddingContentPart {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( EmbeddingContentPart_Text value)?  text,TResult Function( EmbeddingContentPart_ImageUrl value)?  imageUrl,TResult Function( EmbeddingContentPart_ImageBase64 value)?  imageBase64,required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case EmbeddingContentPart_Text() when text != null:
+return text(_that);case EmbeddingContentPart_ImageUrl() when imageUrl != null:
+return imageUrl(_that);case EmbeddingContentPart_ImageBase64() when imageBase64 != null:
+return imageBase64(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( EmbeddingContentPart_Text value)  text,required TResult Function( EmbeddingContentPart_ImageUrl value)  imageUrl,required TResult Function( EmbeddingContentPart_ImageBase64 value)  imageBase64,}){
+final _that = this;
+switch (_that) {
+case EmbeddingContentPart_Text():
+return text(_that);case EmbeddingContentPart_ImageUrl():
+return imageUrl(_that);case EmbeddingContentPart_ImageBase64():
+return imageBase64(_that);}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( EmbeddingContentPart_Text value)?  text,TResult? Function( EmbeddingContentPart_ImageUrl value)?  imageUrl,TResult? Function( EmbeddingContentPart_ImageBase64 value)?  imageBase64,}){
+final _that = this;
+switch (_that) {
+case EmbeddingContentPart_Text() when text != null:
+return text(_that);case EmbeddingContentPart_ImageUrl() when imageUrl != null:
+return imageUrl(_that);case EmbeddingContentPart_ImageBase64() when imageBase64 != null:
+return imageBase64(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( String text)?  text,TResult Function( ImageUrl imageUrl)?  imageUrl,TResult Function( String imageBase64)?  imageBase64,required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case EmbeddingContentPart_Text() when text != null:
+return text(_that.text);case EmbeddingContentPart_ImageUrl() when imageUrl != null:
+return imageUrl(_that.imageUrl);case EmbeddingContentPart_ImageBase64() when imageBase64 != null:
+return imageBase64(_that.imageBase64);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( String text)  text,required TResult Function( ImageUrl imageUrl)  imageUrl,required TResult Function( String imageBase64)  imageBase64,}) {final _that = this;
+switch (_that) {
+case EmbeddingContentPart_Text():
+return text(_that.text);case EmbeddingContentPart_ImageUrl():
+return imageUrl(_that.imageUrl);case EmbeddingContentPart_ImageBase64():
+return imageBase64(_that.imageBase64);}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( String text)?  text,TResult? Function( ImageUrl imageUrl)?  imageUrl,TResult? Function( String imageBase64)?  imageBase64,}) {final _that = this;
+switch (_that) {
+case EmbeddingContentPart_Text() when text != null:
+return text(_that.text);case EmbeddingContentPart_ImageUrl() when imageUrl != null:
+return imageUrl(_that.imageUrl);case EmbeddingContentPart_ImageBase64() when imageBase64 != null:
+return imageBase64(_that.imageBase64);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class EmbeddingContentPart_Text extends EmbeddingContentPart {
+  const EmbeddingContentPart_Text({required this.text}): super._();
+
+
+ final  String text;
+
+/// Create a copy of EmbeddingContentPart
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$EmbeddingContentPart_TextCopyWith<EmbeddingContentPart_Text> get copyWith => _$EmbeddingContentPart_TextCopyWithImpl<EmbeddingContentPart_Text>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EmbeddingContentPart_Text&&(identical(other.text, text) || other.text == text));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,text);
+
+@override
+String toString() {
+  return 'EmbeddingContentPart.text(text: $text)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $EmbeddingContentPart_TextCopyWith<$Res> implements $EmbeddingContentPartCopyWith<$Res> {
+  factory $EmbeddingContentPart_TextCopyWith(EmbeddingContentPart_Text value, $Res Function(EmbeddingContentPart_Text) _then) = _$EmbeddingContentPart_TextCopyWithImpl;
+@useResult
+$Res call({
+ String text
+});
+
+
+
+
+}
+/// @nodoc
+class _$EmbeddingContentPart_TextCopyWithImpl<$Res>
+    implements $EmbeddingContentPart_TextCopyWith<$Res> {
+  _$EmbeddingContentPart_TextCopyWithImpl(this._self, this._then);
+
+  final EmbeddingContentPart_Text _self;
+  final $Res Function(EmbeddingContentPart_Text) _then;
+
+/// Create a copy of EmbeddingContentPart
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? text = null,}) {
+  return _then(EmbeddingContentPart_Text(
+text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class EmbeddingContentPart_ImageUrl extends EmbeddingContentPart {
+  const EmbeddingContentPart_ImageUrl({required this.imageUrl}): super._();
+
+
+ final  ImageUrl imageUrl;
+
+/// Create a copy of EmbeddingContentPart
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$EmbeddingContentPart_ImageUrlCopyWith<EmbeddingContentPart_ImageUrl> get copyWith => _$EmbeddingContentPart_ImageUrlCopyWithImpl<EmbeddingContentPart_ImageUrl>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EmbeddingContentPart_ImageUrl&&(identical(other.imageUrl, imageUrl) || other.imageUrl == imageUrl));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,imageUrl);
+
+@override
+String toString() {
+  return 'EmbeddingContentPart.imageUrl(imageUrl: $imageUrl)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $EmbeddingContentPart_ImageUrlCopyWith<$Res> implements $EmbeddingContentPartCopyWith<$Res> {
+  factory $EmbeddingContentPart_ImageUrlCopyWith(EmbeddingContentPart_ImageUrl value, $Res Function(EmbeddingContentPart_ImageUrl) _then) = _$EmbeddingContentPart_ImageUrlCopyWithImpl;
+@useResult
+$Res call({
+ ImageUrl imageUrl
+});
+
+
+
+
+}
+/// @nodoc
+class _$EmbeddingContentPart_ImageUrlCopyWithImpl<$Res>
+    implements $EmbeddingContentPart_ImageUrlCopyWith<$Res> {
+  _$EmbeddingContentPart_ImageUrlCopyWithImpl(this._self, this._then);
+
+  final EmbeddingContentPart_ImageUrl _self;
+  final $Res Function(EmbeddingContentPart_ImageUrl) _then;
+
+/// Create a copy of EmbeddingContentPart
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? imageUrl = null,}) {
+  return _then(EmbeddingContentPart_ImageUrl(
+imageUrl: null == imageUrl ? _self.imageUrl : imageUrl // ignore: cast_nullable_to_non_nullable
+as ImageUrl,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class EmbeddingContentPart_ImageBase64 extends EmbeddingContentPart {
+  const EmbeddingContentPart_ImageBase64({required this.imageBase64}): super._();
+
+
+ final  String imageBase64;
+
+/// Create a copy of EmbeddingContentPart
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$EmbeddingContentPart_ImageBase64CopyWith<EmbeddingContentPart_ImageBase64> get copyWith => _$EmbeddingContentPart_ImageBase64CopyWithImpl<EmbeddingContentPart_ImageBase64>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EmbeddingContentPart_ImageBase64&&(identical(other.imageBase64, imageBase64) || other.imageBase64 == imageBase64));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,imageBase64);
+
+@override
+String toString() {
+  return 'EmbeddingContentPart.imageBase64(imageBase64: $imageBase64)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $EmbeddingContentPart_ImageBase64CopyWith<$Res> implements $EmbeddingContentPartCopyWith<$Res> {
+  factory $EmbeddingContentPart_ImageBase64CopyWith(EmbeddingContentPart_ImageBase64 value, $Res Function(EmbeddingContentPart_ImageBase64) _then) = _$EmbeddingContentPart_ImageBase64CopyWithImpl;
+@useResult
+$Res call({
+ String imageBase64
+});
+
+
+
+
+}
+/// @nodoc
+class _$EmbeddingContentPart_ImageBase64CopyWithImpl<$Res>
+    implements $EmbeddingContentPart_ImageBase64CopyWith<$Res> {
+  _$EmbeddingContentPart_ImageBase64CopyWithImpl(this._self, this._then);
+
+  final EmbeddingContentPart_ImageBase64 _self;
+  final $Res Function(EmbeddingContentPart_ImageBase64) _then;
+
+/// Create a copy of EmbeddingContentPart
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? imageBase64 = null,}) {
+  return _then(EmbeddingContentPart_ImageBase64(
+imageBase64: null == imageBase64 ? _self.imageBase64 : imageBase64 // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
 mixin _$EmbeddingInput {
 
  Object get field0;
@@ -2272,12 +2636,13 @@ extension EmbeddingInputPatterns on EmbeddingInput {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( EmbeddingInput_Single value)?  single,TResult Function( EmbeddingInput_Multiple value)?  multiple,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( EmbeddingInput_Single value)?  single,TResult Function( EmbeddingInput_Multiple value)?  multiple,TResult Function( EmbeddingInput_Multimodal value)?  multimodal,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case EmbeddingInput_Single() when single != null:
 return single(_that);case EmbeddingInput_Multiple() when multiple != null:
-return multiple(_that);case _:
+return multiple(_that);case EmbeddingInput_Multimodal() when multimodal != null:
+return multimodal(_that);case _:
   return orElse();
 
 }
@@ -2295,12 +2660,13 @@ return multiple(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( EmbeddingInput_Single value)  single,required TResult Function( EmbeddingInput_Multiple value)  multiple,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( EmbeddingInput_Single value)  single,required TResult Function( EmbeddingInput_Multiple value)  multiple,required TResult Function( EmbeddingInput_Multimodal value)  multimodal,}){
 final _that = this;
 switch (_that) {
 case EmbeddingInput_Single():
 return single(_that);case EmbeddingInput_Multiple():
-return multiple(_that);}
+return multiple(_that);case EmbeddingInput_Multimodal():
+return multimodal(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
 ///
@@ -2314,12 +2680,13 @@ return multiple(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( EmbeddingInput_Single value)?  single,TResult? Function( EmbeddingInput_Multiple value)?  multiple,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( EmbeddingInput_Single value)?  single,TResult? Function( EmbeddingInput_Multiple value)?  multiple,TResult? Function( EmbeddingInput_Multimodal value)?  multimodal,}){
 final _that = this;
 switch (_that) {
 case EmbeddingInput_Single() when single != null:
 return single(_that);case EmbeddingInput_Multiple() when multiple != null:
-return multiple(_that);case _:
+return multiple(_that);case EmbeddingInput_Multimodal() when multimodal != null:
+return multimodal(_that);case _:
   return null;
 
 }
@@ -2336,11 +2703,12 @@ return multiple(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( String field0)?  single,TResult Function( List<String> field0)?  multiple,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( String field0)?  single,TResult Function( List<String> field0)?  multiple,TResult Function( List<EmbeddingContentPart> field0)?  multimodal,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case EmbeddingInput_Single() when single != null:
 return single(_that.field0);case EmbeddingInput_Multiple() when multiple != null:
-return multiple(_that.field0);case _:
+return multiple(_that.field0);case EmbeddingInput_Multimodal() when multimodal != null:
+return multimodal(_that.field0);case _:
   return orElse();
 
 }
@@ -2358,11 +2726,12 @@ return multiple(_that.field0);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( String field0)  single,required TResult Function( List<String> field0)  multiple,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( String field0)  single,required TResult Function( List<String> field0)  multiple,required TResult Function( List<EmbeddingContentPart> field0)  multimodal,}) {final _that = this;
 switch (_that) {
 case EmbeddingInput_Single():
 return single(_that.field0);case EmbeddingInput_Multiple():
-return multiple(_that.field0);}
+return multiple(_that.field0);case EmbeddingInput_Multimodal():
+return multimodal(_that.field0);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -2376,11 +2745,12 @@ return multiple(_that.field0);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( String field0)?  single,TResult? Function( List<String> field0)?  multiple,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( String field0)?  single,TResult? Function( List<String> field0)?  multiple,TResult? Function( List<EmbeddingContentPart> field0)?  multimodal,}) {final _that = this;
 switch (_that) {
 case EmbeddingInput_Single() when single != null:
 return single(_that.field0);case EmbeddingInput_Multiple() when multiple != null:
-return multiple(_that.field0);case _:
+return multiple(_that.field0);case EmbeddingInput_Multimodal() when multimodal != null:
+return multimodal(_that.field0);case _:
   return null;
 
 }
@@ -2520,6 +2890,78 @@ class _$EmbeddingInput_MultipleCopyWithImpl<$Res>
   return _then(EmbeddingInput_Multiple(
 field0: null == field0 ? _self._field0 : field0 // ignore: cast_nullable_to_non_nullable
 as List<String>,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class EmbeddingInput_Multimodal extends EmbeddingInput {
+  const EmbeddingInput_Multimodal({required final  List<EmbeddingContentPart> field0}): _field0 = field0,super._();
+
+
+ final  List<EmbeddingContentPart> _field0;
+@override List<EmbeddingContentPart> get field0 {
+  if (_field0 is EqualUnmodifiableListView) return _field0;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_field0);
+}
+
+
+/// Create a copy of EmbeddingInput
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$EmbeddingInput_MultimodalCopyWith<EmbeddingInput_Multimodal> get copyWith => _$EmbeddingInput_MultimodalCopyWithImpl<EmbeddingInput_Multimodal>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EmbeddingInput_Multimodal&&const DeepCollectionEquality().equals(other._field0, _field0));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_field0));
+
+@override
+String toString() {
+  return 'EmbeddingInput.multimodal(field0: $field0)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $EmbeddingInput_MultimodalCopyWith<$Res> implements $EmbeddingInputCopyWith<$Res> {
+  factory $EmbeddingInput_MultimodalCopyWith(EmbeddingInput_Multimodal value, $Res Function(EmbeddingInput_Multimodal) _then) = _$EmbeddingInput_MultimodalCopyWithImpl;
+@useResult
+$Res call({
+ List<EmbeddingContentPart> field0
+});
+
+
+
+
+}
+/// @nodoc
+class _$EmbeddingInput_MultimodalCopyWithImpl<$Res>
+    implements $EmbeddingInput_MultimodalCopyWith<$Res> {
+  _$EmbeddingInput_MultimodalCopyWithImpl(this._self, this._then);
+
+  final EmbeddingInput_Multimodal _self;
+  final $Res Function(EmbeddingInput_Multimodal) _then;
+
+/// Create a copy of EmbeddingInput
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? field0 = null,}) {
+  return _then(EmbeddingInput_Multimodal(
+field0: null == field0 ? _self._field0 : field0 // ignore: cast_nullable_to_non_nullable
+as List<EmbeddingContentPart>,
   ));
 }
 

@@ -1,6 +1,11 @@
 {
   "id": "finish_reason_length",
   "description": "Chat response truncated due to max_tokens limit with finish_reason of length",
+  "docs": {
+    "topic": "chat",
+    "stem": "finish-reason-length",
+    "title": "Chat response truncated due to max_tokens limit with finish_reason of length"
+  },
   "category": "chat",
   "tags": ["chat"],
   "call": "chat",

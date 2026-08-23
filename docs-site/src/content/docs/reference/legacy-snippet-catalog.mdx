@@ -1,0 +1,469 @@
+---
+title: Legacy binding examples
+description: Additional binding examples retained during fixture-driven documentation migration.
+---
+
+import { Content as LegacySnippet0 } from "../../../snippets/csharp/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet1 } from "../../../handwritten-snippets/curl/server/audio_speech.md";
+import { Content as LegacySnippet2 } from "../../../handwritten-snippets/curl/server/batches_create.md";
+import { Content as LegacySnippet3 } from "../../../handwritten-snippets/curl/server/embeddings.md";
+import { Content as LegacySnippet4 } from "../../../handwritten-snippets/curl/server/files_upload.md";
+import { Content as LegacySnippet5 } from "../../../handwritten-snippets/curl/server/health.md";
+import { Content as LegacySnippet6 } from "../../../handwritten-snippets/curl/server/images.md";
+import { Content as LegacySnippet7 } from "../../../handwritten-snippets/curl/server/responses_create.md";
+import { Content as LegacySnippet8 } from "../../../snippets/dart/smoke/basic-chat.md";
+import { Content as LegacySnippet9 } from "../../../snippets/dart/streaming/basic-stream.md";
+import { Content as LegacySnippet10 } from "../../../snippets/dart/tool-calling/single-tool-call.md";
+import { Content as LegacySnippet11 } from "../../../snippets/dart/chat/multi-turn-conversation.md";
+import { Content as LegacySnippet12 } from "../../../snippets/dart/configuration/custom-base-url.md";
+import { Content as LegacySnippet13 } from "../../../snippets/dart/smoke/basic-embed.md";
+import { Content as LegacySnippet14 } from "../../../snippets/dart/guides/error_handling.md";
+import { Content as LegacySnippet15 } from "../../../snippets/dart/streaming/stream-with-usage.md";
+import { Content as LegacySnippet16 } from "../../../snippets/dart/batches/smoke-create-batch.md";
+import { Content as LegacySnippet17 } from "../../../snippets/dart/files/smoke-create-file.md";
+import { Content as LegacySnippet18 } from "../../../snippets/dart/responses/smoke-create-response.md";
+import { Content as LegacySnippet19 } from "../../../snippets/dart/image-generate/smoke-image-basic.md";
+import { Content as LegacySnippet20 } from "../../../snippets/dart/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet21 } from "../../../snippets/dart/moderate/smoke-moderate-single.md";
+import { Content as LegacySnippet22 } from "../../../snippets/dart/ocr/ocr-url-document.md";
+import { Content as LegacySnippet23 } from "../../../snippets/dart/rerank/smoke-rerank-basic.md";
+import { Content as LegacySnippet24 } from "../../../snippets/dart/search/search-basic.md";
+import { Content as LegacySnippet25 } from "../../../snippets/dart/speech/smoke-speech-basic.md";
+import { Content as LegacySnippet26 } from "../../../snippets/dart/transcribe/smoke-transcribe-basic.md";
+import { Content as LegacySnippet27 } from "../../../snippets/elixir/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet28 } from "../../../snippets/go/usage/multimodal.md";
+import { Content as LegacySnippet29 } from "../../../snippets/java/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet30 } from "../../../snippets/kotlin-android/smoke/basic-chat.md";
+import { Content as LegacySnippet31 } from "../../../snippets/kotlin-android/streaming/basic-stream.md";
+import { Content as LegacySnippet32 } from "../../../snippets/kotlin-android/tool-calling/single-tool-call.md";
+import { Content as LegacySnippet33 } from "../../../snippets/kotlin-android/chat/multi-turn-conversation.md";
+import { Content as LegacySnippet34 } from "../../../snippets/kotlin-android/configuration/custom-base-url.md";
+import { Content as LegacySnippet35 } from "../../../snippets/kotlin-android/smoke/basic-embed.md";
+import { Content as LegacySnippet36 } from "../../../snippets/kotlin/guides/error_handling.md";
+import { Content as LegacySnippet37 } from "../../../snippets/kotlin-android/streaming/stream-with-usage.md";
+import { Content as LegacySnippet38 } from "../../../snippets/kotlin-android/batches/smoke-create-batch.md";
+import { Content as LegacySnippet39 } from "../../../snippets/kotlin-android/files/smoke-create-file.md";
+import { Content as LegacySnippet40 } from "../../../snippets/kotlin-android/responses/smoke-create-response.md";
+import { Content as LegacySnippet41 } from "../../../snippets/kotlin-android/image-generate/smoke-image-basic.md";
+import { Content as LegacySnippet42 } from "../../../snippets/kotlin-android/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet43 } from "../../../snippets/kotlin-android/moderate/smoke-moderate-single.md";
+import { Content as LegacySnippet44 } from "../../../snippets/kotlin-android/ocr/ocr-url-document.md";
+import { Content as LegacySnippet45 } from "../../../snippets/kotlin-android/rerank/smoke-rerank-basic.md";
+import { Content as LegacySnippet46 } from "../../../snippets/kotlin-android/search/search-basic.md";
+import { Content as LegacySnippet47 } from "../../../snippets/kotlin-android/speech/smoke-speech-basic.md";
+import { Content as LegacySnippet48 } from "../../../snippets/kotlin-android/transcribe/smoke-transcribe-basic.md";
+import { Content as LegacySnippet49 } from "../../../snippets/php/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet50 } from "../../../snippets/php/usage/multimodal.md";
+import { Content as LegacySnippet51 } from "../../../snippets/python/multimodal.md";
+import { Content as LegacySnippet52 } from "../../../snippets/ruby/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet53 } from "../../../snippets/swift/smoke/basic-chat.md";
+import { Content as LegacySnippet54 } from "../../../snippets/swift/streaming/basic-stream.md";
+import { Content as LegacySnippet55 } from "../../../snippets/swift/tool-calling/single-tool-call.md";
+import { Content as LegacySnippet56 } from "../../../snippets/swift/chat/multi-turn-conversation.md";
+import { Content as LegacySnippet57 } from "../../../snippets/swift/configuration/custom-base-url.md";
+import { Content as LegacySnippet58 } from "../../../snippets/swift/smoke/basic-embed.md";
+import { Content as LegacySnippet59 } from "../../../snippets/swift/guides/error_handling.md";
+import { Content as LegacySnippet60 } from "../../../snippets/swift/streaming/stream-with-usage.md";
+import { Content as LegacySnippet61 } from "../../../snippets/swift/batches/smoke-create-batch.md";
+import { Content as LegacySnippet62 } from "../../../snippets/swift/files/smoke-create-file.md";
+import { Content as LegacySnippet63 } from "../../../snippets/swift/responses/smoke-create-response.md";
+import { Content as LegacySnippet64 } from "../../../snippets/swift/image-generate/smoke-image-basic.md";
+import { Content as LegacySnippet65 } from "../../../snippets/swift/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet66 } from "../../../snippets/swift/moderate/smoke-moderate-single.md";
+import { Content as LegacySnippet67 } from "../../../snippets/swift/ocr/ocr-url-document.md";
+import { Content as LegacySnippet68 } from "../../../snippets/swift/rerank/smoke-rerank-basic.md";
+import { Content as LegacySnippet69 } from "../../../snippets/swift/search/search-basic.md";
+import { Content as LegacySnippet70 } from "../../../snippets/swift/speech/smoke-speech-basic.md";
+import { Content as LegacySnippet71 } from "../../../snippets/swift/transcribe/smoke-transcribe-basic.md";
+import { Content as LegacySnippet72 } from "../../../snippets/wasm/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet73 } from "../../../snippets/zig/smoke/basic-chat.md";
+import { Content as LegacySnippet74 } from "../../../snippets/zig/streaming/basic-stream.md";
+import { Content as LegacySnippet75 } from "../../../snippets/zig/tool-calling/single-tool-call.md";
+import { Content as LegacySnippet76 } from "../../../snippets/zig/chat/multi-turn-conversation.md";
+import { Content as LegacySnippet77 } from "../../../snippets/zig/configuration/custom-base-url.md";
+import { Content as LegacySnippet78 } from "../../../snippets/zig/smoke/basic-embed.md";
+import { Content as LegacySnippet79 } from "../../../snippets/zig/guides/error_handling.md";
+import { Content as LegacySnippet80 } from "../../../snippets/zig/streaming/stream-with-usage.md";
+import { Content as LegacySnippet81 } from "../../../snippets/zig/batches/smoke-create-batch.md";
+import { Content as LegacySnippet82 } from "../../../snippets/zig/files/smoke-create-file.md";
+import { Content as LegacySnippet83 } from "../../../snippets/zig/responses/smoke-create-response.md";
+import { Content as LegacySnippet84 } from "../../../snippets/zig/image-generate/smoke-image-basic.md";
+import { Content as LegacySnippet85 } from "../../../snippets/zig/configuration/local-provider-ollama.md";
+import { Content as LegacySnippet86 } from "../../../snippets/zig/moderate/smoke-moderate-single.md";
+import { Content as LegacySnippet87 } from "../../../snippets/zig/ocr/ocr-url-document.md";
+import { Content as LegacySnippet88 } from "../../../snippets/zig/rerank/smoke-rerank-basic.md";
+import { Content as LegacySnippet89 } from "../../../snippets/zig/search/search-basic.md";
+import { Content as LegacySnippet90 } from "../../../snippets/zig/speech/smoke-speech-basic.md";
+import { Content as LegacySnippet91 } from "../../../snippets/zig/transcribe/smoke-transcribe-basic.md";
+
+## Legacy binding examples
+
+These examples preserve additional target-specific usage patterns alongside the fixture-generated reference matrix.
+
+### csharp usage local llm.md
+
+<LegacySnippet0 />
+
+### curl server audio speech.md
+
+<LegacySnippet1 />
+
+### curl server batches create.md
+
+<LegacySnippet2 />
+
+### curl server embeddings.md
+
+<LegacySnippet3 />
+
+### curl server files upload.md
+
+<LegacySnippet4 />
+
+### curl server health.md
+
+<LegacySnippet5 />
+
+### curl server images.md
+
+<LegacySnippet6 />
+
+### curl server responses create.md
+
+<LegacySnippet7 />
+
+### dart getting started basic chat.md
+
+<LegacySnippet8 />
+
+### dart getting started streaming.md
+
+<LegacySnippet9 />
+
+### dart getting started tool calling.md
+
+<LegacySnippet10 />
+
+### dart guides chat multiturn.md
+
+<LegacySnippet11 />
+
+### dart guides configuration.md
+
+<LegacySnippet12 />
+
+### dart guides embeddings.md
+
+<LegacySnippet13 />
+
+### dart guides error handling.md
+
+<LegacySnippet14 />
+
+### dart guides stream collect.md
+
+<LegacySnippet15 />
+
+### dart usage create batch.md
+
+<LegacySnippet16 />
+
+### dart usage create file.md
+
+<LegacySnippet17 />
+
+### dart usage create response.md
+
+<LegacySnippet18 />
+
+### dart usage image generate.md
+
+<LegacySnippet19 />
+
+### dart usage local llm.md
+
+<LegacySnippet20 />
+
+### dart usage moderate.md
+
+<LegacySnippet21 />
+
+### dart usage ocr.md
+
+<LegacySnippet22 />
+
+### dart usage rerank.md
+
+<LegacySnippet23 />
+
+### dart usage search.md
+
+<LegacySnippet24 />
+
+### dart usage speech.md
+
+<LegacySnippet25 />
+
+### dart usage transcribe.md
+
+<LegacySnippet26 />
+
+### elixir usage local llm.md
+
+<LegacySnippet27 />
+
+### go usage multimodal.md
+
+<LegacySnippet28 />
+
+### java usage local llm.md
+
+<LegacySnippet29 />
+
+### kotlin getting started basic chat.md
+
+<LegacySnippet30 />
+
+### kotlin getting started streaming.md
+
+<LegacySnippet31 />
+
+### kotlin getting started tool calling.md
+
+<LegacySnippet32 />
+
+### kotlin guides chat multiturn.md
+
+<LegacySnippet33 />
+
+### kotlin guides configuration.md
+
+<LegacySnippet34 />
+
+### kotlin guides embeddings.md
+
+<LegacySnippet35 />
+
+### kotlin guides error handling.md
+
+<LegacySnippet36 />
+
+### kotlin guides stream collect.md
+
+<LegacySnippet37 />
+
+### kotlin usage create batch.md
+
+<LegacySnippet38 />
+
+### kotlin usage create file.md
+
+<LegacySnippet39 />
+
+### kotlin usage create response.md
+
+<LegacySnippet40 />
+
+### kotlin usage image generate.md
+
+<LegacySnippet41 />
+
+### kotlin usage local llm.md
+
+<LegacySnippet42 />
+
+### kotlin usage moderate.md
+
+<LegacySnippet43 />
+
+### kotlin usage ocr.md
+
+<LegacySnippet44 />
+
+### kotlin usage rerank.md
+
+<LegacySnippet45 />
+
+### kotlin usage search.md
+
+<LegacySnippet46 />
+
+### kotlin usage speech.md
+
+<LegacySnippet47 />
+
+### kotlin usage transcribe.md
+
+<LegacySnippet48 />
+
+### php usage local llm.md
+
+<LegacySnippet49 />
+
+### php usage multimodal.md
+
+<LegacySnippet50 />
+
+### python multimodal.md
+
+<LegacySnippet51 />
+
+### ruby usage local llm.md
+
+<LegacySnippet52 />
+
+### swift getting started basic chat.md
+
+<LegacySnippet53 />
+
+### swift getting started streaming.md
+
+<LegacySnippet54 />
+
+### swift getting started tool calling.md
+
+<LegacySnippet55 />
+
+### swift guides chat multiturn.md
+
+<LegacySnippet56 />
+
+### swift guides configuration.md
+
+<LegacySnippet57 />
+
+### swift guides embeddings.md
+
+<LegacySnippet58 />
+
+### swift guides error handling.md
+
+<LegacySnippet59 />
+
+### swift guides stream collect.md
+
+<LegacySnippet60 />
+
+### swift usage create batch.md
+
+<LegacySnippet61 />
+
+### swift usage create file.md
+
+<LegacySnippet62 />
+
+### swift usage create response.md
+
+<LegacySnippet63 />
+
+### swift usage image generate.md
+
+<LegacySnippet64 />
+
+### swift usage local llm.md
+
+<LegacySnippet65 />
+
+### swift usage moderate.md
+
+<LegacySnippet66 />
+
+### swift usage ocr.md
+
+<LegacySnippet67 />
+
+### swift usage rerank.md
+
+<LegacySnippet68 />
+
+### swift usage search.md
+
+<LegacySnippet69 />
+
+### swift usage speech.md
+
+<LegacySnippet70 />
+
+### swift usage transcribe.md
+
+<LegacySnippet71 />
+
+### wasm usage local llm.md
+
+<LegacySnippet72 />
+
+### zig getting started basic chat.md
+
+<LegacySnippet73 />
+
+### zig getting started streaming.md
+
+<LegacySnippet74 />
+
+### zig getting started tool calling.md
+
+<LegacySnippet75 />
+
+### zig guides chat multiturn.md
+
+<LegacySnippet76 />
+
+### zig guides configuration.md
+
+<LegacySnippet77 />
+
+### zig guides embeddings.md
+
+<LegacySnippet78 />
+
+### zig guides error handling.md
+
+<LegacySnippet79 />
+
+### zig guides stream collect.md
+
+<LegacySnippet80 />
+
+### zig usage create batch.md
+
+<LegacySnippet81 />
+
+### zig usage create file.md
+
+<LegacySnippet82 />
+
+### zig usage create response.md
+
+<LegacySnippet83 />
+
+### zig usage image generate.md
+
+<LegacySnippet84 />
+
+### zig usage local llm.md
+
+<LegacySnippet85 />
+
+### zig usage moderate.md
+
+<LegacySnippet86 />
+
+### zig usage ocr.md
+
+<LegacySnippet87 />
+
+### zig usage rerank.md
+
+<LegacySnippet88 />
+
+### zig usage search.md
+
+<LegacySnippet89 />
+
+### zig usage speech.md
+
+<LegacySnippet90 />
+
+### zig usage transcribe.md
+
+<LegacySnippet91 />

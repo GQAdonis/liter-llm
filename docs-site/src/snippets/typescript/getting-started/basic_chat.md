@@ -1,4 +1,13 @@
-<!-- snippet:compile-only -->
+---
+id: readme_node_basic_chat
+language: typescript
+target: node
+level: syntax
+requires: []
+side_effect: network
+---
+
+Send a message to any provider using the `provider/model` prefix.
 
 ```typescript
 import { createClient } from "@xberg-io/liter-llm";

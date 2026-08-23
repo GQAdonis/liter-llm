@@ -1,6 +1,11 @@
 {
   "id": "gateway_timeout_504",
   "description": "504 Gateway Timeout error when the upstream service times out",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "gateway-timeout-504",
+    "title": "504 Gateway Timeout error when the upstream service times out"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

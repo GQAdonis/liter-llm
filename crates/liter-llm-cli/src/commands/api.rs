@@ -24,6 +24,9 @@ pub struct ApiArgs {
     #[arg(long, short, default_value_t = 4000)]
     pub port: u16,
     /// Master API key (overrides config/env).
+    ///
+    /// Prefer the `LITER_LLM_MASTER_KEY` environment variable or the config file: a value passed
+    /// here is visible to any local user in the process table.
     #[arg(long, env = "LITER_LLM_MASTER_KEY")]
     pub master_key: Option<String>,
     /// Enable debug logging.
@@ -66,6 +69,16 @@ pub async fn run(args: ApiArgs) -> Result<(), String> {
     config.server.port = args.port;
     if let Some(ref key) = args.master_key {
         config.general.master_key = Some(SecretString::from(key.clone()));
+    }
+
+    // ~keep An argv-supplied master key is world-readable via the process table (ps/procfs) for the
+    // process lifetime; the env var and config-file paths are not. Detected by scanning argv, since a
+    // value sourced from LITER_LLM_MASTER_KEY never appears there.
+    if std::env::args().any(|a| a == "--master-key" || a.starts_with("--master-key=")) {
+        tracing::warn!(
+            "master key passed as a command-line argument is visible to any local user via the \
+             process table; prefer the LITER_LLM_MASTER_KEY environment variable or the config file"
+        );
     }
 
     // ~keep Warn when wildcard CORS plus public bind permits credentialed cross-origin requests.

@@ -1,6 +1,11 @@
 {
   "id": "smoke_list_batches",
   "description": "List all batch jobs",
+  "docs": {
+    "topic": "batches",
+    "stem": "smoke-list-batches",
+    "title": "List all batch jobs"
+  },
   "category": "batches",
   "tags": ["smoke", "batches"],
   "call": "list_batches",

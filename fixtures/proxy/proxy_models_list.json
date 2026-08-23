@@ -1,6 +1,11 @@
 {
   "id": "proxy_models_list",
   "description": "List models request routed through the proxy",
+  "docs": {
+    "topic": "proxy",
+    "stem": "proxy-models-list",
+    "title": "List models request routed through the proxy"
+  },
   "category": "proxy",
   "tags": ["proxy", "list-models"],
   "call": "list_models",

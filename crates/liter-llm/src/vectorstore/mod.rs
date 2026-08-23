@@ -26,6 +26,7 @@ use std::pin::Pin;
 use std::time::SystemTime;
 
 use crate::error::Result;
+use crate::types::{ContentPart, ImageUrl};
 
 /// Metadata stored alongside each vector entry.
 #[cfg_attr(alef, alef(skip))]
@@ -45,12 +46,38 @@ pub struct VectorMetadata {
     /// because the current request body differs from the stored one by
     /// definition (they are only semantically similar, not byte-identical).
     pub original_request_body: String,
+    /// Image payload associated with this vector, when the embedded item is an image.
+    pub image_url: Option<ImageUrl>,
     /// Optional tenant identifier (for multi-tenant deployments).
     pub tenant_id: Option<String>,
     /// Wall-clock time when this vector was inserted.
     pub inserted_at: SystemTime,
     /// Arbitrary key-value metadata (model name, prompt hash, etc.).
     pub extra: HashMap<String, String>,
+}
+
+impl VectorMetadata {
+    /// Convert the stored image payload into a chat content part.
+    #[must_use]
+    pub fn image_content_part(&self) -> Option<ContentPart> {
+        self.image_url
+            .clone()
+            .map(|image_url| ContentPart::ImageUrl { image_url })
+    }
+}
+
+/// Return `true` if an entry carrying `entry_tenant` is visible to a query
+/// scoped to `query_tenant`.
+///
+/// ~keep The rule is plain equality, including the `None` case: a tenant-less
+/// ~keep query only matches tenant-less entries, and a tenant-scoped query only
+/// ~keep matches that exact tenant. "`None` matches everything" was
+/// ~keep deliberately rejected — it would re-open the cross-tenant leak this
+/// ~keep filter exists to close, since any request that happened to omit a
+/// ~keep tenant would then see every other tenant's entries.
+#[must_use]
+pub(crate) fn tenant_matches(entry_tenant: Option<&str>, query_tenant: Option<&str>) -> bool {
+    entry_tenant == query_tenant
 }
 
 /// A single result returned by [`VectorStore::search`].
@@ -85,6 +112,7 @@ pub struct VectorMatch {
 ///         query_vec: &'a [f32],
 ///         k: usize,
 ///         threshold: f32,
+///         tenant_id: Option<&'a str>,
 ///     ) -> Pin<Box<dyn Future<Output = Vec<VectorMatch>> + Send + 'a>> {
 ///         Box::pin(async move { Vec::new() })
 ///     }
@@ -109,15 +137,19 @@ pub struct VectorMatch {
 /// }
 /// ```
 pub trait VectorStore: Send + Sync + 'static {
-    /// Find the K nearest neighbors above a similarity threshold.
+    /// Find the K nearest neighbors above a similarity threshold, scoped to `tenant_id`.
     ///
     /// Returns at most `k` results sorted by descending similarity.  Only
-    /// entries with `similarity >= threshold` are included.
+    /// entries with `similarity >= threshold` **and** a matching tenant (per
+    /// [`tenant_matches`]) are included. Pass `None` to search entries with no
+    /// tenant set — `None` never matches a tenant-scoped entry, and a
+    /// tenant-scoped query never matches a `None`-tenant entry.
     fn search<'a>(
         &'a self,
         query_vec: &'a [f32],
         k: usize,
         threshold: f32,
+        tenant_id: Option<&'a str>,
     ) -> Pin<Box<dyn Future<Output = Vec<VectorMatch>> + Send + 'a>>;
 
     /// Insert or update a vector with associated metadata.

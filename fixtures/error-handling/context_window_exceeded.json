@@ -1,6 +1,11 @@
 {
   "id": "context_window_exceeded",
   "description": "400 error when the prompt exceeds the model's maximum context length",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "context-window-exceeded",
+    "title": "400 error when the prompt exceeds the model's maximum context length"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

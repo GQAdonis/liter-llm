@@ -1,33 +1,33 @@
 ---
-description: "Generate text embeddings and rerank documents with liter-llm."
+description: "Generate text and image embeddings and rerank documents with liter-llm."
 title: "Embeddings & Rerank"
 ---
 
 import { Tabs, TabItem } from "@astrojs/starlight/components";
-import { Content as Snip_python_guides_embeddings } from "../../../snippets/python/guides/embeddings.md";
-import { Content as Snip_typescript_guides_embeddings } from "../../../snippets/typescript/guides/embeddings.md";
-import { Content as Snip_rust_usage_embeddings } from "../../../snippets/rust/usage/embeddings.md";
-import { Content as Snip_go_guides_embeddings } from "../../../snippets/go/guides/embeddings.md";
-import { Content as Snip_java_usage_embeddings } from "../../../snippets/java/usage/embeddings.md";
-import { Content as Snip_csharp_usage_embeddings } from "../../../snippets/csharp/usage/embeddings.md";
-import { Content as Snip_ruby_usage_embeddings } from "../../../snippets/ruby/usage/embeddings.md";
-import { Content as Snip_php_usage_embeddings } from "../../../snippets/php/usage/embeddings.md";
-import { Content as Snip_elixir_usage_embeddings } from "../../../snippets/elixir/usage/embeddings.md";
-import { Content as Snip_wasm_usage_embeddings } from "../../../snippets/wasm/usage/embeddings.md";
-import { Content as Snip_python_usage_rerank } from "../../../snippets/python/usage/rerank.md";
-import { Content as Snip_typescript_usage_rerank } from "../../../snippets/typescript/usage/rerank.md";
-import { Content as Snip_rust_usage_rerank } from "../../../snippets/rust/usage/rerank.md";
-import { Content as Snip_go_usage_rerank } from "../../../snippets/go/usage/rerank.md";
-import { Content as Snip_java_usage_rerank } from "../../../snippets/java/usage/rerank.md";
-import { Content as Snip_csharp_usage_rerank } from "../../../snippets/csharp/usage/rerank.md";
-import { Content as Snip_ruby_usage_rerank } from "../../../snippets/ruby/usage/rerank.md";
-import { Content as Snip_php_usage_rerank } from "../../../snippets/php/usage/rerank.md";
-import { Content as Snip_elixir_usage_rerank } from "../../../snippets/elixir/usage/rerank.md";
-import { Content as Snip_wasm_usage_rerank } from "../../../snippets/wasm/usage/rerank.md";
+import { Content as Snip_python_guides_embeddings } from "../../../snippets/python/smoke/basic-embed.md";
+import { Content as Snip_typescript_guides_embeddings } from "../../../snippets/typescript/smoke/basic-embed.md";
+import { Content as Snip_rust_usage_embeddings } from "../../../snippets/rust/smoke/basic-embed.md";
+import { Content as Snip_go_guides_embeddings } from "../../../snippets/go/smoke/basic-embed.md";
+import { Content as Snip_java_usage_embeddings } from "../../../snippets/java/smoke/basic-embed.md";
+import { Content as Snip_csharp_usage_embeddings } from "../../../snippets/csharp/smoke/basic-embed.md";
+import { Content as Snip_ruby_usage_embeddings } from "../../../snippets/ruby/smoke/basic-embed.md";
+import { Content as Snip_php_usage_embeddings } from "../../../snippets/php/smoke/basic-embed.md";
+import { Content as Snip_elixir_usage_embeddings } from "../../../snippets/elixir/smoke/basic-embed.md";
+import { Content as Snip_wasm_usage_embeddings } from "../../../snippets/wasm/smoke/basic-embed.md";
+import { Content as Snip_python_usage_rerank } from "../../../snippets/python/rerank/smoke-rerank-basic.md";
+import { Content as Snip_typescript_usage_rerank } from "../../../snippets/typescript/rerank/smoke-rerank-basic.md";
+import { Content as Snip_rust_usage_rerank } from "../../../snippets/rust/rerank/smoke-rerank-basic.md";
+import { Content as Snip_go_usage_rerank } from "../../../snippets/go/rerank/smoke-rerank-basic.md";
+import { Content as Snip_java_usage_rerank } from "../../../snippets/java/rerank/smoke-rerank-basic.md";
+import { Content as Snip_csharp_usage_rerank } from "../../../snippets/csharp/rerank/smoke-rerank-basic.md";
+import { Content as Snip_ruby_usage_rerank } from "../../../snippets/ruby/rerank/smoke-rerank-basic.md";
+import { Content as Snip_php_usage_rerank } from "../../../snippets/php/rerank/smoke-rerank-basic.md";
+import { Content as Snip_elixir_usage_rerank } from "../../../snippets/elixir/rerank/smoke-rerank-basic.md";
+import { Content as Snip_wasm_usage_rerank } from "../../../snippets/wasm/rerank/smoke-rerank-basic.md";
 
 ## Embeddings
 
-Generate vector embeddings from text. Embeddings are fixed-length numeric arrays that capture semantic meaning -- useful for search, clustering, and RAG.
+Generate vector embeddings from text or multimodal content. Embeddings are fixed-length numeric arrays that capture semantic meaning -- useful for search, clustering, and RAG.
 
 <Tabs syncKey="lang">
 <TabItem label="Python">
@@ -87,7 +87,7 @@ Generate vector embeddings from text. Embeddings are fixed-length numeric arrays
 | Parameter         | Type         | Description                                              |
 | ----------------- | ------------ | -------------------------------------------------------- |
 | `model`           | string       | Embedding model (e.g. `"openai/text-embedding-3-small"`) |
-| `input`           | string/array | Text(s) to embed                                         |
+| `input`           | string/array | Text, text batches, or tagged text and image parts       |
 | `encoding_format` | string       | Output format (`"float"` or `"base64"`)                  |
 | `dimensions`      | int          | Output dimensionality (model-dependent)                  |
 
@@ -110,6 +110,42 @@ Generate vector embeddings from text. Embeddings are fixed-length numeric arrays
 | Jina AI          | `jina_ai/`   | `jina-embeddings-v3`                               |
 
 See the [Providers](/providers/) page for the complete capability matrix.
+
+### Multimodal RAG
+
+Send a tagged array of text and image parts to a multimodal-compatible custom or self-hosted embedding endpoint:
+
+```rust
+use liter_llm::types::{EmbeddingContentPart, EmbeddingInput, EmbeddingRequest};
+
+let request = EmbeddingRequest {
+    model: "custom/multimodal-embedding".into(),
+    input: EmbeddingInput::Multimodal(vec![
+        EmbeddingContentPart::text("product photo"),
+        EmbeddingContentPart::image_url("https://example.com/product.png"),
+    ]),
+    ..Default::default()
+};
+```
+
+Use `EmbeddingContentPart::image_bytes` to encode raw bytes as a data URL. The custom endpoint must accept the tagged multimodal payload. The built-in Bedrock, Google AI, and Vertex AI embedding adapters remain text-only and return a bad-request error for multimodal input.
+
+Store the source image alongside its vector and pass a retrieved match directly into a chat request:
+
+```rust
+use liter_llm::types::ImageUrl;
+
+metadata.image_url = Some(ImageUrl {
+    url: "https://example.com/product.png".into(),
+    detail: None,
+});
+
+if let Some(image_part) = matched.metadata.image_content_part() {
+    // ~keep Add image_part to UserContent::Parts for a vision-capable chat model.
+}
+```
+
+Existing `EmbeddingProvider` implementations must change `embed` to accept `&EmbeddingInput` instead of `&str`. Existing `VectorMetadata` literals must set `image_url`, usually to `None`.
 
 ## Rerank
 

@@ -1,6 +1,11 @@
 {
   "id": "anthropic_tool_calling",
   "description": "Chat request to Anthropic provider with a tool definition; assistant responds with a tool call",
+  "docs": {
+    "topic": "providers",
+    "stem": "anthropic-tool-calling",
+    "title": "Chat request to Anthropic provider with a tool definition; assistant responds with a tool call"
+  },
   "category": "tool-calling",
   "tags": ["tool-calling", "anthropic"],
   "call": "chat",

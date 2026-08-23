@@ -1,6 +1,11 @@
 {
   "id": "smoke_moderate_batch",
   "description": "Moderate multiple inputs in a single request",
+  "docs": {
+    "topic": "moderate",
+    "stem": "smoke-moderate-batch",
+    "title": "Moderate multiple inputs in a single request"
+  },
   "category": "moderate",
   "tags": ["smoke", "moderate"],
   "call": "moderate",

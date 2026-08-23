@@ -4,6 +4,7 @@ Send a message to any provider using the `provider/model` prefix:
 
 {{ snippets.basic_chat | include_snippet(language) }}
 
+{% if snippets.streaming or snippets.tool_calling %}
 ### Common Use Cases
 
 {% if snippets.streaming %}
@@ -23,6 +24,7 @@ Define and invoke tools:
 
 {{ snippets.tool_calling | include_snippet(language) }}
 
+{% endif %}
 {% endif %}
 
 ### Next Steps

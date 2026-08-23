@@ -1,6 +1,11 @@
 {
   "id": "bad_request_400",
   "description": "400 Bad Request error when a parameter value is invalid",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "bad-request-400",
+    "title": "400 Bad Request error when a parameter value is invalid"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

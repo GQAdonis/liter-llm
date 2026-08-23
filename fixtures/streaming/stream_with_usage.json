@@ -1,6 +1,11 @@
 {
   "id": "stream_with_usage",
   "description": "Streaming chat completion that includes a usage summary in the final chunk",
+  "docs": {
+    "topic": "streaming",
+    "stem": "stream-with-usage",
+    "title": "Streaming chat completion that includes a usage summary in the final chunk"
+  },
   "category": "streaming",
   "tags": ["streaming"],
   "call": "chat_stream",

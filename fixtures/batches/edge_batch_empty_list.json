@@ -1,6 +1,11 @@
 {
   "id": "edge_batch_empty_list",
   "description": "List batches when no batches exist",
+  "docs": {
+    "topic": "batches",
+    "stem": "edge-batch-empty-list",
+    "title": "List batches when no batches exist"
+  },
   "category": "batches",
   "tags": ["edge-case", "batches"],
   "call": "list_batches",

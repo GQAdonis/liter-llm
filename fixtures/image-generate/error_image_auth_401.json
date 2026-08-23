@@ -1,6 +1,11 @@
 {
   "id": "error_image_auth_401",
   "description": "401 Unauthorized when generating images with invalid API key",
+  "docs": {
+    "topic": "image-generate",
+    "stem": "error-image-auth-401",
+    "title": "401 Unauthorized when generating images with invalid API key"
+  },
   "category": "image-generate",
   "tags": ["error-handling", "image"],
   "call": "image_generate",

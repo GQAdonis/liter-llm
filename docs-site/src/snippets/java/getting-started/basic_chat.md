@@ -1,4 +1,13 @@
-<!-- snippet:compile-only -->
+---
+id: readme_java_basic_chat
+language: java
+target: java
+level: syntax
+requires: []
+side_effect: network
+---
+
+Send a message to any provider using the `provider/model` prefix.
 
 ```java
 import io.xberg.literllm.*;

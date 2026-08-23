@@ -1,3 +1,14 @@
+---
+id: readme_rust_basic_chat
+language: rust
+target: rust
+level: syntax
+requires: []
+side_effect: network
+---
+
+Send a message to any provider using the `provider/model` prefix.
+
 ```rust
 use liter_llm::{
     ChatCompletionRequest, ClientConfigBuilder, DefaultClient, LlmClient,

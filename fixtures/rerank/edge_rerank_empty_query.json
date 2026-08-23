@@ -1,6 +1,11 @@
 {
   "id": "edge_rerank_empty_query",
   "description": "Reranking with an empty query string",
+  "docs": {
+    "topic": "rerank",
+    "stem": "edge-rerank-empty-query",
+    "title": "Reranking with an empty query string"
+  },
   "category": "rerank",
   "tags": ["edge-case", "rerank"],
   "call": "rerank",

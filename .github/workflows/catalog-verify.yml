@@ -1,26 +1,17 @@
 name: Catalog Verify
 
+# ~keep No push:/pull_request: triggers: `--validate` re-fetches
+# ~keep https://models.dev/api.json live, so it is not hermetic — an upstream
+# ~keep edit between commit time and CI time makes an unchanged PR/push go
+# ~keep red (see run 31160997087 vs the identical, passing 31154572055).
+# ~keep `sync-catalog.yml` already runs this same check on a schedule and
+# ~keep opens a PR on genuine drift, so coverage is not lost; this workflow
+# ~keep stays available for manual re-verification via workflow_dispatch.
 on:
-  push:
-    branches: [main]
-    paths:
-      - schemas/catalog.json
-      - crates/liter-llm/schemas/catalog.json
-      - crates/liter-llm-catalog-gen/**
-      - Taskfile.yml
-      - .github/workflows/catalog-verify.yml
-  pull_request:
-    branches: [main]
-    paths:
-      - schemas/catalog.json
-      - crates/liter-llm/schemas/catalog.json
-      - crates/liter-llm-catalog-gen/**
-      - Taskfile.yml
-      - .github/workflows/catalog-verify.yml
   workflow_dispatch:
 
 concurrency:
-  group: catalog-verify-${{ github.event.pull_request.number || github.ref }}
+  group: catalog-verify-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

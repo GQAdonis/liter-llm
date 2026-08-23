@@ -1,6 +1,11 @@
 {
   "id": "smoke_embed_openai",
   "description": "Embeddings request against real OpenAI API",
+  "docs": {
+    "topic": "smoke",
+    "stem": "smoke-embed-openai",
+    "title": "Embeddings request against real OpenAI API"
+  },
   "category": "smoke",
   "tags": ["smoke", "openai", "embed"],
   "call": "embed",

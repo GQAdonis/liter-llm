@@ -1,6 +1,11 @@
 {
   "id": "error_speech_bad_model",
   "description": "400 Bad Request for speech with unsupported model",
+  "docs": {
+    "topic": "speech",
+    "stem": "error-speech-bad-model",
+    "title": "400 Bad Request for speech with unsupported model"
+  },
   "category": "speech",
   "tags": ["error-handling", "speech"],
   "call": "speech",

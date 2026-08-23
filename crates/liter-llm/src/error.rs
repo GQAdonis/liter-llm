@@ -161,6 +161,21 @@ impl LiterLlmError {
         }
     }
 
+    /// Returns the server-advertised retry delay, when the error carries one.
+    ///
+    /// Parsed from the upstream `Retry-After` header on a 429.  Exposed as an
+    /// accessor alongside [`Self::status_code`] and [`Self::error_type`] so the
+    /// generated bindings can surface it: the value reached the Rust core but
+    /// stopped there, leaving every binding consumer to re-derive its own
+    /// backoff from nothing more than the status code. ~keep
+    #[must_use]
+    pub fn retry_after(&self) -> Option<Duration> {
+        match self {
+            Self::RateLimited { retry_after, .. } => *retry_after,
+            _ => None,
+        }
+    }
+
     /// Returns `true` for errors that are worth retrying on a different service
     /// or deployment (transient failures).
     ///

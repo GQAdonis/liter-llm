@@ -76,6 +76,8 @@ pub enum ReasoningEffort {
     #[default]
     Medium,
     High,
+    Minimal,
+    Max,
 }
 
 /// Chat completion request (compatible with OpenAI and similar APIs).
@@ -86,10 +88,23 @@ pub struct ChatCompletionRequest {
     pub model: String,
     /// Conversation history from oldest to newest.
     pub messages: Vec<Message>,
-    /// Sampling temperature in `[0.0, 2.0]`. Higher increases randomness. Defaults to 1.0.
+    /// Sampling temperature. Higher increases randomness, lower is more deterministic.
+    /// Defaults to 1.0.
+    ///
+    /// The accepted range depends on the provider the request is routed to. OpenAI-compatible
+    /// providers accept `[0.0, 2.0]`; Anthropic and Amazon Bedrock both cap it at `1.0`, and
+    /// for those two a value above the cap is rejected with a `BadRequest` error before the
+    /// request is sent, rather than being silently clamped or left for the provider to reject.
+    ///
+    /// No range is enforced for providers whose own documentation does not state one — the
+    /// value is forwarded and the provider decides. Consult the target provider's reference
+    /// rather than assuming `[0.0, 2.0]` is portable.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
-    /// Nucleus sampling parameter in `[0.0, 1.0]`. Lower is more focused.
+    /// Nucleus sampling parameter. Lower is more focused.
+    ///
+    /// Accepted ranges vary by provider (most document `[0.0, 1.0]`, but this is not
+    /// universal — check the target provider's own documentation for its exact bounds).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f64>,
     /// Number of chat completions to generate. Defaults to 1.
@@ -137,7 +152,7 @@ pub struct ChatCompletionRequest {
     /// Random seed for reproducible outputs. Provider support varies.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seed: Option<i64>,
-    /// Reasoning effort level (low, medium, high) for extended-thinking models.
+    /// Reasoning effort level (minimal, low, medium, high, max) for extended-thinking models.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<ReasoningEffort>,
     /// Output modalities to request from the model.
@@ -146,6 +161,46 @@ pub struct ChatCompletionRequest {
     /// translates these to `generationConfig.responseModalities` (uppercase).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modalities: Option<Vec<Modality>>,
+    /// Whether to return log probabilities of the output tokens.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logprobs: Option<bool>,
+    /// Number of most-likely tokens to return log probabilities for, `0..=20`.
+    /// Requires `logprobs` to be `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_logprobs: Option<u32>,
+    /// Upper bound on generated tokens, including reasoning tokens.
+    ///
+    /// Supersedes `max_tokens` on OpenAI reasoning models, which reject
+    /// `max_tokens` outright.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_completion_tokens: Option<u64>,
+    /// Latency tier to process the request under (e.g. `"auto"`, `"default"`,
+    /// `"flex"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_tier: Option<String>,
+    /// Whether to store the completion for later retrieval by the provider.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub store: Option<bool>,
+    /// Developer-defined tags attached to the completion.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<BTreeMap<String, String>>,
+    /// Predicted output, for latency reduction when much of the response is
+    /// known ahead of time.
+    ///
+    /// Untyped: the shape is provider-defined and still evolving, and the
+    /// value is forwarded verbatim. ~keep
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prediction: Option<serde_json::Value>,
+    /// Audio output parameters, required when `modalities` includes `audio`.
+    ///
+    /// Untyped for the same reason as `prediction`. ~keep
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio: Option<serde_json::Value>,
+    /// Web-search tool configuration for search-enabled models.
+    ///
+    /// Untyped for the same reason as `prediction`. ~keep
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub web_search_options: Option<serde_json::Value>,
     /// Provider-specific extra parameters merged into the request body.
     /// Use for guardrails, safety settings, grounding config, etc.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -216,9 +271,41 @@ pub struct Choice {
     /// Index of this choice in the choices array.
     pub index: u32,
     /// The assistant's message response.
+    ///
+    /// Serialized with an explicit `role: "assistant"`. The field is not stored
+    /// on [`AssistantMessage`] because [`Message`] is an internally-tagged enum
+    /// keyed on `role`, so a stored field would emit the key twice inside a
+    /// request. OpenAI's response schema requires it here. ~keep
+    #[serde(serialize_with = "serialize_assistant_message_with_role")]
     pub message: AssistantMessage,
     /// Why the model stopped generating (stop, length, tool_calls, content_filter, etc.).
     pub finish_reason: Option<FinishReason>,
+    /// Per-token log probabilities, when the request asked for them.
+    ///
+    /// Required by OpenAI's response schema as an always-present, nullable key,
+    /// so this is deliberately not `skip_serializing_if`. ~keep
+    #[serde(default)]
+    pub logprobs: Option<serde_json::Value>,
+}
+
+/// Serialize an [`AssistantMessage`] with the `role: "assistant"` discriminator
+/// that OpenAI's response schema requires on `choices[].message`.
+fn serialize_assistant_message_with_role<S>(message: &AssistantMessage, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    #[derive(Serialize)]
+    struct WithRole<'a> {
+        role: &'static str,
+        #[serde(flatten)]
+        message: &'a AssistantMessage,
+    }
+
+    WithRole {
+        role: "assistant",
+        message,
+    }
+    .serialize(serializer)
 }
 
 /// A streamed chunk of a chat completion response.
@@ -337,6 +424,27 @@ mod tests {
         assert_eq!(chunk.model, "");
         assert!(chunk.choices.is_empty());
         assert!(chunk.usage.is_none());
+    }
+
+    #[test]
+    fn reasoning_effort_minimal_and_max_round_trip_through_serde() {
+        assert_eq!(
+            serde_json::to_value(ReasoningEffort::Minimal).expect("serialize should not fail"),
+            serde_json::json!("minimal")
+        );
+        assert_eq!(
+            serde_json::from_value::<ReasoningEffort>(serde_json::json!("minimal"))
+                .expect("deserialize should not fail"),
+            ReasoningEffort::Minimal
+        );
+        assert_eq!(
+            serde_json::to_value(ReasoningEffort::Max).expect("serialize should not fail"),
+            serde_json::json!("max")
+        );
+        assert_eq!(
+            serde_json::from_value::<ReasoningEffort>(serde_json::json!("max")).expect("deserialize should not fail"),
+            ReasoningEffort::Max
+        );
     }
 
     fn make_response(model: &str, usage: Usage) -> ChatCompletionResponse {
@@ -467,5 +575,97 @@ mod tests {
         }"#;
         let delta: StreamDelta = serde_json::from_str(json).expect("valid delta shape");
         assert_eq!(delta.reasoning_content.as_deref(), Some("thinking..."));
+    }
+
+    /// `ChatCompletionRequest` is `deny_unknown_fields` and the proxy parses
+    /// the client's body straight into it, so any documented OpenAI request
+    /// field the struct is missing becomes a hard 400 for a stock SDK client
+    /// rather than an ignored parameter.  Each of these is a real field a
+    /// current OpenAI client can send.
+    #[test]
+    fn chat_request_accepts_documented_openai_fields() {
+        let payload = r#"{
+            "model": "gpt-4o",
+            "messages": [{"role": "user", "content": "hi"}],
+            "logprobs": true,
+            "top_logprobs": 5,
+            "max_completion_tokens": 1024,
+            "service_tier": "flex",
+            "store": true,
+            "metadata": {"run": "nightly"},
+            "prediction": {"type": "content", "content": "draft"},
+            "audio": {"voice": "alloy", "format": "wav"},
+            "web_search_options": {"search_context_size": "medium"}
+        }"#;
+
+        let req: ChatCompletionRequest =
+            serde_json::from_str(payload).expect("documented OpenAI fields must not be rejected");
+
+        assert_eq!(req.logprobs, Some(true));
+        assert_eq!(req.top_logprobs, Some(5));
+        assert_eq!(req.max_completion_tokens, Some(1024));
+        assert_eq!(req.service_tier.as_deref(), Some("flex"));
+        assert_eq!(req.store, Some(true));
+        assert_eq!(
+            req.metadata.as_ref().and_then(|m| m.get("run")).map(String::as_str),
+            Some("nightly")
+        );
+        assert!(req.prediction.is_some());
+        assert!(req.audio.is_some());
+        assert!(req.web_search_options.is_some());
+    }
+
+    /// The provider request body is `serde_json::to_value` of this struct, so
+    /// a field that parses but does not round-trip would be silently dropped
+    /// on the way to the provider — a worse failure than the 400 it replaced.
+    #[test]
+    fn chat_request_forwards_documented_openai_fields() {
+        let req = ChatCompletionRequest {
+            model: "gpt-4o".into(),
+            logprobs: Some(true),
+            top_logprobs: Some(5),
+            max_completion_tokens: Some(1024),
+            service_tier: Some("flex".into()),
+            store: Some(true),
+            metadata: Some(BTreeMap::from([("run".to_owned(), "nightly".to_owned())])),
+            ..Default::default()
+        };
+
+        let body = serde_json::to_value(&req).expect("request must serialize");
+
+        assert_eq!(body["logprobs"], serde_json::json!(true));
+        assert_eq!(body["top_logprobs"], serde_json::json!(5));
+        assert_eq!(body["max_completion_tokens"], serde_json::json!(1024));
+        assert_eq!(body["service_tier"], serde_json::json!("flex"));
+        assert_eq!(body["store"], serde_json::json!(true));
+        assert_eq!(body["metadata"], serde_json::json!({"run": "nightly"}));
+    }
+
+    /// Absent optional fields must stay absent from the wire body — emitting
+    /// them as explicit nulls makes providers that validate strictly reject
+    /// an otherwise ordinary request.
+    #[test]
+    fn chat_request_omits_absent_optional_fields() {
+        let req = ChatCompletionRequest {
+            model: "gpt-4o".into(),
+            ..Default::default()
+        };
+
+        let body = serde_json::to_value(&req).expect("request must serialize");
+        let obj = body.as_object().expect("request serializes as an object");
+
+        for field in [
+            "logprobs",
+            "top_logprobs",
+            "max_completion_tokens",
+            "service_tier",
+            "store",
+            "metadata",
+            "prediction",
+            "audio",
+            "web_search_options",
+        ] {
+            assert!(!obj.contains_key(field), "absent `{field}` must not be serialized");
+        }
     }
 }

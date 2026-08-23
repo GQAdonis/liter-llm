@@ -1,6 +1,11 @@
 {
   "id": "list_models_error_500",
   "description": "500 Internal Server Error when listing models due to server failure",
+  "docs": {
+    "topic": "list-models",
+    "stem": "list-models-error-500",
+    "title": "500 Internal Server Error when listing models due to server failure"
+  },
   "category": "list-models",
   "tags": ["list-models", "error-handling"],
   "call": "list_models",

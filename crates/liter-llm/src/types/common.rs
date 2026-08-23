@@ -126,8 +126,13 @@ impl Default for ContentPart {
 }
 
 /// An image URL reference with optional detail level for processing.
+///
+/// ~keep No `deny_unknown_fields`: this type is shared with the response side
+/// (see [`AssistantPart::OutputImage`]) where it is deserialized from
+/// provider output, not just constructed as request input (see #51). A
+/// provider adding a new field to its image-output object must not hard-fail
+/// the whole response.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct ImageUrl {
     /// URL of the image (data URI or HTTP/HTTPS URL).
     pub url: String,
@@ -159,8 +164,10 @@ pub struct DocumentContent {
 }
 
 /// Audio content part for speech-capable models.
+///
+/// ~keep No `deny_unknown_fields`: shared with the response side (see
+/// [`AssistantPart::OutputAudio`]), same rationale as [`ImageUrl`] (#51).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct AudioContent {
     /// Base64-encoded audio data.
     pub data: String,
@@ -283,7 +290,10 @@ pub struct AssistantMessage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ToolCall>>,
     /// Refusal reason, if the model declined to respond per safety policies.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ///
+    /// OpenAI's response schema requires this key to be present even when null,
+    /// so it is deliberately not `skip_serializing_if`. ~keep
+    #[serde(default)]
     pub refusal: Option<String>,
     /// Deprecated legacy function_call field; retained for API compatibility.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -370,8 +380,13 @@ impl AssistantMessage {
 /// Tool execution result returned to the model.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ToolMessage {
-    /// Result of the tool execution.
-    pub content: String,
+    /// Result of the tool execution as plain text or an array of content parts
+    /// (text, images, documents, audio), mirroring [`UserMessage::content`].
+    ///
+    /// `#[serde(untagged)]` on [`UserContent`] means a bare JSON string still
+    /// deserialises into `Text`, so tool results persisted before this field
+    /// carried structured content continue to round-trip.
+    pub content: UserContent,
     /// ID of the tool call this result responds to.
     pub tool_call_id: String,
     /// Optional tool/function name.
@@ -459,6 +474,32 @@ impl Message {
             refusal: None,
             function_call: None,
             reasoning_content: None,
+        })
+    }
+
+    /// Build a tool-result message.
+    ///
+    /// `content` accepts anything convertible to [`UserContent`] — a plain
+    /// string via `.into()`, or `UserContent::Parts(vec![...])` for a
+    /// multimodal result (e.g. a tool that returns a screenshot).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use liter_llm::types::{Message, ContentPart, UserContent};
+    ///
+    /// let text_result = Message::tool_result("call_123", "72°F, sunny");
+    ///
+    /// let image_result = Message::tool_result(
+    ///     "call_456",
+    ///     UserContent::Parts(vec![ContentPart::image_png(b"\x89PNG")]),
+    /// );
+    /// ```
+    pub fn tool_result(tool_call_id: impl Into<String>, content: impl Into<UserContent>) -> Self {
+        Self::Tool(ToolMessage {
+            content: content.into(),
+            tool_call_id: tool_call_id.into(),
+            name: None,
         })
     }
 }
@@ -839,11 +880,21 @@ mod tests {
         );
     }
 
+    /// `refusal` is serialized even when `None`, because OpenAI's response
+    /// schema requires the key to be present on `choices[].message`. That makes
+    /// it present on request messages too — which is schema-valid, and the
+    /// providers that cannot accept it rebuild the body in their own transform.
     #[test]
     fn message_assistant_with_parts_round_trips() {
         let msg = Message::assistant_with_parts(vec![AssistantPart::Text { text: "ok".into() }]);
         let json = serde_json::to_string(&msg).expect("must serialise");
-        assert_eq!(json, r#"{"role":"assistant","content":[{"type":"text","text":"ok"}]}"#);
+        assert_eq!(
+            json,
+            r#"{"role":"assistant","content":[{"type":"text","text":"ok"}],"refusal":null}"#
+        );
+
+        let back: Message = serde_json::from_str(&json).expect("must round-trip");
+        assert_eq!(back, msg, "the explicit null must deserialise back to None");
     }
 
     #[test]
@@ -877,6 +928,67 @@ mod tests {
         assert_eq!(s.content, UserContent::Text("You are a helpful assistant.".into()));
     }
 
+    /// Critical backward-compatibility test: persisted/serialized tool messages from
+    /// before `ToolMessage::content` became `UserContent` are a bare JSON string.
+    /// `UserContent`'s `#[serde(untagged)]` must still parse that into `Text`.
+    #[test]
+    fn tool_message_content_deserializes_from_bare_string_back_compat() {
+        let json = r#"{"role":"tool","tool_call_id":"call_789","content":"15°C, sunny"}"#;
+        let msg: Message = serde_json::from_str(json).expect("bare string content must deserialise");
+        let Message::Tool(t) = msg else {
+            panic!("expected tool message, got: {msg:?}")
+        };
+        assert_eq!(t.content, UserContent::Text("15°C, sunny".into()));
+        assert_eq!(t.tool_call_id, "call_789");
+        assert_eq!(t.name, None);
+    }
+
+    #[test]
+    fn tool_message_content_parts_round_trip() {
+        let msg = Message::Tool(ToolMessage {
+            content: UserContent::Parts(vec![
+                ContentPart::text("Here is a screenshot:"),
+                ContentPart::image_data_url("data:image/png;base64,aGk="),
+            ]),
+            tool_call_id: "call_screenshot".into(),
+            name: Some("take_screenshot".into()),
+        });
+        let json = serde_json::to_string(&msg).expect("serialization should not fail");
+        assert_eq!(
+            json,
+            r#"{"role":"tool","content":[{"type":"text","text":"Here is a screenshot:"},{"type":"image_url","image_url":{"url":"data:image/png;base64,aGk="}}],"tool_call_id":"call_screenshot","name":"take_screenshot"}"#
+        );
+        let parsed: Message = serde_json::from_str(&json).expect("deserialization should not fail");
+        assert_eq!(msg, parsed);
+    }
+
+    #[test]
+    fn message_tool_result_helper_builds_text_tool_message() {
+        let msg = Message::tool_result("call_123", "72°F, sunny");
+        let Message::Tool(t) = msg else {
+            panic!("expected tool message")
+        };
+        assert_eq!(t.content, UserContent::Text("72°F, sunny".into()));
+        assert_eq!(t.tool_call_id, "call_123");
+        assert_eq!(t.name, None);
+    }
+
+    #[test]
+    fn message_tool_result_helper_builds_parts_tool_message() {
+        let msg = Message::tool_result(
+            "call_456",
+            UserContent::Parts(vec![ContentPart::image_data_url("data:image/png;base64,aGk=")]),
+        );
+        let Message::Tool(t) = msg else {
+            panic!("expected tool message")
+        };
+        assert_eq!(
+            t.content,
+            UserContent::Parts(vec![ContentPart::image_data_url("data:image/png;base64,aGk=")])
+        );
+        assert_eq!(t.tool_call_id, "call_456");
+    }
+
     #[test]
     fn assistant_message_reasoning_content_omitted_when_none() {
         let a = AssistantMessage {
@@ -896,6 +1008,38 @@ mod tests {
         let a: AssistantMessage = serde_json::from_str(json).expect("valid assistant message shape");
         assert_eq!(a.reasoning_content.as_deref(), Some("because..."));
         assert_eq!(a.reasoning_text(), Some("because..."));
+    }
+
+    #[test]
+    fn output_image_part_tolerates_unknown_field_in_image_url() {
+        // ~keep Regression test for #51: `ImageUrl` is shared between request-side
+        // `ContentPart::ImageUrl` and response-side `AssistantPart::OutputImage`.
+        // A provider adding a new field to its image-output object (e.g. an `id`
+        // or `expires_at`) must not hard-fail the whole response.
+        let json = r#"{"type":"output_image","image_url":{"url":"https://example.com/x.png","future_field":"x"}}"#;
+        let part: AssistantPart =
+            serde_json::from_str(json).expect("unknown field in nested image_url must not fail deserialization");
+        match part {
+            AssistantPart::OutputImage { image_url } => {
+                assert_eq!(image_url.url, "https://example.com/x.png");
+            }
+            other => panic!("expected OutputImage, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn output_audio_part_tolerates_unknown_field_in_audio() {
+        // ~keep Regression test for #51: same rationale as the ImageUrl case above,
+        // for `AudioContent` / `AssistantPart::OutputAudio`.
+        let json = r#"{"type":"output_audio","audio":{"data":"YWJj","format":"wav","future_field":42}}"#;
+        let part: AssistantPart =
+            serde_json::from_str(json).expect("unknown field in nested audio object must not fail deserialization");
+        match part {
+            AssistantPart::OutputAudio { audio } => {
+                assert_eq!(audio.format, "wav");
+            }
+            other => panic!("expected OutputAudio, got {other:?}"),
+        }
     }
 }
 

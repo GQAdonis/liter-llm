@@ -9,7 +9,7 @@ use std::pin::Pin;
 
 use dashmap::DashMap;
 
-use super::{VectorMatch, VectorMetadata, VectorStore};
+use super::{VectorMatch, VectorMetadata, VectorStore, tenant_matches};
 use crate::error::{LiterLlmError, Result};
 
 /// Compute the cosine similarity between two vectors of equal length.
@@ -54,6 +54,7 @@ struct Entry {
 ///     VectorMetadata {
 ///         cache_key: 42,
 ///         original_request_body: "body".into(),
+///         image_url: None,
 ///         tenant_id: None,
 ///         inserted_at: SystemTime::now(),
 ///         extra: HashMap::new(),
@@ -82,11 +83,15 @@ impl VectorStore for InMemoryVectorStore {
         query_vec: &'a [f32],
         k: usize,
         threshold: f32,
+        tenant_id: Option<&'a str>,
     ) -> Pin<Box<dyn Future<Output = Vec<VectorMatch>> + Send + 'a>> {
         let mut matches: Vec<VectorMatch> = self
             .entries
             .iter()
             .filter_map(|entry| {
+                if !tenant_matches(entry.metadata.tenant_id.as_deref(), tenant_id) {
+                    return None;
+                }
                 let sim = cosine_similarity(query_vec, &entry.vec);
                 if sim >= threshold {
                     Some(VectorMatch {
@@ -150,6 +155,7 @@ mod tests {
         VectorMetadata {
             cache_key,
             original_request_body: String::new(),
+            image_url: None,
             tenant_id: None,
             inserted_at: SystemTime::now(),
             extra: HashMap::new(),
@@ -188,11 +194,28 @@ mod tests {
         let store = InMemoryVectorStore::new(3);
         store.upsert("v1".into(), vec![1.0, 0.0, 0.0], meta(42)).await.unwrap();
 
-        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.99).await;
+        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.99, None).await;
         assert_eq!(results.len(), 1, "should find the identical vector");
         assert_eq!(results[0].id, "v1");
         assert!((results[0].similarity - 1.0).abs() < 1e-5);
         assert_eq!(results[0].metadata.cache_key, 42);
+    }
+
+    #[tokio::test]
+    async fn image_metadata_converts_to_chat_content_part() {
+        let store = InMemoryVectorStore::new(2);
+        let mut metadata = meta(7);
+        metadata.image_url = Some(crate::types::ImageUrl {
+            url: "https://example.com/result.png".into(),
+            detail: None,
+        });
+        store.upsert("image".into(), vec![1.0, 0.0], metadata).await.unwrap();
+
+        let result = store.search(&[1.0, 0.0], 1, 0.99, None).await.remove(0);
+        assert_eq!(
+            result.metadata.image_content_part(),
+            Some(crate::types::ContentPart::image_url("https://example.com/result.png"))
+        );
     }
 
     #[tokio::test]
@@ -201,7 +224,7 @@ mod tests {
         store.upsert("v1".into(), vec![1.0, 0.0, 0.0], meta(1)).await.unwrap();
         store.upsert("v2".into(), vec![0.0, 1.0, 0.0], meta(2)).await.unwrap();
 
-        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.9).await;
+        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.9, None).await;
         assert_eq!(results.len(), 1, "orthogonal vector should be filtered out");
         assert_eq!(results[0].id, "v1");
     }
@@ -213,7 +236,7 @@ mod tests {
         store.upsert("b".into(), vec![0.9, 0.1], meta(2)).await.unwrap();
         store.upsert("c".into(), vec![0.8, 0.2], meta(3)).await.unwrap();
 
-        let results = store.search(&[1.0, 0.0], 2, 0.0).await;
+        let results = store.search(&[1.0, 0.0], 2, 0.0, None).await;
         assert_eq!(results.len(), 2, "should return exactly k results");
         assert!(results[0].similarity >= results[1].similarity);
     }
@@ -221,7 +244,7 @@ mod tests {
     #[tokio::test]
     async fn search_returns_empty_when_store_is_empty() {
         let store = InMemoryVectorStore::new(3);
-        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.0).await;
+        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.0, None).await;
         assert!(results.is_empty());
     }
 
@@ -230,7 +253,7 @@ mod tests {
         let store = InMemoryVectorStore::new(3);
         store.upsert("v1".into(), vec![1.0, 0.0, 0.0], meta(1)).await.unwrap();
         store.delete("v1").await.unwrap();
-        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.0).await;
+        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.0, None).await;
         assert!(results.is_empty(), "deleted entry must not appear in search results");
     }
 
@@ -247,7 +270,7 @@ mod tests {
         store.upsert("v1".into(), vec![1.0, 0.0, 0.0], meta(1)).await.unwrap();
         store.upsert("v1".into(), vec![0.0, 1.0, 0.0], meta(99)).await.unwrap();
 
-        let results = store.search(&[0.0, 1.0, 0.0], 5, 0.99).await;
+        let results = store.search(&[0.0, 1.0, 0.0], 5, 0.99, None).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].metadata.cache_key, 99, "upsert should replace metadata");
     }
@@ -257,6 +280,61 @@ mod tests {
         let store = InMemoryVectorStore::new(3);
         let result = store.upsert("bad".into(), vec![1.0, 0.0], meta(1)).await;
         assert!(result.is_err(), "dimension mismatch must return an error");
+    }
+
+    fn meta_for_tenant(cache_key: u64, tenant_id: &str) -> VectorMetadata {
+        VectorMetadata {
+            tenant_id: Some(tenant_id.to_owned()),
+            ..meta(cache_key)
+        }
+    }
+
+    /// A tenant-scoped search must never return another tenant's entry, even
+    /// when the vector similarity would otherwise match above threshold.
+    #[tokio::test]
+    async fn search_excludes_entries_from_other_tenants() {
+        let store = InMemoryVectorStore::new(3);
+        store
+            .upsert("a".into(), vec![1.0, 0.0, 0.0], meta_for_tenant(1, "tenant-a"))
+            .await
+            .unwrap();
+
+        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.99, Some("tenant-b")).await;
+        assert!(
+            results.is_empty(),
+            "tenant-b must not see tenant-a's semantically-matched entry"
+        );
+
+        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.99, Some("tenant-a")).await;
+        assert_eq!(results.len(), 1, "tenant-a must still see its own entry");
+    }
+
+    /// A `None`-tenant query must not match a tenant-scoped entry, and a
+    /// tenant-scoped query must not match a `None`-tenant entry — `None` is
+    /// not a wildcard, it is its own scope.
+    #[tokio::test]
+    async fn search_tenant_none_is_not_a_wildcard() {
+        let store = InMemoryVectorStore::new(3);
+        store
+            .upsert("scoped".into(), vec![1.0, 0.0, 0.0], meta_for_tenant(1, "tenant-a"))
+            .await
+            .unwrap();
+        store
+            .upsert("unscoped".into(), vec![1.0, 0.0, 0.0], meta(2))
+            .await
+            .unwrap();
+
+        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.99, None).await;
+        assert_eq!(results.len(), 1, "None query must only match the None-tenant entry");
+        assert_eq!(results[0].id, "unscoped");
+
+        let results = store.search(&[1.0, 0.0, 0.0], 5, 0.99, Some("tenant-a")).await;
+        assert_eq!(
+            results.len(),
+            1,
+            "tenant-scoped query must only match that tenant's entry"
+        );
+        assert_eq!(results[0].id, "scoped");
     }
 
     #[test]

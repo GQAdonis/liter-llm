@@ -1,10 +1,15 @@
 {
   "id": "error_file_bad_purpose",
   "description": "400 Bad Request when uploading a file with invalid purpose",
+  "docs": {
+    "topic": "files",
+    "stem": "error-file-bad-purpose",
+    "title": "400 Bad Request when uploading a file with invalid purpose"
+  },
   "category": "files",
   "tags": ["error-handling", "files"],
   "skip": {
-    "languages": ["rust", "python", "kotlin"],
+    "languages": ["rust", "python", "kotlin_android"],
     "reason": "Rust/Python/Kotlin's FilePurpose enum rejects invalid values at deserialization (Jackson in Kotlin) before reaching the HTTP layer"
   },
   "call": "create_file",

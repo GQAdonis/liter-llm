@@ -1,3 +1,14 @@
+---
+id: readme_ruby_streaming
+language: ruby
+target: ruby
+level: syntax
+requires: []
+side_effect: network
+---
+
+Stream tokens in real time.
+
 ```ruby
 # frozen_string_literal: true
 

@@ -30,6 +30,10 @@ impl Provider for MistralProvider {
         "https://api.mistral.ai/v1"
     }
 
+    fn env_var(&self) -> Option<&str> {
+        Some("MISTRAL_API_KEY")
+    }
+
     fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
         Some((Cow::Borrowed("Authorization"), Cow::Owned(format!("Bearer {api_key}"))))
     }

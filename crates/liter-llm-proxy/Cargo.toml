@@ -17,6 +17,11 @@ otel = ["liter-llm/otel", "dep:opentelemetry", "dep:tracing-opentelemetry"]
 
 opendal-cache = ["liter-llm/opendal-cache"]
 
+# ~keep Off by default because the CEL interpreter is a heavy transitive tree.
+# ~keep Without it a `type = "cel"` guardrail is a hard startup error, never a
+# ~keep silent skip — see `crate::guardrail::build_registry`.
+guardrail-cel = ["liter-llm/guardrail-cel"]
+
 # ~keep The proxy endpoints are always compiled; this named feature is an
 # ~keep explicit dependency surface for upstream crates.
 proxy = []
@@ -31,6 +36,7 @@ etcd-watch = ["dep:etcd-client"]
 full = [
     "otel",
     "opendal-cache",
+    "guardrail-cel",
     "proxy",
     "secrets-aws",
     "secrets-vault",
@@ -40,6 +46,8 @@ full = [
 default = ["proxy"]
 
 [dependencies]
+ahash = { workspace = true }
+
 arc-swap = { workspace = true }
 
 aws-config = { workspace = true, optional = true }
@@ -52,11 +60,12 @@ dashmap = { workspace = true }
 etcd-client = { workspace = true, optional = true }
 futures-util = { workspace = true }
 http = { workspace = true }
-liter-llm = { path = "../liter-llm", version = "1.12.0", features = ["native-http", "tower"] }
+liter-llm = { path = "../liter-llm", version = "1.18.1", features = ["native-http", "tower"] }
 notify = { workspace = true }
 opendal = { workspace = true }
 
 opentelemetry = { workspace = true, optional = true }
+regex = { workspace = true }
 rmcp = { workspace = true }
 rust_decimal = { workspace = true }
 schemars = { workspace = true }

@@ -1,6 +1,11 @@
 {
   "id": "budget_enforced",
   "description": "Tests that a request is rejected when budget is exceeded",
+  "docs": {
+    "topic": "budget",
+    "stem": "budget-enforced",
+    "title": "Tests that a request is rejected when budget is exceeded"
+  },
   "category": "budget",
   "tags": ["budget"],
   "skip": {

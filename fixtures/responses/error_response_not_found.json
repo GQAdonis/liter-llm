@@ -1,6 +1,11 @@
 {
   "id": "error_response_not_found",
   "description": "404 Not Found when retrieving a nonexistent response",
+  "docs": {
+    "topic": "responses",
+    "stem": "error-response-not-found",
+    "title": "404 Not Found when retrieving a nonexistent response"
+  },
   "category": "responses",
   "tags": ["error-handling", "responses"],
   "call": "retrieve_response",

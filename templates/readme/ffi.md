@@ -15,7 +15,7 @@ Universal LLM API client with Rust-powered polyglot bindings.
 
 ## Installation
 
-Link against `libliter-llm_ffi` and include `liter_llm.h`.
+Link against `libliter_llm_ffi` and include `liter_llm.h`.
 
 See the build instructions in the main repository.
 

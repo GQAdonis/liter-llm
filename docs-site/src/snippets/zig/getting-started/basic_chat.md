@@ -1,4 +1,13 @@
-<!-- snippet:compile-only -->
+---
+id: readme_zig_basic_chat
+language: zig
+target: zig
+level: syntax
+requires: []
+side_effect: network
+---
+
+Send a message to any provider using the `provider/model` prefix.
 
 ```zig
 const liter_llm = @import("liter_llm");

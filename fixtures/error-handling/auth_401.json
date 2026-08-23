@@ -1,6 +1,11 @@
 {
   "id": "auth_401",
   "description": "401 Unauthorized error when API key is invalid or missing",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "auth-401",
+    "title": "401 Unauthorized error when API key is invalid or missing"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

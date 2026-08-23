@@ -1,6 +1,11 @@
 {
   "id": "smoke_cache_memory",
   "description": "Test in-memory caching by sending identical requests twice",
+  "docs": {
+    "topic": "smoke",
+    "stem": "smoke-cache-memory",
+    "title": "Test in-memory caching by sending identical requests twice"
+  },
   "category": "smoke",
   "tags": ["smoke", "openai", "cache"],
   "call": "chat",

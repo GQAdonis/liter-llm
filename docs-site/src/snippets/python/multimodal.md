@@ -1,3 +1,12 @@
+---
+id: legacy_python_multimodal
+language: python
+target: python
+level: syntax
+requires: []
+side_effect: network
+---
+
 # Multimodal I/O in Python
 
 Process images, documents, and audio alongside text using liter-llm's multimodal message API.

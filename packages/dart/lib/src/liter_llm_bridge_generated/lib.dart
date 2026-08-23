@@ -9,7 +9,7 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'lib.freezed.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `IntentPrototype`, `SingleflightResult`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// Create a new LLM client with simple scalar configuration.
 ///
@@ -182,9 +182,8 @@ Future<ModelInfo?> modelInfo({required String model}) =>
 ///
 /// Primarily useful in tests to reset state between test cases.
 ///
-/// **Panics:**
-///
-/// Panics if the global registry lock is poisoned.
+/// If the lock was poisoned by a panicking guardrail on a previous access,
+/// the poisoned state is recovered rather than propagating the panic.
 Future<void> clear() => RustLib.instance.api.crateClear();
 
 /// Count tokens in a text string using the tokenizer for the given model.
@@ -217,6 +216,23 @@ Future<PlatformInt64> countRequestTokens({
   required String model,
   required ChatCompletionRequest req,
 }) => RustLib.instance.api.crateCountRequestTokens(model: model, req: req);
+
+/// Record the estimated USD cost of a completion.
+///
+/// Call from `CostTrackingService` once a
+/// completion's cost has been computed. Emits `gen_ai.client.cost.usd`.
+/// If the meter has not been initialized, this call is a no-op.
+Future<void> recordCostUsd({
+  required String system,
+  required String model,
+  required String operation,
+  required double costUsd,
+}) => RustLib.instance.api.crateRecordCostUsd(
+  system: system,
+  model: model,
+  operation: operation,
+  costUsd: costUsd,
+);
 
 /// Assert that `current_len + incoming` does not exceed `limit`.
 ///
@@ -561,6 +577,31 @@ Future<ResponseOutputItem> createResponseOutputItemFromJson({
 Future<ResponseUsage> createResponseUsageFromJson({required String json}) =>
     RustLib.instance.api.crateCreateResponseUsageFromJson(json: json);
 
+Future<LlmConfig> createLlmConfigFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateLlmConfigFromJson(json: json);
+
+Future<LlmCacheConfig> createLlmCacheConfigFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateLlmCacheConfigFromJson(json: json);
+
+Future<LlmBudgetConfig> createLlmBudgetConfigFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateLlmBudgetConfigFromJson(json: json);
+
+Future<LlmRateLimitConfig> createLlmRateLimitConfigFromJson({
+  required String json,
+}) => RustLib.instance.api.crateCreateLlmRateLimitConfigFromJson(json: json);
+
+Future<LlmInFlightLimitConfig> createLlmInFlightLimitConfigFromJson({
+  required String json,
+}) =>
+    RustLib.instance.api.crateCreateLlmInFlightLimitConfigFromJson(json: json);
+
+Future<LlmProviderConfig> createLlmProviderConfigFromJson({
+  required String json,
+}) => RustLib.instance.api.crateCreateLlmProviderConfigFromJson(json: json);
+
+Future<BedrockConfig> createBedrockConfigFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateBedrockConfigFromJson(json: json);
+
 Future<WaitForBatchConfig> createWaitForBatchConfigFromJson({
   required String json,
 }) => RustLib.instance.api.crateCreateWaitForBatchConfigFromJson(json: json);
@@ -590,6 +631,10 @@ Future<BudgetConfig> createBudgetConfigFromJson({required String json}) =>
 
 Future<CacheConfig> createCacheConfigFromJson({required String json}) =>
     RustLib.instance.api.crateCreateCacheConfigFromJson(json: json);
+
+Future<InFlightLimitConfig> createInFlightLimitConfigFromJson({
+  required String json,
+}) => RustLib.instance.api.crateCreateInFlightLimitConfigFromJson(json: json);
 
 Future<RateLimitConfig> createRateLimitConfigFromJson({required String json}) =>
     RustLib.instance.api.crateCreateRateLimitConfigFromJson(json: json);
@@ -683,6 +728,9 @@ class AssistantMessage {
   final List<ToolCall>? toolCalls;
 
   /// Refusal reason, if the model declined to respond per safety policies.
+  ///
+  /// OpenAI's response schema requires this key to be present even when null,
+  /// so it is deliberately not `skip_serializing_if`.
   final String? refusal;
 
   /// Deprecated legacy function_call field; retained for API compatibility.
@@ -753,6 +801,9 @@ sealed class AssistantPart with _$AssistantPart {
 }
 
 /// Audio content part for speech-capable models.
+///
+/// No `deny_unknown_fields`: shared with the response side (see
+/// [`AssistantPart::OutputAudio`]), same rationale as [`ImageUrl`] (#51).
 class AudioContent {
   /// Base64-encoded audio data.
   final String data;
@@ -1050,6 +1101,59 @@ enum BatchStatus {
   cancelled,
 }
 
+/// AWS Bedrock configuration.
+///
+/// All fields are optional; anything left unset falls back to the standard
+/// AWS environment variables (`AWS_DEFAULT_REGION` / `AWS_REGION`,
+/// `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`,
+/// `BEDROCK_CROSS_REGION`).
+///
+/// Implements `Debug` manually (see below) so the AWS credential fields are
+/// redacted rather than printed in full.
+class BedrockConfig {
+  /// AWS region (e.g. `"us-east-1"`).
+  final String? region;
+
+  /// Cross-region inference profile prefix (e.g. `"us"`).
+  final String? crossRegionPrefix;
+
+  /// Explicit AWS access key ID.
+  final String? accessKeyId;
+
+  /// Explicit AWS secret access key.
+  final String? secretAccessKey;
+
+  /// Explicit AWS session token (temporary credentials).
+  final String? sessionToken;
+
+  const BedrockConfig({
+    this.region,
+    this.crossRegionPrefix,
+    this.accessKeyId,
+    this.secretAccessKey,
+    this.sessionToken,
+  });
+
+  @override
+  int get hashCode =>
+      region.hashCode ^
+      crossRegionPrefix.hashCode ^
+      accessKeyId.hashCode ^
+      secretAccessKey.hashCode ^
+      sessionToken.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BedrockConfig &&
+          runtimeType == other.runtimeType &&
+          region == other.region &&
+          crossRegionPrefix == other.crossRegionPrefix &&
+          accessKeyId == other.accessKeyId &&
+          secretAccessKey == other.secretAccessKey &&
+          sessionToken == other.sessionToken;
+}
+
 /// Configuration for budget enforcement.
 class BudgetConfig {
   /// Maximum total spend across all models, in USD.  `None` means unlimited.
@@ -1285,10 +1389,23 @@ class ChatCompletionRequest {
   /// Conversation history from oldest to newest.
   final List<Message> messages;
 
-  /// Sampling temperature in `[0.0, 2.0]`. Higher increases randomness. Defaults to 1.0.
+  /// Sampling temperature. Higher increases randomness, lower is more deterministic.
+  /// Defaults to 1.0.
+  ///
+  /// The accepted range depends on the provider the request is routed to. OpenAI-compatible
+  /// providers accept `[0.0, 2.0]`; Anthropic and Amazon Bedrock both cap it at `1.0`, and
+  /// for those two a value above the cap is rejected with a `BadRequest` error before the
+  /// request is sent, rather than being silently clamped or left for the provider to reject.
+  ///
+  /// No range is enforced for providers whose own documentation does not state one — the
+  /// value is forwarded and the provider decides. Consult the target provider's reference
+  /// rather than assuming `[0.0, 2.0]` is portable.
   final double? temperature;
 
-  /// Nucleus sampling parameter in `[0.0, 1.0]`. Lower is more focused.
+  /// Nucleus sampling parameter. Lower is more focused.
+  ///
+  /// Accepted ranges vary by provider (most document `[0.0, 1.0]`, but this is not
+  /// universal — check the target provider's own documentation for its exact bounds).
   final double? topP;
 
   /// Number of chat completions to generate. Defaults to 1.
@@ -1336,7 +1453,7 @@ class ChatCompletionRequest {
   /// Random seed for reproducible outputs. Provider support varies.
   final PlatformInt64? seed;
 
-  /// Reasoning effort level (low, medium, high) for extended-thinking models.
+  /// Reasoning effort level (minimal, low, medium, high, max) for extended-thinking models.
   final ReasoningEffort? reasoningEffort;
 
   /// Output modalities to request from the model.
@@ -1344,6 +1461,46 @@ class ChatCompletionRequest {
   /// For OpenAI audio models, pass `["text", "audio"]`. Vertex AI / Gemini
   /// translates these to `generationConfig.responseModalities` (uppercase).
   final List<Modality>? modalities;
+
+  /// Whether to return log probabilities of the output tokens.
+  final bool? logprobs;
+
+  /// Number of most-likely tokens to return log probabilities for, `0..=20`.
+  /// Requires `logprobs` to be `true`.
+  final PlatformInt64? topLogprobs;
+
+  /// Upper bound on generated tokens, including reasoning tokens.
+  ///
+  /// Supersedes `max_tokens` on OpenAI reasoning models, which reject
+  /// `max_tokens` outright.
+  final PlatformInt64? maxCompletionTokens;
+
+  /// Latency tier to process the request under (e.g. `"auto"`, `"default"`,
+  /// `"flex"`).
+  final String? serviceTier;
+
+  /// Whether to store the completion for later retrieval by the provider.
+  final bool? store;
+
+  /// Developer-defined tags attached to the completion.
+  final Map<String, String>? metadata;
+
+  /// Predicted output, for latency reduction when much of the response is
+  /// known ahead of time.
+  ///
+  /// Untyped: the shape is provider-defined and still evolving, and the
+  /// value is forwarded verbatim.
+  final String? prediction;
+
+  /// Audio output parameters, required when `modalities` includes `audio`.
+  ///
+  /// Untyped for the same reason as `prediction`.
+  final String? audio;
+
+  /// Web-search tool configuration for search-enabled models.
+  ///
+  /// Untyped for the same reason as `prediction`.
+  final String? webSearchOptions;
 
   /// Provider-specific extra parameters merged into the request body.
   /// Use for guardrails, safety settings, grounding config, etc.
@@ -1370,6 +1527,15 @@ class ChatCompletionRequest {
     this.seed,
     this.reasoningEffort,
     this.modalities,
+    this.logprobs,
+    this.topLogprobs,
+    this.maxCompletionTokens,
+    this.serviceTier,
+    this.store,
+    this.metadata,
+    this.prediction,
+    this.audio,
+    this.webSearchOptions,
     this.extraBody,
   });
 
@@ -1395,6 +1561,15 @@ class ChatCompletionRequest {
       seed.hashCode ^
       reasoningEffort.hashCode ^
       modalities.hashCode ^
+      logprobs.hashCode ^
+      topLogprobs.hashCode ^
+      maxCompletionTokens.hashCode ^
+      serviceTier.hashCode ^
+      store.hashCode ^
+      metadata.hashCode ^
+      prediction.hashCode ^
+      audio.hashCode ^
+      webSearchOptions.hashCode ^
       extraBody.hashCode;
 
   @override
@@ -1422,6 +1597,15 @@ class ChatCompletionRequest {
           seed == other.seed &&
           reasoningEffort == other.reasoningEffort &&
           modalities == other.modalities &&
+          logprobs == other.logprobs &&
+          topLogprobs == other.topLogprobs &&
+          maxCompletionTokens == other.maxCompletionTokens &&
+          serviceTier == other.serviceTier &&
+          store == other.store &&
+          metadata == other.metadata &&
+          prediction == other.prediction &&
+          audio == other.audio &&
+          webSearchOptions == other.webSearchOptions &&
           extraBody == other.extraBody;
 }
 
@@ -1517,15 +1701,35 @@ class Choice {
   final PlatformInt64 index;
 
   /// The assistant's message response.
+  ///
+  /// Serialized with an explicit `role: "assistant"`. The field is not stored
+  /// on [`AssistantMessage`] because [`Message`] is an internally-tagged enum
+  /// keyed on `role`, so a stored field would emit the key twice inside a
+  /// request. OpenAI's response schema requires it here.
   final AssistantMessage message;
 
   /// Why the model stopped generating (stop, length, tool_calls, content_filter, etc.).
   final FinishReason? finishReason;
 
-  const Choice({required this.index, required this.message, this.finishReason});
+  /// Per-token log probabilities, when the request asked for them.
+  ///
+  /// Required by OpenAI's response schema as an always-present, nullable key,
+  /// so this is deliberately not `skip_serializing_if`.
+  final String? logprobs;
+
+  const Choice({
+    required this.index,
+    required this.message,
+    this.finishReason,
+    this.logprobs,
+  });
 
   @override
-  int get hashCode => index.hashCode ^ message.hashCode ^ finishReason.hashCode;
+  int get hashCode =>
+      index.hashCode ^
+      message.hashCode ^
+      finishReason.hashCode ^
+      logprobs.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1534,7 +1738,8 @@ class Choice {
           runtimeType == other.runtimeType &&
           index == other.index &&
           message == other.message &&
-          finishReason == other.finishReason;
+          finishReason == other.finishReason &&
+          logprobs == other.logprobs;
 }
 
 /// Observable state of a circuit breaker.
@@ -1701,9 +1906,31 @@ class CreateImageRequest {
           user == other.user;
 }
 
-/// Request to create a structured response.
+/// Request to create a response via the OpenAI Responses API (`POST /responses`).
+///
+/// # Provider support
+///
+/// **The Responses API path is OpenAI-only.** This type models the OpenAI Responses
+/// wire format, and unlike [`ChatCompletionRequest`] the body is sent to the provider
+/// verbatim: neither `Provider::transform_request` nor `Provider::transform_response`
+/// runs for Responses calls, and no provider in `schemas/providers.json` declares a
+/// `responses` endpoint.
+///
+/// Pointing a Responses call at a provider that does not natively serve the OpenAI
+/// `/responses` contract (Anthropic, Vertex, Bedrock, Cohere, Google AI, Azure) is not
+/// supported: the request goes out unmodified, so the provider rejects it or returns a
+/// body that cannot be deserialized into [`ResponseObject`]. Use
+/// [`ChatCompletionRequest`] for cross-provider work — that path applies the
+/// per-provider request and response normalization this one does not.
+///
+/// [`ChatCompletionRequest`]: crate::types::ChatCompletionRequest
 class CreateResponseRequest {
-  /// Model ID.
+  /// Model ID, as named by the OpenAI Responses API (e.g. `"gpt-5"`).
+  ///
+  /// Sent to the wire exactly as given. The Responses path performs none of the
+  /// chat path's model handling: a `provider/model` routing prefix is **not**
+  /// stripped and does **not** re-route the request, which stays pinned to the
+  /// provider the client was constructed with.
   final String model;
 
   /// Input data to process (e.g., a document to extract from).
@@ -1724,6 +1951,25 @@ class CreateResponseRequest {
   /// Optional metadata.
   final String? metadata;
 
+  /// Extra top-level parameters shallow-merged into the request body, OpenAI-Python
+  /// style (`{**body, **extra_body}`) — keys here override identically named fields
+  /// above. Use it for OpenAI Responses fields this struct does not model directly,
+  /// such as the top-level `reasoning.effort`.
+  ///
+  /// This is an OpenAI escape hatch, not a cross-provider one. On the chat path the
+  /// providers that consume `extra_body` natively (Anthropic, Vertex, Bedrock) claim
+  /// it inside their own `transform_request`; here no provider transform runs, so the
+  /// merged keys always travel to the wire as literal OpenAI Responses fields.
+  ///
+  /// A non-object value cannot be merged into the body root and is dropped with a
+  /// warning rather than sent.
+  final String? extraBody;
+
+  /// Whether to stream the response.
+  ///
+  /// Managed by the client layer — do not set directly.
+  final bool? stream;
+
   const CreateResponseRequest({
     required this.model,
     required this.input,
@@ -1732,6 +1978,8 @@ class CreateResponseRequest {
     this.temperature,
     this.maxOutputTokens,
     this.metadata,
+    this.extraBody,
+    this.stream,
   });
 
   @override
@@ -1742,7 +1990,9 @@ class CreateResponseRequest {
       tools.hashCode ^
       temperature.hashCode ^
       maxOutputTokens.hashCode ^
-      metadata.hashCode;
+      metadata.hashCode ^
+      extraBody.hashCode ^
+      stream.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1755,7 +2005,9 @@ class CreateResponseRequest {
           tools == other.tools &&
           temperature == other.temperature &&
           maxOutputTokens == other.maxOutputTokens &&
-          metadata == other.metadata;
+          metadata == other.metadata &&
+          extraBody == other.extraBody &&
+          stream == other.stream;
 }
 
 /// Request to generate speech audio from text.
@@ -1992,6 +2244,24 @@ class DocumentContent {
           mediaType == other.mediaType;
 }
 
+@freezed
+sealed class EmbeddingContentPart with _$EmbeddingContentPart {
+  const EmbeddingContentPart._();
+
+  /// Plain text.
+  const factory EmbeddingContentPart.text({required String text}) =
+      EmbeddingContentPart_Text;
+
+  /// Image identified by a data URL or HTTP/HTTPS URL.
+  const factory EmbeddingContentPart.imageUrl({required ImageUrl imageUrl}) =
+      EmbeddingContentPart_ImageUrl;
+
+  /// Image encoded as a complete data URL.
+  const factory EmbeddingContentPart.imageBase64({
+    required String imageBase64,
+  }) = EmbeddingContentPart_ImageBase64;
+}
+
 /// The format in which the embedding vectors are returned.
 enum EmbeddingFormat {
   /// 32-bit floating-point numbers (default).
@@ -2012,6 +2282,11 @@ sealed class EmbeddingInput with _$EmbeddingInput {
   /// Multiple text strings (batch embedding).
   const factory EmbeddingInput.multiple({required List<String> field0}) =
       EmbeddingInput_Multiple;
+
+  /// Text and image parts for a single multimodal embedding.
+  const factory EmbeddingInput.multimodal({
+    required List<EmbeddingContentPart> field0,
+  }) = EmbeddingInput_Multimodal;
 }
 
 /// A single embedding vector.
@@ -2055,7 +2330,7 @@ class EmbeddingRequest {
   /// Model ID (e.g., `"text-embedding-3-small"`).
   final String model;
 
-  /// Text or texts to embed.
+  /// Text, texts, or multimodal content to embed.
   final EmbeddingInput input;
 
   /// Output format: float (native) or base64.
@@ -2419,6 +2694,12 @@ enum ImageDetail {
 }
 
 /// An image URL reference with optional detail level for processing.
+///
+/// No `deny_unknown_fields`: this type is shared with the response side
+/// (see [`AssistantPart::OutputImage`]) where it is deserialized from
+/// provider output, not just constructed as request input (see #51). A
+/// provider adding a new field to its image-output object must not hard-fail
+/// the whole response.
 class ImageUrl {
   /// URL of the image (data URI or HTTP/HTTPS URL).
   final String url;
@@ -2460,6 +2741,24 @@ class ImagesResponse {
           runtimeType == other.runtimeType &&
           created == other.created &&
           data == other.data;
+}
+
+/// Configuration for the global per-client in-flight request limit.
+class InFlightLimitConfig {
+  /// Maximum simultaneously outstanding provider requests. `None` means unlimited.
+  final PlatformInt64? maxInFlight;
+
+  const InFlightLimitConfig({this.maxInFlight});
+
+  @override
+  int get hashCode => maxInFlight.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InFlightLimitConfig &&
+          runtimeType == other.runtimeType &&
+          maxInFlight == other.maxInFlight;
 }
 
 /// JSON Schema specification for constrained output.
@@ -2624,6 +2923,299 @@ sealed class LiterLlmError with _$LiterLlmError {
   /// `error.status_code` against the expected HTTP status.
   Future<PlatformInt64> statusCode() =>
       RustLib.instance.api.crateLiterLlmErrorStatusCode(that: this);
+}
+
+/// Budget enforcement configuration.
+class LlmBudgetConfig {
+  /// Global spend limit in USD.
+  final double? globalLimit;
+
+  /// Per-model spend limits in USD, keyed by model name.
+  final Map<String, double>? modelLimits;
+
+  /// Enforcement mode: `"hard"` (reject over-budget requests) or `"soft"` (log only).
+  final String? enforcement;
+
+  const LlmBudgetConfig({this.globalLimit, this.modelLimits, this.enforcement});
+
+  @override
+  int get hashCode =>
+      globalLimit.hashCode ^ modelLimits.hashCode ^ enforcement.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmBudgetConfig &&
+          runtimeType == other.runtimeType &&
+          globalLimit == other.globalLimit &&
+          modelLimits == other.modelLimits &&
+          enforcement == other.enforcement;
+}
+
+/// Response cache configuration.
+class LlmCacheConfig {
+  /// Maximum number of cached entries.
+  final PlatformInt64? maxEntries;
+
+  /// Cache entry time-to-live, in seconds.
+  final PlatformInt64? ttlSeconds;
+
+  /// Cache backend name (e.g. `"memory"`, or an `opendal` scheme).
+  final String? backend;
+
+  /// Backend-specific configuration key/value pairs.
+  final Map<String, String>? backendConfig;
+
+  const LlmCacheConfig({
+    this.maxEntries,
+    this.ttlSeconds,
+    this.backend,
+    this.backendConfig,
+  });
+
+  @override
+  int get hashCode =>
+      maxEntries.hashCode ^
+      ttlSeconds.hashCode ^
+      backend.hashCode ^
+      backendConfig.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmCacheConfig &&
+          runtimeType == other.runtimeType &&
+          maxEntries == other.maxEntries &&
+          ttlSeconds == other.ttlSeconds &&
+          backend == other.backend &&
+          backendConfig == other.backendConfig;
+}
+
+/// Canonical configuration for an LLM client.
+///
+/// All fields except `model` are optional so that partially-specified
+/// configs (e.g. from environment-driven defaults) round-trip cleanly.
+/// Convert to a runtime client configuration via
+/// [`LlmConfig::into_client_builder`].
+///
+/// `temperature` and `max_tokens` are request-time parameters rather than
+/// client-level settings; they are carried on this struct for callers to
+/// read when building individual requests, and are intentionally **not**
+/// mapped by [`LlmConfig::into_client_builder`].
+///
+/// Implements `Debug` manually (see below) so `api_key` and header values are
+/// redacted rather than printed in full.
+class LlmConfig {
+  /// Model identifier (e.g. `"gpt-4o"`, `"bedrock/anthropic.claude-3-sonnet-20240229-v1:0"`).
+  final String model;
+
+  /// API key for authentication.
+  final String? apiKey;
+
+  /// Override base URL. When set, all requests go here and provider
+  /// auto-detection is skipped.
+  final String? baseUrl;
+
+  /// Request timeout, in seconds.
+  final PlatformInt64? timeoutSecs;
+
+  /// Maximum number of retries on 429 / 5xx responses.
+  final PlatformInt64? maxRetries;
+
+  /// Sampling temperature for requests built from this config.
+  final double? temperature;
+
+  /// Maximum number of tokens to generate for requests built from this config.
+  final PlatformInt64? maxTokens;
+
+  /// Automatically load the API key from the provider's environment variable
+  /// when no explicit key is provided (default: `true`).
+  final bool? loadEnv;
+
+  /// Extra headers sent on every request.
+  final Map<String, String>? headers;
+
+  /// Custom provider configurations, in addition to the built-in providers.
+  final List<LlmProviderConfig>? providers;
+
+  /// Response cache configuration.
+  final LlmCacheConfig? cache;
+
+  /// Budget enforcement configuration.
+  final LlmBudgetConfig? budget;
+
+  /// Per-model rate limiting configuration.
+  final LlmRateLimitConfig? rateLimit;
+
+  /// Global per-client in-flight provider request limit.
+  final LlmInFlightLimitConfig? inFlightLimit;
+
+  /// Enable per-request cost tracking.
+  final bool? costTracking;
+
+  /// Enable OpenTelemetry-compatible tracing spans.
+  final bool? tracing;
+
+  /// Cooldown duration after transient errors, in seconds.
+  final PlatformInt64? cooldownSecs;
+
+  /// Background health check interval, in seconds.
+  final PlatformInt64? healthCheckSecs;
+
+  /// AWS Bedrock configuration (region, credentials, cross-region routing).
+  final BedrockConfig? bedrock;
+
+  const LlmConfig({
+    required this.model,
+    this.apiKey,
+    this.baseUrl,
+    this.timeoutSecs,
+    this.maxRetries,
+    this.temperature,
+    this.maxTokens,
+    this.loadEnv,
+    this.headers,
+    this.providers,
+    this.cache,
+    this.budget,
+    this.rateLimit,
+    this.inFlightLimit,
+    this.costTracking,
+    this.tracing,
+    this.cooldownSecs,
+    this.healthCheckSecs,
+    this.bedrock,
+  });
+
+  @override
+  int get hashCode =>
+      model.hashCode ^
+      apiKey.hashCode ^
+      baseUrl.hashCode ^
+      timeoutSecs.hashCode ^
+      maxRetries.hashCode ^
+      temperature.hashCode ^
+      maxTokens.hashCode ^
+      loadEnv.hashCode ^
+      headers.hashCode ^
+      providers.hashCode ^
+      cache.hashCode ^
+      budget.hashCode ^
+      rateLimit.hashCode ^
+      inFlightLimit.hashCode ^
+      costTracking.hashCode ^
+      tracing.hashCode ^
+      cooldownSecs.hashCode ^
+      healthCheckSecs.hashCode ^
+      bedrock.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmConfig &&
+          runtimeType == other.runtimeType &&
+          model == other.model &&
+          apiKey == other.apiKey &&
+          baseUrl == other.baseUrl &&
+          timeoutSecs == other.timeoutSecs &&
+          maxRetries == other.maxRetries &&
+          temperature == other.temperature &&
+          maxTokens == other.maxTokens &&
+          loadEnv == other.loadEnv &&
+          headers == other.headers &&
+          providers == other.providers &&
+          cache == other.cache &&
+          budget == other.budget &&
+          rateLimit == other.rateLimit &&
+          inFlightLimit == other.inFlightLimit &&
+          costTracking == other.costTracking &&
+          tracing == other.tracing &&
+          cooldownSecs == other.cooldownSecs &&
+          healthCheckSecs == other.healthCheckSecs &&
+          bedrock == other.bedrock;
+}
+
+/// Global per-client in-flight provider request limit.
+class LlmInFlightLimitConfig {
+  /// Maximum simultaneously outstanding provider requests. `None` means unlimited.
+  final PlatformInt64? maxInFlight;
+
+  const LlmInFlightLimitConfig({this.maxInFlight});
+
+  @override
+  int get hashCode => maxInFlight.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmInFlightLimitConfig &&
+          runtimeType == other.runtimeType &&
+          maxInFlight == other.maxInFlight;
+}
+
+/// A custom provider configuration entry.
+class LlmProviderConfig {
+  /// Provider name, used to key model prefix matching.
+  final String name;
+
+  /// Base URL for the provider's OpenAI-compatible API.
+  final String baseUrl;
+
+  /// Header name used to carry the API key (defaults to `Authorization` when unset).
+  final String? authHeader;
+
+  /// Model name prefixes routed to this provider (e.g. `["my-provider/"]`).
+  final List<String> modelPrefixes;
+
+  const LlmProviderConfig({
+    required this.name,
+    required this.baseUrl,
+    this.authHeader,
+    required this.modelPrefixes,
+  });
+
+  @override
+  int get hashCode =>
+      name.hashCode ^
+      baseUrl.hashCode ^
+      authHeader.hashCode ^
+      modelPrefixes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmProviderConfig &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          baseUrl == other.baseUrl &&
+          authHeader == other.authHeader &&
+          modelPrefixes == other.modelPrefixes;
+}
+
+/// Per-model rate limiting configuration.
+class LlmRateLimitConfig {
+  /// Requests per minute limit.
+  final PlatformInt64? rpm;
+
+  /// Tokens per minute limit.
+  final PlatformInt64? tpm;
+
+  /// Rate limit window, in seconds.
+  final PlatformInt64? windowSeconds;
+
+  const LlmRateLimitConfig({this.rpm, this.tpm, this.windowSeconds});
+
+  @override
+  int get hashCode => rpm.hashCode ^ tpm.hashCode ^ windowSeconds.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmRateLimitConfig &&
+          runtimeType == other.runtimeType &&
+          rpm == other.rpm &&
+          tpm == other.tpm &&
+          windowSeconds == other.windowSeconds;
 }
 
 @freezed
@@ -3563,7 +4155,7 @@ class RateLimitConfig {
 }
 
 /// Controls how much reasoning effort the model should use.
-enum ReasoningEffort { low, medium, high }
+enum ReasoningEffort { low, medium, high, minimal, max }
 
 /// Result of a [`refresh_catalog`] call.
 enum RefreshOutcome {
@@ -4277,8 +4869,13 @@ enum ToolChoiceMode {
 
 /// Tool execution result returned to the model.
 class ToolMessage {
-  /// Result of the tool execution.
-  final String content;
+  /// Result of the tool execution as plain text or an array of content parts
+  /// (text, images, documents, audio), mirroring [`UserMessage::content`].
+  ///
+  /// `#[serde(untagged)]` on [`UserContent`] means a bare JSON string still
+  /// deserialises into `Text`, so tool results persisted before this field
+  /// carried structured content continue to round-trip.
+  final UserContent content;
 
   /// ID of the tool call this result responds to.
   final String toolCallId;
@@ -4499,4 +5096,49 @@ class WaitForBatchConfig {
           maxIntervalSecs == other.maxIntervalSecs &&
           backoffMultiplier == other.backoffMultiplier &&
           timeoutSecs == other.timeoutSecs;
+}
+
+
+extension AssistantContentTextExt on AssistantContent {
+  /// Returns the plain-text display value of this content.
+  ///
+  /// - If this is a Text variant, returns its string content verbatim.
+  /// - If this is a Parts variant, concatenates the text fields from all text-type
+  ///   parts, skipping non-text parts like images, audio, or refusals.
+  /// - Otherwise returns an empty string.
+  String text() {
+    return switch (this) {
+      AssistantContent_Text(:final field0) => field0,
+      AssistantContent_Parts(:final field0) => _extractTextFromContentParts(field0),
+      _ => '',
+    };
+  }
+}
+
+/// Helper: Extract and concatenate text from content parts.
+/// Expects parts to be a List of sealed class instances (typically ContentPart
+/// or similar union types where each variant is a sealed class, e.g. ContentPart_Text).
+/// Only instances of *_Text variants (containing a text field) contribute to output.
+String _extractTextFromContentParts(List<dynamic> parts) {
+  final sb = StringBuffer();
+  for (final part in parts) {
+    // For FRB-generated sealed class instances, we can check the runtime type
+    // and access properties dynamically. Sealed class variants follow the pattern
+    // TypeName_VariantName, and text-type variants have a 'text' property.
+    final typeString = part.runtimeType.toString();
+    // Check if this is a text-type variant (e.g., 'ContentPart_Text(...)' or similar)
+    if (typeString.contains('_Text')) {
+      try {
+        // Use dynamic access to get the 'text' field from the variant instance
+        final text = (part as dynamic).text;
+        if (text is String) {
+          sb.write(text);
+        }
+      } catch (_) {
+        // If field access fails, skip this part (it's not actually a text variant)
+        continue;
+      }
+    }
+  }
+  return sb.toString();
 }

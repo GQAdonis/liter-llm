@@ -16,20 +16,21 @@ if test "$PHP_LITER_LLM_ENABLED" = "yes"; then
     if test -f "crates/liter-llm-php/Cargo.toml"; then
       (cd crates/liter-llm-php && cargo build --release) || exit 1
 
-      dnl Detect output filename based on platform
-      if test -f "crates/liter-llm-php/target/release/libliter-llm_php.dylib"; then
-        cargo_lib="crates/liter-llm-php/target/release/libliter-llm_php.dylib"
-      elif test -f "crates/liter-llm-php/target/release/libliter-llm_php.so"; then
-        cargo_lib="crates/liter-llm-php/target/release/libliter-llm_php.so"
+      dnl Cargo replaces every hyphen in the crate name with an underscore for the
+      dnl cdylib output filename, so "liter-llm-php" produces libliter_llm_php.*.
+      if test -f "crates/liter-llm-php/target/release/libliter_llm_php.dylib"; then
+        cargo_lib="crates/liter-llm-php/target/release/libliter_llm_php.dylib"
+      elif test -f "crates/liter-llm-php/target/release/libliter_llm_php.so"; then
+        cargo_lib="crates/liter-llm-php/target/release/libliter_llm_php.so"
       else
-        echo "ERROR: cargo build succeeded but .so/.dylib not found in crates/liter_llm-php/target/release" >&2
+        echo "ERROR: cargo build succeeded but .so/.dylib not found in crates/liter-llm-php/target/release" >&2
         exit 1
       fi
 
       mkdir -p modules
       cp "$cargo_lib" "modules/liter-llm.so" || exit 1
     else
-      echo "ERROR: crates/liter_llm-php/Cargo.toml not found" >&2
+      echo "ERROR: crates/liter-llm-php/Cargo.toml not found" >&2
       exit 1
     fi
   ], [])

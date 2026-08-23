@@ -1,6 +1,11 @@
 {
   "id": "ocr_error_401",
   "description": "401 Unauthorized error on OCR request due to invalid API credentials",
+  "docs": {
+    "topic": "ocr",
+    "stem": "ocr-error-401",
+    "title": "401 Unauthorized error on OCR request due to invalid API credentials"
+  },
   "category": "ocr",
   "tags": ["ocr", "error-handling"],
   "call": "ocr",

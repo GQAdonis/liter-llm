@@ -86,3 +86,42 @@ jobs:
         if: runner.os == 'Linux'
         run: task rust:format:check
         shell: bash
+
+      - name: Install alef (Linux only)
+        if: runner.os == 'Linux'
+        uses: xberg-io/actions/install-alef@v1
+
+      # ~keep This gate catches generated files drifting from alef.toml. `--exit-code` is no
+      # longer required -- it is a hidden, deprecated no-op that alef discards, and verification
+      # fails by default -- but it is kept so this step still fails on an older pinned alef.
+      - name: Verify binding freshness (Linux only)
+        if: runner.os == 'Linux'
+        run: alef verify --exit-code
+        shell: bash
+
+      # deny.toml already carried an advisories allowlist but nothing in CI ever ran
+      # cargo-deny against it, so dependency vulnerabilities went unnoticed. The
+      # allowlist documents each tolerated advisory and why it can't be fixed locally;
+      # any new advisory fails this step. ~keep
+      - name: Dependency scan (cargo-deny, Linux only)
+        if: runner.os == 'Linux'
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans licenses sources
+
+      - name: Install cargo-llvm-cov (Linux only)
+        if: runner.os == 'Linux'
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Rust coverage (Linux only)
+        if: runner.os == 'Linux'
+        run: cargo llvm-cov --workspace --locked --lcov --output-path lcov.info
+        shell: bash
+
+      - name: Upload coverage (Linux only)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: lcov.info
+          retention-days: 14

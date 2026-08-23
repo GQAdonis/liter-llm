@@ -26,6 +26,67 @@ fn format_from_media_type(media_type: &str) -> &str {
     media_type.split('/').nth(1).unwrap_or("pdf")
 }
 
+/// Convert OpenAI-format message content (plain string or content-part array) to
+/// Bedrock Converse content blocks (`text` / `image` / `document`).
+///
+/// Shared by both user messages and tool results: Converse's `toolResult.content`
+/// accepts the same block shapes as a user turn's `content`, so this is reused
+/// rather than duplicated for the `"tool"` role. ~keep
+fn convert_content_to_bedrock_blocks(content: Option<&serde_json::Value>) -> Vec<serde_json::Value> {
+    use serde_json::json;
+
+    if let Some(text) = content.and_then(|c| c.as_str()) {
+        vec![json!({"text": text})]
+    } else if let Some(array) = content.and_then(|c| c.as_array()) {
+        array
+            .iter()
+            .filter_map(|part| {
+                let part_type = part.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                match part_type {
+                    "text" => {
+                        let text = part.get("text").and_then(|t| t.as_str()).unwrap_or("");
+                        Some(json!({"text": text}))
+                    }
+                    "image_url" => {
+                        let url = part.pointer("/image_url/url").and_then(|u| u.as_str()).unwrap_or("");
+                        if let Some(data_part) = url.strip_prefix("data:") {
+                            let mut iter = data_part.splitn(2, ';');
+                            let media_type = iter.next().unwrap_or("image/jpeg");
+                            let b64 = iter.next().and_then(|s| s.strip_prefix("base64,")).unwrap_or("");
+                            Some(json!({
+                                "image": {
+                                    "format": media_type.split('/').nth(1).unwrap_or("jpeg"),
+                                    "source": {"bytes": b64}
+                                }
+                            }))
+                        } else {
+                            Some(json!({"text": url}))
+                        }
+                    }
+                    "document" => {
+                        let data = part.pointer("/document/data").and_then(|d| d.as_str()).unwrap_or("");
+                        let media_type = part
+                            .pointer("/document/media_type")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("application/pdf");
+                        let format = format_from_media_type(media_type);
+                        Some(json!({
+                            "document": {
+                                "name": "doc",
+                                "format": format,
+                                "source": {"bytes": data}
+                            }
+                        }))
+                    }
+                    _ => None,
+                }
+            })
+            .collect()
+    } else {
+        vec![json!({"text": ""})]
+    }
+}
+
 /// Determine the DNS suffix for a given AWS region.
 ///
 /// - Standard/GovCloud regions: `amazonaws.com`
@@ -69,8 +130,10 @@ fn percent_encode_model(model: &str) -> String {
 /// - Routes `bedrock/` prefixed model names to the Bedrock runtime endpoint.
 /// - The model prefix is stripped before the model ID is sent in the request.
 /// - When the `bedrock` feature is enabled, every request is signed with
-///   AWS Signature Version 4 using credentials from the environment
-///   (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`).
+///   AWS Signature Version 4 using credentials from explicit config (see
+///   [`BedrockProvider::with_credentials`]) or, when unset, from the
+///   environment (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+///   `AWS_SESSION_TOKEN`).
 /// - When the `bedrock` feature is disabled, the provider is usable with a
 ///   `base_url` override (e.g. in tests against a mock server) without any
 ///   signing.
@@ -78,7 +141,7 @@ fn percent_encode_model(model: &str) -> String {
 /// # Region resolution
 ///
 /// The region is resolved in priority order:
-/// 1. Explicit value passed to [`BedrockProvider::with_region`].
+/// 1. Explicit value passed to [`BedrockProvider::new`] or [`BedrockProvider::from_config`].
 /// 2. `AWS_DEFAULT_REGION` environment variable.
 /// 3. `AWS_REGION` environment variable.
 /// 4. Hard-coded default: `us-east-1`.
@@ -98,6 +161,12 @@ pub struct BedrockProvider {
     /// construction time (e.g. `Some("us.")`) so we avoid reading the
     /// environment on every request.
     cross_region_prefix: Option<String>,
+    /// Explicit AWS access key ID, overriding `AWS_ACCESS_KEY_ID` when set.
+    access_key_id: Option<String>,
+    /// Explicit AWS secret access key, overriding `AWS_SECRET_ACCESS_KEY` when set.
+    secret_access_key: Option<String>,
+    /// Explicit AWS session token, overriding `AWS_SESSION_TOKEN` when set.
+    session_token: Option<String>,
 }
 
 impl BedrockProvider {
@@ -128,6 +197,9 @@ impl BedrockProvider {
             region,
             base_url,
             cross_region_prefix,
+            access_key_id: None,
+            secret_access_key: None,
+            session_token: None,
         }
     }
 
@@ -140,6 +212,64 @@ impl BedrockProvider {
             .or_else(|_| std::env::var("AWS_REGION"))
             .unwrap_or_else(|_| DEFAULT_REGION.to_owned());
         Self::new(region)
+    }
+
+    /// Construct from explicit, optional config values, falling back to the
+    /// environment for anything left unset.
+    ///
+    /// Region resolution order: `region` -> `AWS_DEFAULT_REGION` ->
+    /// `AWS_REGION` -> `us-east-1`. Credentials and the cross-region prefix
+    /// fall back to their respective environment variables at request time
+    /// (see [`BedrockProvider::with_credentials`] and
+    /// [`BedrockProvider::with_cross_region_prefix`]).
+    #[must_use]
+    pub fn from_config(
+        region: Option<String>,
+        cross_region_prefix: Option<String>,
+        access_key_id: Option<String>,
+        secret_access_key: Option<String>,
+        session_token: Option<String>,
+    ) -> Self {
+        let region = region
+            .or_else(|| std::env::var("AWS_DEFAULT_REGION").ok())
+            .or_else(|| std::env::var("AWS_REGION").ok())
+            .unwrap_or_else(|| DEFAULT_REGION.to_owned());
+        Self::new(region)
+            .with_cross_region_prefix(cross_region_prefix)
+            .with_credentials(access_key_id, secret_access_key, session_token)
+    }
+
+    /// Override the cross-region inference profile prefix (e.g. `"us"`).
+    ///
+    /// When `None`, the prefix cached from `BEDROCK_CROSS_REGION` at
+    /// construction time (if any) is left untouched.
+    #[must_use]
+    pub fn with_cross_region_prefix(mut self, prefix: Option<String>) -> Self {
+        if let Some(prefix) = prefix {
+            let prefix = if prefix.ends_with('.') {
+                prefix
+            } else {
+                format!("{prefix}.")
+            };
+            self.cross_region_prefix = Some(prefix);
+        }
+        self
+    }
+
+    /// Set explicit AWS credentials for SigV4 signing, overriding the
+    /// `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`
+    /// environment variables when present.
+    #[must_use]
+    pub fn with_credentials(
+        mut self,
+        access_key_id: Option<String>,
+        secret_access_key: Option<String>,
+        session_token: Option<String>,
+    ) -> Self {
+        self.access_key_id = access_key_id;
+        self.secret_access_key = secret_access_key;
+        self.session_token = session_token;
+        self
     }
 
     /// Return the AWS region this provider is configured for.
@@ -182,9 +312,15 @@ impl Provider for BedrockProvider {
 
     /// Validate that the provider is usable in the current environment.
     ///
-    /// When the `bedrock` feature is enabled, checks that AWS credentials are
-    /// available in the environment (`AWS_ACCESS_KEY_ID` at minimum).  Without
-    /// credentials, every real Bedrock request will be rejected with a 403.
+    /// When the `bedrock` feature is enabled, checks that both an AWS access key
+    /// and secret key are available (explicit config, or `AWS_ACCESS_KEY_ID`
+    /// and `AWS_SECRET_ACCESS_KEY` in the environment). Without both, SigV4
+    /// signing cannot succeed, so this returns an error instead of letting the
+    /// request continue toward an unsigned or malformed send.
+    ///
+    /// Called once at client construction and again on every request from
+    /// [`BedrockProvider::transform_request`], since credentials can become
+    /// unavailable between the two.
     ///
     /// When the `bedrock` feature is disabled (e.g. in tests with `base_url`
     /// override), validation is skipped so callers can connect to a mock server
@@ -192,13 +328,18 @@ impl Provider for BedrockProvider {
     fn validate(&self) -> Result<()> {
         #[cfg(feature = "bedrock")]
         {
-            if std::env::var("AWS_ACCESS_KEY_ID").is_err() {
-                return Err(LiterLlmError::BadRequest {
+            let has_access_key = self.access_key_id.is_some() || std::env::var("AWS_ACCESS_KEY_ID").is_ok();
+            let has_secret_key = self.secret_access_key.is_some() || std::env::var("AWS_SECRET_ACCESS_KEY").is_ok();
+            // ~keep Both keys are required: sigv4_sign has no instance-profile/SSO fallback,
+            // so a request missing either one can never actually be signed.
+            if !has_access_key || !has_secret_key {
+                return Err(LiterLlmError::Authentication {
                     message: "AWS Bedrock requires AWS credentials. \
-                              Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (and optionally \
-                              AWS_SESSION_TOKEN) in the environment."
+                              Set them explicitly via config or set AWS_ACCESS_KEY_ID and \
+                              AWS_SECRET_ACCESS_KEY (and optionally AWS_SESSION_TOKEN) in the \
+                              environment."
                         .into(),
-                    status: 400,
+                    status: 401,
                 });
             }
         }
@@ -253,8 +394,38 @@ impl Provider for BedrockProvider {
     /// - Messages use `content` arrays with typed blocks (`text`, `toolUse`, `toolResult`).
     /// - Generation parameters live in `inferenceConfig`.
     /// - Tools are described in `toolConfig.tools[].toolSpec`.
+    /// - `temperature` and `top_p` outside Bedrock's documented `[0.0, 1.0]` range are
+    ///   rejected with a `BadRequest` error rather than forwarded and left for Bedrock to reject.
+    ///
+    /// Embedding requests (`input` present, no `messages`) are routed to
+    /// [`transform_bedrock_embed_request`] instead: Bedrock has no Converse-style
+    /// unified embeddings API, so this dispatch mirrors the same
+    /// `input`/`messages` discriminator used by [`super::vertex`].
     fn transform_request(&self, body: &mut serde_json::Value) -> Result<()> {
         use serde_json::json;
+
+        // ~keep Re-checked on every request (not just at client construction): credentials
+        // can become unavailable between construction and send. `signing_headers` now also
+        // hard-errors on a signing failure (see #42), but this precheck fails fast with a
+        // clearer, missing-credentials-specific message before any signing work happens.
+        self.validate()?;
+
+        // ~keep Embedding bodies have `input` and no `messages`. Without this branch they
+        // ~keep fell through to the Converse transform below, which unconditionally removes
+        // ~keep `messages` (absent here) via `unwrap_or_default()` and rebuilds the body as
+        // ~keep `{"messages": []}`, silently discarding the entire `input`.
+        if body.get("input").is_some() && body.get("messages").is_none() {
+            return transform_bedrock_embed_request(body);
+        }
+
+        // ~keep The Bedrock Converse API's InferenceConfiguration documents both `temperature`
+        // ~keep and `topP` as 0-1, narrower than this crate's OpenAI-shaped 0.0-2.0 doc for
+        // ~keep `temperature`, regardless of the underlying foundation model (Anthropic, Titan,
+        // ~keep Llama, ...) since Converse enforces this at the gateway, not the model. See
+        // ~keep https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InferenceConfiguration.html.
+        // ~keep Reject out-of-range values locally rather than forwarding them for a 400.
+        super::validate_sampling_param_range(body, "temperature", "Bedrock", 0.0, 1.0)?;
+        super::validate_sampling_param_range(body, "top_p", "Bedrock", 0.0, 1.0)?;
 
         let messages = body
             .as_object_mut()
@@ -285,57 +456,7 @@ impl Provider for BedrockProvider {
                     }
                 }
                 "user" => {
-                    let parts = if let Some(text) = content.and_then(|c| c.as_str()) {
-                        vec![json!({"text": text})]
-                    } else if let Some(array) = content.and_then(|c| c.as_array()) {
-                        array
-                            .iter()
-                            .filter_map(|part| {
-                                let part_type = part.get("type").and_then(|t| t.as_str()).unwrap_or("");
-                                match part_type {
-                                    "text" => {
-                                        let text = part.get("text").and_then(|t| t.as_str()).unwrap_or("");
-                                        Some(json!({"text": text}))
-                                    }
-                                    "image_url" => {
-                                        let url = part.pointer("/image_url/url").and_then(|u| u.as_str()).unwrap_or("");
-                                        if let Some(data_part) = url.strip_prefix("data:") {
-                                            let mut iter = data_part.splitn(2, ';');
-                                            let media_type = iter.next().unwrap_or("image/jpeg");
-                                            let b64 = iter.next().and_then(|s| s.strip_prefix("base64,")).unwrap_or("");
-                                            Some(json!({
-                                                "image": {
-                                                    "format": media_type.split('/').nth(1).unwrap_or("jpeg"),
-                                                    "source": {"bytes": b64}
-                                                }
-                                            }))
-                                        } else {
-                                            Some(json!({"text": url}))
-                                        }
-                                    }
-                                    "document" => {
-                                        let data =
-                                            part.pointer("/document/data").and_then(|d| d.as_str()).unwrap_or("");
-                                        let media_type = part
-                                            .pointer("/document/media_type")
-                                            .and_then(|m| m.as_str())
-                                            .unwrap_or("application/pdf");
-                                        let format = format_from_media_type(media_type);
-                                        Some(json!({
-                                            "document": {
-                                                "name": "doc",
-                                                "format": format,
-                                                "source": {"bytes": data}
-                                            }
-                                        }))
-                                    }
-                                    _ => None,
-                                }
-                            })
-                            .collect()
-                    } else {
-                        vec![json!({"text": ""})]
-                    };
+                    let parts = convert_content_to_bedrock_blocks(content);
                     converse_messages.push(json!({"role": "user", "content": parts}));
                 }
                 "assistant" => {
@@ -347,11 +468,17 @@ impl Provider for BedrockProvider {
                     }
                     if let Some(tool_calls) = msg.get("tool_calls").and_then(|t| t.as_array()) {
                         for tc in tool_calls {
-                            let input: serde_json::Value = tc
-                                .pointer("/function/arguments")
-                                .and_then(|a| a.as_str())
-                                .and_then(|s| serde_json::from_str(s).ok())
-                                .unwrap_or_else(|| json!({}));
+                            let input = match tc.pointer("/function/arguments").and_then(|a| a.as_str()) {
+                                Some(args_str) => serde_json::from_str(args_str).unwrap_or_else(|error| {
+                                    tracing::warn!(
+                                        %error,
+                                        "Bedrock tool_calls[].function.arguments was not valid JSON; using an \
+                                         empty object"
+                                    );
+                                    json!({})
+                                }),
+                                None => json!({}),
+                            };
                             parts.push(json!({
                                 "toolUse": {
                                     "toolUseId": tc.get("id"),
@@ -368,7 +495,10 @@ impl Provider for BedrockProvider {
                 }
                 "tool" => {
                     let tool_call_id = msg.get("tool_call_id").and_then(|t| t.as_str()).unwrap_or("");
-                    let result_text = content.and_then(|c| c.as_str()).unwrap_or("");
+                    // toolResult.content accepts the same text/image/document block shapes as a
+                    // user turn's content, so a `ToolMessage::content` of `UserContent::Parts`
+                    // reaches Bedrock natively via the shared block conversion. ~keep
+                    let result_content = convert_content_to_bedrock_blocks(content);
                     let is_error = msg.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
                     let status = if is_error { "error" } else { "success" };
                     converse_messages.push(json!({
@@ -376,7 +506,7 @@ impl Provider for BedrockProvider {
                         "content": [{
                             "toolResult": {
                                 "toolUseId": tool_call_id,
-                                "content": [{"text": result_text}],
+                                "content": result_content,
                                 "status": status
                             }
                         }]
@@ -485,6 +615,49 @@ impl Provider for BedrockProvider {
             new_body["guardrailConfig"] = gc;
         }
 
+        // ~keep Bedrock's Converse API has real equivalents for these two OpenAI fields:
+        // ~keep `serviceTier: {type}` accepts "priority"|"default"|"flex"|"reserved", so every
+        // ~keep OpenAI value except "auto" maps directly; "auto" has no Bedrock counterpart and
+        // ~keep omitting `serviceTier` already gives provider-default behaviour, which is the
+        // ~keep same effect. `requestMetadata` is a string-to-string map used for CloudTrail/
+        // ~keep CloudWatch filtering, the same shape as our `metadata` tag map.
+        if let Some(tier) = body.get("service_tier").and_then(|v| v.as_str())
+            && tier != "auto"
+        {
+            new_body["serviceTier"] = json!({"type": tier});
+        }
+        if let Some(metadata) = body.get("metadata").and_then(|v| v.as_object())
+            && !metadata.is_empty()
+        {
+            new_body["requestMetadata"] = json!(metadata);
+        }
+
+        // ~keep `logprobs`/`top_logprobs`, `audio` and `web_search_options` have no Bedrock
+        // ~keep Converse API equivalent (InferenceConfiguration has no logprobs field; Claude on
+        // ~keep Bedrock has no audio-output or built-in web-search-tool configuration). They are
+        // ~keep already dropped by the wholesale rebuild above; warn so a caller who asked for
+        // ~keep any of them can tell the request silently ignored that part of the ask.
+        let logprobs_requested = body.get("logprobs").and_then(|v| v.as_bool()).unwrap_or(false);
+        if logprobs_requested || body.get("top_logprobs").is_some() {
+            tracing::warn!(
+                "chat request set logprobs/top_logprobs, which Bedrock's Converse API does not \
+                 support; the fields were dropped and the response will not include log \
+                 probabilities"
+            );
+        }
+        if body.get("audio").is_some() {
+            tracing::warn!(
+                "chat request set `audio`, which was dropped: Bedrock's Converse API has no \
+                 audio output support"
+            );
+        }
+        if body.get("web_search_options").is_some() {
+            tracing::warn!(
+                "chat request set `web_search_options`, which was dropped: Bedrock's Converse \
+                 API has no built-in web-search tool configuration equivalent"
+            );
+        }
+
         *body = new_body;
         Ok(())
     }
@@ -499,8 +672,20 @@ impl Provider for BedrockProvider {
     /// always `""`.  Bedrock does not include the model name in its response
     /// body — the model is only present in the request URL path.  Threading
     /// the model through would require a signature change to `transform_response`.
+    ///
+    /// Embedding responses (Titan's `{"embedding": [...]}` or Cohere's
+    /// `{"embeddings": [[...], ...]}`) are routed to
+    /// [`transform_bedrock_embed_response`] instead. Unlike the request side,
+    /// this dispatch cannot use the model ID — `transform_response` has no
+    /// model parameter (see the limitation above) and an `InvokeModel`
+    /// response body carries no model field either — so it sniffs the
+    /// response shape instead, same as [`super::vertex::transform_gemini_response`].
     fn transform_response(&self, body: &mut serde_json::Value) -> Result<()> {
         use serde_json::json;
+
+        if body.get("embedding").is_some() || body.get("embeddings").is_some() {
+            return transform_bedrock_embed_response(body);
+        }
 
         let stop_reason = body.get("stopReason").and_then(|s| s.as_str()).unwrap_or("end_turn");
         let usage = body.get("usage").cloned();
@@ -595,18 +780,183 @@ impl Provider for BedrockProvider {
     ///
     /// When the `bedrock` feature is disabled, returns an empty vector so
     /// requests work against override base-URLs (e.g. mock servers in tests).
-    fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Vec<(String, String)> {
+    ///
+    /// # Errors
+    ///
+    /// `Provider::transform_request` (called earlier in the send path, see
+    /// [`BedrockProvider::transform_request`]) re-validates that credentials are
+    /// present on every request and hard-errors before any network I/O, which
+    /// closes the realistic failure mode (missing or revoked credentials). The
+    /// only way `sigv4_sign` can still fail here despite that precheck is an
+    /// internal SigV4 library error (malformed signing params). Fix for #42:
+    /// that failure is now propagated as a hard error instead of silently
+    /// falling back to an unsigned request. ~keep
+    fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Result<Vec<(String, String)>> {
         #[cfg(feature = "bedrock")]
         {
-            sigv4_sign(method, url, body, &self.region).unwrap_or_default()
+            sigv4_sign(
+                method,
+                url,
+                body,
+                &self.region,
+                self.access_key_id.as_deref(),
+                self.secret_access_key.as_deref(),
+                self.session_token.as_deref(),
+            )
+            .map_err(|error| {
+                tracing::error!(
+                    error = %error,
+                    %method,
+                    "Bedrock SigV4 signing failed after credential precheck passed"
+                );
+                error
+            })
         }
 
         #[cfg(not(feature = "bedrock"))]
         {
             let _ = (method, url, body);
-            vec![]
+            Ok(vec![])
         }
     }
+}
+
+/// `input_type` sent for Bedrock Cohere embed models.
+///
+/// Cohere's v3 embed models require this field, but OpenAI's `EmbeddingRequest` has
+/// no equivalent concept to map from, so a default must be chosen. `search_document`
+/// is the indexing-side value — correct for the dominant use of an embeddings
+/// endpoint. A caller embedding *queries* wants `search_query` and will get subtly
+/// mismatched vectors; that needs a provider-options passthrough to fix properly,
+/// which this constant deliberately does not fake. ~keep
+const COHERE_EMBED_DEFAULT_INPUT_TYPE: &str = "search_document";
+
+/// Convert an OpenAI-style embedding request to a Bedrock model-family `InvokeModel` body.
+///
+/// Bedrock has no unified embeddings API — each model family defines its own wire
+/// shape, and there is nothing else in `transform_request`'s signature to key off
+/// of, so this dispatches on `body["model"]`. That field is populated by
+/// `Client::prepare_request` (`crates/liter-llm/src/client/mod.rs`), which inserts
+/// the already-prefix-stripped model ID into the body immediately before calling
+/// `transform_request` — so it is reliably present here.
+///
+/// Supported families:
+/// - Amazon Titan (`amazon.titan-embed-*`): `{"inputText": "..."}`.
+/// - Cohere Embed (`cohere.embed-*`): `{"texts": [...], "input_type": "search_document"}`.
+///
+/// Any other model prefix is rejected with a clear error rather than guessed at.
+///
+/// ~keep Titan's `invoke` endpoint accepts exactly one string per call (batch Titan
+/// ~keep embedding is a separate async `CreateModelInvocationJob` API, not this
+/// ~keep synchronous path). A batched OpenAI `input` is reduced to its first element;
+/// ~keep the rest are dropped with a warning rather than silently discarded.
+fn transform_bedrock_embed_request(body: &mut serde_json::Value) -> Result<()> {
+    use crate::error::LiterLlmError;
+    use serde_json::json;
+
+    let model = body.get("model").and_then(|m| m.as_str()).unwrap_or("").to_owned();
+
+    let input = body.get("input").cloned().unwrap_or_default();
+    let texts: Vec<String> = match &input {
+        serde_json::Value::String(s) => vec![s.clone()],
+        serde_json::Value::Array(arr) if arr.iter().all(serde_json::Value::is_string) => {
+            arr.iter().filter_map(|v| v.as_str().map(ToOwned::to_owned)).collect()
+        }
+        _ => {
+            return Err(LiterLlmError::BadRequest {
+                message: "Bedrock embedding adapters support text input only; use a multimodal-compatible custom provider for image embeddings".into(),
+                status: 400,
+            });
+        }
+    };
+
+    if model.starts_with("amazon.titan-embed") {
+        // ~keep Reject rather than truncate. OpenAI's contract is that `data[]` parallels
+        // ~keep `input[]`, so returning one vector for an N-element batch hands the caller
+        // ~keep silently misaligned embeddings — the kind of defect that corrupts a vector
+        // ~keep store and only surfaces much later as bad retrieval.
+        if texts.len() > 1 {
+            return Err(LiterLlmError::BadRequest {
+                message: format!(
+                    "Bedrock Titan embedding model '{model}' accepts a single input per call, but \
+                     {} were supplied; issue one request per input (batch Titan embedding is a \
+                     separate asynchronous job API)",
+                    texts.len()
+                ),
+                status: 400,
+            });
+        }
+        let text = texts.first().cloned().unwrap_or_default();
+        let mut new_body = json!({"inputText": text});
+        if let Some(dimensions) = body.get("dimensions") {
+            new_body["dimensions"] = dimensions.clone();
+        }
+        *body = new_body;
+        return Ok(());
+    }
+
+    if model.starts_with("cohere.embed") {
+        *body = json!({
+            "texts": texts,
+            "input_type": COHERE_EMBED_DEFAULT_INPUT_TYPE
+        });
+        return Ok(());
+    }
+
+    Err(LiterLlmError::BadRequest {
+        message: format!(
+            "unsupported Bedrock embedding model '{model}': liter-llm currently supports \
+             amazon.titan-embed-* and cohere.embed-* embedding models"
+        ),
+        status: 400,
+    })
+}
+
+/// Normalize a Bedrock `InvokeModel` embedding response to OpenAI's embeddings list format.
+///
+/// Dispatched by response shape rather than model ID: `transform_response` has no
+/// model parameter, and an `InvokeModel` response body carries no model field
+/// either (same limitation noted on [`BedrockProvider::transform_response`]).
+///
+/// - Titan (`{"embedding": [...], "inputTextTokenCount": N}`) -> single embedding,
+///   with `inputTextTokenCount` threaded through as `prompt_tokens`.
+/// - Cohere (`{"embeddings": [[...], ...]}`) -> one embedding per input text.
+///   ~keep Bedrock's Cohere embed response carries no token-usage field, so
+///   ~keep usage is reported as zero rather than guessed at.
+fn transform_bedrock_embed_response(body: &mut serde_json::Value) -> Result<()> {
+    use serde_json::json;
+
+    if let Some(embedding) = body.get("embedding").cloned() {
+        let prompt_tokens = body.get("inputTextTokenCount").and_then(|v| v.as_u64()).unwrap_or(0);
+        *body = json!({
+            "object": "list",
+            "data": [{"object": "embedding", "embedding": embedding, "index": 0}],
+            "model": "",
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": 0,
+                "total_tokens": prompt_tokens
+            }
+        });
+        return Ok(());
+    }
+
+    if let Some(embeddings) = body.get("embeddings").and_then(|e| e.as_array()).cloned() {
+        let data: Vec<serde_json::Value> = embeddings
+            .into_iter()
+            .enumerate()
+            .map(|(index, embedding)| json!({"object": "embedding", "embedding": embedding, "index": index}))
+            .collect();
+        *body = json!({
+            "object": "list",
+            "data": data,
+            "model": "",
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        });
+        return Ok(());
+    }
+
+    Ok(())
 }
 
 /// Parse a Bedrock ConverseStream EventStream event into a `ChatCompletionChunk`.
@@ -723,7 +1073,7 @@ pub(crate) fn parse_bedrock_stream_event(event_type: &str, payload: &str) -> Res
                 .map(Some);
             }
 
-            tracing::debug!(
+            tracing::warn!(
                 content_block_index = index,
                 "Bedrock contentBlockDelta with unrecognized delta shape; skipping"
             );
@@ -820,28 +1170,49 @@ fn apply_cross_region_prefix(model: &str) -> String {
 
 /// Compute AWS SigV4 signing headers using the `aws-sigv4` crate.
 ///
-/// Reads credentials from the standard AWS environment variables:
-/// - `AWS_ACCESS_KEY_ID` (required)
-/// - `AWS_SECRET_ACCESS_KEY` (required)
-/// - `AWS_SESSION_TOKEN` (optional, for temporary credentials)
+/// Each credential falls back to the standard AWS environment variable when
+/// the corresponding explicit argument is `None`:
+/// - `access_key_id` -> `AWS_ACCESS_KEY_ID` (required)
+/// - `secret_access_key` -> `AWS_SECRET_ACCESS_KEY` (required)
+/// - `session_token` -> `AWS_SESSION_TOKEN` (optional, for temporary credentials)
 ///
 /// Returns a vector of `(header-name, header-value)` pairs to inject into the
 /// outgoing HTTP request.
 #[cfg(feature = "bedrock")]
-fn sigv4_sign(method: &str, url: &str, body: &[u8], region: &str) -> Result<Vec<(String, String)>> {
+fn sigv4_sign(
+    method: &str,
+    url: &str,
+    body: &[u8],
+    region: &str,
+    access_key_id: Option<&str>,
+    secret_access_key: Option<&str>,
+    session_token: Option<&str>,
+) -> Result<Vec<(String, String)>> {
     use aws_credential_types::Credentials;
     use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings, sign};
     use aws_sigv4::sign::v4::SigningParams;
 
-    let access_key = std::env::var("AWS_ACCESS_KEY_ID").map_err(|_| LiterLlmError::BadRequest {
-        message: "AWS_ACCESS_KEY_ID environment variable is required for Bedrock requests".into(),
-        status: 400,
-    })?;
-    let secret_key = std::env::var("AWS_SECRET_ACCESS_KEY").map_err(|_| LiterLlmError::BadRequest {
-        message: "AWS_SECRET_ACCESS_KEY environment variable is required for Bedrock requests".into(),
-        status: 400,
-    })?;
-    let session_token = std::env::var("AWS_SESSION_TOKEN").ok();
+    let access_key = access_key_id
+        .map(str::to_owned)
+        .or_else(|| std::env::var("AWS_ACCESS_KEY_ID").ok())
+        .ok_or_else(|| LiterLlmError::BadRequest {
+            message: "AWS access key ID is required for Bedrock requests: set it explicitly via config or \
+                      the AWS_ACCESS_KEY_ID environment variable"
+                .into(),
+            status: 400,
+        })?;
+    let secret_key = secret_access_key
+        .map(str::to_owned)
+        .or_else(|| std::env::var("AWS_SECRET_ACCESS_KEY").ok())
+        .ok_or_else(|| LiterLlmError::BadRequest {
+            message: "AWS secret access key is required for Bedrock requests: set it explicitly via config or \
+                      the AWS_SECRET_ACCESS_KEY environment variable"
+                .into(),
+            status: 400,
+        })?;
+    let session_token = session_token
+        .map(str::to_owned)
+        .or_else(|| std::env::var("AWS_SESSION_TOKEN").ok());
 
     let credentials = Credentials::new(access_key, secret_key, session_token, None, "env");
 
@@ -900,7 +1271,162 @@ mod tests {
     fn provider() -> BedrockProvider {
         // ~keep SAFETY: env vars are process-global; `#[serial]` on callers prevents races.
         unsafe { std::env::remove_var("BEDROCK_BASE_URL") };
-        BedrockProvider::new("us-east-1")
+        // ~keep Explicit dummy credentials so `transform_request`'s per-request
+        // `validate()` check (see #42) doesn't fail non-signing-focused tests
+        // regardless of the ambient AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY env state.
+        BedrockProvider::new("us-east-1").with_credentials(
+            Some("AKIATESTDUMMY".to_owned()),
+            Some("test-dummy-secret".to_owned()),
+            None,
+        )
+    }
+
+    #[test]
+    #[serial]
+    fn from_config_prefers_explicit_region_over_env() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::set_var("AWS_DEFAULT_REGION", "us-west-2") };
+        unsafe { std::env::remove_var("BEDROCK_CROSS_REGION") };
+        let p = BedrockProvider::from_config(Some("eu-central-1".to_owned()), None, None, None, None);
+        assert_eq!(p.region(), "eu-central-1");
+        unsafe { std::env::remove_var("AWS_DEFAULT_REGION") };
+    }
+
+    #[test]
+    #[serial]
+    fn from_config_falls_back_to_env_region_when_unset() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_DEFAULT_REGION") };
+        unsafe { std::env::set_var("AWS_REGION", "ap-southeast-1") };
+        let p = BedrockProvider::from_config(None, None, None, None, None);
+        assert_eq!(p.region(), "ap-southeast-1");
+        unsafe { std::env::remove_var("AWS_REGION") };
+    }
+
+    #[test]
+    #[serial]
+    fn from_config_falls_back_to_default_region() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_DEFAULT_REGION") };
+        unsafe { std::env::remove_var("AWS_REGION") };
+        let p = BedrockProvider::from_config(None, None, None, None, None);
+        assert_eq!(p.region(), DEFAULT_REGION);
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(feature = "bedrock")]
+    fn with_credentials_overrides_env_for_signing() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        unsafe { std::env::remove_var("AWS_SECRET_ACCESS_KEY") };
+        unsafe { std::env::remove_var("AWS_SESSION_TOKEN") };
+        let headers = sigv4_sign(
+            "POST",
+            "https://bedrock-runtime.us-east-1.amazonaws.com/model/foo/converse",
+            b"{}",
+            "us-east-1",
+            Some("AKIAEXPLICIT"),
+            Some("explicit-secret"),
+            Some("explicit-token"),
+        )
+        .expect("signing should succeed with explicit credentials");
+        assert!(
+            headers
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case("authorization"))
+        );
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(feature = "bedrock")]
+    fn sigv4_sign_fails_without_any_credentials() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        unsafe { std::env::remove_var("AWS_SECRET_ACCESS_KEY") };
+        let result = sigv4_sign(
+            "POST",
+            "https://bedrock-runtime.us-east-1.amazonaws.com/model/foo/converse",
+            b"{}",
+            "us-east-1",
+            None,
+            None,
+            None,
+        );
+        assert!(result.is_err(), "signing without credentials should fail");
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(feature = "bedrock")]
+    fn signing_headers_propagates_signing_failure_instead_of_returning_empty() {
+        // ~keep Regression test for #42. `sigv4_sign_fails_without_any_credentials` proves the
+        // signer errors; this proves `signing_headers` PROPAGATES that error rather than
+        // swallowing it into an empty header vec, which is what sent unsigned requests. The
+        // sibling test covering the empty-vec return is compiled out under this feature, so
+        // without this test the with-feature path has no coverage at all.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        unsafe { std::env::remove_var("AWS_SECRET_ACCESS_KEY") };
+        let provider = BedrockProvider::new("us-east-1");
+        let result = provider.signing_headers(
+            "POST",
+            "https://bedrock-runtime.us-east-1.amazonaws.com/model/foo/converse",
+            b"{}",
+        );
+        assert!(
+            result.is_err(),
+            "signing_headers must surface the signing failure, not return empty headers"
+        );
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(feature = "bedrock")]
+    fn transform_request_fails_hard_without_credentials_rather_than_sending_unsigned() {
+        // ~keep Regression test for #42: before the fix, `signing_headers` swallowed a
+        // signing failure via `.unwrap_or_default()` and the request went out with no
+        // Authorization header. `transform_request` must now hard-error before any
+        // network I/O so an unsigned Bedrock request can never be sent.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        unsafe { std::env::remove_var("AWS_SECRET_ACCESS_KEY") };
+        let p = BedrockProvider::new("us-east-1");
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let result = p.transform_request(&mut body);
+        assert!(
+            result.is_err(),
+            "transform_request must hard-error when Bedrock has no credentials, not silently \
+             succeed and let signing_headers send an unsigned request"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn validate_accepts_explicit_credentials_without_env() {
+        // ~keep SAFETY: env vars are process-global; `#[serial]` ensures no parallel mutation.
+        unsafe { std::env::remove_var("AWS_ACCESS_KEY_ID") };
+        let p = BedrockProvider::from_config(
+            Some("us-east-1".to_owned()),
+            None,
+            Some("AKIAEXPLICIT".to_owned()),
+            Some("explicit-secret".to_owned()),
+            None,
+        );
+        assert!(p.validate().is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn with_cross_region_prefix_normalizes_trailing_dot() {
+        unsafe { std::env::remove_var("BEDROCK_CROSS_REGION") };
+        let p = BedrockProvider::new("us-east-1").with_cross_region_prefix(Some("us".to_owned()));
+        let url = p.build_url("/chat/completions", "anthropic.claude-3-sonnet-20240229-v1:0");
+        assert!(
+            url.contains("us.anthropic.claude-3-sonnet"),
+            "cross-region prefix should be applied: {url}"
+        );
     }
 
     #[test]
@@ -1069,6 +1595,157 @@ mod tests {
         assert_eq!(body["inferenceConfig"]["temperature"], 0.7);
     }
 
+    /// Revert line: delete
+    /// `super::validate_sampling_param_range(body, "temperature", "Bedrock", 0.0, 1.0)?;`
+    /// in `transform_request` to make this test fail.
+    #[test]
+    #[serial]
+    fn transform_request_rejects_temperature_above_bedrock_maximum() {
+        let p = provider();
+        let mut body = json!({
+            "model": "anthropic.claude-3-sonnet",
+            "messages": [{"role": "user", "content": "hi"}],
+            "temperature": 1.5
+        });
+
+        let err = p
+            .transform_request(&mut body)
+            .expect_err("temperature above Bedrock's 1.0 maximum should be rejected");
+
+        assert_eq!(err.status_code(), 400);
+        let message = err.to_string();
+        assert!(
+            message.contains("temperature=1.5"),
+            "error message should name the offending value: {message}"
+        );
+        assert!(
+            message.contains("Bedrock"),
+            "error message should name the provider: {message}"
+        );
+    }
+
+    /// Revert line: delete
+    /// `super::validate_sampling_param_range(body, "top_p", "Bedrock", 0.0, 1.0)?;`
+    /// in `transform_request` to make this test fail.
+    #[test]
+    #[serial]
+    fn transform_request_rejects_top_p_above_bedrock_maximum() {
+        let p = provider();
+        let mut body = json!({
+            "model": "anthropic.claude-3-sonnet",
+            "messages": [{"role": "user", "content": "hi"}],
+            "top_p": 1.2
+        });
+
+        let err = p
+            .transform_request(&mut body)
+            .expect_err("top_p above Bedrock's 1.0 maximum should be rejected");
+
+        assert_eq!(err.status_code(), 400);
+        assert!(
+            err.to_string().contains("top_p=1.2"),
+            "error message should name the offending value: {err}"
+        );
+    }
+
+    /// `max_completion_tokens` maps to `inferenceConfig.maxTokens` when `max_tokens` is absent.
+    /// Previously untested even though the mapping itself predates this fix.
+    #[test]
+    #[serial]
+    fn transform_request_max_completion_tokens_maps_to_max_tokens() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_completion_tokens": 512
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["inferenceConfig"]["maxTokens"], 512);
+    }
+
+    /// `service_tier` maps to Bedrock Converse's `serviceTier: {type}` for every value except
+    /// `"auto"`, which has no Bedrock counterpart and is left unset (provider default).
+    #[test]
+    #[serial]
+    fn transform_request_service_tier_maps_to_bedrock_service_tier() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "service_tier": "flex"
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["serviceTier"]["type"], "flex");
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_service_tier_auto_is_omitted() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "service_tier": "auto"
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(body.get("serviceTier").is_none());
+    }
+
+    /// `metadata` maps to Bedrock Converse's `requestMetadata`, the same string-to-string
+    /// tag-map shape used for CloudTrail/CloudWatch filtering.
+    #[test]
+    #[serial]
+    fn transform_request_metadata_maps_to_request_metadata() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "metadata": {"run": "nightly", "team": "platform"}
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["requestMetadata"]["run"], "nightly");
+        assert_eq!(body["requestMetadata"]["team"], "platform");
+    }
+
+    /// `logprobs`/`top_logprobs`/`audio`/`web_search_options` have no Bedrock equivalent; the
+    /// wholesale body rebuild already dropped them, this pins that they never leak onto the wire.
+    #[test]
+    #[serial]
+    fn transform_request_unmappable_openai_only_fields_dropped() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "logprobs": true,
+            "top_logprobs": 5,
+            "store": true,
+            "prediction": {"type": "content", "content": "draft"},
+            "audio": {"voice": "alloy", "format": "wav"},
+            "web_search_options": {"search_context_size": "medium"}
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        for key in &[
+            "logprobs",
+            "top_logprobs",
+            "store",
+            "prediction",
+            "audio",
+            "web_search_options",
+        ] {
+            assert!(body.get(key).is_none(), "`{key}` must not be forwarded to Bedrock");
+        }
+    }
+
     #[test]
     #[serial]
     fn transform_request_with_tool_calls() {
@@ -1111,6 +1788,53 @@ mod tests {
         let tool_result = &tool_result_msg["content"][0]["toolResult"];
         assert_eq!(tool_result["toolUseId"], "call_abc");
         assert_eq!(tool_result["status"], "success");
+    }
+
+    /// Regression test: before the shared `convert_content_to_bedrock_blocks` helper,
+    /// a `Parts` tool result silently dropped to an empty string because the "tool"
+    /// arm only read `content.as_str()`. This asserts the image part now reaches
+    /// Bedrock as a native `image` content block instead of being lost.
+    #[test]
+    #[serial]
+    fn transform_request_tool_result_image_part_maps_to_bedrock_image_block() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [
+                {"role": "user", "content": "Take a screenshot"},
+                {
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [{
+                        "id": "call_shot",
+                        "type": "function",
+                        "function": {"name": "take_screenshot", "arguments": "{}"}
+                    }]
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_shot",
+                    "content": [
+                        {"type": "text", "text": "Here is the screenshot"},
+                        {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc123"}}
+                    ]
+                }
+            ]
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        let messages = body["messages"].as_array().expect("messages should be an array");
+        let tool_result_msg = &messages[2];
+        let result_content = tool_result_msg["content"][0]["toolResult"]["content"]
+            .as_array()
+            .expect("toolResult content should be an array");
+        assert_eq!(result_content.len(), 2);
+        assert_eq!(result_content[0], json!({"text": "Here is the screenshot"}));
+        assert_eq!(
+            result_content[1],
+            json!({"image": {"format": "png", "source": {"bytes": "abc123"}}})
+        );
     }
 
     #[test]
@@ -1656,5 +2380,201 @@ mod tests {
             "vnd.openxmlformats-officedocument.wordprocessingml.document"
         );
         assert_eq!(super::format_from_media_type("pdf"), "pdf");
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_titan_embedding_input_is_not_mangled_into_empty_messages() {
+        // ~keep Regression test: before the embed/chat branch, `transform_request`
+        // ~keep unconditionally rebuilt the body as `{"messages": []}` for any request,
+        // ~keep silently discarding an embedding request's `input` entirely.
+        let p = provider();
+        let mut body = json!({
+            "model": "amazon.titan-embed-text-v1",
+            "input": "hello world"
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["inputText"], "hello world");
+        assert!(
+            body.get("messages").is_none(),
+            "embedding body must not gain a messages field"
+        );
+    }
+
+    /// Titan's synchronous invoke takes one input, but OpenAI's contract is that
+    /// `data[]` parallels `input[]`. Quietly embedding only the first text would
+    /// hand back one vector for an N-element batch — misaligned embeddings that
+    /// surface much later as bad retrieval, not as an error. Reject instead.
+    #[test]
+    #[serial]
+    fn transform_request_titan_embedding_batch_input_is_rejected_not_truncated() {
+        let p = provider();
+        let mut body = json!({
+            "model": "amazon.titan-embed-text-v2:0",
+            "input": ["first", "second"]
+        });
+
+        let err = p
+            .transform_request(&mut body)
+            .expect_err("a batched Titan embedding request must be rejected, not silently truncated");
+
+        assert_eq!(err.status_code(), 400);
+        assert!(
+            err.to_string().contains("single input per call"),
+            "the error must explain the single-input limit, got: {err}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_titan_embedding_single_element_array_is_accepted() {
+        let p = provider();
+        let mut body = json!({
+            "model": "amazon.titan-embed-text-v2:0",
+            "input": ["only"]
+        });
+
+        p.transform_request(&mut body)
+            .expect("a single-element batch is within Titan's one-input limit");
+
+        assert_eq!(body["inputText"], "only");
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_embedding_multimodal_input_is_rejected() {
+        let p = provider();
+        let mut body = json!({
+            "model": "amazon.titan-embed-text-v2:0",
+            "input": [{"type": "image_url", "image_url": {"url": "https://example.com/image.png"}}]
+        });
+
+        let error = p
+            .transform_request(&mut body)
+            .expect_err("multimodal input should be rejected");
+        assert_eq!(error.status_code(), 400);
+        assert!(error.to_string().contains("text input only"));
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_cohere_embedding_maps_to_texts_and_input_type() {
+        let p = provider();
+        let mut body = json!({
+            "model": "cohere.embed-english-v3",
+            "input": ["one", "two"]
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        let texts = body["texts"].as_array().expect("texts should be an array");
+        assert_eq!(texts.len(), 2);
+        assert_eq!(texts[0], "one");
+        assert_eq!(texts[1], "two");
+        assert_eq!(body["input_type"], "search_document");
+    }
+
+    #[test]
+    #[serial]
+    fn transform_request_unknown_embedding_model_is_rejected() {
+        let p = provider();
+        let mut body = json!({
+            "model": "unknown-vendor.embed-v1",
+            "input": "hello"
+        });
+
+        let err = p.transform_request(&mut body).unwrap_err();
+        assert!(
+            err.to_string().contains("unsupported Bedrock embedding model"),
+            "got: {err}"
+        );
+    }
+
+    /// Regression guard: the embed/chat dispatch must only trigger for
+    /// input-without-messages bodies. A normal chat body (messages present) must
+    /// still go through the unchanged Converse transform.
+    #[test]
+    #[serial]
+    fn transform_request_chat_path_unaffected_by_embedding_branch() {
+        let p = provider();
+        let mut body = json!({
+            "model": "anthropic.claude-3-sonnet",
+            "messages": [{"role": "user", "content": "Hello!"}]
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["messages"][0]["role"], "user");
+        assert_eq!(body["messages"][0]["content"][0]["text"], "Hello!");
+        assert!(body.get("inputText").is_none());
+    }
+
+    #[test]
+    #[serial]
+    fn transform_response_titan_embedding_response_normalized() {
+        let p = provider();
+        let mut body = json!({
+            "embedding": [0.1, 0.2, 0.3],
+            "inputTextTokenCount": 4
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        assert_eq!(body["object"], "list");
+        assert_eq!(body["data"][0]["embedding"], json!([0.1, 0.2, 0.3]));
+        assert_eq!(body["data"][0]["index"], 0);
+        assert_eq!(body["usage"]["prompt_tokens"], 4);
+    }
+
+    #[test]
+    #[serial]
+    fn transform_response_cohere_embedding_response_normalized() {
+        let p = provider();
+        let mut body = json!({
+            "embeddings": [[0.1, 0.2], [0.3, 0.4]],
+            "id": "abc",
+            "response_type": "embeddings_floats",
+            "texts": ["one", "two"]
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        let data = body["data"].as_array().expect("data should be an array");
+        assert_eq!(data.len(), 2);
+        assert_eq!(data[0]["embedding"], json!([0.1, 0.2]));
+        assert_eq!(data[1]["embedding"], json!([0.3, 0.4]));
+        assert_eq!(data[1]["index"], 1);
+    }
+
+    /// Regression guard: a normal chat response (no `embedding`/`embeddings` key)
+    /// must still go through the unchanged Converse response transform.
+    #[test]
+    #[serial]
+    fn transform_response_chat_path_unaffected_by_embedding_branch() {
+        let p = provider();
+        let mut body = json!({
+            "requestId": "req-456",
+            "stopReason": "end_turn",
+            "output": {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"text": "hi"}]
+                }
+            },
+            "usage": {"inputTokens": 1, "outputTokens": 1}
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        assert_eq!(body["object"], "chat.completion");
+        assert!(body.get("data").is_none());
     }
 }

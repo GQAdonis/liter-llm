@@ -1,4 +1,13 @@
-<!-- snippet:compile-only -->
+---
+id: readme_node_tool_calling
+language: typescript
+target: node
+level: syntax
+requires: []
+side_effect: network
+---
+
+Define and invoke tools.
 
 ```typescript
 import { createClient, ToolType } from "@xberg-io/liter-llm";

@@ -48,8 +48,6 @@ includes:
     taskfile: .task/tools/test-apps.yml
   docs:
     taskfile: .task/tools/docs.yml
-  snippets:
-    taskfile: .task/workflows/snippets.yml
   local:
     taskfile: .task/workflows/local.yml
   e2e:
@@ -72,7 +70,24 @@ tasks:
     cmds:
       - task: rust:install
       - alef setup
-      - command -v poly >/dev/null 2>&1 || brew install goldziher/tap/poly
+      - |
+        # Track the newest poly rather than a pinned version, matching ci-lint.yaml,
+        # which leaves `poly-version` unset. A pin here ages into a build with known
+        # defects and silently diverges from what CI runs. ~keep
+        #
+        # poly ships on several channels and brew is only one of them, so this does not
+        # force a channel — it upgrades the one it can and tells you when it cannot.
+        # Failing on a non-brew poly would break every contributor who installed it with
+        # `cargo install`, which is a supported channel. ~keep
+        if ! command -v poly >/dev/null 2>&1; then
+          brew install goldziher/tap/poly
+        elif [ "$(command -v poly)" = "$(brew --prefix 2>/dev/null)/bin/poly" ]; then
+          # `brew install` no-ops on an already-installed-but-outdated formula, so an
+          # upgrade must be attempted explicitly or a stale poly survives untouched. ~keep
+          brew upgrade goldziher/tap/poly 2>/dev/null || true
+        else
+          echo "poly $(poly --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) from $(command -v poly) (not brew) — keep it current on that channel; CI always installs the newest release." >&2
+        fi
       - poly hooks install
 
   setup:sdkman:
@@ -95,11 +110,18 @@ tasks:
     cmds:
       - task: rust:build
       - task: python:build
+      # ~keep node:build runs `pnpm install` across the workspace, and e2e/wasm
+      # depends on `file:../../crates/liter-llm-wasm/pkg/nodejs`. Only the nodejs
+      # target emits that directory, so it must exist before pnpm resolves.
+      - task: wasm:build:node
       - task: node:build
       - task: go:build
       - task: java:build
       - task: csharp:build
       - task: php:build
+      # ~keep `setup` does not install per-language deps, so on a pristine tree
+      # `mix compile` fails with every Hex dependency unavailable.
+      - task: elixir:deps
       - task: elixir:build
       - task: ruby:build
       - task: wasm:build
@@ -161,6 +183,17 @@ tasks:
     desc: Run all linters via poly
     cmds:
       - poly lint .
+      - task: lint:task-coverage
+
+  lint:task-coverage:
+    desc: Assert every Taskfile poly skips is skipped only for Go template syntax
+    # poly cannot parse Taskfile YAML containing `{{ }}` and skips those files.
+    # That is correct, but it means most of our task automation is linted by
+    # nothing, and a NEW silently-skipped file is indistinguishable from one that
+    # was checked and found clean. poly reports a count but not names, so this
+    # reconstructs the expected set from the property causing the skip. ~keep
+    cmds:
+      - python3 scripts/ci/check_task_lint_coverage.py
 
   check:
     desc: Run all checks (lint + test)
@@ -231,16 +264,6 @@ tasks:
     desc: Validate API reference docs are up-to-date (CI)
     cmds:
       - alef verify --exit-code
-
-  generate:docs:normalize:
-    desc: Normalize generated docs to match pre-commit formatting
-    internal: true
-    cmds:
-      - |
-        for f in docs/reference/*.md; do
-          # Strip trailing whitespace (portable across macOS/Linux)
-          sed -i.bak 's/[[:space:]]*$//' "$f" && rm -f "$f.bak"
-        done
 
   generate:readme:
     desc: Generate package READMEs

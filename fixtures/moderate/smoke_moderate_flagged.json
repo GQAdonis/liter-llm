@@ -1,6 +1,11 @@
 {
   "id": "smoke_moderate_flagged",
   "description": "Moderation detects flagged content",
+  "docs": {
+    "topic": "moderate",
+    "stem": "smoke-moderate-flagged",
+    "title": "Moderation detects flagged content"
+  },
   "category": "moderate",
   "tags": ["smoke", "moderate"],
   "call": "moderate",

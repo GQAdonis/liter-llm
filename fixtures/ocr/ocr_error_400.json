@@ -1,6 +1,11 @@
 {
   "id": "ocr_error_400",
   "description": "400 Bad Request error when OCR input has an invalid image format",
+  "docs": {
+    "topic": "ocr",
+    "stem": "ocr-error-400",
+    "title": "400 Bad Request error when OCR input has an invalid image format"
+  },
   "category": "ocr",
   "tags": ["ocr", "error-handling"],
   "call": "ocr",

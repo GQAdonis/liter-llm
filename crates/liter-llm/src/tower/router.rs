@@ -22,13 +22,15 @@ use std::fmt;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::Instant;
 
 use dashmap::DashMap;
 use futures_core::Stream;
+use rand::rngs::SmallRng;
+use rand::{Rng, RngExt};
 use tower::Service;
 use tower::discover::{Change, Discover};
 use tower::limit::ConcurrencyLimit;
@@ -224,6 +226,22 @@ pub struct Router<S> {
     counter: Arc<AtomicUsize>,
     /// Per-deployment metrics (latency tracking, etc.).
     state: RouterState,
+    /// Model identifier for each deployment, in the same order as `deployments`.
+    ///
+    /// Used by [`RoutingStrategy::Semantic`] so the classifier cascade is
+    /// handed real model IDs instead of positional placeholders. Defaults to
+    /// the deployment's positional index as a string (e.g. `"0"`) until
+    /// [`Router::with_deployment_models`] is called.
+    deployment_models: Vec<String>,
+    /// Seeded PRNG for [`RoutingStrategy::WeightedRandom`].
+    ///
+    /// Created once in [`Router::new`] and shared across clones via `Arc`, so
+    /// selections advance one generator instead of each deriving a threshold
+    /// from `SystemTime::now()`: concurrent calls landing in the same clock
+    /// tick used to compute the same threshold and pile onto the same
+    /// deployment — exactly under the burst load weighted routing exists to
+    /// spread, and predictably so.
+    weighted_random_rng: Arc<Mutex<SmallRng>>,
 }
 
 impl<S> Router<S> {
@@ -263,12 +281,45 @@ impl<S> Router<S> {
                 });
             }
         }
+        let deployment_models = (0..deployments.len()).map(|i| i.to_string()).collect();
         Ok(Self {
             deployments,
             strategy,
             counter: Arc::new(AtomicUsize::new(0)),
             state: RouterState::new(),
+            deployment_models,
+            weighted_random_rng: Arc::new(Mutex::new(rand::make_rng::<SmallRng>())),
         })
+    }
+
+    /// Attach real model identifiers to each deployment, in the same order as
+    /// the `deployments` vec passed to [`Router::new`].
+    ///
+    /// [`RoutingStrategy::Semantic`] hands these identifiers to the classifier
+    /// cascade and maps its verdict back to a deployment by exact string
+    /// match. Without this call, deployments are only addressable by their
+    /// positional index as a string (e.g. `"0"`), which classifiers built
+    /// around real model names (the common case) will never emit — their
+    /// verdict is then silently discarded and the router falls back to
+    /// round-robin.
+    ///
+    /// If `models.len()` does not match the deployment count, a warning is
+    /// logged; extra entries are ignored and missing entries keep their
+    /// positional-index fallback.
+    #[must_use]
+    pub fn with_deployment_models(mut self, models: Vec<String>) -> Self {
+        let expected = self.deployments.len();
+        if models.len() != expected {
+            tracing::warn!(
+                expected,
+                got = models.len(),
+                "Router::with_deployment_models: length mismatch; missing entries keep the positional-index fallback"
+            );
+        }
+        for (i, model) in models.into_iter().take(expected).enumerate() {
+            self.deployment_models[i] = model;
+        }
+        self
     }
 }
 
@@ -279,6 +330,8 @@ impl<S: Clone> Clone for Router<S> {
             strategy: self.strategy.clone(),
             counter: Arc::clone(&self.counter),
             state: self.state.clone(),
+            deployment_models: self.deployment_models.clone(),
+            weighted_random_rng: Arc::clone(&self.weighted_random_rng),
         }
     }
 }
@@ -298,180 +351,232 @@ where
 
     fn call(&mut self, req: LlmRequest) -> Self::Future {
         match &self.strategy {
-            RoutingStrategy::RoundRobin => {
-                let idx = self.counter.fetch_add(1, Ordering::Relaxed) % self.deployments.len();
-                let mut svc = self.deployments[idx].clone();
-                Box::pin(async move { svc.call(req).await })
-            }
-            RoutingStrategy::Fallback => {
-                let deployments = self.deployments.clone();
-                Box::pin(async move {
-                    let mut last_err: Option<LiterLlmError> = None;
-                    for mut svc in deployments {
-                        match svc.call(req.clone()).await {
-                            Ok(resp) => return Ok(resp),
-                            Err(e) if e.is_transient() => {
-                                tracing::warn!(
-                                    error = %e,
-                                    "deployment failed with transient error; trying next deployment"
-                                );
-                                last_err = Some(e);
-                            }
-                            Err(e) => return Err(e),
-                        }
-                    }
-                    Err(last_err.unwrap_or(LiterLlmError::ServerError {
-                        message: "all deployments failed".into(),
-                        status: 500,
-                    }))
-                })
-            }
-            RoutingStrategy::LatencyBased => {
-                let state = self.state.clone();
-                let n = self.deployments.len();
-
-                let mut best_idx = 0;
-                let mut best_ema = f64::MAX;
-                for i in 0..n {
-                    let ema = state.metrics.get(&i).map_or(0.0, |m| m.latency_ema);
-                    if ema < best_ema {
-                        best_ema = ema;
-                        best_idx = i;
-                    }
-                }
-
-                let mut svc = self.deployments[best_idx].clone();
-                let idx = best_idx;
-
-                Box::pin(async move {
-                    let start = Instant::now();
-                    let result = svc.call(req).await;
-                    let latency = start.elapsed().as_secs_f64();
-
-                    state.metrics.entry(idx).or_default().record_latency(latency);
-
-                    result
-                })
-            }
-            RoutingStrategy::CostBased => {
-                let model = req.model().map(ToOwned::to_owned);
-                let deployments = self.deployments.clone();
-
-                Box::pin(async move {
-                    let mut last_err: Option<LiterLlmError> = None;
-                    for mut svc in deployments {
-                        match svc.call(req.clone()).await {
-                            Ok(resp) => {
-                                if let (Some(model_name), Some(usage)) = (&model, resp.usage())
-                                    && let Some(cost) = crate::cost::completion_cost(
-                                        model_name,
-                                        usage.prompt_tokens,
-                                        usage.completion_tokens,
-                                    )
-                                {
-                                    tracing::debug!(
-                                        model = %model_name,
-                                        cost_usd = cost,
-                                        "cost-based routing: estimated cost"
-                                    );
-                                }
-                                return Ok(resp);
-                            }
-                            Err(e) if e.is_transient() => {
-                                last_err = Some(e);
-                            }
-                            Err(e) => return Err(e),
-                        }
-                    }
-                    Err(last_err.unwrap_or(LiterLlmError::ServerError {
-                        message: "all deployments failed".into(),
-                        status: 500,
-                    }))
-                })
-            }
-            RoutingStrategy::WeightedRandom { weights } => {
-                let idx = weighted_random_select(weights);
-                let mut svc = self.deployments[idx].clone();
-                Box::pin(async move { svc.call(req).await })
-            }
-            RoutingStrategy::Semantic(classifier) => {
-                use super::route_classify::ClassifyContext;
-                use std::collections::HashMap;
-
-                let classifier = Arc::clone(classifier);
-                let deployments = self.deployments.clone();
-                let counter = Arc::clone(&self.counter);
-
-                let n = deployments.len();
-                let available_models: Vec<String> = (0..n).map(|i| i.to_string()).collect();
-
-                let (prompt, system_prompt) = match &req.kind {
-                    LlmRequestKind::Chat(r) => {
-                        let prompt = r
-                            .messages
-                            .iter()
-                            .rev()
-                            .find_map(|m| {
-                                if let crate::types::Message::User(u) = m {
-                                    match &u.content {
-                                        crate::types::UserContent::Text(t) => Some(t.clone()),
-                                        crate::types::UserContent::Parts(_) => None,
-                                    }
-                                } else {
-                                    None
-                                }
-                            })
-                            .unwrap_or_default();
-                        let system = r.messages.iter().find_map(|m| {
-                            if let crate::types::Message::System(s) = m {
-                                s.content.as_text()
-                            } else {
-                                None
-                            }
-                        });
-                        (prompt, system)
-                    }
-                    _ => (String::new(), None),
-                };
-
-                Box::pin(async move {
-                    let meta: HashMap<String, String> = HashMap::new();
-                    let ctx = ClassifyContext {
-                        prompt: &prompt,
-                        system_prompt: system_prompt.as_deref(),
-                        metadata: &meta,
-                        available_models: &available_models,
-                    };
-
-                    let idx = classifier
-                        .classify(&ctx)
-                        .await
-                        .and_then(|model_str| model_str.parse::<usize>().ok())
-                        .filter(|&i| i < n);
-
-                    let idx = idx.unwrap_or_else(|| counter.fetch_add(1, Ordering::Relaxed) % n);
-
-                    deployments[idx].clone().call(req).await
-                })
-            }
+            RoutingStrategy::RoundRobin => self.call_round_robin(req),
+            RoutingStrategy::Fallback => self.call_fallback(req),
+            RoutingStrategy::LatencyBased => self.call_latency_based(req),
+            RoutingStrategy::CostBased => self.call_cost_based(req),
+            RoutingStrategy::WeightedRandom { weights } => self.call_weighted_random(weights, req),
+            RoutingStrategy::Semantic(classifier) => self.call_semantic(classifier, req),
         }
     }
+}
+
+impl<S> Router<S>
+where
+    S: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    /// [`RoutingStrategy::RoundRobin`]: advance the shared counter and dispatch
+    /// to the next deployment.
+    fn call_round_robin(&self, req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let idx = self.counter.fetch_add(1, Ordering::Relaxed) % self.deployments.len();
+        let mut svc = self.deployments[idx].clone();
+        Box::pin(async move { svc.call(req).await })
+    }
+
+    /// [`RoutingStrategy::Fallback`]: try deployments in order, advancing past
+    /// transient errors and propagating any other error immediately.
+    fn call_fallback(&self, req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let deployments = self.deployments.clone();
+        Box::pin(async move {
+            let mut last_err: Option<LiterLlmError> = None;
+            for mut svc in deployments {
+                match svc.call(req.clone()).await {
+                    Ok(resp) => return Ok(resp),
+                    Err(e) if e.is_transient() => {
+                        tracing::warn!(
+                            error = %e,
+                            "deployment failed with transient error; trying next deployment"
+                        );
+                        last_err = Some(e);
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Err(last_err.unwrap_or(LiterLlmError::ServerError {
+                message: "all deployments failed".into(),
+                status: 500,
+            }))
+        })
+    }
+
+    /// [`RoutingStrategy::LatencyBased`]: dispatch to the deployment with the
+    /// lowest observed latency EMA, then record this call's latency.
+    fn call_latency_based(&self, req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let state = self.state.clone();
+        let n = self.deployments.len();
+
+        let mut best_idx = 0;
+        let mut best_ema = f64::MAX;
+        for i in 0..n {
+            let ema = state.metrics.get(&i).map_or(0.0, |m| m.latency_ema);
+            if ema < best_ema {
+                best_ema = ema;
+                best_idx = i;
+            }
+        }
+
+        let mut svc = self.deployments[best_idx].clone();
+        let idx = best_idx;
+
+        Box::pin(async move {
+            let start = Instant::now();
+            let result = svc.call(req).await;
+            let latency = start.elapsed().as_secs_f64();
+
+            state.metrics.entry(idx).or_default().record_latency(latency);
+
+            result
+        })
+    }
+
+    /// [`RoutingStrategy::CostBased`]: try deployments in order, logging the
+    /// estimated cost of the first success.
+    fn call_cost_based(&self, req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let model = req.model().map(ToOwned::to_owned);
+        let deployments = self.deployments.clone();
+
+        Box::pin(async move {
+            let mut last_err: Option<LiterLlmError> = None;
+            for mut svc in deployments {
+                match svc.call(req.clone()).await {
+                    Ok(resp) => {
+                        log_estimated_cost(model.as_deref(), &resp);
+                        return Ok(resp);
+                    }
+                    Err(e) if e.is_transient() => {
+                        last_err = Some(e);
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Err(last_err.unwrap_or(LiterLlmError::ServerError {
+                message: "all deployments failed".into(),
+                status: 500,
+            }))
+        })
+    }
+
+    /// [`RoutingStrategy::WeightedRandom`]: dispatch using weighted-random
+    /// selection over `weights`.
+    fn call_weighted_random(&self, weights: &[Weight], req: LlmRequest) -> BoxFuture<'static, Result<LlmResponse>> {
+        let idx = {
+            // ~keep Recover the guard on poison rather than unwrapping: a panic
+            // ~keep elsewhere while the lock was held doesn't invalidate the RNG's
+            // ~keep state, and a bad `.unwrap()` here would take down every future
+            // ~keep call through this router over one unrelated poisoning panic.
+            let mut rng = self
+                .weighted_random_rng
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            weighted_random_select(weights, &mut *rng)
+        };
+        let mut svc = self.deployments[idx].clone();
+        Box::pin(async move { svc.call(req).await })
+    }
+
+    /// [`RoutingStrategy::Semantic`]: ask the classifier cascade for a model ID
+    /// and dispatch to the deployment serving that model, falling back to
+    /// round-robin when the cascade defers or names a model this router has no
+    /// deployment for.
+    fn call_semantic(
+        &self,
+        classifier: &Arc<dyn super::route_classify::RouteClassifier>,
+        req: LlmRequest,
+    ) -> BoxFuture<'static, Result<LlmResponse>> {
+        use super::route_classify::ClassifyContext;
+
+        let classifier = Arc::clone(classifier);
+        let deployments = self.deployments.clone();
+        let counter = Arc::clone(&self.counter);
+        let deployment_models = self.deployment_models.clone();
+
+        let (prompt, system_prompt) = extract_semantic_prompt(&req);
+
+        Box::pin(async move {
+            let meta: HashMap<String, String> = HashMap::new();
+            let ctx = ClassifyContext {
+                prompt: &prompt,
+                system_prompt: system_prompt.as_deref(),
+                metadata: &meta,
+                available_models: &deployment_models,
+            };
+
+            let verdict = classifier.classify(&ctx).await;
+            let idx = resolve_semantic_index(verdict.as_deref(), &deployment_models, &counter);
+
+            deployments[idx].clone().call(req).await
+        })
+    }
+}
+
+/// Log the estimated cost of a successful cost-based routing call, if pricing
+/// data is available for the model.
+fn log_estimated_cost(model: Option<&str>, resp: &LlmResponse) {
+    if let (Some(model_name), Some(usage)) = (model, resp.usage())
+        && let Some(cost) = crate::cost::completion_cost(model_name, usage.prompt_tokens, usage.completion_tokens)
+    {
+        tracing::debug!(model = %model_name, cost_usd = cost, "cost-based routing: estimated cost");
+    }
+}
+
+/// Pull the latest user message text and an optional system prompt out of a
+/// chat request for the semantic classifier cascade. Non-chat requests
+/// (embeddings, image generation, etc.) have no prompt text to classify on.
+fn extract_semantic_prompt(req: &LlmRequest) -> (String, Option<String>) {
+    let LlmRequestKind::Chat(r) = &req.kind else {
+        return (String::new(), None);
+    };
+    let prompt = r
+        .messages
+        .iter()
+        .rev()
+        .find_map(|m| {
+            if let crate::types::Message::User(u) = m {
+                match &u.content {
+                    crate::types::UserContent::Text(t) => Some(t.clone()),
+                    crate::types::UserContent::Parts(_) => None,
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default();
+    let system = r.messages.iter().find_map(|m| {
+        if let crate::types::Message::System(s) = m {
+            s.content.as_text()
+        } else {
+            None
+        }
+    });
+    (prompt, system)
+}
+
+/// Map a classifier's model-ID verdict back to a deployment index by exact
+/// string match against `deployment_models`. Falls back to round-robin (via
+/// `counter`) when the classifier deferred (`None`) or named a model with no
+/// matching deployment, so a request is never dropped.
+fn resolve_semantic_index(verdict: Option<&str>, deployment_models: &[String], counter: &AtomicUsize) -> usize {
+    verdict
+        .and_then(|model_id| deployment_models.iter().position(|m| m == model_id))
+        .unwrap_or_else(|| counter.fetch_add(1, Ordering::Relaxed) % deployment_models.len())
 }
 
 /// Select a deployment index using weighted random distribution.
 ///
 /// Uses a simple linear scan with a random threshold.  For small deployment
 /// counts (typical: 2-5) this is fast enough; no binary search needed.
-fn weighted_random_select(weights: &[Weight]) -> usize {
+///
+/// Draws the threshold from `rng` rather than deriving it from the system
+/// clock, so back-to-back calls sharing a caller-held generator (see
+/// [`Router`]'s `weighted_random_rng` field) advance independently instead of
+/// collapsing to the same index when they land in the same clock tick.
+fn weighted_random_select(weights: &[Weight], rng: &mut impl Rng) -> usize {
     let total: u64 = weights.iter().map(|w| u64::from(w.as_u32())).sum();
     if total == 0 {
         return 0;
     }
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos();
-    let threshold = u64::from(nanos) % total;
+    let threshold = rng.random_range(0..total);
 
     let mut cumulative: u64 = 0;
     for (i, w) in weights.iter().enumerate() {
@@ -653,6 +758,9 @@ where
     services: ReadyCache<String, ConcurrencyLimit<D::Service>, LlmRequest>,
     /// Per-provider configuration (concurrency limits, etc.).
     provider_configs: HashMap<String, ProviderConfig>,
+    /// Monotonic counter for round-robin selection among currently-ready
+    /// upstreams; see [`Self::call`].
+    counter: AtomicUsize,
     _marker: PhantomData<LlmRequest>,
 }
 
@@ -684,6 +792,7 @@ where
             discover,
             services: ReadyCache::default(),
             provider_configs: HashMap::new(),
+            counter: AtomicUsize::new(0),
             _marker: PhantomData,
         }
     }
@@ -735,6 +844,16 @@ where
     }
 }
 
+/// Select the next ready-set index to dispatch to, rotating through
+/// `[0, ready_len)` on every call.
+///
+/// Dispatching unconditionally to index 0 would pin all traffic on whichever
+/// upstream currently occupies that slot in the [`ReadyCache`] instead of
+/// distributing across the ready set; see [`DynamicRouter::call`].
+fn next_ready_index(counter: &AtomicUsize, ready_len: usize) -> usize {
+    counter.fetch_add(1, Ordering::Relaxed) % ready_len
+}
+
 impl<D> Service<LlmRequest> for DynamicRouter<D>
 where
     D: Discover<Key = String> + Unpin + Send,
@@ -761,10 +880,12 @@ where
     }
 
     fn call(&mut self, req: LlmRequest) -> Self::Future {
-        if self.services.ready_len() == 0 {
+        let ready_len = self.services.ready_len();
+        if ready_len == 0 {
             return Box::pin(async { Err(RouterError::NoReadyUpstream { code: 2002 }.into()) });
         }
-        let fut = self.services.call_ready_index(0, req);
+        let index = next_ready_index(&self.counter, ready_len);
+        let fut = self.services.call_ready_index(index, req);
         Box::pin(fut)
     }
 }
@@ -776,6 +897,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 
     use futures_core::Stream;
+    use rand::SeedableRng;
     use tower::Service as _;
 
     use super::*;
@@ -812,13 +934,18 @@ mod tests {
         assert_eq!(Weight::default().as_u32(), 1);
     }
 
+    /// Weight ratios (1:2:3) must still translate into proportional index
+    /// space after the entropy source moved from `SystemTime` to a seeded
+    /// PRNG — the weighting math itself is unchanged, only the threshold
+    /// source is, so every index must still be reachable.
     #[test]
     fn weighted_random_selects_proportionally() {
         let weights = vec![Weight(1), Weight(2), Weight(3)];
+        let mut rng = SmallRng::seed_from_u64(0xF00D);
         let mut counts = [0usize; 3];
 
         for _ in 0..600u64 {
-            let idx = weighted_random_select(&weights);
+            let idx = weighted_random_select(&weights, &mut rng);
             assert!(idx < 3, "index {idx} out of range");
             counts[idx] += 1;
         }
@@ -826,6 +953,38 @@ mod tests {
         for (i, &count) in counts.iter().enumerate() {
             assert!(count > 0, "index {i} was never selected (counts: {counts:?})");
         }
+    }
+
+    /// Regression: the old implementation derived its threshold from
+    /// `SystemTime::now().subsec_nanos()`, so calls issued back-to-back in a
+    /// tight loop routinely landed in the same clock tick and computed the
+    /// *same* threshold every time — collapsing all traffic onto one
+    /// deployment during exactly the burst load weighted routing exists to
+    /// spread. A per-router PRNG shared across calls (mirroring how
+    /// `Router` holds one `weighted_random_rng` for its lifetime) must
+    /// instead advance on every draw.
+    ///
+    /// Made non-flaky by asserting a property true with overwhelming
+    /// probability rather than one that could fail by chance: with weights
+    /// 1:2:3 (total 6), the *most* likely single index has probability 1/2,
+    /// so the chance that 500 independent draws from a real advancing PRNG
+    /// all land on it is `0.5^500` — indistinguishable from zero. Any
+    /// implementation that reintroduces per-tick clustering (the actual bug
+    /// this pins) would instead reliably produce a single repeated index.
+    #[test]
+    fn weighted_random_rapid_calls_do_not_all_collapse_to_one_index() {
+        let weights = vec![Weight(1), Weight(2), Weight(3)];
+        let mut rng = SmallRng::seed_from_u64(0xC0FFEE);
+
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..500u64 {
+            seen.insert(weighted_random_select(&weights, &mut rng));
+        }
+
+        assert!(
+            seen.len() > 1,
+            "500 rapid back-to-back calls all returned the same index — entropy source is not advancing per call"
+        );
     }
 
     #[tokio::test]
@@ -907,8 +1066,9 @@ mod tests {
     #[test]
     fn weighted_random_select_returns_valid_index() {
         let weights = vec![Weight(1), Weight(2), Weight(3)];
+        let mut rng = SmallRng::seed_from_u64(0xABCD);
         for _ in 0..100 {
-            let idx = weighted_random_select(&weights);
+            let idx = weighted_random_select(&weights, &mut rng);
             assert!(idx < weights.len());
         }
     }
@@ -1128,5 +1288,95 @@ mod tests {
 
         let resp = router.call(LlmRequest::Chat(chat_req("gpt-4"))).await;
         assert!(resp.is_ok(), "fallback round-robin should handle the request");
+    }
+
+    /// A classifier that records the `available_models` slice it was given,
+    /// then defers. Used to prove the router hands the classifier real model
+    /// IDs rather than stringified positional indices.
+    struct RecordingClassifier {
+        seen: Arc<std::sync::Mutex<Vec<String>>>,
+    }
+
+    impl crate::tower::route_classify::RouteClassifier for RecordingClassifier {
+        fn classify<'a>(
+            &'a self,
+            ctx: &'a crate::tower::route_classify::ClassifyContext<'a>,
+        ) -> Pin<Box<dyn std::future::Future<Output = Option<String>> + Send + 'a>> {
+            *self.seen.lock().expect("mutex not poisoned") = ctx.available_models.to_vec();
+            Box::pin(async move { None })
+        }
+    }
+
+    /// Regression test for the "semantic routing is silently inert" bug: the
+    /// classifier must see the deployments' real model IDs (as configured via
+    /// [`Router::with_deployment_models`]), not `["0", "1", ...]` positional
+    /// placeholders that no real-world classifier would ever return.
+    #[tokio::test]
+    async fn router_semantic_strategy_passes_real_model_ids_to_classifier() {
+        let deployments: Vec<LlmService<MockClient>> =
+            vec![LlmService::new(MockClient::ok()), LlmService::new(MockClient::ok())];
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let classifier = Arc::new(RecordingClassifier {
+            seen: Arc::clone(&seen),
+        });
+        let mut router = Router::new(deployments, RoutingStrategy::Semantic(classifier))
+            .expect("valid router")
+            .with_deployment_models(vec!["gpt-4o".into(), "claude-3-5-sonnet".into()]);
+
+        let resp = router.call(LlmRequest::Chat(chat_req("gpt-4"))).await;
+        assert!(resp.is_ok());
+        assert_eq!(
+            *seen.lock().expect("mutex not poisoned"),
+            vec!["gpt-4o".to_string(), "claude-3-5-sonnet".to_string()],
+            "classifier must see real model IDs, not positional index placeholders"
+        );
+    }
+
+    /// Regression test for the "verdict parsed back as an index" bug: the
+    /// classifier returns a real model *name* (not `"1"`), and the router must
+    /// resolve it to the matching deployment by name — not silently discard
+    /// the verdict because it fails to parse as `usize`.
+    ///
+    /// Deployment 0 wraps a `failing_rate_limited` client; deployment 1 (named
+    /// `"claude-3-5-sonnet"`) wraps an `ok` client. Only a genuine name-based
+    /// resolution reaches the working deployment.
+    #[tokio::test]
+    async fn router_semantic_strategy_routes_by_real_model_id() {
+        let deployments: Vec<LlmService<MockClient>> = vec![
+            LlmService::new(MockClient::failing_rate_limited()),
+            LlmService::new(MockClient::ok()),
+        ];
+        let classifier = Arc::new(FixedIndexClassifier {
+            target: "claude-3-5-sonnet".into(),
+        });
+        let mut router = Router::new(deployments, RoutingStrategy::Semantic(classifier))
+            .expect("valid router")
+            .with_deployment_models(vec!["gpt-4o".into(), "claude-3-5-sonnet".into()]);
+
+        let resp = router.call(LlmRequest::Chat(chat_req("gpt-4"))).await;
+        assert!(
+            resp.is_ok(),
+            "verdict 'claude-3-5-sonnet' should resolve to deployment 1 by name"
+        );
+    }
+
+    /// Regression test for "`DynamicRouter::call` always dispatches to ready
+    /// index 0": the selection helper must rotate through the ready set
+    /// instead of returning a constant.
+    #[test]
+    fn next_ready_index_rotates_through_ready_set() {
+        let counter = AtomicUsize::new(0);
+        assert_eq!(next_ready_index(&counter, 3), 0);
+        assert_eq!(
+            next_ready_index(&counter, 3),
+            1,
+            "second call must not be pinned to index 0"
+        );
+        assert_eq!(next_ready_index(&counter, 3), 2);
+        assert_eq!(
+            next_ready_index(&counter, 3),
+            0,
+            "wraps back around after a full rotation"
+        );
     }
 }

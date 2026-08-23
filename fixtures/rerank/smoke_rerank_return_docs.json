@@ -1,6 +1,11 @@
 {
   "id": "smoke_rerank_return_docs",
   "description": "Reranking with return_documents flag to include document text",
+  "docs": {
+    "topic": "rerank",
+    "stem": "smoke-rerank-return-docs",
+    "title": "Reranking with return_documents flag to include document text"
+  },
   "category": "rerank",
   "tags": ["smoke", "rerank"],
   "call": "rerank",

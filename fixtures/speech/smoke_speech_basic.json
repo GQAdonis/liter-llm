@@ -1,6 +1,11 @@
 {
   "id": "smoke_speech_basic",
   "description": "Basic text-to-speech generation",
+  "docs": {
+    "topic": "speech",
+    "stem": "smoke-speech-basic",
+    "title": "Basic text-to-speech generation"
+  },
   "category": "speech",
   "tags": ["smoke", "speech"],
   "call": "speech",

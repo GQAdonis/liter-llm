@@ -39,7 +39,50 @@ const BETA_PDFS: &str = "pdfs-2024-09-25";
 /// - Model names start with `claude-` or are routed via the `anthropic/` prefix.
 /// - Chat endpoint is `/messages`, not `/chat/completions`.
 /// - Request and response JSON formats differ from OpenAI.
-pub struct AnthropicProvider;
+pub struct AnthropicProvider {
+    /// Anthropic API base URL, e.g. `https://api.anthropic.com/v1`.
+    ///
+    /// Defaults to the official Anthropic endpoint; overridable via
+    /// [`AnthropicProvider::with_base_url`] for proxies and self-hosted
+    /// gateways that speak the Anthropic Messages API (issue #159).
+    base_url: String,
+}
+
+/// Official Anthropic API base URL.
+const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com/v1";
+
+impl AnthropicProvider {
+    /// Construct an [`AnthropicProvider`] pointed at the official Anthropic API.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            base_url: DEFAULT_ANTHROPIC_BASE_URL.to_owned(),
+        }
+    }
+
+    /// Construct an [`AnthropicProvider`] with an explicit `base_url`.
+    ///
+    /// Used when a `[[models]]` config entry or client `base_url` override
+    /// pins a per-model Anthropic-compatible endpoint — e.g. a proxy or
+    /// self-hosted gateway (see issue #159). Trailing slashes are stripped.
+    /// Falls back to the official Anthropic URL if the trimmed string is empty.
+    #[must_use]
+    pub fn with_base_url(base_url: impl Into<String>) -> Self {
+        let trimmed = base_url.into().trim_end_matches('/').to_owned();
+        let base_url = if trimmed.is_empty() {
+            DEFAULT_ANTHROPIC_BASE_URL.to_owned()
+        } else {
+            trimmed
+        };
+        Self { base_url }
+    }
+}
+
+impl Default for AnthropicProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Provider for AnthropicProvider {
     fn name(&self) -> &str {
@@ -47,7 +90,11 @@ impl Provider for AnthropicProvider {
     }
 
     fn base_url(&self) -> &str {
-        "https://api.anthropic.com/v1"
+        &self.base_url
+    }
+
+    fn env_var(&self) -> Option<&str> {
+        Some("ANTHROPIC_API_KEY")
     }
 
     fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
@@ -131,8 +178,24 @@ impl Provider for AnthropicProvider {
     /// - `tool_choice` mapped from OpenAI semantics to Anthropic semantics.
     /// - Tools converted from OpenAI `function` wrappers to Anthropic `input_schema` format.
     /// - Unsupported parameters removed: `n`, `presence_penalty`, `frequency_penalty`,
-    ///   `logit_bias`, `stream` (the client handles stream separately).
+    ///   `logit_bias`, `stream` (the client handles stream separately), `logprobs`,
+    ///   `top_logprobs`, `store`, `metadata`, `prediction`, `audio`, `web_search_options`,
+    ///   `modalities`, `seed` (these have no Anthropic equivalent; `logprobs`/`top_logprobs`/
+    ///   `metadata`/`audio`/`web_search_options`/`seed` are logged at WARN when actually
+    ///   requested, and `modalities` is logged at WARN only when it asks for a non-text
+    ///   modality Claude cannot produce).
+    /// - `temperature` above `1.0` (Anthropic's documented maximum, narrower than the
+    ///   `[0.0, 2.0]` this crate documents generically) is rejected with a `BadRequest`
+    ///   error rather than forwarded and left for Anthropic to reject.
     fn transform_request(&self, body: &mut Value) -> Result<()> {
+        // ~keep Anthropic's Messages API documents temperature as 0.0-1.0, narrower than this
+        // ~keep crate's OpenAI-shaped 0.0-2.0 doc; reject out-of-range values locally rather than
+        // ~keep forwarding a value Anthropic will 400 on. See
+        // ~keep https://platform.claude.com/docs/en/api/messages ("Defaults to 1.0. Ranges from
+        // ~keep 0.0 to 1.0."). `top_p` has no documented range in Anthropic's own reference and is
+        // ~keep intentionally left unchecked.
+        super::validate_sampling_param_range(body, "temperature", "Anthropic", 0.0, 1.0)?;
+
         let messages = body
             .as_object_mut()
             .and_then(|o| o.remove("messages"))
@@ -244,10 +307,14 @@ impl Provider for AnthropicProvider {
             });
 
         if let Some(effort) = reasoning_effort {
+            // ~keep 1024 is Anthropic's documented minimum thinking budget_tokens, so
+            // "minimal" and "low" both floor there — the duplicate value is intentional.
             let budget_tokens: u64 = match effort.as_str() {
+                "minimal" => 1024,
                 "low" => 1024,
                 "medium" => 4096,
                 "high" => 16384,
+                "max" => 32768,
                 _ => 4096,
             };
             body["thinking"] = json!({
@@ -293,6 +360,67 @@ impl Provider for AnthropicProvider {
             }
         }
 
+        // ~keep Unlike vertex.rs/bedrock.rs, this function mutates `body` in place rather than
+        // ~keep rebuilding it wholesale, so any field not explicitly named below is forwarded
+        // ~keep to Anthropic verbatim. `metadata`, `store`, `prediction`, `audio`,
+        // ~keep `web_search_options`, `logprobs`, `top_logprobs`, `modalities` and `seed` have
+        // ~keep no Anthropic equivalent and must be stripped here or they leak onto the wire —
+        // ~keep and Anthropic's Messages API validates the body strictly, rejecting *any*
+        // ~keep unrecognized top-level key with a 400 "Extra inputs are not permitted" error,
+        // ~keep so an unstripped field does not merely go unused, it fails every request that
+        // ~keep sets it, even a value that would otherwise be a no-op (e.g. `modalities:
+        // ~keep ["text"]`). For `metadata` specifically, Anthropic has its own `metadata:
+        // ~keep {user_id}` field, so forwarding our arbitrary tag map would collide with a real
+        // ~keep field, not just add an unrecognized one.
+        let logprobs_requested = body.get("logprobs").and_then(Value::as_bool).unwrap_or(false);
+        let top_logprobs_requested = body.get("top_logprobs").is_some();
+        if logprobs_requested || top_logprobs_requested {
+            tracing::warn!(
+                "chat request set logprobs/top_logprobs, which Anthropic's Messages API does not \
+                 support; the fields were dropped and the response will not include log \
+                 probabilities"
+            );
+        }
+        if body.get("metadata").is_some() {
+            tracing::warn!(
+                "chat request set `metadata`, which was dropped: Anthropic's own `metadata` \
+                 field only accepts `user_id` and is not compatible with arbitrary key/value tags"
+            );
+        }
+        if body.get("audio").is_some() {
+            tracing::warn!(
+                "chat request set `audio`, which was dropped: Anthropic's Messages API has no \
+                 audio output support"
+            );
+        }
+        if body.get("web_search_options").is_some() {
+            tracing::warn!(
+                "chat request set `web_search_options`, which was dropped: Anthropic has no \
+                 equivalent top-level field; use a `web_search_20250305` tool in `tools` instead"
+            );
+        }
+        // ~keep `modalities: ["text"]` is a no-op for Anthropic (text is the only output it can
+        // ~keep produce), so that case is dropped silently like `store`/`prediction`. A caller
+        // ~keep asking for a modality Claude cannot produce (`audio`, `image`) gets text instead
+        // ~keep with no indication otherwise, so that case warns like `audio` above.
+        let modalities_want_non_text = body
+            .get("modalities")
+            .and_then(Value::as_array)
+            .is_some_and(|modalities| modalities.iter().any(|m| m.as_str() != Some("text")));
+        if modalities_want_non_text {
+            tracing::warn!(
+                "chat request set `modalities` to include a non-text modality, which Anthropic's \
+                 Messages API cannot produce; the field was dropped and the response will be \
+                 text only"
+            );
+        }
+        if body.get("seed").is_some() {
+            tracing::warn!(
+                "chat request set `seed`, which Anthropic's Messages API has no equivalent for; \
+                 the field was dropped and output will not be reproducible via a fixed seed"
+            );
+        }
+
         // ~keep Keep `stream` in the body; Anthropic requires it for streaming responses.
         if let Some(obj) = body.as_object_mut() {
             for key in &[
@@ -306,6 +434,15 @@ impl Provider for AnthropicProvider {
                 "user",
                 "reasoning_effort",
                 "extra_body",
+                "logprobs",
+                "top_logprobs",
+                "store",
+                "metadata",
+                "prediction",
+                "audio",
+                "web_search_options",
+                "modalities",
+                "seed",
             ] {
                 obj.remove(*key);
             }
@@ -780,26 +917,7 @@ fn convert_message_to_anthropic(msg: Value) -> Value {
             let raw_id = msg.get("tool_call_id").and_then(|v| v.as_str()).unwrap_or("");
             let tool_use_id = sanitize_tool_call_id(raw_id);
 
-            let result_content = match msg.get("content") {
-                Some(Value::Array(arr)) => arr
-                    .iter()
-                    .map(|part| {
-                        let part_type = part.get("type").and_then(|t| t.as_str()).unwrap_or("text");
-                        match part_type {
-                            "image_url" => {
-                                let url = part.pointer("/image_url/url").and_then(|u| u.as_str()).unwrap_or("");
-                                convert_image_url_to_anthropic_source(url)
-                            }
-                            _ => {
-                                let text = part.get("text").and_then(|t| t.as_str()).unwrap_or("");
-                                json!({"type": "text", "text": text})
-                            }
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-                Some(Value::String(s)) => vec![json!({"type": "text", "text": s})],
-                _ => vec![json!({"type": "text", "text": ""})],
-            };
+            let result_content = convert_tool_result_content_to_anthropic(msg.get("content"));
 
             let mut tool_result_block = json!({
                 "type": "tool_result",
@@ -898,6 +1016,37 @@ fn convert_user_content_to_anthropic(content: Option<&Value>) -> Value {
         }
         Some(other) => json!([{"type": "text", "text": other.to_string()}]),
     }
+}
+
+/// Convert a `ToolMessage::content` value (plain string or content-part array) to
+/// Anthropic `tool_result` content blocks.
+///
+/// Reuses [`convert_user_content_to_anthropic`] for the text/image mapping —
+/// Anthropic's `tool_result.content` accepts `TextBlockParam | ImageBlockParam`,
+/// the same blocks a user turn emits for those two part types. Unlike a user
+/// turn, Anthropic's API does not accept a `document` (or any other) block
+/// inside `tool_result`, so any such part degrades to a text block instead of
+/// being silently dropped. ~keep
+fn convert_tool_result_content_to_anthropic(content: Option<&Value>) -> Value {
+    let Value::Array(blocks) = convert_user_content_to_anthropic(content) else {
+        return json!([{"type": "text", "text": ""}]);
+    };
+
+    let blocks: Vec<Value> = blocks
+        .into_iter()
+        .map(|block| match block.get("type").and_then(|t| t.as_str()) {
+            Some("text") | Some("image") => block,
+            other => {
+                tracing::warn!(
+                    block_type = other.unwrap_or("unknown"),
+                    "anthropic tool_result: unsupported content block degraded to text"
+                );
+                json!({"type": "text", "text": "[unsupported content in tool result]"})
+            }
+        })
+        .collect();
+
+    json!(blocks)
 }
 
 /// Map an OpenAI `tool_choice` value to Anthropic format.
@@ -1132,7 +1281,25 @@ mod tests {
     use super::*;
 
     fn provider() -> AnthropicProvider {
-        AnthropicProvider
+        AnthropicProvider::default()
+    }
+
+    #[test]
+    fn new_and_default_use_official_anthropic_base_url() {
+        assert_eq!(AnthropicProvider::new().base_url(), "https://api.anthropic.com/v1");
+        assert_eq!(AnthropicProvider::default().base_url(), "https://api.anthropic.com/v1");
+    }
+
+    #[test]
+    fn with_base_url_trims_trailing_slash() {
+        let p = AnthropicProvider::with_base_url("https://proxy.internal/anthropic/");
+        assert_eq!(p.base_url(), "https://proxy.internal/anthropic");
+    }
+
+    #[test]
+    fn with_base_url_falls_back_to_official_url_when_empty() {
+        let p = AnthropicProvider::with_base_url("");
+        assert_eq!(p.base_url(), "https://api.anthropic.com/v1");
     }
 
     #[test]
@@ -1320,6 +1487,48 @@ mod tests {
         assert!(tools[0].get("function").is_none());
     }
 
+    /// Revert line: delete the
+    /// `super::validate_sampling_param_range(body, "temperature", "Anthropic", 0.0, 1.0)?;`
+    /// call at the top of `transform_request` to make this test fail (the request
+    /// would then be transformed successfully instead of rejected).
+    #[test]
+    fn transform_request_rejects_temperature_above_anthropic_maximum() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "temperature": 1.8
+        });
+
+        let err = provider()
+            .transform_request(&mut body)
+            .expect_err("temperature above Anthropic's 1.0 maximum should be rejected");
+
+        assert_eq!(err.status_code(), 400);
+        let message = err.to_string();
+        assert!(
+            message.contains("temperature=1.8"),
+            "error message should name the offending value: {message}"
+        );
+        assert!(
+            message.contains("Anthropic"),
+            "error message should name the provider: {message}"
+        );
+    }
+
+    #[test]
+    fn transform_request_accepts_temperature_at_anthropic_maximum() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "temperature": 1.0
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("temperature exactly at Anthropic's 1.0 maximum should be accepted");
+        assert_eq!(body["temperature"], 1.0);
+    }
+
     #[test]
     fn transform_request_removes_unsupported_fields() {
         let mut body = json!({
@@ -1340,6 +1549,90 @@ mod tests {
             assert!(body.get(key).is_none(), "`{key}` should be removed");
         }
         assert_eq!(body["stream"], true);
+    }
+
+    /// Regression test: `transform_request` mutates `body` in place rather than rebuilding it
+    /// wholesale (unlike vertex.rs/bedrock.rs), so `logprobs`, `top_logprobs`, `store`,
+    /// `metadata`, `prediction`, `audio`, `web_search_options`, `modalities` and `seed` used to
+    /// leak onto the Anthropic wire verbatim instead of being dropped or mapped. None of them
+    /// have an Anthropic equivalent, so they must be stripped like the other unsupported fields
+    /// above. Anthropic's Messages API validates the body strictly and rejects *any*
+    /// unrecognized top-level key with a 400, so an unstripped field breaks the whole request,
+    /// not just that one parameter.
+    #[test]
+    fn transform_request_strips_unmappable_openai_only_fields() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "logprobs": true,
+            "top_logprobs": 5,
+            "store": true,
+            "metadata": {"run": "nightly"},
+            "prediction": {"type": "content", "content": "draft"},
+            "audio": {"voice": "alloy", "format": "wav"},
+            "web_search_options": {"search_context_size": "medium"},
+            "modalities": ["text", "audio"],
+            "seed": 42
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        for key in &[
+            "logprobs",
+            "top_logprobs",
+            "store",
+            "metadata",
+            "prediction",
+            "audio",
+            "web_search_options",
+            "modalities",
+            "seed",
+        ] {
+            assert!(body.get(key).is_none(), "`{key}` must not be forwarded to Anthropic");
+        }
+    }
+
+    /// `modalities: ["text"]` is a no-op for Anthropic, but the field still must not reach the
+    /// wire: Anthropic's Messages API rejects any unrecognized top-level key with a 400, so
+    /// even a no-op value would fail the entire request if left in the body.
+    #[test]
+    fn transform_request_strips_text_only_modalities() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "modalities": ["text"]
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(
+            body.get("modalities").is_none(),
+            "`modalities` must not be forwarded to Anthropic"
+        );
+    }
+
+    /// `modalities: ["audio"]` asks for output Claude cannot produce; the request must still
+    /// succeed (text is returned instead) rather than leaking the field and getting a 400.
+    #[test]
+    fn transform_request_strips_audio_only_modalities() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "modalities": ["audio"]
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(
+            body.get("modalities").is_none(),
+            "`modalities` must not be forwarded to Anthropic"
+        );
     }
 
     #[test]
@@ -1796,6 +2089,73 @@ mod tests {
         assert_eq!(result_content[1]["type"], "image");
     }
 
+    /// Asserts the exact serialized JSON shape of an Anthropic `tool_result` image
+    /// block, using the typed `Message`/`ToolMessage` API end to end (not a raw
+    /// JSON fixture) to prove the public Rust surface reaches the provider intact.
+    #[test]
+    fn transform_request_tool_result_image_part_maps_to_exact_anthropic_block() {
+        use crate::types::{ContentPart, Message, ToolMessage, UserContent};
+
+        let messages = vec![Message::Tool(ToolMessage {
+            content: UserContent::Parts(vec![ContentPart::image_data_url("data:image/png;base64,abc123")]),
+            tool_call_id: "call_img".into(),
+            name: None,
+        })];
+        let mut body = serde_json::to_value(&messages).expect("messages must serialise");
+        body = json!({"model": "claude-3-5-sonnet-20241022", "messages": body});
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        let messages = body["messages"].as_array().expect("messages should be an array");
+        assert_eq!(
+            messages[0],
+            json!({
+                "role": "user",
+                "content": [{
+                    "type": "tool_result",
+                    "tool_use_id": "call_img",
+                    "content": [{
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": "abc123"
+                        }
+                    }]
+                }]
+            })
+        );
+    }
+
+    #[test]
+    fn transform_request_tool_result_document_part_degrades_to_text() {
+        let mut body = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{
+                "role": "tool",
+                "tool_call_id": "call_doc",
+                "content": [{"type": "document", "document": {
+                    "data": "JVBERi0xLjQ=",
+                    "media_type": "application/pdf"
+                }}]
+            }]
+        });
+
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        let messages = body["messages"].as_array().expect("messages should be an array");
+        let result_content = messages[0]["content"][0]["content"]
+            .as_array()
+            .expect("content should be an array");
+        assert_eq!(result_content.len(), 1);
+        assert_eq!(result_content[0]["type"], "text");
+        assert_eq!(result_content[0]["text"], "[unsupported content in tool result]");
+    }
+
     #[test]
     fn transform_response_thinking_block_excluded_from_content() {
         let mut body = json!({
@@ -2104,6 +2464,34 @@ mod tests {
             .expect("transform_request should not fail");
         assert_eq!(body["thinking"]["type"], "enabled");
         assert_eq!(body["thinking"]["budget_tokens"], 16384);
+    }
+
+    #[test]
+    fn transform_request_reasoning_effort_minimal_maps_to_1024_budget_tokens() {
+        let mut body = json!({
+            "model": "claude-sonnet-4-20250514",
+            "messages": [{"role": "user", "content": "Quick answer"}],
+            "reasoning_effort": "minimal"
+        });
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+        assert_eq!(body["thinking"]["type"], "enabled");
+        assert_eq!(body["thinking"]["budget_tokens"], 1024);
+    }
+
+    #[test]
+    fn transform_request_reasoning_effort_max_maps_to_32768_budget_tokens() {
+        let mut body = json!({
+            "model": "claude-sonnet-4-20250514",
+            "messages": [{"role": "user", "content": "Think as hard as possible"}],
+            "reasoning_effort": "max"
+        });
+        provider()
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+        assert_eq!(body["thinking"]["type"], "enabled");
+        assert_eq!(body["thinking"]["budget_tokens"], 32768);
     }
 
     #[test]

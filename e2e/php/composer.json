@@ -3,12 +3,12 @@
   "description": "E2e tests for PHP bindings",
   "type": "project",
   "require-dev": {
-    "phpunit/phpunit": "^13.1",
-    "guzzlehttp/guzzle": "^8.0"
+    "phpunit/phpunit": "^11.5 || ^12.0 || ^13.1",
+    "guzzlehttp/guzzle": "^7.0 || ^8.0"
   },
   "autoload": {
     "psr-4": {
-      "Liter\\Llm\\": "../../packages/php/src/"
+      "Liter\\Llm\\": "../../crates/liter-llm-php/src/"
     }
   },
   "autoload-dev": {

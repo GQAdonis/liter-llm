@@ -1,6 +1,11 @@
 {
   "id": "smoke_rerank_basic",
   "description": "Basic reranking of documents against a query",
+  "docs": {
+    "topic": "rerank",
+    "stem": "smoke-rerank-basic",
+    "title": "Basic reranking of documents against a query"
+  },
   "category": "rerank",
   "tags": ["smoke", "rerank"],
   "call": "rerank",

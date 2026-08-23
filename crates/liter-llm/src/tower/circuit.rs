@@ -144,6 +144,18 @@ struct CircuitInner {
     probe_in_flight: AtomicBool,
 }
 
+/// Recover a poisoned `open_since` mutex instead of panicking.
+///
+/// ~keep A panic while another caller holds this lock (e.g. inside a custom
+/// ~keep `CircuitPolicy` extension point) must not permanently wedge every
+/// ~keep future request through this circuit breaker in the Open state.
+fn lock_open_since(mutex: &Mutex<Option<Instant>>) -> std::sync::MutexGuard<'_, Option<Instant>> {
+    mutex.lock().unwrap_or_else(|poisoned| {
+        tracing::warn!("circuit breaker: open_since mutex was poisoned; recovering");
+        poisoned.into_inner()
+    })
+}
+
 /// Circuit breaker with exponential backoff.
 ///
 /// Opens after `failure_threshold` consecutive failures.  After
@@ -213,7 +225,7 @@ impl ExponentialBackoffCircuit {
     /// driving the timer-based Open → HalfOpen transition on the request path.
     fn maybe_half_open(&self) -> bool {
         let backoff = self.current_backoff();
-        let guard = self.inner.open_since.lock().expect("open_since mutex poisoned");
+        let guard = lock_open_since(&self.inner.open_since);
         if let Some(open_at) = *guard
             && open_at.elapsed() >= backoff
         {
@@ -228,12 +240,33 @@ impl ExponentialBackoffCircuit {
 
 impl CircuitPolicy for ExponentialBackoffCircuit {
     fn record_success(&self) {
-        self.inner.consecutive_failures.store(0, Ordering::Relaxed);
-        let prev = self.inner.state.swap(CircuitState::Closed as u8, Ordering::Release);
-        // ~keep Successful probes release the HalfOpen slot for future open cycles.
-        self.inner.probe_in_flight.store(false, Ordering::Release);
-        if CircuitState::from_u8(prev) != CircuitState::Closed {
-            tracing::info!("circuit breaker closed after successful probe");
+        // ~keep A success closes the circuit only from HalfOpen, per the state machine in
+        // ~keep the module docs. CircuitService::call samples the state before the request
+        // ~keep is sent, so a request that started while Closed can return after other
+        // ~keep requests tripped the breaker. An unconditional store let that straggler
+        // ~keep force the circuit closed and erase the failure count, sending traffic
+        // ~keep straight back at a backend that is still down. It is also not the probe,
+        // ~keep so it must not release the HalfOpen slot out from under a real one.
+        let closed_the_circuit = self.inner.state.compare_exchange(
+            CircuitState::HalfOpen as u8,
+            CircuitState::Closed as u8,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        );
+
+        match closed_the_circuit {
+            Ok(_) => {
+                self.inner.consecutive_failures.store(0, Ordering::Relaxed);
+                // ~keep Successful probes release the HalfOpen slot for future open cycles.
+                self.inner.probe_in_flight.store(false, Ordering::Release);
+                tracing::info!("circuit breaker closed after successful probe");
+            }
+            Err(current) if CircuitState::from_u8(current) == CircuitState::Closed => {
+                self.inner.consecutive_failures.store(0, Ordering::Relaxed);
+            }
+            Err(_) => {
+                tracing::debug!("circuit open; ignoring a success from a request that predates the trip");
+            }
         }
     }
 
@@ -267,7 +300,7 @@ impl CircuitPolicy for ExponentialBackoffCircuit {
             let backoff = self.current_backoff();
             let open_count = self.open_count.fetch_add(1, Ordering::Relaxed) + 1;
             {
-                let mut guard = self.inner.open_since.lock().expect("open_since mutex poisoned");
+                let mut guard = lock_open_since(&self.inner.open_since);
                 *guard = Some(Instant::now());
             }
             // ~keep Release the probe slot when reopening; a fresh cooldown is now in effect.
@@ -567,6 +600,71 @@ mod tests {
             .expect("probe should succeed");
         assert!(matches!(resp, LlmResponse::Chat(_)));
         assert_eq!(p.state(), CircuitState::Closed, "circuit should close after success");
+    }
+
+    /// `CircuitService::call` samples the circuit state before sending the
+    /// request, so a request that started while the circuit was Closed can
+    /// return successfully after other requests have tripped it.  That
+    /// straggler is not the half-open probe and must not close the circuit:
+    /// doing so erases a legitimate trip and sends traffic straight back at a
+    /// backend that is still down.
+    #[test]
+    fn success_predating_the_trip_does_not_close_an_open_circuit() {
+        let p = policy(3);
+
+        for _ in 0..3 {
+            p.record_failure();
+        }
+        assert_eq!(p.state(), CircuitState::Open, "three failures must open the circuit");
+
+        p.record_success();
+
+        assert_eq!(
+            p.state(),
+            CircuitState::Open,
+            "a success from a request that predates the trip must leave the circuit open"
+        );
+    }
+
+    /// The straggler must not release the half-open probe slot either — that
+    /// slot belongs to whichever request the breaker actually elected to probe
+    /// with, and freeing it would let a second probe through.
+    #[test]
+    fn success_predating_the_trip_does_not_release_the_probe_slot() {
+        let p = policy(1);
+
+        p.record_failure();
+        assert_eq!(p.state(), CircuitState::Open);
+
+        p.inner.state.store(CircuitState::HalfOpen as u8, Ordering::Release);
+        p.inner.probe_in_flight.store(true, Ordering::Release);
+        p.inner.state.store(CircuitState::Open as u8, Ordering::Release);
+
+        p.record_success();
+
+        assert!(
+            p.inner.probe_in_flight.load(Ordering::Acquire),
+            "an in-flight probe slot must survive a success recorded against an open circuit"
+        );
+    }
+
+    /// A success while Closed still clears the failure count, so an isolated
+    /// failure cannot accumulate toward the threshold across unrelated calls.
+    #[test]
+    fn success_while_closed_resets_the_failure_count() {
+        let p = policy(3);
+
+        p.record_failure();
+        p.record_failure();
+        p.record_success();
+        p.record_failure();
+        p.record_failure();
+
+        assert_eq!(
+            p.state(),
+            CircuitState::Closed,
+            "the two failures after the success must not combine with the earlier two"
+        );
     }
 
     #[tokio::test]

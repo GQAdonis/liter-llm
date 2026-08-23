@@ -1,6 +1,11 @@
 {
   "id": "embed_error_401",
   "description": "401 Unauthorized error on embedding request when API key is invalid",
+  "docs": {
+    "topic": "embed",
+    "stem": "embed-error-401",
+    "title": "401 Unauthorized error on embedding request when API key is invalid"
+  },
   "category": "embed",
   "tags": ["embed", "error-handling"],
   "call": "embed",

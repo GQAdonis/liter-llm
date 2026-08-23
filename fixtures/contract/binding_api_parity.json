@@ -1,6 +1,11 @@
 {
   "id": "binding_api_parity",
   "description": "Verify all bindings expose the full API surface — constructor accepts all config options and every method exists",
+  "docs": {
+    "topic": "contract",
+    "stem": "binding-api-parity",
+    "title": "Verify all bindings expose the full API surface — constructor accepts all config options and every method exists"
+  },
   "category": "contract",
   "tags": ["contract", "parity"],
   "call": "chat",

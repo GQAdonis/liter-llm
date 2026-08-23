@@ -41,6 +41,7 @@ const HEADER_TYPE_STRING: u8 = 7;
 /// The `parse_event` function receives `(event_type, payload_json)` for each
 /// event and returns a parsed chunk or `None` for terminal events.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "POST",

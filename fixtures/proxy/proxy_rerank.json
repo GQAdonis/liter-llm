@@ -1,6 +1,11 @@
 {
   "id": "proxy_rerank",
   "description": "Document reranking request routed through the proxy",
+  "docs": {
+    "topic": "proxy",
+    "stem": "proxy-rerank",
+    "title": "Document reranking request routed through the proxy"
+  },
   "category": "proxy",
   "tags": ["proxy", "rerank"],
   "call": "rerank",

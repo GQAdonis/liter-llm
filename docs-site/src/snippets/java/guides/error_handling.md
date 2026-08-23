@@ -1,3 +1,12 @@
+---
+id: legacy_java_guides_error_handling
+language: java
+target: java
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```java

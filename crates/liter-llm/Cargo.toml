@@ -12,13 +12,13 @@ name = "liter-llm"
 # same fix already applied to the other vendored crates in vendor/git/
 # (surreal-memory, sycophancy-core). Values must stay in sync with
 # ../../Cargo.toml's `[workspace.package]` table when bumping upstream.
-version = "1.12.0"
+version = "1.18.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
 homepage = "https://xberg.io"
 authors = ["Na'aman Hirschfeld <naaman@xberg.io>"]
-description = "Universal LLM API client — 142+ providers, streaming, tool calling. Rust-powered, type-safe, compiled."
+description = "Universal LLM API client — 165 providers, streaming, tool calling. Rust-powered, type-safe, compiled."
 readme = "README.md"
 keywords = ["llm", "openai", "api-client", "ai", "xberg"]
 categories = ["api-bindings", "web-programming::http-client"]
@@ -31,28 +31,32 @@ ignored = ["dashmap", "tower-http"]
 # ~keep Disable `native-http` for WebAssembly; browser and Node builds use fetch
 # ~keep and cannot run the Tokio multi-thread runtime.
 native-http = [
-    "dep:reqwest",
-    # ~keep reqwest/http2 gates `ClientBuilder::http2_prior_knowledge()`, which
-    # ~keep backs `TransportConfig::http2_prior_knowledge`.
-    "reqwest/http2",
-    # ~keep dep:rustls is only present on non-Windows; Cargo ignores optional
-    # ~keep feature activations for absent target-conditional deps.
-    "dep:rustls",
-    "dep:tokio",
-    "dep:tokio-util",
-    "dep:memchr",
-    "dep:gcp_auth",
+  "dep:reqwest",
+  # ~keep reqwest/http2 gates `ClientBuilder::http2_prior_knowledge()`, which
+  # ~keep backs `TransportConfig::http2_prior_knowledge`.
+  "reqwest/http2",
+  # ~keep dep:rustls is only present on non-Windows; Cargo ignores optional
+  # ~keep feature activations for absent target-conditional deps.
+  "dep:rustls",
+  "dep:tokio",
+  "dep:tokio-util",
+  "dep:memchr",
+  "dep:gcp_auth",
 ]
 
 wasm-http = ["dep:reqwest", "dep:memchr", "dep:gloo-timers", "dep:web-time"]
 
 otel = ["dep:tracing-opentelemetry", "dep:opentelemetry"]
 
-tower = ["dep:tower", "dep:tower-http", "dep:futures-util"]
+tower = ["dep:tower", "dep:tower-http", "dep:futures-util", "dep:rand"]
 
 opendal-cache = ["dep:opendal", "tower"]
 
 guardrail-cel = ["dep:cel-interpreter"]
+
+# ~keep Derives `utoipa::ToSchema` on `LlmConfig` and friends for OpenAPI generation.
+# ~keep Kept off `full`/`default` since it is a docs/schema-generation concern, not a runtime one.
+schema = ["dep:utoipa"]
 
 # ~keep Without `bedrock`, `BedrockProvider` still routes `bedrock/` model names
 # ~keep and strips the prefix, but sends unsigned requests for mock base URLs.
@@ -77,17 +81,17 @@ tokenizer = ["dep:tokenizers"]
 lite = ["native-http"]
 
 full = [
-    "native-http",
-    "tower",
-    "otel",
-    "bedrock",
-    "tokenizer",
-    "azure-auth",
-    "copilot-auth",
-    "vertex-auth",
-    "vertex-adc",
-    "bedrock-auth",
-    "opendal-cache",
+  "native-http",
+  "tower",
+  "otel",
+  "bedrock",
+  "tokenizer",
+  "azure-auth",
+  "copilot-auth",
+  "vertex-auth",
+  "vertex-adc",
+  "bedrock-auth",
+  "opendal-cache",
 ]
 
 etcd-key-resolver = ["dep:etcd-client", "dep:hex", "dep:sha2"]
@@ -120,7 +124,7 @@ gloo-timers = { version = "0.4", features = ["futures"], optional = true }
 hex = { version = "0.4", optional = true }
 jsonwebtoken = { version = "11", default-features = false, features = ["use_pem"], optional = true }
 memchr = { version = "2", optional = true }
-opendal = { version = "0.57", default-features = false, features = [
+opendal = { version = "0.58", default-features = false, features = [
     "services-memory",
     "services-redis",
     "services-fs",
@@ -128,6 +132,12 @@ opendal = { version = "0.57", default-features = false, features = [
 ], optional = true }
 opentelemetry = { version = "0.32", features = ["metrics"], optional = true }
 pin-project-lite = "0.2"
+# ~keep Only for RoutingStrategy::WeightedRandom's per-router PRNG (tower/router.rs);
+# ~keep sys_rng seeds it once at Router::new; SmallRng itself is unconditionally
+# ~keep compiled in rand >=0.10 (no small_rng feature gate anymore).
+# ~keep Not enabled for wasm32: the `tower` feature (and this dep) never builds there
+# ~keep today — liter-llm-wasm pins `default-features = false, features = ["wasm-http"]`.
+rand = { version = "0.10", default-features = false, features = ["std", "sys_rng"], optional = true }
 regex = "1"
 rust_decimal = { version = "1", features = ["serde"] }
 secrecy = { version = "0.10", features = ["serde"] }
@@ -164,6 +174,7 @@ tower-http = { version = "0.7", features = [
 tracing = "0.1"
 tracing-opentelemetry = { version = "0.33", optional = true }
 url = "2.5"
+utoipa = { version = "5.5", features = ["axum_extras"], optional = true }
 web-time = { version = "1", optional = true }
 
 # ~keep Non-Windows uses rustls + ring to avoid aws-lc-sys as the bundled TLS provider.
@@ -181,10 +192,14 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "str
 ctor = "1.0"
 etcd-client = { version = "0.19", default-features = false }
 futures-util = "0.3"
-jsonschema = "0.49"
+jsonschema = "0.50"
 serde_json = "1"
 serial_test = "4"
 tokio = { version = "1", features = ["full", "test-util", "macros"] }
+# Needed only by tower::tracing tests: the span contract is asserted through a hand-rolled
+# Subscriber, whose current_span() must return tracing_core::span::Current — a type `tracing`
+# does not re-export.
+tracing-core = "0.1"
 
 # ~keep Hardcoded (NOT `[lints] workspace = true`) for the same nested-workspace
 # ~keep vendoring reason as the [package]/[dependencies] fields above — must stay

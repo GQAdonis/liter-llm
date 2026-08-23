@@ -149,7 +149,7 @@ impl<S: Clone> Clone for HooksService<S> {
 
 impl<S> Service<LlmRequest> for HooksService<S>
 where
-    S: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Send + 'static,
+    S: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Clone + Send + 'static,
     S::Future: Send + 'static,
 {
     type Response = LlmResponse;
@@ -164,7 +164,16 @@ where
         let hooks = Arc::clone(&self.hooks);
         let usage_sink = self.usage_sink.clone();
         let req_clone = req.clone();
-        let fut = self.inner.call(req);
+
+        // ~keep `on_request` is a rejection point, so the inner call must happen inside the
+        // ~keep future, after the hooks have passed. Calling it here instead let a rejected
+        // ~keep request run every inner layer's synchronous body first — and
+        // ~keep ModelRateLimitService increments its RPM counter in the body of `call`, so a
+        // ~keep burst of hook-rejected traffic consumed the window and starved legitimate
+        // ~keep requests. Consume the polled-ready instance and leave a fresh standby clone,
+        // ~keep matching GuardrailService and BudgetLedgerService.
+        let standby = self.inner.clone();
+        let mut inner = std::mem::replace(&mut self.inner, standby);
 
         Box::pin(async move {
             for hook in hooks.iter() {
@@ -191,7 +200,7 @@ where
             // ~keep Read the cell before leaving the task-local scope so the cache state survives.
             let (inner_result, cache_state) = CACHE_STATE_CELL
                 .scope(Cell::new(CacheState::Bypass), async {
-                    let result = fut.await;
+                    let result = inner.call(req).await;
                     let state = CACHE_STATE_CELL.with(|c| c.get());
                     (result, state)
                 })
@@ -622,6 +631,81 @@ mod tests {
 
         assert!(matches!(err, LiterLlmError::HookRejected { .. }));
         assert_eq!(call_count.load(Ordering::SeqCst), 0);
+    }
+
+    /// A layer that does its accounting in the *synchronous* body of `call`, the way
+    /// `ModelRateLimitService` increments its RPM counter, rather than inside the returned
+    /// future. `MockClient` counts inside its async body, so it cannot observe whether the
+    /// inner service was entered — only a synchronous counter can.
+    #[derive(Clone)]
+    struct SyncCountingService {
+        entered: Arc<AtomicUsize>,
+        inner: LlmService<MockClient>,
+    }
+
+    impl SyncCountingService {
+        fn new(entered: Arc<AtomicUsize>) -> Self {
+            Self {
+                entered,
+                inner: LlmService::new(MockClient::ok()),
+            }
+        }
+    }
+
+    impl Service<LlmRequest> for SyncCountingService {
+        type Response = LlmResponse;
+        type Error = LiterLlmError;
+        type Future = BoxFuture<'static, Result<LlmResponse>>;
+
+        fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>> {
+            self.inner.poll_ready(cx)
+        }
+
+        fn call(&mut self, req: LlmRequest) -> Self::Future {
+            self.entered.fetch_add(1, Ordering::SeqCst);
+            self.inner.call(req)
+        }
+    }
+
+    /// Regression test: `call` used to invoke `self.inner.call(req)` before the `on_request`
+    /// loop, so a hook rejection still ran every inner layer's synchronous body. Under the
+    /// real stack that meant a hook-rejected request consumed an RPM slot, letting a burst of
+    /// rejected traffic starve legitimate requests.
+    ///
+    /// Revert line: move `let mut inner = std::mem::replace(...)` back to
+    /// `let fut = self.inner.call(req);` above the `Box::pin`, and call `fut.await` below.
+    #[tokio::test]
+    async fn hook_rejection_does_not_enter_the_inner_service() {
+        let entered = Arc::new(AtomicUsize::new(0));
+        let inner = SyncCountingService::new(Arc::clone(&entered));
+        let mut svc = HooksLayer::single(Arc::new(RejectAllHook) as Arc<dyn LlmHook>).layer(inner);
+
+        let err = svc
+            .call(LlmRequest::Chat(chat_req("gpt-4")))
+            .await
+            .expect_err("the hook rejects every request");
+
+        assert!(matches!(err, LiterLlmError::HookRejected { .. }));
+        assert_eq!(
+            entered.load(Ordering::SeqCst),
+            0,
+            "a hook-rejected request must not enter the inner service at all"
+        );
+    }
+
+    /// The counterpart: a request the hooks allow must still reach the inner service exactly
+    /// once, so the fix above cannot be satisfied by never calling inner at all.
+    #[tokio::test]
+    async fn accepted_request_enters_the_inner_service_exactly_once() {
+        let entered = Arc::new(AtomicUsize::new(0));
+        let inner = SyncCountingService::new(Arc::clone(&entered));
+        let mut svc = HooksLayer::new(Vec::new()).layer(inner);
+
+        svc.call(LlmRequest::Chat(chat_req("gpt-4")))
+            .await
+            .expect("no hooks are registered, so the request must pass through");
+
+        assert_eq!(entered.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]

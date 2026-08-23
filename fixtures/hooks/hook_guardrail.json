@@ -1,6 +1,11 @@
 {
   "id": "hook_guardrail",
   "description": "Tests that on_request hook can reject a request",
+  "docs": {
+    "topic": "hooks",
+    "stem": "hook-guardrail",
+    "title": "Tests that on_request hook can reject a request"
+  },
   "category": "hooks",
   "tags": ["hooks"],
   "skip": {

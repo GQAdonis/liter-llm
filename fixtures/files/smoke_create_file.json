@@ -1,6 +1,11 @@
 {
   "id": "smoke_create_file",
   "description": "Upload a file for use with the API",
+  "docs": {
+    "topic": "files",
+    "stem": "smoke-create-file",
+    "title": "Upload a file for use with the API"
+  },
   "category": "files",
   "tags": ["smoke", "files"],
   "skip": {

@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::client::BoxStream;
 use crate::error::Result;
@@ -19,7 +19,10 @@ use crate::types::{
 /// Use the associated constructors on [`LlmRequest`] (e.g. [`LlmRequest::Chat`])
 /// rather than constructing this directly; they return a fully initialised
 /// `LlmRequest` with `tenant_id: None`.
-#[derive(Debug, Clone, Serialize)]
+/// `Deserialize` is what lets an `Input`-stage guardrail `Mutate` decision be
+/// read back into a request: the guardrail is shown this payload and returns a
+/// rewritten one. ~keep
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(alef, alef(skip))]
 pub enum LlmRequestKind {
     /// Non-streaming chat completion.

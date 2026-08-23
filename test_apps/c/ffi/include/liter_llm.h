@@ -155,7 +155,7 @@ typedef struct LITERLLMDecodedDataUrl LITERLLMDecodedDataUrl;
 /**
  * Default client implementation backed by `reqwest`.
  *
- * Sends requests to 143 LLM providers with automatic provider detection
+ * Sends requests to 165 LLM providers with automatic provider detection
  * and per-request routing. The provider is resolved at construction time
  * from `model_hint` (or defaults to OpenAI), but individual requests can
  * override the provider via model name prefix (e.g. `"anthropic/claude-3-5-sonnet"`

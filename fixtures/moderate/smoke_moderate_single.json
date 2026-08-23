@@ -1,6 +1,11 @@
 {
   "id": "smoke_moderate_single",
   "description": "Moderate a single non-flagged input",
+  "docs": {
+    "topic": "moderate",
+    "stem": "smoke-moderate-single",
+    "title": "Moderate a single non-flagged input"
+  },
   "category": "moderate",
   "tags": ["smoke", "moderate"],
   "call": "moderate",

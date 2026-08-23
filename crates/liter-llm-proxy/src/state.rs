@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
+use liter_llm::guardrail::GuardrailRegistry;
 use liter_llm::observability::UsageSinkErased;
 use liter_llm::tenant::KeyResolver;
 
@@ -25,6 +26,18 @@ pub struct AppState {
     /// [`KeyResolver`] trait so embedding code can swap in custom backends.
     pub key_resolver: Arc<dyn KeyResolver>,
     pub service_pool: Arc<ServicePool>,
+    /// The live guardrail set built from `[[guardrails]]` at startup.
+    ///
+    /// This is the same `Arc` [`ServicePool`] layers into every model's unary
+    /// Tower stack (obtain it with [`ServicePool::guardrails`], never by
+    /// calling [`crate::guardrail::build_registry`] a second time). The
+    /// realtime WebSocket proxy reads it here because it proxies raw frames
+    /// and so has no Tower stack to layer.
+    ///
+    /// Startup-only: `GuardrailLayer` holds its registry by `Arc`, so a config
+    /// hot-reload cannot swap this. The watcher warns when a reload changes
+    /// `[[guardrails]]` — see [`crate::config::watcher`].
+    pub guardrails: Arc<GuardrailRegistry>,
     pub file_store: Arc<FileStore>,
     /// Atomically-swappable proxy configuration.
     ///

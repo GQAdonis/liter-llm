@@ -1,6 +1,11 @@
 {
   "id": "error_file_not_found",
   "description": "404 Not Found when retrieving a nonexistent file",
+  "docs": {
+    "topic": "files",
+    "stem": "error-file-not-found",
+    "title": "404 Not Found when retrieving a nonexistent file"
+  },
   "category": "files",
   "tags": ["error-handling", "files"],
   "call": "retrieve_file",

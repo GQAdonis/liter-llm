@@ -1,6 +1,11 @@
 {
   "id": "not_found_404",
   "description": "404 Not Found error when requesting a model that does not exist",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "not-found-404",
+    "title": "404 Not Found error when requesting a model that does not exist"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

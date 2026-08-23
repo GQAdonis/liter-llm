@@ -8,7 +8,7 @@ use crate::auth::CredentialProvider;
 use crate::error::{LiterLlmError, Result};
 use crate::http::transport::TransportConfig;
 #[cfg(feature = "tower")]
-use crate::tower::{BudgetConfig, CacheConfig, CacheStore, LlmHook, RateLimitConfig};
+use crate::tower::{BudgetConfig, CacheConfig, CacheStore, InFlightLimitConfig, LlmHook, RateLimitConfig};
 
 /// Configuration for an LLM client.
 ///
@@ -78,6 +78,10 @@ pub struct ClientConfig {
     #[cfg(feature = "tower")]
     pub rate_limit_config: Option<RateLimitConfig>,
 
+    /// Global per-client in-flight provider request limit.
+    #[cfg(feature = "tower")]
+    pub in_flight_limit_config: Option<InFlightLimitConfig>,
+
     /// Background health check interval. When set, periodically probes the provider
     /// and rejects requests when the provider is unhealthy.
     #[cfg(feature = "tower")]
@@ -105,6 +109,28 @@ pub struct ClientConfig {
 
     /// HTTP transport configuration for connection pooling, DNS caching, and protocol selection.
     pub transport: TransportConfig,
+
+    /// AWS region for the Bedrock provider (`bedrock/` model prefix).
+    ///
+    /// When unset, resolution falls back to `AWS_DEFAULT_REGION`, then
+    /// `AWS_REGION`, then `us-east-1`.
+    pub bedrock_region: Option<String>,
+    /// Cross-region inference profile prefix for Bedrock (e.g. `"us"`).
+    ///
+    /// When unset, falls back to the `BEDROCK_CROSS_REGION` environment variable.
+    pub bedrock_cross_region_prefix: Option<String>,
+    /// Explicit AWS access key ID for Bedrock SigV4 signing.
+    ///
+    /// When unset, falls back to the `AWS_ACCESS_KEY_ID` environment variable.
+    pub bedrock_access_key_id: Option<String>,
+    /// Explicit AWS secret access key for Bedrock SigV4 signing.
+    ///
+    /// When unset, falls back to the `AWS_SECRET_ACCESS_KEY` environment variable.
+    pub bedrock_secret_access_key: Option<String>,
+    /// Explicit AWS session token for Bedrock SigV4 signing (temporary credentials).
+    ///
+    /// When unset, falls back to the `AWS_SESSION_TOKEN` environment variable.
+    pub bedrock_session_token: Option<String>,
 }
 
 #[cfg_attr(alef, alef(skip))]
@@ -120,6 +146,11 @@ impl ClientConfig {
             credential_provider: None,
             load_env: true,
             transport: TransportConfig::default(),
+            bedrock_region: None,
+            bedrock_cross_region_prefix: None,
+            bedrock_access_key_id: None,
+            bedrock_secret_access_key: None,
+            bedrock_session_token: None,
             #[cfg(feature = "tower")]
             cache_config: None,
             #[cfg(feature = "tower")]
@@ -132,6 +163,8 @@ impl ClientConfig {
             cooldown_duration: None,
             #[cfg(feature = "tower")]
             rate_limit_config: None,
+            #[cfg(feature = "tower")]
+            in_flight_limit_config: None,
             #[cfg(feature = "tower")]
             health_check_interval: None,
             #[cfg(feature = "tower")]
@@ -166,6 +199,20 @@ impl std::fmt::Debug for ClientConfig {
             .field(
                 "credential_provider",
                 &self.credential_provider.as_ref().map(|_| "[configured]"),
+            )
+            .field("bedrock_region", &self.bedrock_region)
+            .field("bedrock_cross_region_prefix", &self.bedrock_cross_region_prefix)
+            .field(
+                "bedrock_access_key_id",
+                &self.bedrock_access_key_id.as_ref().map(|_| "[redacted]"),
+            )
+            .field(
+                "bedrock_secret_access_key",
+                &self.bedrock_secret_access_key.as_ref().map(|_| "[redacted]"),
+            )
+            .field(
+                "bedrock_session_token",
+                &self.bedrock_session_token.as_ref().map(|_| "[redacted]"),
             );
 
         #[cfg(feature = "tower")]
@@ -176,6 +223,7 @@ impl std::fmt::Debug for ClientConfig {
                 .field("hooks_count", &self.hooks.len())
                 .field("cooldown_duration", &self.cooldown_duration)
                 .field("rate_limit_config", &self.rate_limit_config)
+                .field("in_flight_limit_config", &self.in_flight_limit_config)
                 .field("health_check_interval", &self.health_check_interval)
                 .field("enable_cost_tracking", &self.enable_cost_tracking)
                 .field("enable_tracing", &self.enable_tracing);
@@ -358,6 +406,13 @@ impl ClientConfigBuilder {
         self
     }
 
+    /// Set the global per-client in-flight provider request limit.
+    #[cfg(feature = "tower")]
+    pub fn in_flight_limit(mut self, config: InFlightLimitConfig) -> Self {
+        self.config.in_flight_limit_config = Some(config);
+        self
+    }
+
     /// Set the background health check interval.
     ///
     /// When set, the client periodically probes the provider and rejects
@@ -392,6 +447,37 @@ impl ClientConfigBuilder {
     /// and protocol selection.
     pub fn transport(mut self, config: TransportConfig) -> Self {
         self.config.transport = config;
+        self
+    }
+
+    /// Set the AWS region for the Bedrock provider (`bedrock/` model prefix).
+    ///
+    /// When unset, resolution falls back to `AWS_DEFAULT_REGION`, then
+    /// `AWS_REGION`, then `us-east-1`.
+    pub fn bedrock_region(mut self, region: impl Into<String>) -> Self {
+        self.config.bedrock_region = Some(region.into());
+        self
+    }
+
+    /// Set the cross-region inference profile prefix for Bedrock (e.g. `"us"`).
+    ///
+    /// When unset, falls back to the `BEDROCK_CROSS_REGION` environment variable.
+    pub fn bedrock_cross_region_prefix(mut self, prefix: impl Into<String>) -> Self {
+        self.config.bedrock_cross_region_prefix = Some(prefix.into());
+        self
+    }
+
+    /// Set explicit AWS credentials for Bedrock SigV4 signing, overriding
+    /// `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`.
+    pub fn bedrock_credentials(
+        mut self,
+        access_key_id: impl Into<String>,
+        secret_access_key: impl Into<String>,
+        session_token: Option<String>,
+    ) -> Self {
+        self.config.bedrock_access_key_id = Some(access_key_id.into());
+        self.config.bedrock_secret_access_key = Some(secret_access_key.into());
+        self.config.bedrock_session_token = session_token;
         self
     }
 

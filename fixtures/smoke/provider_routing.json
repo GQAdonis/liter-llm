@@ -1,6 +1,11 @@
 {
   "id": "smoke_provider_routing",
   "description": "Test provider routing by sending requests to OpenAI and Anthropic",
+  "docs": {
+    "topic": "smoke",
+    "stem": "smoke-provider-routing",
+    "title": "Test provider routing by sending requests to OpenAI and Anthropic"
+  },
   "category": "smoke",
   "tags": ["smoke", "openai", "anthropic", "routing"],
   "call": "chat",

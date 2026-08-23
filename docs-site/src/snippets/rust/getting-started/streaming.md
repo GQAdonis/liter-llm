@@ -1,3 +1,14 @@
+---
+id: readme_rust_streaming
+language: rust
+target: rust
+level: syntax
+requires: []
+side_effect: network
+---
+
+Stream tokens in real time.
+
 ```rust
 use futures::StreamExt;
 use liter_llm::{

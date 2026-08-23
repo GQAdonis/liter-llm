@@ -47,7 +47,7 @@ kotlin {
 
 dependencies {
     // Published Android AAR from Maven Central (verifies artifact resolution)
-    implementation("io.xberg.literllm:liter-llm-android:1.12.0")
+    implementation("io.xberg.literllm:liter-llm-android:1.16.0")
     // Jackson for JSON assertion helpers
     testImplementation("com.fasterxml.jackson.core:jackson-annotations:2.19.0")
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
@@ -65,9 +65,9 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 
     // JUnit 5 API and engine
-    testImplementation("org.junit.jupiter:junit-jupiter-api:6.1.2")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine:6.1.2")
-    testImplementation("org.junit.platform:junit-platform-launcher:6.1.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:6.1.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine:6.1.3")
+    testImplementation("org.junit.platform:junit-platform-launcher:6.1.3")
 
     // Kotlin stdlib test helpers
     testImplementation(kotlin("test"))
@@ -80,7 +80,7 @@ dependencies {
 tasks.register("verifyAarPublished") {
     description = "Verify the published Android AAR contains jni and classes.jar"
     doLast {
-        val aarCoord = "io.xberg.literllm:liter-llm-android:1.12.0"
+        val aarCoord = "io.xberg.literllm:liter-llm-android:1.16.0"
         val (groupId, artifactId, version) = run {
             val parts = aarCoord.split(':')
             Triple(parts[0], parts[1], parts[2])

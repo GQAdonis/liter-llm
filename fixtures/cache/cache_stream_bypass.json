@@ -1,6 +1,11 @@
 {
   "id": "cache_stream_bypass",
   "description": "Tests that streaming requests bypass cache entirely",
+  "docs": {
+    "topic": "cache",
+    "stem": "cache-stream-bypass",
+    "title": "Tests that streaming requests bypass cache entirely"
+  },
   "category": "cache",
   "tags": ["cache"],
   "call": "chat_stream",

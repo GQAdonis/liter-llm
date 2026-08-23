@@ -53,13 +53,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime};
 
+use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use tower::{Layer, Service};
 
-use super::types::{LlmRequest, LlmResponse};
+use super::cost::observe_stream_usage;
+use super::types::{LlmRequest, LlmRequestKind, LlmResponse};
 use crate::client::BoxFuture;
 use crate::cost;
 use crate::error::{LiterLlmError, Result};
+use crate::types::Usage;
 
 /// The dimension along which a budget rejection was triggered.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -274,18 +277,66 @@ pub struct DimensionLimits {
 /// Use [`InMemoryBudgetLedger::new`] for full control or
 /// [`InMemoryBudgetLedger::from_config`] to build from an existing
 /// [`BudgetConfig`] (for backward compatibility).
+///
+/// `limits` lives behind an [`ArcSwap`] rather than a plain field so that
+/// [`InMemoryBudgetLedger::update_limits`] can hot-swap the configured caps —
+/// e.g. on a config reload — without touching the per-tenant/per-user/
+/// per-API-key spend already accumulated in the `DashMap`s below. This keeps
+/// the read path (`check`/`snapshot`) lock-free: a swap is a single atomic
+/// pointer load, matching the concurrency style the sliding-window
+/// [`WindowEntry`] accumulators already use.
+///
+/// # Bounded dimensions
+///
+/// `per_user` is keyed by the request's free-text `user` field and
+/// `per_api_key` by a caller-supplied API-key identifier — both are
+/// attacker-controlled, arbitrary-cardinality inputs, so they are capped at
+/// `max_principal_entries` entries (see [`Self::with_max_principal_entries`]
+/// to override). `per_model` and `per_tenant` are keyed by operator-controlled
+/// values (the deployment's configured model list / tenant roster) with
+/// naturally bounded cardinality, so they are deliberately left uncapped —
+/// capping them would add eviction-policy risk (see below) for a dimension
+/// that was never the actual memory-exhaustion vector.
+///
+/// # Why eviction never touches recorded spend
+///
+/// This is a *spend ledger*, not a cache: an entry's value is money already
+/// billed against a principal. Evicting a live (non-zero-spend) entry to make
+/// room for a newcomer would silently forgive that spend, which is a budget
+/// bypass — a caller could burn through their limit, get evicted by
+/// cardinality pressure from other callers, and come back with a fresh
+/// budget. So the cap (`entry_add_capped`) only ever reclaims entries
+/// whose recorded spend reads as exactly zero, and once no such entries
+/// remain it **declines to track new principals** rather than evict a live
+/// one — the call still succeeds and global/per-model spend is still
+/// recorded, but that one principal's per-user/per-API-key budget is
+/// unenforced until capacity frees up. This is a known, deliberate trade-off:
+/// bounded memory always wins, at the cost of enforcement granularity (never
+/// of already-recorded spend) under sustained cardinality pressure.
 #[derive(Debug)]
 pub struct InMemoryBudgetLedger {
-    limits: DimensionLimits,
+    limits: ArcSwap<DimensionLimits>,
     window: Duration,
     global: Arc<WindowEntry>,
     per_model: Arc<DashMap<String, WindowEntry>>,
     per_tenant: Arc<DashMap<String, WindowEntry>>,
     per_user: Arc<DashMap<String, WindowEntry>>,
     per_api_key: Arc<DashMap<String, WindowEntry>>,
+    max_principal_entries: usize,
 }
 
 impl InMemoryBudgetLedger {
+    /// Default cap on distinct entries tracked by `per_user` and
+    /// `per_api_key`.
+    ///
+    /// Both maps are keyed by attacker-controlled, arbitrary-cardinality input
+    /// (the request's free-text `user` field / a caller-supplied API-key id),
+    /// so without a cap a caller can grow either map without bound simply by
+    /// varying that field across requests — unbounded memory growth.
+    /// `per_model`/`per_tenant` are operator-controlled and naturally
+    /// bounded, so they are not capped. ~keep
+    pub const DEFAULT_MAX_PRINCIPAL_ENTRIES: usize = 100_000;
+
     /// Create a new ledger with explicit limits and a shared window duration.
     ///
     /// The `window` controls how long spend is accumulated before the
@@ -299,9 +350,50 @@ impl InMemoryBudgetLedger {
             per_tenant: Arc::new(DashMap::new()),
             per_user: Arc::new(DashMap::new()),
             per_api_key: Arc::new(DashMap::new()),
-            limits,
+            limits: ArcSwap::from_pointee(limits),
             window,
+            max_principal_entries: Self::DEFAULT_MAX_PRINCIPAL_ENTRIES,
         }
+    }
+
+    /// Override the cap on tracked `per_user` / `per_api_key` entries.
+    ///
+    /// Opt-in escape hatch for deployments with either a much larger or much
+    /// smaller expected principal cardinality than
+    /// [`Self::DEFAULT_MAX_PRINCIPAL_ENTRIES`].
+    #[must_use]
+    pub fn with_max_principal_entries(mut self, max_principal_entries: usize) -> Self {
+        self.max_principal_entries = max_principal_entries.max(1);
+        self
+    }
+
+    /// Replace the configured per-dimension limits in place, preserving every
+    /// sliding-window spend entry already accumulated.
+    ///
+    /// This is the fix for a config-reload-time budget reset: rebuilding a
+    /// fresh [`InMemoryBudgetLedger`] to pick up new limits used to discard
+    /// all `DashMap` spend entries along with the stale limits. Swapping only
+    /// the `limits` pointer leaves `global`/`per_model`/`per_tenant`/
+    /// `per_user`/`per_api_key` untouched, so month-to-date spend survives a
+    /// reload.
+    ///
+    /// # Behavior on lowered limits
+    ///
+    /// If a limit drops below a dimension's already-accumulated spend, the
+    /// next [`BudgetLedger::check`] call sees the (unchanged) spend against
+    /// the new, lower limit and rejects immediately — existing spend is never
+    /// forgiven. This is deliberate: silently resetting spend on a limit
+    /// change is the exact failure mode this method exists to close.
+    ///
+    /// # Behavior on removed dimension keys
+    ///
+    /// A tenant/user/API-key dropped from `limits` (e.g. a virtual key
+    /// removed from config) keeps its `DashMap` window entry — only the
+    /// enforced cap disappears, so the key becomes unconstrained until a
+    /// limit is configured for it again. Spend history is retained in case
+    /// the same key is re-added later, rather than being silently discarded.
+    pub fn update_limits(&self, limits: DimensionLimits) {
+        self.limits.store(Arc::new(limits));
     }
 
     /// Build from a legacy [`BudgetConfig`].
@@ -374,6 +466,73 @@ impl InMemoryBudgetLedger {
             .add(usd, now);
     }
 
+    /// Like [`Self::entry_add`], but bounds `map` at `max_entries` — used for
+    /// `per_user` / `per_api_key`, whose keys are attacker-controlled.
+    ///
+    /// An already-tracked key always gets its spend recorded, regardless of
+    /// how full `map` is: the cap only ever gates *new* keys, never starves an
+    /// existing principal of accounting. See the [`InMemoryBudgetLedger`]
+    /// doc comment for why a full map declines new principals instead of
+    /// evicting a live one.
+    fn entry_add_capped(
+        map: &DashMap<String, WindowEntry>,
+        dimension_name: &'static str,
+        key: &str,
+        usd: f64,
+        window: Duration,
+        now: SystemTime,
+        max_entries: usize,
+    ) {
+        if !map.contains_key(key) && map.len() >= max_entries {
+            Self::reclaim_zero_spend_entries(map, dimension_name, now);
+        }
+
+        if !map.contains_key(key) && map.len() >= max_entries {
+            // ~keep Refuse to allocate tracking state for a brand-new principal rather
+            // ~keep than evict a live one to make room — see the InMemoryBudgetLedger
+            // ~keep doc comment. Global/per-model spend for this call is still recorded
+            // ~keep by the caller; only this one dimension's enforcement is affected.
+            tracing::warn!(
+                dimension = dimension_name,
+                cap = max_entries,
+                "budget ledger at capacity; declining to track new principal, spend for this call was not recorded"
+            );
+            return;
+        }
+
+        map.entry(key.to_owned())
+            .or_insert_with(|| WindowEntry::new(window))
+            .add(usd, now);
+    }
+
+    /// Remove entries from `map` whose recorded spend reads as exactly zero,
+    /// reclaiming capacity without ever discarding a live spend record.
+    fn reclaim_zero_spend_entries(map: &DashMap<String, WindowEntry>, dimension_name: &'static str, now: SystemTime) {
+        let mut evicted_live_spend_usd = 0.0_f64;
+
+        map.retain(|_, entry| {
+            let spend = entry.spend_usd(now);
+            if spend > 0.0 {
+                return true;
+            }
+            // ~keep Defensive invariant, not expected to ever be non-zero: this branch is
+            // ~keep reached only when `spend <= 0.0`, so `evicted_live_spend_usd` should
+            // ~keep never accumulate anything. Kept as a canary — if this ever fires, a
+            // ~keep future change broke the "eviction never touches live spend" guarantee
+            // ~keep this ledger relies on to avoid becoming a budget bypass.
+            evicted_live_spend_usd += spend;
+            false
+        });
+
+        if evicted_live_spend_usd > 0.0 {
+            tracing::warn!(
+                dimension = dimension_name,
+                evicted_spend_usd = evicted_live_spend_usd,
+                "budget ledger eviction reclaimed entries carrying non-zero spend; budget enforcement was weakened"
+            );
+        }
+    }
+
     fn check_limit(spend: f64, limit: f64, dimension: BudgetDimension, key: &str) -> Option<BudgetVerdict> {
         if spend >= limit {
             Some(BudgetVerdict::Reject {
@@ -396,10 +555,26 @@ impl BudgetLedger for InMemoryBudgetLedger {
                 Self::entry_add(&self.per_tenant, tenant, ctx.cost_usd, self.window, now);
             }
             if let Some(user) = ctx.user_id {
-                Self::entry_add(&self.per_user, user, ctx.cost_usd, self.window, now);
+                Self::entry_add_capped(
+                    &self.per_user,
+                    "user",
+                    user,
+                    ctx.cost_usd,
+                    self.window,
+                    now,
+                    self.max_principal_entries,
+                );
             }
             if let Some(key) = ctx.api_key_id {
-                Self::entry_add(&self.per_api_key, key, ctx.cost_usd, self.window, now);
+                Self::entry_add_capped(
+                    &self.per_api_key,
+                    "api_key",
+                    key,
+                    ctx.cost_usd,
+                    self.window,
+                    now,
+                    self.max_principal_entries,
+                );
             }
 
             #[cfg(feature = "otel")]
@@ -420,15 +595,19 @@ impl BudgetLedger for InMemoryBudgetLedger {
     fn check<'a>(&'a self, ctx: &'a CostCheckContext<'a>) -> Pin<Box<dyn Future<Output = BudgetVerdict> + Send + 'a>> {
         Box::pin(async move {
             let now = ctx.timestamp;
+            // ~keep load_full (owned Arc) rather than load (thread-local Guard) because this
+            // ~keep async block must produce a Send future; an owned Arc<DimensionLimits> is
+            // ~keep unambiguously Send, avoiding any question about Guard's Send-ness here.
+            let limits = self.limits.load_full();
 
-            if let Some(limit) = self.limits.global {
+            if let Some(limit) = limits.global {
                 let spend = self.global.spend_usd(now);
                 if let Some(v) = Self::check_limit(spend, limit, BudgetDimension::Global, "global") {
                     return v;
                 }
             }
 
-            if let Some(&limit) = self.limits.per_model.get(ctx.model) {
+            if let Some(&limit) = limits.per_model.get(ctx.model) {
                 let spend = Self::entry_spend(&self.per_model, ctx.model, now);
                 if let Some(v) = Self::check_limit(
                     spend,
@@ -441,7 +620,7 @@ impl BudgetLedger for InMemoryBudgetLedger {
             }
 
             if let Some(tenant) = ctx.tenant_id
-                && let Some(&limit) = self.limits.per_tenant.get(tenant)
+                && let Some(&limit) = limits.per_tenant.get(tenant)
             {
                 let spend = Self::entry_spend(&self.per_tenant, tenant, now);
                 if let Some(v) = Self::check_limit(
@@ -455,7 +634,7 @@ impl BudgetLedger for InMemoryBudgetLedger {
             }
 
             if let Some(user) = ctx.user_id
-                && let Some(&limit) = self.limits.per_user.get(user)
+                && let Some(&limit) = limits.per_user.get(user)
             {
                 let spend = Self::entry_spend(&self.per_user, user, now);
                 if let Some(v) = Self::check_limit(
@@ -469,7 +648,7 @@ impl BudgetLedger for InMemoryBudgetLedger {
             }
 
             if let Some(key) = ctx.api_key_id
-                && let Some(&limit) = self.limits.per_api_key.get(key)
+                && let Some(&limit) = limits.per_api_key.get(key)
             {
                 let spend = Self::entry_spend(&self.per_api_key, key, now);
                 if let Some(v) = Self::check_limit(
@@ -488,6 +667,7 @@ impl BudgetLedger for InMemoryBudgetLedger {
 
     fn snapshot(&self) -> BudgetSnapshot {
         let now = SystemTime::now();
+        let limits = self.limits.load();
 
         let global_spend_usd = self.global.spend_usd(now);
 
@@ -521,10 +701,10 @@ impl BudgetLedger for InMemoryBudgetLedger {
             per_tenant,
             per_user,
             per_api_key,
-            limit_global: self.limits.global,
-            limits_per_user: self.limits.per_user.clone(),
-            limits_per_api_key: self.limits.per_api_key.clone(),
-            limits_per_tenant: self.limits.per_tenant.clone(),
+            limit_global: limits.global,
+            limits_per_user: limits.per_user.clone(),
+            limits_per_api_key: limits.per_api_key.clone(),
+            limits_per_tenant: limits.per_tenant.clone(),
         }
     }
 }
@@ -607,6 +787,229 @@ pub fn should_hedge<L: BudgetLedger>(
     }
 
     true
+}
+
+/// Derive the OpenTelemetry GenAI `gen_ai.system` provider prefix from a
+/// model identifier (e.g. `"openai"` from `"openai/gpt-4o"`), matching the
+/// convention [`crate::tower::tracing::TracingService`] uses. Returns `""`
+/// when the model has no `<provider>/` prefix.
+pub(crate) fn provider_of(model: &str) -> &str {
+    model.split_once('/').map_or("", |(prefix, _)| prefix)
+}
+
+/// Extract the end-user identifier from a `Chat`/`ChatStream`/`Embed`
+/// request's `user` field.
+///
+/// Returns `None` for request kinds that carry no `user` field (image,
+/// audio, moderation, etc.) or when the field is unset.
+pub(crate) fn user_id_of(req: &LlmRequest) -> Option<&str> {
+    match &req.kind {
+        LlmRequestKind::Chat(r) | LlmRequestKind::ChatStream(r) => r.user.as_deref(),
+        LlmRequestKind::Embed(r) => r.user.as_deref(),
+        _ => None,
+    }
+}
+
+/// Tower [`Layer`] that enforces and records spend via a pluggable
+/// [`BudgetLedger`], adding per-tenant / per-user / per-API-key budget
+/// dimensions on top of what [`BudgetLayer`] provides.
+///
+/// # Why this layer exists
+///
+/// [`BudgetLedger`] (and its default [`InMemoryBudgetLedger`] implementation)
+/// is a fully-built, independently tested trait for multi-dimensional spend
+/// tracking — but nothing in the Tower stack ever constructed a `Service`
+/// around it: [`BudgetLayer`] only ever touches the simpler [`BudgetState`]
+/// atomic counters, which track just the global and per-model dimensions.
+/// `BudgetLedgerLayer` is the missing wiring. Compose it alongside (or
+/// instead of) [`BudgetLayer`] to get tenant/user-scoped enforcement and
+/// recording.
+///
+/// # Context extraction
+///
+/// - `model` / `provider` come from [`LlmRequest::model`] (`provider` is the
+///   `<provider>/` prefix, see [`provider_of`]).
+/// - `tenant_id` comes from [`LlmRequest::tenant_id`].
+/// - `user_id` comes from the `user` field on `Chat`/`ChatStream`/`Embed`
+///   requests (see [`user_id_of`]).
+/// - `api_key_id` is always `None` — [`LlmRequest`] does not currently carry
+///   an API-key identifier anywhere in its public surface. This dimension is
+///   therefore inert (never checked, never recorded) until a caller extends
+///   `LlmRequest` (or a wrapping layer) with one.
+///
+/// # Streaming
+///
+/// Like [`BudgetLayer`], the pre-flight check applies uniformly to every
+/// request kind. Post-response recording uses
+/// [`observe_stream_usage`][crate::tower::cost::observe_stream_usage] so
+/// `ChatStream` responses are recorded once the stream completes instead of
+/// being silently skipped — recording happens on a spawned task since
+/// [`BudgetLedger::record`] is async but the stream's completion callback is
+/// synchronous.
+#[cfg_attr(alef, alef(skip))]
+pub struct BudgetLedgerLayer<L: BudgetLedger> {
+    ledger: Arc<L>,
+    enforcement: Enforcement,
+}
+
+impl<L: BudgetLedger> BudgetLedgerLayer<L> {
+    /// Create a new layer backed by `ledger`.
+    // ~keep Redundant with the `alef(skip)` on the type itself: alef does not propagate a
+    // ~keep type-level skip to that type's impl blocks, so it still reports this generic
+    // ~keep constructor as an unrepresentable public item and fails generation outright.
+    #[cfg_attr(alef, alef(skip))]
+    #[must_use]
+    pub fn new(ledger: Arc<L>, enforcement: Enforcement) -> Self {
+        Self { ledger, enforcement }
+    }
+}
+
+impl<L: BudgetLedger, S> Layer<S> for BudgetLedgerLayer<L> {
+    type Service = BudgetLedgerService<L, S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        BudgetLedgerService {
+            inner,
+            ledger: Arc::clone(&self.ledger),
+            enforcement: self.enforcement,
+        }
+    }
+}
+
+/// Tower service produced by [`BudgetLedgerLayer`].
+#[cfg_attr(alef, alef(skip))]
+pub struct BudgetLedgerService<L: BudgetLedger, S> {
+    inner: S,
+    ledger: Arc<L>,
+    enforcement: Enforcement,
+}
+
+impl<L: BudgetLedger, S: Clone> Clone for BudgetLedgerService<L, S> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            ledger: Arc::clone(&self.ledger),
+            enforcement: self.enforcement,
+        }
+    }
+}
+
+impl<L, S> Service<LlmRequest> for BudgetLedgerService<L, S>
+where
+    L: BudgetLedger,
+    S: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = LlmResponse;
+    type Error = LiterLlmError;
+    type Future = BoxFuture<'static, Result<LlmResponse>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, req: LlmRequest) -> Self::Future {
+        let model = req.model().unwrap_or("unknown").to_owned();
+        let provider = provider_of(&model).to_owned();
+        let tenant_id = req.tenant_id().map(|t| t.as_ref().to_owned());
+        let user_id = user_id_of(&req).map(str::to_owned);
+        let ledger = Arc::clone(&self.ledger);
+        let enforcement = self.enforcement;
+
+        // ~keep The pre-flight check is async (ledger-backed), so it must run inside the returned future,
+        // ~keep before `inner.call(req)`. Consume the polled-ready instance and leave a fresh standby clone,
+        // ~keep matching the Tower contract other layers in this crate follow (e.g. CacheService, HedgeService).
+        let standby = self.inner.clone();
+        let mut inner = std::mem::replace(&mut self.inner, standby);
+
+        Box::pin(async move {
+            let check_ctx = CostCheckContext {
+                model: &model,
+                provider: &provider,
+                tenant_id: tenant_id.as_deref(),
+                user_id: user_id.as_deref(),
+                api_key_id: None,
+                timestamp: SystemTime::now(),
+            };
+
+            if enforcement == Enforcement::Hard
+                && let BudgetVerdict::Reject { reason, dimension } = ledger.check(&check_ctx).await
+            {
+                let model_field = match &dimension {
+                    BudgetDimension::Model(m) => Some(m.clone()),
+                    _ => None,
+                };
+                return Err(LiterLlmError::BudgetExceeded {
+                    message: reason,
+                    model: model_field,
+                });
+            }
+
+            let resp = inner.call(req).await?;
+
+            match resp {
+                LlmResponse::ChatStream(stream) => {
+                    let ledger_for_completion = Arc::clone(&ledger);
+                    let model_c = model.clone();
+                    let provider_c = provider.clone();
+                    let tenant_c = tenant_id.clone();
+                    let user_c = user_id.clone();
+                    let wrapped = observe_stream_usage(stream, move |usage| {
+                        let Some(usage) = usage else { return };
+                        let Some(usd) = cost::completion_cost(&model_c, usage.prompt_tokens, usage.completion_tokens)
+                        else {
+                            return;
+                        };
+                        // ~keep BudgetLedger::record is async but this callback runs synchronously inside
+                        // ~keep poll_next; spawn so recording never blocks the caller draining the stream.
+                        // ~keep Guard against "no current runtime" if the stream is drained outside Tokio (matches
+                        // ~keep the tokio::runtime::Handle::try_current() convention used by hooks.rs's CancellationGuard).
+                        let record = async move {
+                            let ctx = CostRecordContext {
+                                model: &model_c,
+                                provider: &provider_c,
+                                tenant_id: tenant_c.as_deref(),
+                                user_id: user_c.as_deref(),
+                                api_key_id: None,
+                                cost_usd: usd,
+                                tokens_in: usage.prompt_tokens,
+                                tokens_out: usage.completion_tokens,
+                                timestamp: SystemTime::now(),
+                            };
+                            ledger_for_completion.record(&ctx).await;
+                        };
+                        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                            handle.spawn(record);
+                        } else {
+                            tracing::warn!(
+                                "budget ledger: no Tokio runtime available to record streamed usage; spend was not recorded"
+                            );
+                        }
+                    });
+                    Ok(LlmResponse::ChatStream(wrapped))
+                }
+                other => {
+                    if let Some(usage) = other.usage()
+                        && let Some(usd) = cost::completion_cost(&model, usage.prompt_tokens, usage.completion_tokens)
+                    {
+                        let ctx = CostRecordContext {
+                            model: &model,
+                            provider: &provider,
+                            tenant_id: tenant_id.as_deref(),
+                            user_id: user_id.as_deref(),
+                            api_key_id: None,
+                            cost_usd: usd,
+                            tokens_in: usage.prompt_tokens,
+                            tokens_out: usage.completion_tokens,
+                            timestamp: SystemTime::now(),
+                        };
+                        ledger.record(&ctx).await;
+                    }
+                    Ok(other)
+                }
+            }
+        })
+    }
 }
 
 /// How budget limits are enforced.
@@ -793,18 +1196,49 @@ where
         Box::pin(async move {
             let resp = fut.await?;
 
-            if let Some(usage) = resp.usage()
-                && let Some(usd) = cost::completion_cost(&model, usage.prompt_tokens, usage.completion_tokens)
-            {
-                state.record(&model, usd);
-
-                if config.enforcement == Enforcement::Soft {
-                    emit_soft_warnings(&config, &state, &model);
+            match resp {
+                // ~keep LlmResponse::usage() always returns None for ChatStream (usage isn't known until the
+                // ~keep stream completes), so recording must happen in the stream's completion callback instead.
+                LlmResponse::ChatStream(stream) => {
+                    let model_for_completion = model.clone();
+                    let state_for_completion = Arc::clone(&state);
+                    let config_for_completion = config.clone();
+                    let wrapped = observe_stream_usage(stream, move |usage| {
+                        record_usage(
+                            &config_for_completion,
+                            &state_for_completion,
+                            &model_for_completion,
+                            usage.as_ref(),
+                        );
+                    });
+                    Ok(LlmResponse::ChatStream(wrapped))
+                }
+                other => {
+                    record_usage(&config, &state, &model, other.usage());
+                    Ok(other)
                 }
             }
-
-            Ok(resp)
         })
+    }
+}
+
+/// Compute the cost of `usage` and record it against `state`, emitting soft
+/// enforcement warnings if configured. No-op when `usage` is `None` or the
+/// model has no pricing data.
+///
+/// Shared by the non-streaming response path (usage known immediately) and
+/// the `ChatStream` completion callback (usage only known once the stream is
+/// fully consumed).
+fn record_usage(config: &BudgetConfig, state: &BudgetState, model: &str, usage: Option<&Usage>) {
+    let Some(usage) = usage else { return };
+    let Some(usd) = cost::completion_cost(model, usage.prompt_tokens, usage.completion_tokens) else {
+        return;
+    };
+
+    state.record(model, usd);
+
+    if config.enforcement == Enforcement::Soft {
+        emit_soft_warnings(config, state, model);
     }
 }
 
@@ -1162,6 +1596,347 @@ mod tests {
         assert!((snap.per_api_key["key-2"] - 0.20).abs() < 1e-9);
     }
 
+    /// `per_user` is keyed by the request's free-text, attacker-controlled
+    /// `user` field, so without a cap a caller grows the map without bound
+    /// simply by varying that field per request. This pins the cap: recording
+    /// spend for far more distinct users than the configured cap must never
+    /// let `per_user` grow past it.
+    #[tokio::test]
+    async fn budget_ledger_per_user_map_is_bounded_by_max_principal_entries() {
+        const CAP: usize = 8;
+        let ledger = InMemoryBudgetLedger::new(DimensionLimits::default(), Duration::from_secs(3600))
+            .with_max_principal_entries(CAP);
+
+        for i in 0..CAP * 10 {
+            let user = format!("user-{i}");
+            ledger
+                .record(&CostRecordContext {
+                    model: "gpt-4",
+                    provider: "openai",
+                    tenant_id: None,
+                    user_id: Some(&user),
+                    api_key_id: None,
+                    cost_usd: 0.01,
+                    tokens_in: 10,
+                    tokens_out: 5,
+                    timestamp: SystemTime::now(),
+                })
+                .await;
+        }
+
+        let len = ledger.per_user.len();
+        assert!(
+            len <= CAP,
+            "per_user must stay within its cap; held {len} entries with a cap of {CAP}"
+        );
+    }
+
+    /// Same regression as above, but for `per_api_key` — the other
+    /// caller-supplied, unbounded-cardinality dimension.
+    #[tokio::test]
+    async fn budget_ledger_per_api_key_map_is_bounded_by_max_principal_entries() {
+        const CAP: usize = 8;
+        let ledger = InMemoryBudgetLedger::new(DimensionLimits::default(), Duration::from_secs(3600))
+            .with_max_principal_entries(CAP);
+
+        for i in 0..CAP * 10 {
+            let key = format!("key-{i}");
+            ledger
+                .record(&CostRecordContext {
+                    model: "gpt-4",
+                    provider: "openai",
+                    tenant_id: None,
+                    user_id: None,
+                    api_key_id: Some(&key),
+                    cost_usd: 0.01,
+                    tokens_in: 10,
+                    tokens_out: 5,
+                    timestamp: SystemTime::now(),
+                })
+                .await;
+        }
+
+        let len = ledger.per_api_key.len();
+        assert!(
+            len <= CAP,
+            "per_api_key must stay within its cap; held {len} entries with a cap of {CAP}"
+        );
+    }
+
+    /// Zero-spend entries carry no enforcement value, so reaching the cap
+    /// must first reclaim them before declining to track a new principal —
+    /// the same "reclaim before giving up" shape as
+    /// `ClassifierVerdictCache::put_cached`, but keyed on recorded spend
+    /// rather than TTL expiry.
+    #[tokio::test]
+    async fn budget_ledger_cap_reclaims_zero_spend_entries_before_declining_new_principals() {
+        const CAP: usize = 4;
+        let ledger = InMemoryBudgetLedger::new(DimensionLimits::default(), Duration::from_secs(3600))
+            .with_max_principal_entries(CAP);
+
+        for i in 0..CAP {
+            let user = format!("zero-spend-{i}");
+            ledger
+                .record(&CostRecordContext {
+                    model: "gpt-4",
+                    provider: "openai",
+                    tenant_id: None,
+                    user_id: Some(&user),
+                    api_key_id: None,
+                    cost_usd: 0.0,
+                    tokens_in: 0,
+                    tokens_out: 0,
+                    timestamp: SystemTime::now(),
+                })
+                .await;
+        }
+        assert_eq!(ledger.per_user.len(), CAP, "setup should fill the ledger to its cap");
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("real-spender"),
+                api_key_id: None,
+                cost_usd: 5.0,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+
+        assert_eq!(
+            ledger.per_user.len(),
+            1,
+            "the zero-spend entries must be reclaimed, leaving only the new spender"
+        );
+        assert!((ledger.snapshot().per_user["real-spender"] - 5.0).abs() < 1e-9);
+    }
+
+    /// The core safety property this cap must uphold: filling the ledger to
+    /// capacity with unrelated new principals must never reset (via eviction)
+    /// a principal's already-recorded, non-zero spend. If it did, the
+    /// bounded-memory fix would itself become a budget-bypass — a caller
+    /// could spend heavily, get displaced by cardinality pressure from other
+    /// keys, and come back with a silently fresh budget.
+    #[tokio::test]
+    async fn budget_ledger_cap_never_resets_an_existing_principals_spend() {
+        const CAP: usize = 4;
+        let ledger = InMemoryBudgetLedger::new(DimensionLimits::default(), Duration::from_secs(3600))
+            .with_max_principal_entries(CAP);
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                cost_usd: 42.0,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!((ledger.snapshot().per_user["alice"] - 42.0).abs() < 1e-9);
+
+        // Flood with far more distinct, non-zero-spend principals than the cap allows.
+        for i in 0..CAP * 10 {
+            let user = format!("flood-{i}");
+            ledger
+                .record(&CostRecordContext {
+                    model: "gpt-4",
+                    provider: "openai",
+                    tenant_id: None,
+                    user_id: Some(&user),
+                    api_key_id: None,
+                    cost_usd: 1.0,
+                    tokens_in: 10,
+                    tokens_out: 5,
+                    timestamp: SystemTime::now(),
+                })
+                .await;
+        }
+
+        let spend_after_flood = ledger.snapshot().per_user.get("alice").copied();
+        assert!(
+            matches!(spend_after_flood, Some(v) if (v - 42.0).abs() < 1e-9),
+            "alice's already-recorded spend must survive cap pressure from other principals, got {spend_after_flood:?}"
+        );
+
+        // An already-tracked principal must keep accumulating spend even while
+        // the ledger sits at capacity -- the cap must gate only new principals.
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                cost_usd: 8.0,
+                tokens_in: 10,
+                tokens_out: 5,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!(
+            (ledger.snapshot().per_user["alice"] - 50.0).abs() < 1e-9,
+            "an already-tracked principal must keep accumulating spend once the ledger is at capacity"
+        );
+    }
+
+    /// Regression for the reset-on-reload bug: `update_limits` must swap only
+    /// the caps, not the accumulated spend. Before the fix, the only way to
+    /// change limits was to rebuild the whole ledger, which zeroed every
+    /// `DashMap` entry along with it — this test fails against that
+    /// rebuild-the-ledger behaviour because the post-update spend would read
+    /// back as 0.0 instead of the pre-update amount.
+    #[tokio::test]
+    async fn update_limits_preserves_accumulated_spend() {
+        let mut limits = DimensionLimits::default();
+        limits.per_user.insert("alice".to_owned(), 100.0);
+        let ledger = InMemoryBudgetLedger::new(limits, Duration::from_secs(3600));
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                cost_usd: 7.50,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!((ledger.snapshot().per_user["alice"] - 7.50).abs() < 1e-9);
+
+        let mut new_limits = DimensionLimits::default();
+        new_limits.per_user.insert("alice".to_owned(), 200.0);
+        ledger.update_limits(new_limits);
+
+        let snap = ledger.snapshot();
+        assert!(
+            (snap.per_user["alice"] - 7.50).abs() < 1e-9,
+            "spend must survive update_limits, got {}",
+            snap.per_user["alice"]
+        );
+        assert_eq!(snap.limits_per_user.get("alice"), Some(&200.0));
+
+        let verdict = ledger
+            .check(&CostCheckContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!(
+            matches!(verdict, BudgetVerdict::Allow),
+            "spend $7.50 is well under the new $200 limit, expected Allow, got {verdict:?}"
+        );
+    }
+
+    /// Lowering a limit below already-accumulated spend must reject the very
+    /// next request rather than silently forgiving the existing spend — the
+    /// opposite failure mode (forgiving spend) is the reset-on-reload bug in
+    /// disguise.
+    #[tokio::test]
+    async fn update_limits_lowering_below_spend_rejects_immediately() {
+        let mut limits = DimensionLimits::default();
+        limits.per_user.insert("alice".to_owned(), 100.0);
+        let ledger = InMemoryBudgetLedger::new(limits, Duration::from_secs(3600));
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                cost_usd: 5.0,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+
+        let mut lowered = DimensionLimits::default();
+        lowered.per_user.insert("alice".to_owned(), 1.0);
+        ledger.update_limits(lowered);
+
+        let verdict = ledger
+            .check(&CostCheckContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: None,
+                user_id: Some("alice"),
+                api_key_id: None,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        match verdict {
+            BudgetVerdict::Reject { dimension, .. } => {
+                assert!(matches!(dimension, BudgetDimension::User(ref u) if u == "alice"));
+            }
+            BudgetVerdict::Allow => panic!("lowering the limit below existing spend must reject, got Allow"),
+        }
+    }
+
+    /// A tenant dropped from the limits map on reload must keep its spend
+    /// history: enforcement lifts (no configured cap means no rejection) but
+    /// the `DashMap` window entry is retained, so re-adding the same tenant
+    /// later does not silently reset it to zero.
+    #[tokio::test]
+    async fn update_limits_retains_spend_for_removed_tenant() {
+        let mut limits = DimensionLimits::default();
+        limits.per_tenant.insert("acme".to_owned(), 10.0);
+        let ledger = InMemoryBudgetLedger::new(limits, Duration::from_secs(3600));
+
+        ledger
+            .record(&CostRecordContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: Some("acme"),
+                user_id: None,
+                api_key_id: None,
+                cost_usd: 3.0,
+                tokens_in: 100,
+                tokens_out: 50,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+
+        // ~keep "acme" is absent from the new limits map entirely, simulating removal from config.
+        ledger.update_limits(DimensionLimits::default());
+
+        let verdict = ledger
+            .check(&CostCheckContext {
+                model: "gpt-4",
+                provider: "openai",
+                tenant_id: Some("acme"),
+                user_id: None,
+                api_key_id: None,
+                timestamp: SystemTime::now(),
+            })
+            .await;
+        assert!(
+            matches!(verdict, BudgetVerdict::Allow),
+            "no configured limit means no enforcement, expected Allow, got {verdict:?}"
+        );
+
+        let snap = ledger.snapshot();
+        assert!(
+            (snap.per_tenant["acme"] - 3.0).abs() < 1e-9,
+            "spend history for a removed tenant must be retained, got {:?}",
+            snap.per_tenant.get("acme")
+        );
+    }
+
     #[tokio::test]
     async fn budget_ledger_rejects_when_user_limit_exceeded() {
         let mut limits = DimensionLimits::default();
@@ -1451,6 +2226,186 @@ mod tests {
         assert!(
             result,
             "hedging should be allowed when user spend + 2×cost is well below 90% of budget"
+        );
+    }
+
+    /// A minimal inner `Service` that returns a `ChatStream` response carrying
+    /// usage on its final chunk, so `BudgetService`'s streaming-accounting path
+    /// can be exercised without pulling in the full `LlmClient` mock surface.
+    #[derive(Clone)]
+    struct StreamingUsageService {
+        prompt_tokens: u64,
+        completion_tokens: u64,
+    }
+
+    fn usage_chunk(model: &str, usage: Option<Usage>) -> crate::types::ChatCompletionChunk {
+        crate::types::ChatCompletionChunk {
+            id: "chunk".into(),
+            object: "chat.completion.chunk".into(),
+            created: 0,
+            model: model.into(),
+            choices: vec![],
+            usage,
+            system_fingerprint: None,
+            service_tier: None,
+        }
+    }
+
+    struct ChunkStream(std::collections::VecDeque<crate::types::ChatCompletionChunk>);
+
+    impl futures_core::Stream for ChunkStream {
+        type Item = Result<crate::types::ChatCompletionChunk>;
+        fn poll_next(
+            mut self: std::pin::Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Option<Self::Item>> {
+            std::task::Poll::Ready(self.0.pop_front().map(Ok))
+        }
+    }
+
+    impl tower::Service<LlmRequest> for StreamingUsageService {
+        type Response = LlmResponse;
+        type Error = LiterLlmError;
+        type Future = BoxFuture<'static, Result<LlmResponse>>;
+
+        fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<()>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, req: LlmRequest) -> Self::Future {
+            let model = req.model().unwrap_or("gpt-4").to_owned();
+            let usage = Usage {
+                prompt_tokens: self.prompt_tokens,
+                completion_tokens: self.completion_tokens,
+                total_tokens: self.prompt_tokens + self.completion_tokens,
+                prompt_tokens_details: None,
+            };
+            Box::pin(async move {
+                let chunks =
+                    std::collections::VecDeque::from([usage_chunk(&model, None), usage_chunk(&model, Some(usage))]);
+                let stream: crate::client::BoxStream<'static, Result<crate::types::ChatCompletionChunk>> =
+                    Box::pin(ChunkStream(chunks));
+                Ok(LlmResponse::ChatStream(stream))
+            })
+        }
+    }
+
+    /// Regression for the "streaming bypasses budget accounting" bug:
+    /// `LlmResponse::usage()` always returns `None` for `ChatStream`, so a
+    /// naive post-response check (`resp.usage()`) never sees the tokens a
+    /// streamed call actually consumed, and `BudgetState` is never updated —
+    /// a caller could stream unlimited tokens through a budget-limited
+    /// endpoint at zero recorded cost.
+    #[tokio::test]
+    async fn budget_service_records_cost_for_streamed_response() {
+        use futures_util::StreamExt as _;
+
+        let state = Arc::new(BudgetState::new());
+        let config = BudgetConfig {
+            global_limit: Some(1000.0),
+            enforcement: Enforcement::Hard,
+            ..Default::default()
+        };
+        let layer = BudgetLayer::new(config, Arc::clone(&state));
+        let mut svc = layer.layer(StreamingUsageService {
+            prompt_tokens: 1000,
+            completion_tokens: 500,
+        });
+
+        let resp = svc
+            .call(LlmRequest::ChatStream(chat_req("gpt-4")))
+            .await
+            .expect("streamed call should succeed");
+        let LlmResponse::ChatStream(mut stream) = resp else {
+            panic!("expected a ChatStream response");
+        };
+
+        // Drain the stream fully so the completion callback (which records cost) fires.
+        while stream.next().await.is_some() {}
+
+        assert!(
+            state.global_spend() > 0.0,
+            "cost of a streamed response must be recorded in global spend"
+        );
+        assert!(
+            state.model_spend("gpt-4") > 0.0,
+            "cost of a streamed response must be recorded per-model"
+        );
+    }
+
+    /// Spend must still be recorded when the caller abandons the stream.
+    ///
+    /// Accounting is settle-only, and settlement used to happen exclusively in
+    /// the stream's terminal poll — so a client that started a stream and
+    /// dropped it consumed real provider tokens (the whole completion is
+    /// generated and buffered before the caller sees a byte) while the ledger
+    /// stayed at zero.  Repeating that in a loop is unmetered usage.
+    #[tokio::test]
+    async fn abandoned_stream_still_records_spend() {
+        use futures_util::StreamExt as _;
+
+        let state = Arc::new(BudgetState::new());
+        let config = BudgetConfig {
+            global_limit: Some(1000.0),
+            enforcement: Enforcement::Hard,
+            ..Default::default()
+        };
+        let layer = BudgetLayer::new(config, Arc::clone(&state));
+        let mut svc = layer.layer(StreamingUsageService {
+            prompt_tokens: 1000,
+            completion_tokens: 500,
+        });
+
+        let resp = svc
+            .call(LlmRequest::ChatStream(chat_req("gpt-4")))
+            .await
+            .expect("streamed call should succeed");
+        let LlmResponse::ChatStream(mut stream) = resp else {
+            panic!("expected a ChatStream response");
+        };
+
+        // ~keep Take one chunk and walk away — the usage-bearing final chunk is never polled.
+        let _ = stream.next().await;
+        drop(stream);
+
+        assert!(
+            state.global_spend() > 0.0,
+            "spend must be recorded even though the stream was dropped before it ended"
+        );
+        assert!(
+            state.model_spend("gpt-4") > 0.0,
+            "per-model spend must be recorded for an abandoned stream"
+        );
+    }
+
+    /// Dropping without polling at all must also settle.
+    #[tokio::test]
+    async fn stream_dropped_without_a_single_poll_records_spend() {
+        let state = Arc::new(BudgetState::new());
+        let config = BudgetConfig {
+            global_limit: Some(1000.0),
+            enforcement: Enforcement::Hard,
+            ..Default::default()
+        };
+        let layer = BudgetLayer::new(config, Arc::clone(&state));
+        let mut svc = layer.layer(StreamingUsageService {
+            prompt_tokens: 1000,
+            completion_tokens: 500,
+        });
+
+        let resp = svc
+            .call(LlmRequest::ChatStream(chat_req("gpt-4")))
+            .await
+            .expect("streamed call should succeed");
+        let LlmResponse::ChatStream(stream) = resp else {
+            panic!("expected a ChatStream response");
+        };
+
+        drop(stream);
+
+        assert!(
+            state.global_spend() > 0.0,
+            "spend must be recorded for a stream that was never polled"
         );
     }
 }

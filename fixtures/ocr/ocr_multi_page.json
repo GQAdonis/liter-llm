@@ -1,6 +1,11 @@
 {
   "id": "ocr_multi_page",
   "description": "OCR request returning multiple pages of document content",
+  "docs": {
+    "topic": "ocr",
+    "stem": "ocr-multi-page",
+    "title": "OCR request returning multiple pages of document content"
+  },
   "category": "ocr",
   "tags": ["ocr", "edge-case"],
   "call": "ocr",

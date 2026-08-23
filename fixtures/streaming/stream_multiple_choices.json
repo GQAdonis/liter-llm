@@ -1,6 +1,11 @@
 {
   "id": "stream_multiple_choices",
   "description": "Streaming chat completion with multiple choice outputs (n > 1)",
+  "docs": {
+    "topic": "streaming",
+    "stem": "stream-multiple-choices",
+    "title": "Streaming chat completion with multiple choice outputs (n > 1)"
+  },
   "category": "streaming",
   "tags": ["streaming", "edge-case"],
   "call": "chat_stream",

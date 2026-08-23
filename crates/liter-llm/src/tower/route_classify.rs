@@ -513,6 +513,7 @@ struct VerdictEntry {
 pub struct ClassifierVerdictCache<C> {
     inner: C,
     ttl: Duration,
+    max_entries: usize,
     /// `key → VerdictEntry` under an RwLock for concurrent access.
     cache: Arc<RwLock<HashMap<u64, VerdictEntry>>>,
 }
@@ -520,6 +521,14 @@ pub struct ClassifierVerdictCache<C> {
 impl<C: RouteClassifier> ClassifierVerdictCache<C> {
     /// Default cache TTL (1 hour).
     pub const DEFAULT_TTL: Duration = Duration::from_secs(3600);
+
+    /// Default cap on cached verdicts.
+    ///
+    /// The key is a hash of free-text prompt content, so without a cap the
+    /// entry count is bounded only by how many distinct prompts the process
+    /// ever sees — and expiry alone does not reclaim anything, because a stale
+    /// entry is skipped on read but left in the map. ~keep
+    pub const DEFAULT_MAX_ENTRIES: usize = 4096;
 
     /// Wrap a classifier with the default 1-hour TTL.
     pub fn new(inner: C) -> Self {
@@ -531,8 +540,16 @@ impl<C: RouteClassifier> ClassifierVerdictCache<C> {
         Self {
             inner,
             ttl,
+            max_entries: Self::DEFAULT_MAX_ENTRIES,
             cache: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Override the cap on cached verdicts.
+    #[must_use]
+    pub fn with_max_entries(mut self, max_entries: usize) -> Self {
+        self.max_entries = max_entries.max(1);
+        self
     }
 
     /// Compute the cache key for a classify context.
@@ -553,9 +570,27 @@ impl<C: RouteClassifier> ClassifierVerdictCache<C> {
         Some(entry.model.clone())
     }
 
-    /// Store a verdict in the cache.
+    /// Store a verdict in the cache, evicting first if it is at capacity.
     fn put_cached(&self, key: u64, model: String) {
         if let Ok(mut cache) = self.cache.write() {
+            if cache.len() >= self.max_entries {
+                // ~keep Expired entries are otherwise never reclaimed: get_cached skips a
+                // ~keep stale entry but leaves it in the map, so a long-running process
+                // ~keep accumulates one entry per distinct prompt forever. Drop them before
+                // ~keep treating the cap as genuinely reached.
+                cache.retain(|_, entry| entry.inserted_at.elapsed() <= self.ttl);
+            }
+
+            if cache.len() >= self.max_entries {
+                // ~keep Same degradation as the metrics attribute caches: an unbounded
+                // ~keep key-cardinality source costs cache misses, not unbounded memory.
+                tracing::warn!(
+                    cap = self.max_entries,
+                    "classifier verdict cache reached its cap; evicting all cached verdicts"
+                );
+                cache.clear();
+            }
+
             cache.insert(
                 key,
                 VerdictEntry {
@@ -705,6 +740,7 @@ mod tests {
                                 reasoning_content: None,
                             },
                             finish_reason: Some(FinishReason::Stop),
+                            logprobs: None,
                         }],
                         usage: Some(Usage {
                             prompt_tokens: 10,
@@ -1098,6 +1134,88 @@ mod tests {
         let r2 = cached.classify(&ctx2).await;
         assert_eq!(r2, Some("gpt-4o".into()));
         assert_eq!(call_count.load(Ordering::SeqCst), 1, "inner should not be called again");
+    }
+
+    /// The cache is keyed by a hash of free-text prompt content, so its entry
+    /// count was bounded only by how many distinct prompts the process ever
+    /// saw.  Expiry did not help: a stale entry is skipped on read but left in
+    /// the map, so nothing was ever reclaimed — a long-running proxy with
+    /// semantic routing enabled grew one entry per unique prompt, forever.
+    #[tokio::test]
+    async fn classifier_verdict_cache_is_bounded_by_max_entries() {
+        const CAP: usize = 8;
+
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let inner = CountingClassifier {
+            model: "gpt-4o".into(),
+            call_count: Arc::clone(&call_count),
+        };
+        let cached = ClassifierVerdictCache::new(inner).with_max_entries(CAP);
+
+        let meta = empty_meta();
+        let avail = models(&["gpt-4o"]);
+
+        for i in 0..CAP * 10 {
+            let prompt = format!("distinct prompt {i}");
+            let ctx = ClassifyContext {
+                prompt: &prompt,
+                system_prompt: None,
+                metadata: &meta,
+                available_models: &avail,
+            };
+            assert_eq!(cached.classify(&ctx).await, Some("gpt-4o".into()));
+        }
+
+        let len = cached.cache.read().expect("lock").len();
+        assert!(
+            len <= CAP,
+            "cache must stay within its cap; held {len} entries with a cap of {CAP}"
+        );
+    }
+
+    /// Reaching the cap must first reclaim entries that are merely stale,
+    /// rather than immediately discarding live ones.
+    #[tokio::test]
+    async fn classifier_verdict_cache_reclaims_expired_entries_before_clearing() {
+        const CAP: usize = 4;
+
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let inner = CountingClassifier {
+            model: "gpt-4o".into(),
+            call_count: Arc::clone(&call_count),
+        };
+        let cached = ClassifierVerdictCache::with_ttl(inner, Duration::from_millis(10)).with_max_entries(CAP);
+
+        let meta = empty_meta();
+        let avail = models(&["gpt-4o"]);
+
+        for i in 0..CAP {
+            let prompt = format!("stale {i}");
+            let ctx = ClassifyContext {
+                prompt: &prompt,
+                system_prompt: None,
+                metadata: &meta,
+                available_models: &avail,
+            };
+            cached.classify(&ctx).await;
+        }
+        assert_eq!(cached.cache.read().expect("lock").len(), CAP);
+
+        tokio::time::sleep(Duration::from_millis(30)).await;
+
+        let ctx = ClassifyContext {
+            prompt: "fresh",
+            system_prompt: None,
+            metadata: &meta,
+            available_models: &avail,
+        };
+        cached.classify(&ctx).await;
+
+        assert_eq!(
+            cached.cache.read().expect("lock").len(),
+            1,
+            "the four expired entries must be reclaimed, leaving only the fresh one"
+        );
     }
 
     #[tokio::test]

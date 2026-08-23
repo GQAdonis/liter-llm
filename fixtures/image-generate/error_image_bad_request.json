@@ -1,6 +1,11 @@
 {
   "id": "error_image_bad_request",
   "description": "400 Bad Request when image generation parameters are invalid",
+  "docs": {
+    "topic": "image-generate",
+    "stem": "error-image-bad-request",
+    "title": "400 Bad Request when image generation parameters are invalid"
+  },
   "category": "image-generate",
   "tags": ["error-handling", "image"],
   "call": "image_generate",

@@ -1,6 +1,11 @@
 {
   "id": "smoke_speech_mp3_format",
   "description": "Text-to-speech with explicit MP3 response format",
+  "docs": {
+    "topic": "speech",
+    "stem": "smoke-speech-mp3-format",
+    "title": "Text-to-speech with explicit MP3 response format"
+  },
   "category": "speech",
   "tags": ["smoke", "speech"],
   "call": "speech",

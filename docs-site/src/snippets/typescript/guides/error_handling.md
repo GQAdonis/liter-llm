@@ -1,3 +1,12 @@
+---
+id: legacy_typescript_guides_error_handling
+language: typescript
+target: typescript
+level: syntax
+requires: []
+side_effect: network
+---
+
 <!-- snippet:compile-only -->
 
 ```typescript

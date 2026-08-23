@@ -70,6 +70,7 @@ fn make_chat_response(model: &str) -> ChatCompletionResponse {
                 reasoning_content: None,
             },
             finish_reason: Some(FinishReason::Stop),
+            logprobs: None,
         }],
         usage: Some(Usage {
             prompt_tokens: 5,
@@ -395,6 +396,7 @@ async fn semantic_hit_records_semantic_hit() {
         VectorMetadata {
             cache_key: sentinel_key,
             original_request_body: sentinel_body.into(),
+            image_url: None,
             tenant_id: None,
             inserted_at: SystemTime::now(),
             extra: HashMap::new(),

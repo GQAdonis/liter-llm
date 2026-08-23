@@ -85,9 +85,30 @@ const IDEM_HASH_SEED_3: u64 = 0x315f_6c6c_6d00_0000;
 fn idem_random_state() -> &'static ahash::RandomState {
     use std::sync::OnceLock;
     static STATE: OnceLock<ahash::RandomState> = OnceLock::new();
+    // ~keep `with_seeds`, not `generate_with`: the latter folds a per-process random
+    // ~keep component into the seeds, so the digest was stable only WITHIN one process
+    // ~keep (the OnceLock hid it). Every restart and every replica produced a different
+    // ~keep hash for the same body — which silently breaks the distributed-store use
+    // ~keep case documented above, turning a repeat request into a spurious conflict.
     STATE.get_or_init(|| {
-        ahash::RandomState::generate_with(IDEM_HASH_SEED_0, IDEM_HASH_SEED_1, IDEM_HASH_SEED_2, IDEM_HASH_SEED_3)
+        ahash::RandomState::with_seeds(IDEM_HASH_SEED_0, IDEM_HASH_SEED_1, IDEM_HASH_SEED_2, IDEM_HASH_SEED_3)
     })
+}
+
+/// Upper bound on the serialised-body prefix embedded in a body hash.
+const BODY_HASH_PREFIX_BYTES: usize = 64;
+
+/// Largest index `<= max_bytes` that is a UTF-8 character boundary in `s`.
+///
+/// `str` slicing panics when an index lands inside a multi-byte character, and
+/// `serde_json` emits non-ASCII text raw rather than `\u`-escaped, so a plain
+/// non-English prompt puts one across a fixed byte offset. ~keep
+fn char_boundary_at_or_before(s: &str, max_bytes: usize) -> usize {
+    let mut cut = s.len().min(max_bytes);
+    while cut > 0 && !s.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    cut
 }
 
 /// Compute a stable body hash for the request.
@@ -109,7 +130,8 @@ fn compute_body_hash(request: &LlmRequest) -> Option<String> {
 
     let h = idem_random_state().hash_one(&json);
     // ~keep Embed a JSON prefix so hash collisions cause conflicts, not silent corruption.
-    Some(format!("{h:016x}:{}", &json[..json.len().min(64)]))
+    let cut = char_boundary_at_or_before(&json, BODY_HASH_PREFIX_BYTES);
+    Some(format!("{h:016x}:{}", &json[..cut]))
 }
 
 /// An entry in the idempotency store.
@@ -205,23 +227,108 @@ pub trait IdempotencyStore: Send + Sync + 'static {
 /// In-memory idempotency store backed by a [`DashMap`].
 ///
 /// Per-entry TTLs are checked lazily on every `get` call; there is no
-/// background expiry task.
+/// background expiry task, so `try_insert` additionally reclaims room once
+/// the store reaches its capacity (see `Self::DEFAULT_MAX_ENTRIES` and the
+/// `with_max_entries` builder).
 ///
 /// # Concurrency
 ///
 /// `DashMap` provides lock-striped concurrent access.  `try_insert` uses an
 /// atomic `entry()` operation to guarantee that exactly one concurrent caller
 /// wins the insertion race.
-#[derive(Default)]
 pub struct InMemoryIdempotencyStore {
     map: DashMap<String, IdempotencyEntry>,
+    max_entries: usize,
+}
+
+impl Default for InMemoryIdempotencyStore {
+    fn default() -> Self {
+        Self {
+            map: DashMap::new(),
+            max_entries: Self::DEFAULT_MAX_ENTRIES,
+        }
+    }
 }
 
 impl InMemoryIdempotencyStore {
+    /// Default cap on stored idempotency entries.
+    ///
+    /// The key is a tenant-prefixed, CLIENT-SUPPLIED `Idempotency-Key` header,
+    /// so without a cap a client sending unique keys grows the store without
+    /// bound for the full TTL (24h by default) — expiry is only checked lazily
+    /// on `get`, so nothing is reclaimed unless something is looked up again.
+    /// Matches the cap used by the other unbounded-key-cardinality caches in
+    /// this crate (`ClassifierVerdictCache`, the metrics attribute caches). ~keep
+    pub const DEFAULT_MAX_ENTRIES: usize = 4096;
+
     /// Create a new empty store.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Override the cap on stored idempotency entries.
+    #[must_use]
+    pub fn with_max_entries(mut self, max_entries: usize) -> Self {
+        self.max_entries = max_entries.max(1);
+        self
+    }
+
+    /// Reclaim room for a new entry once the store is at capacity.
+    ///
+    /// First drops entries whose TTL has elapsed. Only if that is
+    /// insufficient does it evict further — and even then, only entries that
+    /// are both unexpired AND already finalised (`response.is_some()`).
+    ///
+    /// CRITICAL: an unexpired entry with `response: None` is a placeholder
+    /// backing a request that is still in flight (see
+    /// [`IdempotencyInFlightGuard`]); evicting it would let a second caller
+    /// with the same key miss the in-flight check and re-run the request
+    /// against upstream, turning a correct dedup into a duplicate call. This
+    /// method never removes such an entry — only `is_expired()` entries and
+    /// entries with a stored `response` are eviction candidates. ~keep
+    fn make_room(&self) {
+        if self.map.len() < self.max_entries {
+            return;
+        }
+
+        // ~keep Reclaim genuinely expired entries first; placeholders are included
+        // ~keep here too, but only once their own TTL has elapsed, which is the
+        // ~keep existing (correct) bound on how long an in-flight request may block.
+        self.map.retain(|_, entry| !entry.is_expired());
+
+        if self.map.len() < self.max_entries {
+            return;
+        }
+
+        // ~keep Oldest-first, not DashMap iteration order: evicting a finalised entry
+        // ~keep means a client retrying that key re-runs the request upstream, so the
+        // ~keep entry closest to expiring is the one whose loss costs least.
+        let mut candidates: Vec<(Instant, String)> = self
+            .map
+            .iter()
+            .filter(|entry| entry.response.is_some())
+            .map(|entry| (entry.inserted_at, entry.key().clone()))
+            .collect();
+        candidates.sort_unstable_by_key(|(inserted_at, _)| *inserted_at);
+
+        let mut evicted = 0usize;
+        for (_, key) in candidates {
+            if self.map.len() < self.max_entries {
+                break;
+            }
+            if self.map.remove(&key).is_some() {
+                evicted += 1;
+            }
+        }
+
+        if evicted > 0 {
+            tracing::warn!(
+                cap = self.max_entries,
+                evicted,
+                "idempotency store reached its cap; evicted completed entries early"
+            );
+        }
     }
 }
 
@@ -244,6 +351,11 @@ impl IdempotencyStore for InMemoryIdempotencyStore {
         ttl: Duration,
     ) -> Pin<Box<dyn Future<Output = Result<bool, IdempotencyStoreError>> + Send + 'a>> {
         use dashmap::mapref::entry::Entry;
+
+        // ~keep Reclaim room, if any is needed, before taking the shard lock via
+        // ~keep entry() below — a Vacant match here is exactly the case that grows
+        // ~keep the map by one entry.
+        self.make_room();
 
         let inserted = match self.map.entry(key.to_owned()) {
             Entry::Vacant(slot) => {
@@ -358,6 +470,81 @@ impl<I: Clone, S: IdempotencyStore> Clone for IdempotencyService<I, S> {
     }
 }
 
+/// RAII guard that releases an in-flight idempotency placeholder if the
+/// writer's future is dropped (cancelled) before it finalises the entry via
+/// `store_response` or `remove`.
+///
+/// # Why this exists
+///
+/// `try_insert` writes a placeholder entry (`response: None`) that blocks
+/// every other caller with the same key behind `IdempotencyInFlight` until
+/// either the writer finalises it or the full TTL (24h by default) elapses.
+/// Before this guard, a cancelled writer future — client disconnect, a
+/// request timeout, an aborted hedge loser (see
+/// [`crate::tower::hedge::HedgeService`]), or any other future drop — never
+/// reached the `store_response`/`remove` call, leaving the placeholder stuck
+/// for the full TTL. Every other caller with that key would receive
+/// `IdempotencyInFlight` for up to 24 hours even though no request was
+/// actually still running.
+///
+/// The guard is created immediately after this caller wins the insertion
+/// race and is disarmed only after the entry has actually been finalised
+/// (success, failure, or non-cacheable response), so it also cleans up a
+/// cancellation that happens mid-finalisation.
+struct IdempotencyInFlightGuard<S: IdempotencyStore> {
+    store: Arc<S>,
+    key: String,
+    disarmed: bool,
+}
+
+impl<S: IdempotencyStore> IdempotencyInFlightGuard<S> {
+    fn new(store: Arc<S>, key: String) -> Self {
+        Self {
+            store,
+            key,
+            disarmed: false,
+        }
+    }
+
+    /// Prevent the guard from removing the entry on drop.
+    ///
+    /// Call this only after the entry has been finalised (via
+    /// `store_response` or `remove`) so a genuine cancellation between
+    /// insertion and finalisation is still caught.
+    fn disarm(&mut self) {
+        self.disarmed = true;
+    }
+}
+
+impl<S: IdempotencyStore> Drop for IdempotencyInFlightGuard<S> {
+    fn drop(&mut self) {
+        if self.disarmed {
+            return;
+        }
+
+        let store = Arc::clone(&self.store);
+        let key = std::mem::take(&mut self.key);
+
+        // ~keep IdempotencyStore::remove is async; Drop is sync, so spawn a best-effort cleanup task —
+        // ~keep same tokio::runtime::Handle::try_current() convention as hooks.rs's CancellationGuard.
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                if let Err(e) = store.remove(&key).await {
+                    tracing::warn!(
+                        error = %e,
+                        "idempotency: failed to release in-flight entry after cancellation"
+                    );
+                }
+            });
+        } else {
+            tracing::warn!(
+                "idempotency: no Tokio runtime available to release in-flight entry after cancellation; \
+                 entry will remain blocked until its TTL expires"
+            );
+        }
+    }
+}
+
 impl<I, S> Service<LlmRequest> for IdempotencyService<I, S>
 where
     I: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError> + Clone + Send + 'static,
@@ -420,6 +607,11 @@ where
                 return Err(LiterLlmError::IdempotencyInFlight { key: raw_key.clone() });
             }
 
+            // ~keep This caller is the writer from this point on; guard against the future being
+            // ~keep dropped (cancelled) before the entry below is finalised, so a stuck IdempotencyInFlight
+            // ~keep placeholder never survives past this call — see IdempotencyInFlightGuard's docs.
+            let mut guard = IdempotencyInFlightGuard::new(Arc::clone(&store), key.clone());
+
             let result = inner.call(request).await;
 
             match &result {
@@ -431,15 +623,26 @@ where
                         _ => None,
                     };
                     if let Some(cached_resp) = cached {
-                        let _ = store.store_response(&key, cached_resp).await;
-                    } else {
-                        let _ = store.remove(&key).await;
+                        if let Err(error) = store.store_response(&key, cached_resp).await {
+                            // ~keep The caller still gets its real response either way; a failed
+                            // ~keep write only means the idempotency guarantee is lost for the next
+                            // ~keep caller with this key, which must not fail silently.
+                            tracing::warn!(
+                                %error,
+                                "idempotency: failed to persist response; duplicate requests with this key may re-run"
+                            );
+                        }
+                    } else if let Err(error) = store.remove(&key).await {
+                        tracing::warn!(%error, "idempotency: failed to remove non-cacheable placeholder entry");
                     }
                 }
                 Err(_) => {
-                    let _ = store.remove(&key).await;
+                    if let Err(error) = store.remove(&key).await {
+                        tracing::warn!(%error, "idempotency: failed to remove placeholder entry after inner failure");
+                    }
                 }
             }
+            guard.disarm();
 
             result
         })
@@ -475,6 +678,24 @@ mod tests {
     use super::*;
     use crate::error::LiterLlmError;
     use crate::tower::service::LlmService;
+
+    /// The body hash is documented as safe for distributed stores, which requires
+    /// every process and replica to agree on it. A `OnceLock` makes any seeding
+    /// strategy look stable within one process, so the only way to detect a
+    /// per-process random component is to build two states independently and
+    /// compare — `generate_with` fails this, `with_seeds` passes.
+    #[test]
+    fn body_hash_seeding_is_identical_across_independent_constructions() {
+        let build =
+            || ahash::RandomState::with_seeds(IDEM_HASH_SEED_0, IDEM_HASH_SEED_1, IDEM_HASH_SEED_2, IDEM_HASH_SEED_3);
+
+        assert_eq!(
+            build().hash_one("the-same-body"),
+            build().hash_one("the-same-body"),
+            "two independently constructed states must agree, or the hash is only stable \
+             within a single process and cannot back a shared idempotency store"
+        );
+    }
     use crate::tower::tests_common::{MockClient, chat_req};
     use crate::tower::types::{LlmRequest, LlmResponse};
 
@@ -532,6 +753,148 @@ mod tests {
 
         let entry = store.get("k4").await.unwrap().expect("entry must exist");
         assert!(entry.response.is_some(), "response must be populated");
+    }
+
+    /// The store's key is a tenant-prefixed, CLIENT-SUPPLIED `Idempotency-Key`
+    /// header, with expiry checked lazily only on `get` — nothing sweeps stale
+    /// entries in the background. Before `make_room`, a client sending unique
+    /// keys grew the map without bound for the full 24h default TTL. Each
+    /// insertion here is immediately finalised via `store_response` (as the
+    /// real `IdempotencyService` does once the inner call returns), so every
+    /// prior entry is a legitimate eviction candidate; this drives insertions
+    /// well past the cap and asserts the map never exceeds it.
+    #[tokio::test]
+    async fn store_try_insert_is_bounded_by_max_entries() {
+        const CAP: usize = 8;
+        let store = InMemoryIdempotencyStore::new().with_max_entries(CAP);
+
+        for i in 0..CAP * 10 {
+            let key = format!("key-{i}");
+            store.try_insert(&key, "hash", Duration::from_secs(60)).await.unwrap();
+            let resp = CachedResponse::Chat(crate::tower::tests_common::make_chat_response("gpt-4"));
+            store.store_response(&key, resp).await.unwrap();
+        }
+
+        assert!(
+            store.map.len() <= CAP,
+            "store must stay within its cap; held {} entries with a cap of {CAP}",
+            store.map.len()
+        );
+    }
+
+    /// Evicting a finalised entry makes a client retrying that key re-run the
+    /// request upstream — a duplicate LLM call and a duplicate charge. So when
+    /// eviction is unavoidable, it must fall on the entry closest to expiring,
+    /// not on whichever key `DashMap` happens to yield first. Pins oldest-first
+    /// ordering: the newest entry must outlive the oldest.
+    #[tokio::test]
+    async fn store_make_room_evicts_the_oldest_finalised_entry_first() {
+        const CAP: usize = 4;
+        let store = InMemoryIdempotencyStore::new().with_max_entries(CAP);
+
+        for i in 0..CAP {
+            let key = format!("aged-{i}");
+            store.try_insert(&key, "hash", Duration::from_secs(60)).await.unwrap();
+            let resp = CachedResponse::Chat(crate::tower::tests_common::make_chat_response("gpt-4"));
+            store.store_response(&key, resp).await.unwrap();
+            // ~keep Instant has coarse resolution on some platforms; separate the
+            // ~keep insertions so the ordering under test is actually observable.
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+
+        store
+            .try_insert("newcomer", "hash", Duration::from_secs(60))
+            .await
+            .unwrap();
+
+        assert!(
+            store.get("aged-0").await.unwrap().is_none(),
+            "the oldest finalised entry must be the one evicted"
+        );
+        assert!(
+            store.get(&format!("aged-{}", CAP - 1)).await.unwrap().is_some(),
+            "the newest finalised entry must survive while an older one is available to evict"
+        );
+    }
+
+    /// Reaching the cap must first reclaim entries that are merely stale
+    /// rather than immediately discarding entries that are still within TTL.
+    #[tokio::test]
+    async fn store_make_room_reclaims_expired_entries_before_evicting_live_ones() {
+        const CAP: usize = 4;
+        let store = InMemoryIdempotencyStore::new().with_max_entries(CAP);
+
+        for i in 0..CAP {
+            let key = format!("stale-{i}");
+            store.try_insert(&key, "hash", Duration::from_nanos(1)).await.unwrap();
+        }
+        assert_eq!(store.map.len(), CAP);
+
+        tokio::time::sleep(Duration::from_millis(5)).await;
+
+        store
+            .try_insert("fresh", "hash", Duration::from_secs(60))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            store.map.len(),
+            1,
+            "the expired entries must be reclaimed, leaving only the fresh one"
+        );
+        assert!(
+            store.get("fresh").await.unwrap().is_some(),
+            "the fresh entry must survive"
+        );
+    }
+
+    /// CRITICAL regression: an unexpired entry with `response: None` is a
+    /// placeholder backing a request that is still in flight
+    /// ([`IdempotencyInFlightGuard`]). If `make_room` ever evicted it to make
+    /// space, a second caller with the same key would miss the in-flight
+    /// check and re-run the request against upstream — turning a correct
+    /// dedup into a duplicate upstream call. This test fills the store with
+    /// unexpired, unfinalised placeholders up to the cap, then forces another
+    /// insertion past the cap, and asserts every placeholder is still present
+    /// with `response` still `None`.
+    #[tokio::test]
+    async fn store_make_room_never_evicts_an_unexpired_in_flight_placeholder() {
+        const CAP: usize = 4;
+        let store = InMemoryIdempotencyStore::new().with_max_entries(CAP);
+
+        for i in 0..CAP {
+            let key = format!("in-flight-{i}");
+            let inserted = store.try_insert(&key, "hash", Duration::from_secs(60)).await.unwrap();
+            assert!(inserted, "placeholder {i} must be inserted");
+        }
+
+        // ~keep Force another insertion attempt at the cap; make_room runs but must
+        // ~keep find no evictable candidate since every entry is an unexpired placeholder.
+        store
+            .try_insert("in-flight-extra", "hash", Duration::from_secs(60))
+            .await
+            .unwrap();
+
+        for i in 0..CAP {
+            let key = format!("in-flight-{i}");
+            let entry = store
+                .get(&key)
+                .await
+                .unwrap()
+                .unwrap_or_else(|| panic!("in-flight placeholder {key} must not be evicted"));
+            assert!(
+                entry.response.is_none(),
+                "placeholder {key} must remain unfinalised, not silently dropped and re-inserted"
+            );
+        }
+
+        // ~keep The store exceeds its cap here by exactly the placeholders it correctly
+        // ~keep refused to evict; that is the documented trade-off (correctness over a
+        // ~keep strict cap) — see make_room's doc comment.
+        assert!(
+            store.map.len() > CAP,
+            "extra placeholder only fits by exceeding the cap"
+        );
     }
 
     #[tokio::test]
@@ -714,6 +1077,48 @@ mod tests {
         }
     }
 
+    /// `compute_body_hash` embeds a byte-bounded prefix of the serialised body.
+    /// `serde_json` emits non-ASCII text raw rather than `\u`-escaped, so a
+    /// request whose payload puts a multi-byte character across the cut point
+    /// used to panic on the string slice — a reachable panic in the request
+    /// path, reached by an ordinary non-English prompt.  Sweeping the leading
+    /// padding walks the character across the boundary whatever the exact
+    /// serialised layout is; the `straddled` guard fails the test if a future
+    /// layout change means no case exercises the boundary any more.
+    #[test]
+    fn body_hash_survives_multibyte_char_on_prefix_boundary() {
+        use crate::types::common::{Message, UserMessage};
+
+        let mut straddled = false;
+
+        for pad in 0..BODY_HASH_PREFIX_BYTES {
+            let mut chat = chat_req("gpt-4");
+            chat.messages = vec![Message::User(UserMessage {
+                content: format!("{}🌍 доброе утро", "a".repeat(pad)).into(),
+                name: None,
+            })];
+
+            let request = LlmRequest::Chat(chat);
+            let json = serde_json::to_string(&request.kind).expect("request must serialise");
+            if json.len() > BODY_HASH_PREFIX_BYTES && !json.is_char_boundary(BODY_HASH_PREFIX_BYTES) {
+                straddled = true;
+            }
+
+            let hash = compute_body_hash(&request).unwrap_or_else(|| panic!("hash must be Some (pad={pad})"));
+
+            assert!(
+                hash.contains(':'),
+                "hash must keep the `<digest>:<prefix>` shape (pad={pad}), got {hash}"
+            );
+        }
+
+        assert!(
+            straddled,
+            "no padding put a multi-byte character across byte {BODY_HASH_PREFIX_BYTES} — \
+             the serialised layout changed and this test no longer covers the panic"
+        );
+    }
+
     /// Two requests with the same idempotency key but different tenant IDs must
     /// not share the same cached response.  Before the fix, the store key was
     /// the raw idempotency key with no tenant prefix, so tenant B could observe
@@ -772,6 +1177,102 @@ mod tests {
             call_count_b.load(Ordering::SeqCst),
             1,
             "inner NOT called on tenant B repeat"
+        );
+    }
+
+    /// Regression for "idempotency key stuck in-flight for 24h if the request
+    /// is cancelled": before `IdempotencyInFlightGuard` existed, aborting the
+    /// writer's future (client disconnect, timeout, hedge-loser cancellation,
+    /// ...) while it awaited `inner.call()` left the placeholder entry
+    /// (`response: None`) in the store. Every subsequent caller with the same
+    /// key would receive `IdempotencyInFlight` for the full TTL — 24h by
+    /// default — even though no request was actually still running.
+    ///
+    /// This test aborts the writer's task mid-flight, then polls a second
+    /// caller with the same key: it must eventually stop seeing
+    /// `IdempotencyInFlight` and succeed, proving the guard released the
+    /// placeholder instead of leaving it stuck for the TTL.
+    #[tokio::test]
+    async fn cancelled_writer_releases_in_flight_placeholder() {
+        use std::sync::atomic::AtomicUsize;
+
+        /// First call pends forever (to be aborted); every later call
+        /// succeeds immediately, so a released placeholder is observable
+        /// without the test itself hanging.
+        #[derive(Clone)]
+        struct PendingThenOkService {
+            call_count: Arc<AtomicUsize>,
+        }
+
+        impl tower::Service<LlmRequest> for PendingThenOkService {
+            type Response = LlmResponse;
+            type Error = LiterLlmError;
+            type Future = crate::client::BoxFuture<'static, crate::error::Result<LlmResponse>>;
+
+            fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> std::task::Poll<crate::error::Result<()>> {
+                std::task::Poll::Ready(Ok(()))
+            }
+
+            fn call(&mut self, _req: LlmRequest) -> Self::Future {
+                let attempt = self.call_count.fetch_add(1, Ordering::SeqCst);
+                Box::pin(async move {
+                    if attempt == 0 {
+                        std::future::pending::<()>().await;
+                        unreachable!("first attempt must be aborted before completing");
+                    }
+                    Ok(LlmResponse::Chat(crate::tower::tests_common::make_chat_response(
+                        "gpt-4",
+                    )))
+                })
+            }
+        }
+
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let inner_client = PendingThenOkService {
+            call_count: Arc::clone(&call_count),
+        };
+        let layer = IdempotencyLayer::with_ttl(InMemoryIdempotencyStore::new(), Duration::from_secs(24 * 60 * 60));
+        let svc = layer.layer(inner_client);
+
+        let mut svc_for_writer = svc.clone();
+        let handle = tokio::spawn(async move {
+            let _ = svc_for_writer.call(req_with_key("gpt-4", "cancel-key")).await;
+        });
+
+        // Wait until the writer has won try_insert and is parked inside inner.call().
+        for _ in 0..200 {
+            if call_count.load(Ordering::SeqCst) >= 1 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+        assert_eq!(
+            call_count.load(Ordering::SeqCst),
+            1,
+            "writer must have reached inner.call before it is aborted"
+        );
+
+        handle.abort();
+        let _ = handle.await;
+
+        let mut svc2 = svc;
+        let mut released = false;
+        for _ in 0..200 {
+            match svc2.call(req_with_key("gpt-4", "cancel-key")).await {
+                Err(LiterLlmError::IdempotencyInFlight { .. }) => {
+                    tokio::time::sleep(Duration::from_millis(2)).await;
+                }
+                Ok(_) => {
+                    released = true;
+                    break;
+                }
+                Err(other) => panic!("unexpected error while polling for release: {other:?}"),
+            }
+        }
+
+        assert!(
+            released,
+            "cancelled writer must release the in-flight placeholder, not block callers for the full TTL"
         );
     }
 }

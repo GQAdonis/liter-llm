@@ -1,3 +1,14 @@
+---
+id: readme_elixir_streaming
+language: elixir
+target: elixir
+level: syntax
+requires: []
+side_effect: network
+---
+
+Stream tokens in real time.
+
 ```elixir
 {:ok, client} = LiterLlm.create_client(System.get_env("OPENAI_API_KEY"))
 

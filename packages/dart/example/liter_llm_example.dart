@@ -1,4 +1,4 @@
-import 'package:liter_llm' as liter_llm;
+import 'package:liter_llm/liter_llm.dart' as liter_llm;
 
 void main() {
   print('Example: liter_llm loaded successfully');

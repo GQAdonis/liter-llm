@@ -1,6 +1,11 @@
 {
   "id": "response_format_json_schema",
   "description": "Chat request with response_format json_schema that validates the output structure",
+  "docs": {
+    "topic": "chat",
+    "stem": "response-format-json-schema",
+    "title": "Chat request with response_format json_schema that validates the output structure"
+  },
   "category": "chat",
   "tags": ["chat"],
   "call": "chat",

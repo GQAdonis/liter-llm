@@ -2,6 +2,7 @@ pub mod auth;
 pub mod config;
 pub mod error;
 pub mod file_store;
+pub mod guardrail;
 pub mod mcp;
 pub mod openapi;
 pub mod provider;
@@ -11,6 +12,7 @@ pub mod service_pool;
 pub mod shutdown;
 pub mod state;
 pub mod streaming;
+pub mod tenant_limit;
 
 #[cfg(test)]
 #[ctor::ctor(unsafe)]
@@ -119,8 +121,19 @@ impl ProxyServer {
             lp::set_outbound_policy(policy);
         }
 
-        let service_pool = service_pool::ServicePool::from_config(&self.config, self.usage_sink.clone())?;
-        let key_store = auth::KeyStore::from_config(self.config.general.master_key.clone(), &self.config.keys);
+        // ~keep `service_pool` and `key_store` are built as `Arc`s up front (rather
+        // ~keep than at `AppState` construction below) so the same instances can be
+        // ~keep handed to the config watcher, which hot-reloads both on every valid
+        // ~keep config change: `key_store` revokes/rotates keys, `service_pool`
+        // ~keep refreshes per-key rpm/tpm/budget limits (see issue #69).
+        let service_pool = Arc::new(service_pool::ServicePool::from_config(
+            &self.config,
+            self.usage_sink.clone(),
+        )?);
+        let key_store = Arc::new(auth::KeyStore::from_config(
+            self.config.general.master_key.clone(),
+            &self.config.keys,
+        ));
         let file_store = file_store::FileStore::from_config(self.config.files.as_ref().unwrap_or(&Default::default()))?;
 
         let arc_config = Arc::new(ArcSwap::from(Arc::new(self.config)));
@@ -134,14 +147,28 @@ impl ProxyServer {
             WatchMode::Off => {}
             WatchMode::File { path } => {
                 let provider = Arc::new(config::FileWatchConfigProvider::new(path));
-                config::watcher::spawn_watcher(provider, Arc::clone(&arc_config), cancel.clone()).await;
+                config::watcher::spawn_watcher(
+                    provider,
+                    Arc::clone(&arc_config),
+                    Arc::clone(&key_store),
+                    Arc::clone(&service_pool),
+                    cancel.clone(),
+                )
+                .await;
             }
             #[cfg(feature = "etcd-watch")]
             WatchMode::Etcd { endpoints, key } => {
                 let provider = config::EtcdConfigProvider::connect(endpoints, key)
                     .await
                     .map_err(|e| format!("etcd connect failed: {e}"))?;
-                config::watcher::spawn_watcher(Arc::new(provider), Arc::clone(&arc_config), cancel.clone()).await;
+                config::watcher::spawn_watcher(
+                    Arc::new(provider),
+                    Arc::clone(&arc_config),
+                    Arc::clone(&key_store),
+                    Arc::clone(&service_pool),
+                    cancel.clone(),
+                )
+                .await;
             }
         }
 
@@ -162,15 +189,21 @@ impl ProxyServer {
                 .build(),
         );
 
-        let key_store = Arc::new(key_store);
         let key_resolver: Arc<dyn liter_llm::tenant::KeyResolver> = self
             .key_resolver_override
             .clone()
             .unwrap_or_else(|| key_store.clone() as Arc<dyn liter_llm::tenant::KeyResolver>);
+
+        // ~keep Read back from the pool rather than building a second registry: the
+        // ~keep realtime path and every model's unary Tower stack must enforce the
+        // ~keep same set, and sharing one Arc makes divergence unrepresentable.
+        let guardrails = service_pool.guardrails();
+
         let state = AppState {
             key_store,
             key_resolver,
-            service_pool: Arc::new(service_pool),
+            service_pool,
+            guardrails,
             file_store: Arc::new(file_store),
             config: arc_config,
             secret_registry,

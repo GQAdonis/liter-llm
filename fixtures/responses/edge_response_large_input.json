@@ -1,6 +1,11 @@
 {
   "id": "edge_response_large_input",
   "description": "Response created with a very large input text",
+  "docs": {
+    "topic": "responses",
+    "stem": "edge-response-large-input",
+    "title": "Response created with a very large input text"
+  },
   "category": "responses",
   "tags": ["edge-case", "responses"],
   "call": "create_response",

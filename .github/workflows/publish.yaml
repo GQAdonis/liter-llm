@@ -14,7 +14,7 @@ on:
       dry_run:
         description: "Dry run — build everything but skip registry publishes"
         required: false
-        default: "false"
+        default: false
         type: boolean
       force_republish:
         description: "Force publish even if the version already exists in registries"
@@ -36,8 +36,14 @@ on:
   repository_dispatch:
     types: [publish-release]
 
+# Keyed on the workflow alone, deliberately not on the tag: registries that resolve a
+# "newest" pointer by publish order rather than by version (npm dist-tags, Homebrew
+# formula HEAD, GitHub Release assets) are corrupted when two release runs overlap. The
+# v1.15.0 run stayed alive for 24h and published `@xberg-io/liter-llm-wasm@1.15.0` three
+# hours after the v1.16.0 run had published 1.16.0, leaving `latest` pinned to 1.15.0.
+# Releases must therefore run strictly one at a time. ~keep
 concurrency:
-  group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.tag)) || github.ref || github.run_id }}
+  group: ${{ github.workflow }}
   cancel-in-progress: false
 
 permissions:
@@ -71,7 +77,13 @@ jobs:
       release_csharp: ${{ steps.meta.outputs.release_csharp }}
       release_php: ${{ steps.meta.outputs.release_php }}
       release_homebrew: ${{ steps.meta.outputs.release_homebrew }}
-      release_kotlin: ${{ steps.meta.outputs.release_kotlin }}
+      # kotlin-android is deliberately OFF this pipeline, not merely absent from
+      # `available-targets` below: the generated SingleflightResult.kt calls
+      # LiterLlmBridge.nativeFreeSingleflightResult, which alef emits on neither the bridge
+      # nor the JNI side, so the AAR cannot build. The build/upload/publish jobs are kept
+      # intact and gated on this value. To re-enable, add `kotlin` back to
+      # `available-targets` and restore this to `steps.meta.outputs.release_kotlin`. ~keep
+      release_kotlin: "false"
       release_dart: ${{ steps.meta.outputs.release_dart }}
       release_zig: ${{ steps.meta.outputs.release_zig }}
       release_swift: ${{ steps.meta.outputs.release_swift }}
@@ -91,19 +103,24 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
 
+      # The App token has to go through the action's `token` INPUT, not the caller's `env`.
+      # retag-for-republish is a composite action whose own step sets
+      # `GH_TOKEN: ${{ inputs.token }}`, and a step-level env in a composite action overrides
+      # anything the caller set — so the App token here was silently discarded and the action
+      # fell back to its `github.token` default. GITHUB_TOKEN cannot write git refs, which is
+      # the HTTP 403 on `POST /git/refs` that made `republish: true` unusable. ~keep
       - name: Retag for republish
         if: ${{ inputs.republish == true || github.event.client_payload.republish == true }}
         uses: xberg-io/actions/retag-for-republish@v1
         with:
           tag: ${{ inputs.tag || github.event.client_payload.tag }}
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Extract release metadata
         id: meta
         uses: xberg-io/actions/prepare-release-metadata@v1
         with:
-          available-targets: "crates,python,node,wasm,ruby,go,java,elixir,csharp,php,homebrew,kotlin,dart,zig,swift"
+          available-targets: "crates,python,node,wasm,ruby,go,java,elixir,csharp,php,homebrew,dart,zig,swift"
 
       - name: Ensure GitHub Release exists for tag
         if: ${{ steps.meta.outputs.is_tag == 'true' && steps.meta.outputs.dry_run != 'true' }}
@@ -150,13 +167,13 @@ jobs:
             gem=packages/ruby/liter_llm.gemspec
             maven=packages/java/pom.xml
             mix=packages/elixir/mix.exs
-            csproj=packages/csharp/LiterLlm.csproj
+            csproj=packages/csharp/LiterLlm/LiterLlm.csproj
             composer=composer.json
 
   check-registries:
     name: Check registries
     needs: [prepare]
-    uses: xberg-io/actions/.github/workflows/reusable-check-registries.yml@main
+    uses: xberg-io/actions/.github/workflows/reusable-check-registries.yml@v1
     with:
       version: ${{ needs.prepare.outputs.version }}
       registries: >-
@@ -169,7 +186,7 @@ jobs:
           {"name": "maven", "registry": "maven", "package": "io.xberg.literllm:liter-llm"},
           {"name": "hex", "registry": "hex", "package": "liter_llm"},
           {"name": "packagist", "registry": "packagist", "package": "xberg-io/liter-llm"},
-          {"name": "nuget", "registry": "nuget", "package": "LiterLlm"},
+          {"name": "nuget", "registry": "nuget", "package": "XbergIo.LiterLlm"},
           {"name": "go", "registry": "github-release", "package": "liter-llm", "repo": "xberg-io/liter-llm", "asset-prefix": "liter-llm-go-v"}
         ]
 
@@ -421,8 +438,12 @@ jobs:
           - label: linux-arm64-gnu
             runner: ubuntu-24.04-arm
             napi_target: aarch64-unknown-linux-gnu
+          # ~keep Cross-compiled from the arm64 image on purpose: the Intel
+          # runners this used to target are being retired and now queue for
+          # hours, wedging the whole release. Apple ships both slices, so
+          # x86_64-apple-darwin builds natively here with no extra toolchain.
           - label: darwin-x64
-            runner: macos-13
+            runner: macos-latest
             napi_target: x86_64-apple-darwin
           - label: darwin-arm64
             runner: macos-latest
@@ -843,10 +864,32 @@ jobs:
             runner: macos-latest
             target: aarch64-apple-darwin
             rid: osx-arm64
+          # ~keep Cross-compiled from the arm64 image on purpose, mirroring
+          # build-node-native: Intel macOS runners queue for hours, and Apple
+          # ships both slices so x86_64-apple-darwin builds natively here with
+          # no extra toolchain. Without this leg, packages/go/.lib/ never gets
+          # a macos-x86_64 dir even though binding.go's cgo LDFLAGS reference
+          # it, and the LiterLlm.csproj RuntimeIdentifiers/runtime.json.template
+          # both declare osx-x64 support that was never actually built.
+          - label: macos-x86_64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            rid: osx-x64
           - label: windows-x86_64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
             rid: win-x64
+          # ~keep Cross-compiled from the x64 image on purpose: GitHub has no
+          # win-arm64 hosted runner, but MSVC's ARM64 cross-linker ships on
+          # windows-latest and build-node-native already proves this triple
+          # links cleanly here (win32-arm64-msvc napi target, same runner).
+          # Without this leg, LiterLlm.csproj's RuntimeIdentifiers and
+          # runtime.json.template both declare win-arm64 support that is
+          # never actually built.
+          - label: windows-arm64
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            rid: win-arm64
     steps:
       - uses: actions/checkout@v6
         with:
@@ -893,7 +936,9 @@ jobs:
             ["linux-x86_64"]="x86_64-unknown-linux-gnu"
             ["linux-aarch64"]="aarch64-unknown-linux-gnu"
             ["macos-arm64"]="aarch64-apple-darwin"
+            ["macos-x86_64"]="x86_64-apple-darwin"
             ["windows-x86_64"]="x86_64-pc-windows-msvc"
+            ["windows-arm64"]="aarch64-pc-windows-msvc"
           )
           TRIPLE="${triple_map[$LABEL]}"
           STAGE_DIR="liter_llm_ffi-v${VERSION}-${TRIPLE}"
@@ -992,6 +1037,11 @@ jobs:
       (needs.registry-results.outputs.nuget != 'true' || needs.prepare.outputs.force_republish == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # CSHARP_RIDS is declared once at job scope and consumed by both the staging
+    # loop and the per-RID pack loop. Keeping a single list is what stops the two
+    # from drifting into "natives staged for a RID that never gets packed".
+    env:
+      CSHARP_RIDS: linux-x64 linux-arm64 osx-arm64 osx-x64 win-x64 win-arm64
     steps:
       - uses: actions/checkout@v6
         with:
@@ -1003,7 +1053,7 @@ jobs:
           merge-multiple: true
       - name: Stage native libs for C#
         run: |
-          for rid in linux-x64 linux-arm64 osx-arm64 win-x64; do
+          for rid in ${CSHARP_RIDS}; do
             dest="packages/csharp/LiterLlm/runtimes/${rid}/native"
             mkdir -p "$dest"
             find "ffi-artifacts/${rid}" -type f -print0 | xargs -0 -I{} cp {} "$dest/"
@@ -1019,6 +1069,17 @@ jobs:
           version: ${{ needs.prepare.outputs.version }}
       - name: Pack NuGet package
         run: dotnet pack packages/csharp/LiterLlm/LiterLlm.csproj -c Release -o nuget-output
+        shell: bash
+      # The meta package ships no natives; its runtime.json RID-fallback graph
+      # resolves XbergIo.LiterLlm.runtime.<rid> instead. Without this loop those
+      # packages are never built, so every RID in the graph points at something
+      # that does not exist on nuget.org and the binding cannot load anywhere.
+      - name: Pack per-RID native runtime packages
+        run: |
+          for rid in ${CSHARP_RIDS}; do
+            dotnet pack packages/csharp/LiterLlm.Runtime/LiterLlm.Runtime.csproj \
+              -c Release -o nuget-output -p:PublishedRID="${rid}"
+          done
         shell: bash
       - uses: actions/upload-artifact@v7
         with:
@@ -1059,6 +1120,13 @@ jobs:
           esac
           cp "target/${RUST_TGT}/release/libliterllm_jni.so" \
              "packages/kotlin-android/src/main/jniLibs/${{ matrix.abi }}/"
+          # Each matrix job builds only its own ABI, but every ABI directory's
+          # .gitkeep is checked into git, so the sibling ABI's directory also
+          # exists after checkout with no .so in it. Drop it so
+          # validateJniLibsForRelease only checks the ABI staged in this job.
+          for abi_dir in packages/kotlin-android/src/main/jniLibs/*/; do
+            [ "$(basename "$abi_dir")" = "${{ matrix.abi }}" ] || rm -rf "$abi_dir"
+          done
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -1218,11 +1286,11 @@ jobs:
           for tarball in go-ffi-artifacts/*.tar.gz; do
             base=$(basename "$tarball" .tar.gz)
             case "$base" in
-              *-linux-x86_64)   lib_dir="linux-amd64"   ;;
-              *-linux-aarch64)  lib_dir="linux-arm64"   ;;
-              *-macos-arm64)    lib_dir="macos-arm64"   ;;
-              *-macos-x86_64)   lib_dir="macos-amd64"   ;;
-              *-windows-x86_64) lib_dir="windows-amd64" ;;
+              *-linux-x86_64)   lib_dir="linux-x86_64"   ;;
+              *-linux-aarch64)  lib_dir="linux-aarch64"  ;;
+              *-macos-arm64)    lib_dir="macos-arm64"    ;;
+              *-macos-x86_64)   lib_dir="macos-x86_64"   ;;
+              *-windows-x86_64) lib_dir="windows-x86_64" ;;
               *)
                 echo "WARNING: unknown platform suffix on '$base', skipping"
                 continue
@@ -1584,12 +1652,22 @@ jobs:
           package: "@xberg-io/liter-llm"
           version: ${{ needs.prepare.outputs.version }}
 
+      # The platform packages version in lockstep with the main package, so one
+      # resolution against @xberg-io/liter-llm governs the whole set. ~keep
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        uses: ./.github/actions/resolve-npm-dist-tag
+        with:
+          package: "@xberg-io/liter-llm"
+          version: ${{ needs.prepare.outputs.version }}
+          requested-tag: ${{ needs.prepare.outputs.npm_tag }}
+
       - name: Publish native binary packages
         if: ${{ needs.prepare.outputs.dry_run != 'true' && steps.recheck.outputs.exists != 'true' }}
         uses: xberg-io/actions/publish-npm@v1
         with:
           packages-dir: crates/liter-llm-node/npm
-          npm-tag: ${{ needs.prepare.outputs.npm_tag }}
+          npm-tag: ${{ steps.dist_tag.outputs.tag }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
 
       - name: Wait for npm indexing (x64)
@@ -1615,7 +1693,7 @@ jobs:
         uses: xberg-io/actions/publish-npm@v1
         with:
           package-dir: crates/liter-llm-node
-          npm-tag: ${{ needs.prepare.outputs.npm_tag }}
+          npm-tag: ${{ steps.dist_tag.outputs.tag }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           provenance: "true"
 
@@ -1647,6 +1725,13 @@ jobs:
       id-token: write
     timeout-minutes: 30
     steps:
+      # Needed only so `./.github/actions/resolve-npm-dist-tag` resolves; the package
+      # itself is published from the downloaded `dist` artifact. ~keep
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
       - name: Download WASM artifact
         uses: actions/download-artifact@v7
         with:
@@ -1671,12 +1756,20 @@ jobs:
         if: ${{ needs.prepare.outputs.dry_run == 'true' }}
         run: (echo "Dry run requested; WASM tarball staged:" && find dist -type f -print) >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        uses: ./.github/actions/resolve-npm-dist-tag
+        with:
+          package: "@xberg-io/liter-llm-wasm"
+          version: ${{ needs.prepare.outputs.version }}
+          requested-tag: ${{ needs.prepare.outputs.npm_tag }}
+
       - name: Publish to npm
         if: ${{ needs.prepare.outputs.dry_run != 'true' && steps.npm_check.outputs.exists != 'true' }}
         uses: xberg-io/actions/publish-npm@v1
         with:
           package-dir: dist
-          npm-tag: ${{ needs.prepare.outputs.npm_tag }}
+          npm-tag: ${{ steps.dist_tag.outputs.tag }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           provenance: "true"
 
@@ -2537,6 +2630,19 @@ jobs:
           draft: "false"
           token: ${{ steps.app-token.outputs.token }}
 
+  verify-binstall:
+    name: Verify cargo-binstall install
+    needs: [prepare, upload-cli-binaries]
+    if: ${{ needs.prepare.outputs.release_homebrew == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.upload-cli-binaries.result == 'success' }}
+    uses: xberg-io/actions/.github/workflows/reusable-binstall-verify.yml@v1
+    with:
+      package-name: liter-llm-cli
+      binary-name: liter-llm
+      manifest-path: crates/liter-llm-cli
+      checkout-ref: ${{ needs.prepare.outputs.checkout_ref }}
+      smoke-command: |
+        liter-llm --version
+
   check-homebrew:
     name: Check Homebrew tap for formula
     needs: [prepare]
@@ -2750,6 +2856,7 @@ jobs:
       - trigger-pubdev
       - publish-zig
       - upload-swift-release
+      - verify-binstall
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -2765,8 +2872,11 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
+      # Only ever un-draft a release that actually shipped. v1.17.1 finalized green with
+      # zero assets and not one registry published, because this step ran unconditionally
+      # under the job's `always()`. Skipped targets are fine here; failures are not. ~keep
       - name: Finalize release
-        if: needs.prepare.outputs.dry_run != 'true'
+        if: ${{ needs.prepare.outputs.dry_run != 'true' && !contains(needs.*.result, 'failure') }}
         uses: xberg-io/actions/finalize-release@v1
         with:
           tag: ${{ needs.prepare.outputs.tag }}
@@ -2808,6 +2918,17 @@ jobs:
             report "Homebrew"    "${{ needs.publish-homebrew-bottles.result }}"
             report "Swift"       "${{ needs.upload-swift-release.result }}"
           } >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
+
+      # Runs after the summary table so a failed release still reports which targets
+      # shipped, then fails the job so the run cannot be mistaken for a good release. ~keep
+      - name: Hold release as draft
+        if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.*.result, 'failure') }}
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          echo "::error::One or more publish jobs failed; leaving ${TAG} as a draft release."
+          exit 1
         shell: bash
 
   announce-discord:
@@ -2884,12 +3005,19 @@ jobs:
           registry: npm
           package: "@xberg-io/liter-llm-cli"
           version: ${{ needs.prepare.outputs.version }}
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        uses: ./.github/actions/resolve-npm-dist-tag
+        with:
+          package: "@xberg-io/liter-llm-cli"
+          version: ${{ needs.prepare.outputs.version }}
+          requested-tag: ${{ needs.prepare.outputs.npm_tag }}
       - name: Publish CLI proxy package
         if: ${{ steps.recheck.outputs.exists != 'true' }}
         uses: xberg-io/actions/publish-npm@v1
         with:
           package-dir: cli-proxy/npm
-          npm-tag: ${{ needs.prepare.outputs.npm_tag }}
+          npm-tag: ${{ steps.dist_tag.outputs.tag }}
           access: public
           provenance: "true"
 
@@ -2934,12 +3062,19 @@ jobs:
           else
             echo "skip=false" >>"$GITHUB_OUTPUT"
           fi
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        uses: ./.github/actions/resolve-npm-dist-tag
+        with:
+          package: "@xberg-io/opencode-liter-llm"
+          version: ${{ needs.prepare.outputs.version }}
+          requested-tag: ${{ needs.prepare.outputs.npm_tag }}
       - uses: xberg-io/actions/publish-npm@v1
         if: steps.guard.outputs.skip != 'true'
         with:
           package-dir: plugin
           access: public
-          npm-tag: ${{ needs.prepare.outputs.npm_tag }}
+          npm-tag: ${{ steps.dist_tag.outputs.tag }}
           provenance: "true"
           dry-run: ${{ needs.prepare.outputs.dry_run }}
 

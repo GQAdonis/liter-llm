@@ -1,6 +1,11 @@
 {
   "id": "search_basic",
   "description": "Basic web search request with a simple query",
+  "docs": {
+    "topic": "search",
+    "stem": "search-basic",
+    "title": "Basic web search request with a simple query"
+  },
   "category": "search",
   "tags": ["search", "smoke"],
   "call": "search",

@@ -19,6 +19,7 @@ use liter_llm::client::{BatchClient, DefaultClient, FileClient, ResponseClient};
 use liter_llm::types::batch::{BatchListQuery, CreateBatchRequest};
 use liter_llm::types::files::FileListQuery;
 use liter_llm::types::responses::CreateResponseRequest;
+use liter_llm::{LiterLlmError, Result};
 
 /// A captured HTTP request.
 #[derive(Debug, Clone)]
@@ -486,6 +487,8 @@ async fn create_response_should_send_post_with_json_body() {
         temperature: None,
         max_output_tokens: None,
         metadata: None,
+        extra_body: None,
+        stream: None,
     };
     let result = client.create_response(req).await;
     assert!(result.is_ok(), "create_response should succeed: {result:?}");
@@ -549,6 +552,145 @@ async fn cancel_response_should_post_to_cancel_endpoint() {
     assert_eq!(requests[0].path, "/responses/resp-001/cancel");
 }
 
+/// Builds an Azure-routed client whose `base_url` does not already embed a deployment
+/// segment (`/openai/deployments/...`), which is the configuration under which
+/// `AzureProvider::build_url` embeds the model into the path.
+fn build_azure_client(mock: &MockServer) -> DefaultClient {
+    let config = ClientConfigBuilder::new("test-api-key")
+        .base_url(mock.url())
+        .max_retries(0)
+        .build();
+    DefaultClient::new(config, Some("azure/gpt-4o")).expect("client creation should succeed")
+}
+
+fn assert_responses_endpoint_not_supported_by_azure<T>(result: &Result<T>) {
+    match result {
+        Err(LiterLlmError::EndpointNotSupported { endpoint, provider }) => {
+            assert_eq!(endpoint, "responses");
+            assert_eq!(provider, "azure");
+        }
+        Err(other) => panic!("expected EndpointNotSupported, got a different error: {other}"),
+        Ok(_) => panic!("expected Err(EndpointNotSupported), got Ok"),
+    }
+}
+
+/// Revert line: removing `reject_malformed_responses_url(&url, self.provider.name())?;` from
+/// `DefaultClient::create_response` in `crates/liter-llm/src/client/mod.rs` makes this test fail
+/// — the request would instead be sent to `.../openai/deployments//responses` and this mock
+/// server would record it.
+#[tokio::test]
+async fn create_response_rejects_azure_empty_deployment_before_any_request() {
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "POST".into(),
+        path_prefix: "/responses".into(),
+        status: 200,
+        body: response_object_json(),
+    }]);
+    let client = build_azure_client(&mock);
+
+    let req = CreateResponseRequest {
+        model: "gpt-4o".into(),
+        input: serde_json::json!("What is the capital of France?"),
+        instructions: None,
+        tools: None,
+        temperature: None,
+        max_output_tokens: None,
+        metadata: None,
+        extra_body: None,
+        stream: None,
+    };
+    let result = client.create_response(req).await;
+
+    assert_responses_endpoint_not_supported_by_azure(&result);
+    assert!(
+        mock.requests().is_empty(),
+        "the malformed URL must be rejected before any HTTP request is sent, got {:?}",
+        mock.requests()
+    );
+}
+
+/// Revert line: removing `reject_malformed_responses_url(&url, self.provider.name())?;` from
+/// `DefaultClient::create_response_stream` in `crates/liter-llm/src/client/mod.rs` makes this
+/// test fail — the stream would instead try to open against `.../openai/deployments//responses`.
+#[tokio::test]
+async fn create_response_stream_rejects_azure_empty_deployment_before_any_request() {
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "POST".into(),
+        path_prefix: "/responses".into(),
+        status: 200,
+        body: response_object_json(),
+    }]);
+    let client = build_azure_client(&mock);
+
+    let req = CreateResponseRequest {
+        model: "gpt-4o".into(),
+        input: serde_json::json!("What is the capital of France?"),
+        instructions: None,
+        tools: None,
+        temperature: None,
+        max_output_tokens: None,
+        metadata: None,
+        extra_body: None,
+        stream: None,
+    };
+    let result = client.create_response_stream(req).await;
+
+    assert_responses_endpoint_not_supported_by_azure(&result);
+    assert!(
+        mock.requests().is_empty(),
+        "the malformed URL must be rejected before any HTTP request is sent, got {:?}",
+        mock.requests()
+    );
+}
+
+/// Revert line: removing `reject_malformed_responses_url(&base_url, self.provider.name())?;`
+/// from `DefaultClient::retrieve_response` in `crates/liter-llm/src/client/mod.rs` makes this
+/// test fail — the request would instead be sent to
+/// `.../openai/deployments//responses/resp-001`.
+#[tokio::test]
+async fn retrieve_response_rejects_azure_empty_deployment_before_any_request() {
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "GET".into(),
+        path_prefix: "/responses/".into(),
+        status: 200,
+        body: response_object_json(),
+    }]);
+    let client = build_azure_client(&mock);
+
+    let result = client.retrieve_response("resp-001").await;
+
+    assert_responses_endpoint_not_supported_by_azure(&result);
+    assert!(
+        mock.requests().is_empty(),
+        "the malformed URL must be rejected before any HTTP request is sent, got {:?}",
+        mock.requests()
+    );
+}
+
+/// Revert line: removing `reject_malformed_responses_url(&base_url, self.provider.name())?;`
+/// from `DefaultClient::cancel_response` in `crates/liter-llm/src/client/mod.rs` makes this test
+/// fail — the request would instead be sent to
+/// `.../openai/deployments//responses/resp-001/cancel`.
+#[tokio::test]
+async fn cancel_response_rejects_azure_empty_deployment_before_any_request() {
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "POST".into(),
+        path_prefix: "/responses/".into(),
+        status: 200,
+        body: response_object_json(),
+    }]);
+    let client = build_azure_client(&mock);
+
+    let result = client.cancel_response("resp-001").await;
+
+    assert_responses_endpoint_not_supported_by_azure(&result);
+    assert!(
+        mock.requests().is_empty(),
+        "the malformed URL must be rejected before any HTTP request is sent, got {:?}",
+        mock.requests()
+    );
+}
+
 #[tokio::test]
 async fn all_operations_should_include_auth_header() {
     let mock = MockServer::start_with_routes(vec![
@@ -608,6 +750,116 @@ async fn batch_create_with_metadata_should_serialize_metadata() {
     let requests = mock.requests();
     let body: serde_json::Value = serde_json::from_str(&requests[0].body).unwrap();
     assert_eq!(body["metadata"]["run_id"], "test-run-42");
+}
+
+#[tokio::test]
+async fn create_response_stream_should_yield_ordered_events_and_terminate_on_completed() {
+    use futures_util::StreamExt;
+    use liter_llm::types::responses::ResponseStreamEvent;
+
+    let sse_body = concat!(
+        "data: {\"type\":\"response.output_item.added\",\"output_index\":0,",
+        "\"item\":{\"type\":\"message\",\"id\":\"msg_1\"}}\n\n",
+        "data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_1\",",
+        "\"output_index\":0,\"content_index\":0,\"delta\":\"Hello\"}\n\n",
+        "data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_1\",",
+        "\"output_index\":0,\"content_index\":0,\"delta\":\" world\"}\n\n",
+        "data: {\"type\":\"response.output_item.done\",\"output_index\":0,",
+        "\"item\":{\"type\":\"message\",\"id\":\"msg_1\"}}\n\n",
+        "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp-001\",",
+        "\"object\":\"response\",\"created_at\":1700000000,\"model\":\"gpt-4\",",
+        "\"status\":\"completed\",\"output\":[]}}\n\n",
+    );
+
+    let mock = MockServer::start_with_routes(vec![MockRoute {
+        method: "POST".into(),
+        path_prefix: "/responses".into(),
+        status: 200,
+        body: sse_body.to_string(),
+    }]);
+    let client = build_client(&mock);
+
+    let req = CreateResponseRequest {
+        model: "gpt-4".into(),
+        input: serde_json::json!("What is the capital of France?"),
+        instructions: None,
+        tools: None,
+        temperature: None,
+        max_output_tokens: None,
+        metadata: None,
+        extra_body: None,
+        stream: None,
+    };
+
+    let mut stream = client
+        .create_response_stream(req)
+        .await
+        .expect("stream should open successfully");
+
+    let mut events = Vec::new();
+    while let Some(event) = stream.next().await {
+        events.push(event.expect("each SSE event should parse successfully"));
+    }
+
+    assert_eq!(events.len(), 5, "expected exactly 5 SSE events, got {events:?}");
+
+    match &events[0] {
+        ResponseStreamEvent::OutputItemAdded(added) => {
+            assert_eq!(added.output_index, 0);
+            assert_eq!(added.item.item_type, "message");
+        }
+        other => panic!("expected OutputItemAdded as event 0, got {other:?}"),
+    }
+
+    match &events[1] {
+        ResponseStreamEvent::OutputTextDelta(delta) => {
+            assert_eq!(delta.delta, "Hello");
+            assert_eq!(delta.item_id, "msg_1");
+            assert_eq!(delta.output_index, 0);
+            assert_eq!(delta.content_index, 0);
+        }
+        other => panic!("expected OutputTextDelta as event 1, got {other:?}"),
+    }
+
+    match &events[2] {
+        ResponseStreamEvent::OutputTextDelta(delta) => {
+            assert_eq!(delta.delta, " world");
+        }
+        other => panic!("expected OutputTextDelta as event 2, got {other:?}"),
+    }
+
+    match &events[3] {
+        ResponseStreamEvent::OutputItemDone(done) => {
+            assert_eq!(done.output_index, 0);
+            assert_eq!(done.item.item_type, "message");
+        }
+        other => panic!("expected OutputItemDone as event 3, got {other:?}"),
+    }
+
+    match &events[4] {
+        ResponseStreamEvent::Completed(completed) => {
+            assert_eq!(completed.response.id, "resp-001");
+            assert_eq!(completed.response.status, "completed");
+        }
+        other => panic!("expected Completed as event 4, got {other:?}"),
+    }
+
+    // ~keep The mock server closes the connection after the terminal event; the
+    // stream must end cleanly with no further items rather than hanging or erroring.
+    assert!(
+        stream.next().await.is_none(),
+        "stream should terminate cleanly after response.completed"
+    );
+
+    let requests = mock.requests();
+    assert_eq!(requests[0].method, "POST");
+    assert_eq!(requests[0].path, "/responses");
+    let body: serde_json::Value = serde_json::from_str(&requests[0].body).unwrap();
+    assert_eq!(
+        body["stream"],
+        serde_json::Value::Bool(true),
+        "stream must be forced to true on the wire"
+    );
 }
 
 #[tokio::test]

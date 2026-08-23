@@ -1,4 +1,13 @@
-<!-- snippet:compile-only -->
+---
+id: readme_wasm_streaming
+language: typescript
+target: wasm
+level: syntax
+requires: []
+side_effect: network
+---
+
+Stream tokens in real time.
 
 ```typescript
 import init, { createClient, WasmChatCompletionRequest } from "@xberg-io/liter-llm-wasm";

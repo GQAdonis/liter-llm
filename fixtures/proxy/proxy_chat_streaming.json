@@ -1,6 +1,11 @@
 {
   "id": "proxy_chat_streaming",
   "description": "Streaming chat completion routed through the proxy",
+  "docs": {
+    "topic": "proxy",
+    "stem": "proxy-chat-streaming",
+    "title": "Streaming chat completion routed through the proxy"
+  },
   "category": "proxy",
   "tags": ["proxy", "streaming"],
   "call": "chat_stream",

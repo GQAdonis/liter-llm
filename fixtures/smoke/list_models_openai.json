@@ -1,6 +1,11 @@
 {
   "id": "smoke_list_models_openai",
   "description": "List models against real OpenAI API",
+  "docs": {
+    "topic": "smoke",
+    "stem": "smoke-list-models-openai",
+    "title": "List models against real OpenAI API"
+  },
   "category": "smoke",
   "tags": ["smoke", "openai", "list-models"],
   "call": "list_models",

@@ -1,6 +1,11 @@
 {
   "id": "hook_on_response",
   "description": "Tests that on_response hook is called with response data",
+  "docs": {
+    "topic": "hooks",
+    "stem": "hook-on-response",
+    "title": "Tests that on_response hook is called with response data"
+  },
   "category": "hooks",
   "tags": ["hooks"],
   "skip": {

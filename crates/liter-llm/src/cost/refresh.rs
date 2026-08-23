@@ -248,6 +248,7 @@ fn cache_is_fresh(path: &Path, ttl_seconds: u64) -> bool {
 /// feature air-gap-safe — an unreachable or invalid `source_url` never
 /// degrades `completion_cost` / `model_info` below embedded-catalog
 /// availability.
+#[tracing::instrument(level = "info", skip_all, fields(source_url = %config.source_url))]
 pub async fn refresh_catalog(config: &CatalogRefreshConfig) -> Result<RefreshOutcome, CatalogRefreshError> {
     if !config.enabled {
         return Ok(RefreshOutcome::Disabled);
@@ -318,10 +319,14 @@ async fn refresh_from_network(
     // ~keep Best-effort cache write: a failure here must not fail the refresh —
     // ~keep the overlay install below is the operation that matters, and it is
     // ~keep performed either way.
-    if let Some(parent) = cache_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
+    if let Some(parent) = cache_path.parent()
+        && let Err(error) = std::fs::create_dir_all(parent)
+    {
+        tracing::warn!(%error, path = %parent.display(), "failed to create catalog cache directory");
     }
-    let _ = std::fs::write(cache_path, &raw);
+    if let Err(error) = std::fs::write(cache_path, &raw) {
+        tracing::warn!(%error, path = %cache_path.display(), "failed to write catalog cache file");
+    }
 
     OVERLAY.store(Some(Arc::new(registry)));
     Ok(RefreshOutcome::Fetched)

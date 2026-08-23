@@ -1,6 +1,11 @@
 {
   "id": "smoke_create_batch",
   "description": "Create a new batch processing job",
+  "docs": {
+    "topic": "batches",
+    "stem": "smoke-create-batch",
+    "title": "Create a new batch processing job"
+  },
   "category": "batches",
   "tags": ["smoke", "batches"],
   "call": "create_batch",

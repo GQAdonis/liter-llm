@@ -1,10 +1,20 @@
+---
+id: readme_python_basic_chat
+language: python
+target: python
+level: syntax
+requires: []
+side_effect: network
+---
+
+Send a message to any provider using the `provider/model` prefix.
+
 ```python
 import asyncio
 import os
 
 from liter_llm import create_client
 from liter_llm._internal_bindings import ChatCompletionRequest
-
 
 async def main() -> None:
     client = create_client(api_key=os.environ["OPENAI_API_KEY"])
@@ -13,7 +23,6 @@ async def main() -> None:
     )
     response = await client.chat(request)
     print(response.choices[0].message.content)
-
 
 asyncio.run(main())
 ```

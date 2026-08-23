@@ -11,6 +11,22 @@ const DEFAULT_LOCATION: &str = "us-central1";
 /// Global counter for generating unique tool call IDs.
 static TOOL_CALL_COUNTER: AtomicU64 = AtomicU64::new(0);
 
+/// Map reasoning effort levels to a Gemini `thinkingConfig.thinkingBudget` token count.
+///
+/// Mirrors the tiers used by [`super::bedrock::reasoning_effort_to_budget_tokens`] for
+/// Claude-on-Bedrock extended thinking, adapted to Gemini's budget semantics (`0`
+/// disables thinking on models that allow it).
+fn reasoning_effort_to_thinking_budget(effort: &str) -> i64 {
+    match effort {
+        "minimal" => 0,
+        "low" => 1024,
+        "medium" => 4096,
+        "high" => 16384,
+        "max" => 24576,
+        _ => 4096,
+    }
+}
+
 /// Google Vertex AI / Gemini provider.
 ///
 /// Differences from the OpenAI-compatible baseline:
@@ -188,16 +204,19 @@ impl Provider for VertexAiProvider {
         transform_gemini_response(body)
     }
 
-    /// Build the streaming URL: appends `?alt=sse` to enable SSE streaming.
+    /// Build the streaming URL: `:streamGenerateContent` plus `?alt=sse`.
     ///
-    /// Gemini's streaming endpoint uses the same path as the non-streaming
-    /// `generateContent` endpoint but requires `?alt=sse` to switch to
-    /// Server-Sent Events mode.
+    /// ~keep Streaming is a DISTINCT method, not `generateContent` with a flag.
+    /// ~keep `:generateContent` ignores `alt=sse` and returns one ordinary JSON
+    /// ~keep body, which the SSE parser cannot frame — the caller sees a single
+    /// ~keep `Streaming { "SSE stream truncated" }` error whose message gives no
+    /// ~keep hint that the endpoint was wrong.
     fn build_stream_url(&self, endpoint_path: &str, model: &str) -> String {
         let url = self.build_url(endpoint_path, model);
         if url.is_empty() {
             return url;
         }
+        let url = url.replace(":generateContent", ":streamGenerateContent");
         format!("{url}?alt=sse")
     }
 
@@ -270,11 +289,17 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
                 }
                 if let Some(tool_calls) = msg.get("tool_calls").and_then(|t| t.as_array()) {
                     for tc in tool_calls {
-                        let args: serde_json::Value = tc
-                            .pointer("/function/arguments")
-                            .and_then(|a| a.as_str())
-                            .and_then(|s| serde_json::from_str(s).ok())
-                            .unwrap_or_else(|| json!({}));
+                        let args = match tc.pointer("/function/arguments").and_then(|a| a.as_str()) {
+                            Some(args_str) => serde_json::from_str(args_str).unwrap_or_else(|error| {
+                                tracing::warn!(
+                                    %error,
+                                    "Gemini tool_calls[].function.arguments was not valid JSON; using an empty \
+                                     object"
+                                );
+                                json!({})
+                            }),
+                            None => json!({}),
+                        };
                         parts.push(json!({
                             "functionCall": {
                                 "name": tc.pointer("/function/name"),
@@ -324,6 +349,16 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
         gen_config["stopSequences"] = json!(sequences);
     }
 
+    // ~keep Gemini's GenerationConfig has a direct equivalent: `responseLogprobs` (bool) turns
+    // ~keep logprobs on, `logprobs` (int) is the top-N count — the same pair as OpenAI's
+    // ~keep `logprobs`/`top_logprobs`, just under swapped field names.
+    if let Some(logprobs) = body.get("logprobs").and_then(|v| v.as_bool()) {
+        gen_config["responseLogprobs"] = json!(logprobs);
+    }
+    if let Some(top_logprobs) = body.get("top_logprobs") {
+        gen_config["logprobs"] = top_logprobs.clone();
+    }
+
     if let Some(rf) = body.get("response_format") {
         let rf_type = rf.get("type").and_then(|t| t.as_str()).unwrap_or("");
         match rf_type {
@@ -349,6 +384,17 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
         if !gemini_modalities.is_empty() {
             gen_config["responseModalities"] = json!(gemini_modalities);
         }
+    }
+
+    // ~keep `reasoning_effort` was previously dropped entirely (#52): map it to Gemini's
+    // `thinkingConfig.thinkingBudget`, and request `includeThoughts` so the corresponding
+    // thought parts actually come back (routed to `reasoning_content` in the response).
+    if let Some(effort) = body.get("reasoning_effort").and_then(|e| e.as_str()) {
+        let thinking_budget = reasoning_effort_to_thinking_budget(effort);
+        gen_config["thinkingConfig"] = json!({
+            "thinkingBudget": thinking_budget,
+            "includeThoughts": true
+        });
     }
 
     let mut tools_value = body.get("tools").and_then(|t| t.as_array()).map(|arr| {
@@ -400,6 +446,25 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
         }
     }
 
+    // ~keep `audio` (voice/format) and `web_search_options` have no Gemini equivalent that can
+    // ~keep be mapped without guessing: Gemini's speech voices and search-grounding wiring use
+    // ~keep different vocabularies/shapes than OpenAI's. Warn rather than silently drop, since a
+    // ~keep caller who asked for a specific voice or web-grounded answers gets neither without
+    // ~keep any signal. `modalities: ["audio"]` itself still maps to `responseModalities` above.
+    if body.get("audio").is_some() {
+        tracing::warn!(
+            "chat request set `audio`, which has no Gemini equivalent and was dropped; voice and \
+             format cannot be configured for this provider"
+        );
+    }
+    if body.get("web_search_options").is_some() {
+        tracing::warn!(
+            "chat request set `web_search_options`, which has no Gemini equivalent and was \
+             dropped; configure grounding via extra_body.grounding_config or \
+             extra_body.google_search_retrieval instead"
+        );
+    }
+
     let mut new_body = json!({"contents": contents});
     if !system_parts.is_empty() {
         new_body["systemInstruction"] = json!({"parts": system_parts});
@@ -431,14 +496,22 @@ pub(crate) fn transform_gemini_request(body: &mut serde_json::Value) -> Result<(
 /// OpenAI: `{"model": "...", "input": "text"}`
 /// Gemini: `{"content": {"parts": [{"text": "text"}]}}`
 fn transform_gemini_embed_request(body: &mut serde_json::Value) -> Result<()> {
+    use crate::error::LiterLlmError;
     use serde_json::json;
 
     let input = body.get("input").cloned().unwrap_or_default();
 
     let text = match &input {
         serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Array(arr) => arr.first().and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        _ => String::new(),
+        serde_json::Value::Array(arr) if arr.iter().all(serde_json::Value::is_string) => {
+            arr.first().and_then(|v| v.as_str()).unwrap_or("").to_string()
+        }
+        _ => {
+            return Err(LiterLlmError::BadRequest {
+                message: "Google AI embedding adapters support text input only; use a multimodal-compatible custom provider for image embeddings".into(),
+                status: 400,
+            });
+        }
     };
 
     let new_body = json!({
@@ -456,14 +529,22 @@ fn transform_gemini_embed_request(body: &mut serde_json::Value) -> Result<()> {
 /// OpenAI: `{"model": "...", "input": "text"}`
 /// Vertex: `{"instances": [{"content": "text"}]}`
 fn transform_vertex_embed_request(body: &mut serde_json::Value) -> Result<()> {
+    use crate::error::LiterLlmError;
     use serde_json::json;
 
     let input = body.get("input").cloned().unwrap_or_default();
 
     let text = match &input {
         serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Array(arr) => arr.first().and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        _ => String::new(),
+        serde_json::Value::Array(arr) if arr.iter().all(serde_json::Value::is_string) => {
+            arr.first().and_then(|v| v.as_str()).unwrap_or("").to_string()
+        }
+        _ => {
+            return Err(LiterLlmError::BadRequest {
+                message: "Vertex AI embedding adapters support text input only; use a multimodal-compatible custom provider for image embeddings".into(),
+                status: 400,
+            });
+        }
     };
 
     *body = json!({
@@ -583,11 +664,21 @@ pub(crate) fn transform_gemini_response(body: &mut serde_json::Value) -> Result<
 
     let mut text_parts: Vec<String> = vec![];
     let mut output_parts: Vec<serde_json::Value> = vec![];
+    // ~keep Gemini extended thinking marks reasoning parts with `"thought": true`
+    // alongside their `text` field. These must never reach visible `content` —
+    // route them to `reasoning_content` instead, mirroring how Anthropic's
+    // `thinking` blocks are handled (#52).
+    let mut reasoning_parts: Vec<String> = vec![];
     for p in &parts {
+        let is_thought = p.get("thought").and_then(serde_json::Value::as_bool).unwrap_or(false);
         if let Some(t) = p.get("text").and_then(|t| t.as_str()) {
             if !t.is_empty() {
-                text_parts.push(t.to_owned());
-                output_parts.push(json!({"type": "text", "text": t}));
+                if is_thought {
+                    reasoning_parts.push(t.to_owned());
+                } else {
+                    text_parts.push(t.to_owned());
+                    output_parts.push(json!({"type": "text", "text": t}));
+                }
             }
         } else if let Some(inline) = p.get("inlineData").or_else(|| p.get("inline_data")) {
             let mime_type = inline
@@ -620,6 +711,11 @@ pub(crate) fn transform_gemini_response(body: &mut serde_json::Value) -> Result<
         .iter()
         .any(|p| p.get("type").and_then(|t| t.as_str()) != Some("text"));
     let text: String = text_parts.join("");
+    let reasoning_text: Option<String> = if reasoning_parts.is_empty() {
+        None
+    } else {
+        Some(reasoning_parts.join(""))
+    };
 
     let tool_calls: Vec<serde_json::Value> = parts
         .iter()
@@ -671,6 +767,9 @@ pub(crate) fn transform_gemini_response(body: &mut serde_json::Value) -> Result<
     let mut message = json!({"role": "assistant", "content": content_value});
     if !tool_calls.is_empty() {
         message["tool_calls"] = json!(tool_calls);
+    }
+    if let Some(reasoning) = reasoning_text {
+        message["reasoning_content"] = json!(reasoning);
     }
 
     let grounding_metadata = candidate.as_ref().and_then(|c| c.get("groundingMetadata")).cloned();
@@ -735,6 +834,12 @@ pub(crate) fn parse_gemini_stream_event(event_data: &str) -> Result<Option<ChatC
         .and_then(|c| c.pointer("/message/content"))
         .and_then(|v| v.as_str())
         .map(ToOwned::to_owned);
+    // ~keep Thread `reasoning_content` through the streaming path too (#52); without
+    // this it would only ever be populated on the non-streaming response.
+    let reasoning_content = choice
+        .and_then(|c| c.pointer("/message/reasoning_content"))
+        .and_then(|v| v.as_str())
+        .map(ToOwned::to_owned);
     let finish_reason_str = choice
         .and_then(|c| c.get("finish_reason"))
         .and_then(|v| v.as_str())
@@ -783,7 +888,7 @@ pub(crate) fn parse_gemini_stream_event(event_data: &str) -> Result<Option<ChatC
                 tool_calls: stream_tool_calls,
                 function_call: None,
                 refusal: None,
-                reasoning_content: None,
+                reasoning_content,
             },
             finish_reason,
         }],
@@ -937,6 +1042,31 @@ mod tests {
     }
 
     #[test]
+    fn gemini_embedding_rejects_multimodal_input() {
+        let mut body = json!({
+            "input": [
+                {"type": "text", "text": "caption"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/image.png"}}
+            ]
+        });
+
+        let error = transform_gemini_embed_request(&mut body).expect_err("multimodal input should be rejected");
+        assert_eq!(error.status_code(), 400);
+        assert!(error.to_string().contains("text input only"));
+    }
+
+    #[test]
+    fn vertex_embedding_rejects_multimodal_input() {
+        let mut body = json!({
+            "input": [{"type": "image_base64", "image_base64": "data:image/png;base64,aW1hZ2U="}]
+        });
+
+        let error = transform_vertex_embed_request(&mut body).expect_err("multimodal input should be rejected");
+        assert_eq!(error.status_code(), 400);
+        assert!(error.to_string().contains("text input only"));
+    }
+
+    #[test]
     fn base_url_constructed_from_project_and_location() {
         let p = provider();
         assert_eq!(
@@ -975,6 +1105,29 @@ mod tests {
         assert!(url.ends_with("/publishers/google/models/text-embedding-004:predict"));
     }
 
+    /// Streaming must target `:streamGenerateContent`.  `build_stream_url`
+    /// previously reused `build_url`, so it streamed from `:generateContent`,
+    /// which ignores `alt=sse` and returns one ordinary JSON body — the caller
+    /// got a misleading "SSE stream truncated" error, never any content.
+    #[test]
+    fn build_stream_url_targets_stream_generate_content() {
+        let p = provider();
+        let url = p.build_stream_url("/chat/completions", "gemini-2.0-flash");
+
+        assert!(
+            url.ends_with("/publishers/google/models/gemini-2.0-flash:streamGenerateContent?alt=sse"),
+            "got {url}"
+        );
+    }
+
+    /// The empty-base guard must still short-circuit before the rewrite.
+    #[test]
+    fn build_stream_url_returns_empty_without_project() {
+        let p = provider_without_project();
+
+        assert!(p.build_stream_url("/chat/completions", "gemini-2.0-flash").is_empty());
+    }
+
     #[test]
     fn transform_request_basic_chat() {
         let p = provider();
@@ -1000,6 +1153,95 @@ mod tests {
 
         assert_eq!(body["generationConfig"]["maxOutputTokens"], 200);
         assert_eq!(body["generationConfig"]["temperature"], 0.5);
+    }
+
+    /// `max_completion_tokens` maps to `maxOutputTokens` when `max_tokens` is absent.
+    /// Previously untested even though the mapping itself predates this fix.
+    #[test]
+    fn transform_request_max_completion_tokens_maps_to_max_output_tokens() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_completion_tokens": 512
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["generationConfig"]["maxOutputTokens"], 512);
+    }
+
+    /// `logprobs`/`top_logprobs` map to Gemini's `responseLogprobs`/`logprobs` generationConfig
+    /// fields rather than being silently discarded by the wholesale body rebuild.
+    #[test]
+    fn transform_request_logprobs_maps_to_response_logprobs() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "logprobs": true,
+            "top_logprobs": 5
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["generationConfig"]["responseLogprobs"], true);
+        assert_eq!(body["generationConfig"]["logprobs"], 5);
+    }
+
+    #[test]
+    fn transform_request_logprobs_false_maps_explicitly() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "logprobs": false
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["generationConfig"]["responseLogprobs"], false);
+        assert!(body["generationConfig"].get("logprobs").is_none());
+    }
+
+    /// `audio` and `web_search_options` have no Gemini equivalent; the request must still
+    /// succeed but the fields must not appear anywhere on the wire body.
+    #[test]
+    fn transform_request_audio_and_web_search_options_dropped_not_forwarded() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "audio": {"voice": "alloy", "format": "wav"},
+            "web_search_options": {"search_context_size": "medium"}
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(body.get("audio").is_none());
+        assert!(body.get("web_search_options").is_none());
+    }
+
+    /// `service_tier`, `store`, `metadata` and `prediction` have no Gemini equivalent and no
+    /// wire-safety risk (unlike Anthropic's colliding `metadata`), so they stay silently
+    /// dropped by the wholesale body rebuild — this pins that as intentional, not an oversight.
+    #[test]
+    fn transform_request_cosmetic_openai_fields_dropped() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "service_tier": "flex",
+            "store": true,
+            "metadata": {"run": "nightly"},
+            "prediction": {"type": "content", "content": "draft"}
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        for key in &["service_tier", "store", "metadata", "prediction"] {
+            assert!(body.get(key).is_none(), "`{key}` should not be forwarded to Gemini");
+        }
     }
 
     #[test]
@@ -1078,6 +1320,36 @@ mod tests {
         assert_eq!(stop_seqs.len(), 2);
         assert_eq!(stop_seqs[0], "END");
         assert_eq!(stop_seqs[1], "STOP");
+    }
+
+    #[test]
+    fn transform_request_reasoning_effort_maps_to_thinking_config() {
+        // ~keep Regression test for #52: `reasoning_effort` was previously dropped
+        // entirely by Gemini's request transform.
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "reasoning_effort": "high"
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(body["generationConfig"]["thinkingConfig"]["thinkingBudget"], 16384);
+        assert_eq!(body["generationConfig"]["thinkingConfig"]["includeThoughts"], true);
+    }
+
+    #[test]
+    fn transform_request_no_reasoning_effort_omits_thinking_config() {
+        let p = provider();
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert!(body["generationConfig"]["thinkingConfig"].is_null());
     }
 
     #[test]
@@ -1221,6 +1493,56 @@ mod tests {
         assert_eq!(body["usage"]["prompt_tokens"], 8);
         assert_eq!(body["usage"]["completion_tokens"], 6);
         assert_eq!(body["usage"]["total_tokens"], 14);
+    }
+
+    #[test]
+    fn transform_response_thought_part_routes_to_reasoning_content_not_visible() {
+        // ~keep Regression test for #52: a Gemini "thought" part must never leak into
+        // the visible `content`; it must be routed to `reasoning_content` instead.
+        let p = provider();
+        let mut body = json!({
+            "candidates": [{
+                "content": {
+                    "role": "model",
+                    "parts": [
+                        {"text": "Let me think about this...", "thought": true},
+                        {"text": "The answer is 42."}
+                    ]
+                },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 5}
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        assert_eq!(body["choices"][0]["message"]["content"], "The answer is 42.");
+        assert_eq!(
+            body["choices"][0]["message"]["reasoning_content"],
+            "Let me think about this..."
+        );
+    }
+
+    #[test]
+    fn transform_response_thought_only_has_null_content() {
+        let p = provider();
+        let mut body = json!({
+            "candidates": [{
+                "content": {
+                    "role": "model",
+                    "parts": [{"text": "still thinking...", "thought": true}]
+                },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1}
+        });
+
+        p.transform_response(&mut body)
+            .expect("transform_response should not fail");
+
+        assert!(body["choices"][0]["message"]["content"].is_null());
+        assert_eq!(body["choices"][0]["message"]["reasoning_content"], "still thinking...");
     }
 
     #[test]
@@ -1413,6 +1735,31 @@ mod tests {
 
         assert_eq!(chunk.object, "chat.completion.chunk");
         assert_eq!(chunk.choices[0].delta.content.as_deref(), Some("Hello"));
+    }
+
+    #[test]
+    fn parse_stream_event_thought_part_routes_to_reasoning_content() {
+        // ~keep Regression test for #52: the streaming path must also route "thought"
+        // parts to `reasoning_content`, not just the non-streaming response transform.
+        let p = provider();
+        let event_data = r#"{
+            "candidates": [{
+                "content": {"role": "model", "parts": [{"text": "pondering...", "thought": true}]},
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1}
+        }"#;
+
+        let chunk = p
+            .parse_stream_event(event_data)
+            .expect("parse_stream_event should not fail")
+            .expect("should yield a chunk");
+
+        assert_eq!(chunk.choices[0].delta.content, None);
+        assert_eq!(
+            chunk.choices[0].delta.reasoning_content.as_deref(),
+            Some("pondering...")
+        );
     }
 
     #[test]

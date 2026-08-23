@@ -1,6 +1,11 @@
 {
   "id": "list_models_error_401",
   "description": "401 Unauthorized error on list models request when API key is invalid",
+  "docs": {
+    "topic": "list-models",
+    "stem": "list-models-error-401",
+    "title": "401 Unauthorized error on list models request when API key is invalid"
+  },
   "category": "list-models",
   "tags": ["list-models", "error-handling"],
   "call": "list_models",

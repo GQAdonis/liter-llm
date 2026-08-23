@@ -1,6 +1,11 @@
 {
   "id": "smoke_delete_file",
   "description": "Delete an uploaded file",
+  "docs": {
+    "topic": "files",
+    "stem": "smoke-delete-file",
+    "title": "Delete an uploaded file"
+  },
   "category": "files",
   "tags": ["smoke", "files"],
   "call": "delete_file",

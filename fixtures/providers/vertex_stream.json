@@ -1,6 +1,11 @@
 {
   "id": "vertex_stream",
   "description": "Streaming chat completion via the Google Vertex AI provider using the vertex_ai/ prefix — verifies SSE chunks from the Gemini streaming endpoint are yielded and assembled correctly",
+  "docs": {
+    "topic": "providers",
+    "stem": "vertex-stream",
+    "title": "Streaming chat completion via the Google Vertex AI provider using the vertex_ai/ prefix — verifies SSE chunks from the Gemini streaming endpoint are yielded and assembled correctly"
+  },
   "category": "streaming",
   "tags": ["streaming", "vertex_ai"],
   "call": "chat_stream",

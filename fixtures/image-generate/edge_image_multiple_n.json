@@ -1,6 +1,11 @@
 {
   "id": "edge_image_multiple_n",
   "description": "Image generation requesting multiple images with n=3",
+  "docs": {
+    "topic": "image-generate",
+    "stem": "edge-image-multiple-n",
+    "title": "Image generation requesting multiple images with n=3"
+  },
   "category": "image-generate",
   "tags": ["image-generate", "edge-case"],
   "call": "image_generate",

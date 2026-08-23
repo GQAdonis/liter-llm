@@ -3,7 +3,7 @@ description: "Run the liter-llm proxy as an OpenAI-compatible gateway with virtu
 title: "Proxy Server"
 ---
 
-import { Content as Snip_curl_server_chat } from "../../../snippets/curl/server/chat.md";
+import { Content as Snip_curl_server_chat } from "../../../handwritten-snippets/curl/server/chat.md";
 
 The `liter-llm` binary ships with a production proxy that speaks the OpenAI REST API on top of the 165 runtime providers. It terminates Bearer auth, routes by model name, applies the full Tower middleware stack (cache, budget, rate limit, cooldown, health, fallback), and exposes OpenTelemetry spans.
 

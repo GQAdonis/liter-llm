@@ -26,6 +26,34 @@ use liter_llm::types::{ChatCompletionRequest, EmbeddingRequest};
 
 use super::errors::to_error_data;
 use super::{LiterLlmMcp, json_success, params};
+use crate::auth::KeyContext;
+
+impl LiterLlmMcp {
+    /// Dispatch a tool's `LlmRequest` through the service pool with the
+    /// caller's tenant attached.
+    ///
+    /// Mirrors `routes::dispatch`'s `with_tenant_id` call so every
+    /// model-routed MCP tool call receives the SAME per-key rpm/tpm/budget
+    /// enforcement (`KeyLimitLayer`, `BudgetLedgerLayer`) an HTTP call gets —
+    /// both paths end up calling the identical Tower stack `get_service`
+    /// returns, so there is no second, divergent enforcement implementation
+    /// to keep in sync. See `tenant_limit` module docs for the gap this
+    /// closes: without `with_tenant_id`, `KeyLimitLayer` cannot resolve a
+    /// tenant and skips enforcement entirely.
+    async fn dispatch(
+        &self,
+        key_ctx: &KeyContext,
+        model: &str,
+        request: LlmRequest,
+    ) -> Result<LlmResponse, rmcp::ErrorData> {
+        let request = request.with_tenant_id(key_ctx.tenant_id.clone());
+        let mut svc = self
+            .service_pool
+            .get_service(model)
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
+        svc.call(request).await.map_err(to_error_data)
+    }
+}
 
 #[tool_router(vis = "pub(super)")]
 impl LiterLlmMcp {
@@ -38,7 +66,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(params): Parameters<params::ChatParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        self.require_model_access(&ctx, &params.model)?;
+        let key_ctx = self.require_model_access(&ctx, &params.model)?;
 
         let req: ChatCompletionRequest = serde_json::from_value(serde_json::json!({
             "model": params.model,
@@ -48,12 +76,7 @@ impl LiterLlmMcp {
         }))
         .map_err(|e| rmcp::ErrorData::invalid_params(e.to_string(), None))?;
 
-        let mut svc = self
-            .service_pool
-            .get_service(&params.model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::Chat(req)).await.map_err(to_error_data)?;
+        let resp = self.dispatch(&key_ctx, &params.model, LlmRequest::Chat(req)).await?;
 
         match resp {
             LlmResponse::Chat(r) => json_success(&r),
@@ -73,7 +96,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(params): Parameters<params::EmbedParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        self.require_model_access(&ctx, &params.model)?;
+        let key_ctx = self.require_model_access(&ctx, &params.model)?;
 
         let req: EmbeddingRequest = serde_json::from_value(serde_json::json!({
             "model": params.model,
@@ -81,12 +104,7 @@ impl LiterLlmMcp {
         }))
         .map_err(|e| rmcp::ErrorData::invalid_params(e.to_string(), None))?;
 
-        let mut svc = self
-            .service_pool
-            .get_service(&params.model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::Embed(req)).await.map_err(to_error_data)?;
+        let resp = self.dispatch(&key_ctx, &params.model, LlmRequest::Embed(req)).await?;
 
         match resp {
             LlmResponse::Embed(r) => json_success(&r),
@@ -106,7 +124,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(_params): Parameters<params::EmptyParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        let _key_ctx = self.resolve_ctx(&ctx);
+        let key_ctx = self.resolve_ctx(&ctx);
 
         let model_names = self.service_pool.model_names();
         if model_names.is_empty() {
@@ -114,12 +132,7 @@ impl LiterLlmMcp {
         }
 
         let first_model = model_names[0];
-        let mut svc = self
-            .service_pool
-            .get_service(first_model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::ListModels()).await.map_err(to_error_data)?;
+        let resp = self.dispatch(&key_ctx, first_model, LlmRequest::ListModels()).await?;
 
         match resp {
             LlmResponse::ListModels(r) => json_success(&r),
@@ -149,7 +162,7 @@ impl LiterLlmMcp {
                     .to_string()
             }
         };
-        self.require_model_access(&ctx, &effective_model)?;
+        let key_ctx = self.require_model_access(&ctx, &effective_model)?;
 
         let req = CreateImageRequest {
             prompt: params.prompt,
@@ -162,12 +175,9 @@ impl LiterLlmMcp {
             user: None,
         };
 
-        let mut svc = self
-            .service_pool
-            .get_service(&effective_model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::ImageGenerate(req)).await.map_err(to_error_data)?;
+        let resp = self
+            .dispatch(&key_ctx, &effective_model, LlmRequest::ImageGenerate(req))
+            .await?;
 
         match resp {
             LlmResponse::ImageGenerate(r) => json_success(&r),
@@ -187,7 +197,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(params): Parameters<params::SpeechParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        self.require_model_access(&ctx, &params.model)?;
+        let key_ctx = self.require_model_access(&ctx, &params.model)?;
 
         let req = CreateSpeechRequest {
             model: params.model.clone(),
@@ -197,12 +207,7 @@ impl LiterLlmMcp {
             speed: None,
         };
 
-        let mut svc = self
-            .service_pool
-            .get_service(&params.model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::Speech(req)).await.map_err(to_error_data)?;
+        let resp = self.dispatch(&key_ctx, &params.model, LlmRequest::Speech(req)).await?;
 
         match resp {
             LlmResponse::Speech(bytes) => {
@@ -230,7 +235,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(params): Parameters<params::TranscribeParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        self.require_model_access(&ctx, &params.model)?;
+        let key_ctx = self.require_model_access(&ctx, &params.model)?;
 
         let req = CreateTranscriptionRequest {
             model: params.model.clone(),
@@ -241,12 +246,9 @@ impl LiterLlmMcp {
             temperature: None,
         };
 
-        let mut svc = self
-            .service_pool
-            .get_service(&params.model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::Transcribe(req)).await.map_err(to_error_data)?;
+        let resp = self
+            .dispatch(&key_ctx, &params.model, LlmRequest::Transcribe(req))
+            .await?;
 
         match resp {
             LlmResponse::Transcribe(r) => json_success(&r),
@@ -276,7 +278,7 @@ impl LiterLlmMcp {
                     .to_string()
             }
         };
-        self.require_model_access(&ctx, &effective_model)?;
+        let key_ctx = self.require_model_access(&ctx, &effective_model)?;
 
         let req: ModerationRequest = serde_json::from_value(serde_json::json!({
             "input": params.input,
@@ -284,12 +286,9 @@ impl LiterLlmMcp {
         }))
         .map_err(|e| rmcp::ErrorData::invalid_params(e.to_string(), None))?;
 
-        let mut svc = self
-            .service_pool
-            .get_service(&effective_model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::Moderate(req)).await.map_err(to_error_data)?;
+        let resp = self
+            .dispatch(&key_ctx, &effective_model, LlmRequest::Moderate(req))
+            .await?;
 
         match resp {
             LlmResponse::Moderate(r) => json_success(&r),
@@ -309,7 +308,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(params): Parameters<params::RerankParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        self.require_model_access(&ctx, &params.model)?;
+        let key_ctx = self.require_model_access(&ctx, &params.model)?;
 
         let req = RerankRequest {
             model: params.model.clone(),
@@ -319,12 +318,7 @@ impl LiterLlmMcp {
             return_documents: None,
         };
 
-        let mut svc = self
-            .service_pool
-            .get_service(&params.model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::Rerank(req)).await.map_err(to_error_data)?;
+        let resp = self.dispatch(&key_ctx, &params.model, LlmRequest::Rerank(req)).await?;
 
         match resp {
             LlmResponse::Rerank(r) => json_success(&r),
@@ -344,7 +338,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(params): Parameters<params::SearchParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        self.require_model_access(&ctx, &params.model)?;
+        let key_ctx = self.require_model_access(&ctx, &params.model)?;
 
         let req = SearchRequest {
             model: params.model.clone(),
@@ -354,12 +348,7 @@ impl LiterLlmMcp {
             country: None,
         };
 
-        let mut svc = self
-            .service_pool
-            .get_service(&params.model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::Search(req)).await.map_err(to_error_data)?;
+        let resp = self.dispatch(&key_ctx, &params.model, LlmRequest::Search(req)).await?;
 
         match resp {
             LlmResponse::Search(r) => json_success(&r),
@@ -379,7 +368,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(params): Parameters<params::OcrParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        self.require_model_access(&ctx, &params.model)?;
+        let key_ctx = self.require_model_access(&ctx, &params.model)?;
 
         let document = if let Some(url) = params.image_url {
             OcrDocument::Url { url }
@@ -400,12 +389,7 @@ impl LiterLlmMcp {
             include_image_base64: None,
         };
 
-        let mut svc = self
-            .service_pool
-            .get_service(&params.model)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-
-        let resp = svc.call(LlmRequest::Ocr(req)).await.map_err(to_error_data)?;
+        let resp = self.dispatch(&key_ctx, &params.model, LlmRequest::Ocr(req)).await?;
 
         match resp {
             LlmResponse::Ocr(r) => json_success(&r),
@@ -680,7 +664,7 @@ impl LiterLlmMcp {
         ctx: RequestContext<RoleServer>,
         Parameters(params): Parameters<params::CreateResponseParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        self.require_model_access(&ctx, &params.model)?;
+        self.require_master(&ctx, "create_response")?;
 
         let req = CreateResponseRequest {
             model: params.model,
@@ -690,6 +674,8 @@ impl LiterLlmMcp {
             temperature: None,
             max_output_tokens: None,
             metadata: None,
+            extra_body: None,
+            stream: None,
         };
 
         let client = self
@@ -751,5 +737,157 @@ impl LiterLlmMcp {
             .await
             .map_err(to_error_data)?;
         json_success(&result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use axum::Router;
+    use axum::body::Body;
+    use axum::response::Response;
+    use axum::routing::post;
+    use liter_llm::types::ChatCompletionRequest;
+    use tokio::net::TcpListener;
+    use tokio::task::JoinHandle;
+
+    use super::*;
+    use crate::config::ProxyConfig;
+    use crate::file_store::FileStore;
+    use crate::mcp::McpTransportKind;
+    use crate::service_pool::ServicePool;
+
+    const CHAT_BODY: &str = r#"{"id":"cmpl-1","object":"chat.completion","created":1700000000,"model":"gpt-4o","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":3,"total_tokens":8}}"#;
+
+    /// Minimal mock chat-completions upstream. Returns its base URL and a
+    /// handle to abort the background server task.
+    async fn start_mock_upstream() -> (String, JoinHandle<()>) {
+        let app = Router::new().route(
+            "/chat/completions",
+            post(|| async {
+                Response::builder()
+                    .status(200)
+                    .header("content-type", "application/json")
+                    .body(Body::from(CHAT_BODY))
+                    .expect("valid mock response")
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind mock upstream");
+        let addr = listener.local_addr().expect("mock upstream local_addr");
+        let handle = tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("mock upstream serve");
+        });
+        (format!("http://127.0.0.1:{}", addr.port()), handle)
+    }
+
+    /// ~keep Built through `from_config`, not as a `KeyContext` literal, so the
+    /// ~keep tenant id is the one real resolution produces. Hand-setting
+    /// ~keep `tenant_id` to the key string makes the rpm/budget lookup miss, and
+    /// ~keep that lookup FAILS OPEN — the test would then pass by enforcing
+    /// ~keep nothing, which is precisely the regression it exists to catch.
+    fn virtual_key_ctx(key: &str) -> KeyContext {
+        KeyContext::from_config(&crate::config::VirtualKeyConfig {
+            key: key.to_string(),
+            tenant_id: None,
+            description: None,
+            models: vec![],
+            rpm: None,
+            tpm: None,
+            budget_limit: None,
+            provider_credentials: vec![],
+        })
+    }
+
+    fn chat_request(model: &str) -> LlmRequest {
+        LlmRequest::Chat(ChatCompletionRequest {
+            model: model.to_string(),
+            ..Default::default()
+        })
+    }
+
+    /// Regression test for the "MCP tool calls bypass per-key rpm/tpm/budget
+    /// enforcement" bug: `LiterLlmMcp::dispatch` must attach `tenant_id` to
+    /// the outgoing `LlmRequest`, exactly like `routes::dispatch` does for
+    /// HTTP calls. `KeyLimitLayer` only enforces rpm/tpm when `tenant_id` is
+    /// present (see `tenant_limit` module docs) — proven here by configuring
+    /// `rpm = 1` on the virtual key and observing the SECOND `dispatch` call
+    /// rejected, sharing the exact same counter a `/v1/chat/completions`
+    /// call would.
+    #[tokio::test]
+    async fn dispatch_attaches_tenant_id_so_rpm_is_enforced() {
+        let (mock_url, upstream) = start_mock_upstream().await;
+
+        let config = ProxyConfig::from_toml_str(&format!(
+            r#"
+[[models]]
+name = "test-model"
+provider_model = "openai/gpt-4o"
+api_key = "sk-test"
+base_url = "{mock_url}"
+
+[[keys]]
+key = "vk-a"
+models = ["test-model"]
+rpm = 1
+"#
+        ))
+        .expect("valid TOML");
+
+        let service_pool = Arc::new(ServicePool::from_config(&config, None).expect("ServicePool::from_config"));
+        let file_store = Arc::new(FileStore::from_config(&Default::default()).expect("FileStore::from_config"));
+        let mcp = LiterLlmMcp::new(service_pool, file_store, KeyContext::master(), McpTransportKind::Stdio);
+
+        let ctx = virtual_key_ctx("vk-a");
+
+        let first = mcp.dispatch(&ctx, "test-model", chat_request("test-model")).await;
+        assert!(
+            first.is_ok(),
+            "first call within rpm=1 should reach the mock upstream, got: {first:?}"
+        );
+
+        let second = mcp.dispatch(&ctx, "test-model", chat_request("test-model")).await;
+        let err = second.expect_err("rpm=1 must reject the second dispatch call");
+        assert!(
+            err.message.contains("exceeded") && err.message.contains("requests per"),
+            "expected a rate-limit message from KeyLimitLayer, got: {}",
+            err.message
+        );
+
+        upstream.abort();
+    }
+
+    /// A master-key caller must remain unlimited, matching `routes::dispatch`
+    /// and `KeyLimitService::call`'s master-tenant skip.
+    #[tokio::test]
+    async fn dispatch_does_not_rate_limit_master_key() {
+        let (mock_url, upstream) = start_mock_upstream().await;
+
+        let config = ProxyConfig::from_toml_str(&format!(
+            r#"
+[[models]]
+name = "test-model"
+provider_model = "openai/gpt-4o"
+api_key = "sk-test"
+base_url = "{mock_url}"
+"#
+        ))
+        .expect("valid TOML");
+
+        let service_pool = Arc::new(ServicePool::from_config(&config, None).expect("ServicePool::from_config"));
+        let file_store = Arc::new(FileStore::from_config(&Default::default()).expect("FileStore::from_config"));
+        let mcp = LiterLlmMcp::new(service_pool, file_store, KeyContext::master(), McpTransportKind::Stdio);
+
+        let ctx = KeyContext::master();
+
+        for attempt in 0..3 {
+            let result = mcp.dispatch(&ctx, "test-model", chat_request("test-model")).await;
+            assert!(
+                result.is_ok(),
+                "master key call {attempt} should never be rate-limited, got: {result:?}"
+            );
+        }
+
+        upstream.abort();
     }
 }

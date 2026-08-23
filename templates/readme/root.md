@@ -117,7 +117,7 @@ See [Ruby README](packages/ruby/README.md) for full documentation.
 composer require xberg-io/liter-llm
 ```
 
-See [PHP README](packages/php/README.md) for full documentation.
+See [PHP README](crates/liter-llm-php/README.md) for full documentation.
 
 </details>
 
@@ -197,6 +197,7 @@ The `liter-llm` CLI ships both the OpenAI-compatible proxy and the MCP tool serv
 ```sh
 brew install xberg-io/tap/liter-llm
 cargo install liter-llm-cli                 # from crates.io
+cargo binstall liter-llm-cli               # prebuilt binary from GitHub Releases
 npx @xberg-io/liter-llm-cli --help         # npm (self-installs the binary)
 docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-your-key ghcr.io/xberg-io/liter-llm
 ```
@@ -300,7 +301,7 @@ Join our [Discord community](https://discord.gg/xt9WY3GnKR) for questions and di
 
 ## Part of Xberg.io
 
-- [Xberg](https://github.com/xberg-io/xberg) — document intelligence: text, tables, metadata from 91+ formats with optional OCR.
+- [Xberg](https://github.com/xberg-io/xberg) — document intelligence: text, tables, metadata from 101 formats with optional OCR.
 - [Xberg Enterprise](https://github.com/xberg-io/xberg-enterprise) — managed extraction API with SDKs, dashboards, and observability.
 - [crawlberg](https://github.com/xberg-io/crawlberg) — web crawling and scraping with HTML→Markdown and headless-Chrome fallback.
 - [html-to-markdown](https://github.com/xberg-io/html-to-markdown) — fast, lossless HTML→Markdown engine.

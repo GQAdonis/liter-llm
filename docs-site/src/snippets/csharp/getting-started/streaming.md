@@ -1,4 +1,13 @@
-<!-- snippet:compile-only -->
+---
+id: readme_csharp_streaming
+language: csharp
+target: csharp
+level: syntax
+requires: []
+side_effect: network
+---
+
+Stream tokens in real time.
 
 ```csharp
 using LiterLlm;

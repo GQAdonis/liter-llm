@@ -1,0 +1,77 @@
+name: Resolve npm dist-tag
+description: >-
+  Resolve the npm dist-tag to publish under, refusing to move `latest` backwards.
+  npm assigns `latest` on a last-write-wins basis rather than by version order, so a
+  re-run of an older tag silently demotes the newest release. When the version being
+  published is not newer than the package's current `latest`, this resolves to
+  `previous` instead so the existing `latest` pointer survives.
+
+inputs:
+  package:
+    description: npm package name, including scope
+    required: true
+  version:
+    description: Version about to be published
+    required: true
+  requested-tag:
+    description: dist-tag the release asked for; only `latest` is ever downgraded
+    required: false
+    default: latest
+
+outputs:
+  tag:
+    description: dist-tag that should actually be passed to `npm publish`
+    value: ${{ steps.resolve.outputs.tag }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+        VERSION: ${{ inputs.version }}
+        REQUESTED_TAG: ${{ inputs.requested-tag }}
+      run: |
+        python3 <<'PY'
+        import json, os, re, sys, urllib.parse, urllib.request
+
+        package = os.environ["PACKAGE"]
+        version = os.environ["VERSION"]
+        requested = os.environ.get("REQUESTED_TAG") or "latest"
+
+        def emit(tag, reason):
+            with open(os.environ["GITHUB_OUTPUT"], "a") as handle:
+                handle.write(f"tag={tag}\n")
+            print(f"{package}@{version} -> dist-tag '{tag}' ({reason})")
+            sys.exit(0)
+
+        if requested != "latest":
+            emit(requested, "explicit non-latest tag requested")
+
+        url = "https://registry.npmjs.org/" + urllib.parse.quote(package, safe="")
+        try:
+            with urllib.request.urlopen(url, timeout=30) as response:
+                current = json.load(response).get("dist-tags", {}).get("latest")
+        except Exception as error:
+            emit(requested, f"could not read dist-tags from npm: {error}")
+
+        if not current:
+            emit("latest", "package has no published latest yet")
+
+        def sort_key(value):
+            core, _, prerelease = value.partition("-")
+            numbers = [int(part) for part in re.findall(r"\d+", core)[:3]]
+            numbers += [0] * (3 - len(numbers))
+            # A final release outranks any prerelease sharing the same core version.
+            return (tuple(numbers), 1 if not prerelease else 0, prerelease)
+
+        if sort_key(version) > sort_key(current):
+            emit("latest", f"newer than the published latest ({current})")
+
+        emit(
+            "previous",
+            f"not newer than the published latest ({current}); "
+            "leaving `latest` where it is",
+        )
+        PY

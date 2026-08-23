@@ -72,8 +72,9 @@ pub mod util;
 pub mod vectorstore;
 
 pub use client::{
-    BatchClient, BoxFuture, BoxStream, ClientBuilder, ClientConfig, ClientConfigBuilder, FileClient, FileConfig,
-    LlmClient, LlmClientRaw, ResponseClient,
+    BatchClient, BedrockConfig, BoxFuture, BoxStream, ClientBuilder, ClientConfig, ClientConfigBuilder, FileClient,
+    FileConfig, LlmBudgetConfig, LlmCacheConfig, LlmClient, LlmClientRaw, LlmConfig, LlmInFlightLimitConfig,
+    LlmProviderConfig, LlmRateLimitConfig, ResponseClient,
 };
 // ~keep Batch polling helpers are binding-public and used by every language binding.
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
@@ -91,7 +92,7 @@ pub use client::managed::ManagedClient;
 pub use error::{LiterLlmError, Result};
 // ~keep Export only Tower config DTOs at root; Layer/Service composition is not FFI-friendly.
 #[cfg(feature = "tower")]
-pub use tower::{BudgetConfig, CacheBackend, CacheConfig, Enforcement, RateLimitConfig};
+pub use tower::{BudgetConfig, CacheBackend, CacheConfig, Enforcement, InFlightLimitConfig, RateLimitConfig};
 // ~keep Root-export Tower DTOs and traits that bindings need without exposing Layer/Service types.
 #[cfg(feature = "tower")]
 pub use tower::{

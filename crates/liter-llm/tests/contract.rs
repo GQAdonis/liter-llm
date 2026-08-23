@@ -93,15 +93,32 @@ fn assert_valid(validator: &jsonschema::Validator, instance: &Value, label: &str
 }
 
 /// The `CreateChatCompletionResponse` definition requires:
-///   choices[].finish_reason  — string enum (non-nullable at top level)
-///   choices[].logprobs       — object | null  (required field)
-///   choices[].message.role   — "assistant"
-///   choices[].message.content — string | null
-///   choices[].message.refusal — string | null
+///   choices[].finish_reason   — string enum (non-nullable at top level)
+///   choices[].logprobs        — object | null  (required key)
+///   choices[].message.role    — required key, const `"assistant"`
+///   choices[].message.content — string | null (required key)
+///   choices[].message.refusal — string | null (required key)
 ///
-/// Our `ChatCompletionResponse` serialises cleanly into these shapes; we build
-/// the instance from our Rust type then add the schema-required fields that
-/// our struct omits (logprobs, role).
+/// Regression pin: this test previously PATCHED the serialized JSON before
+/// validating — unconditionally injecting `role: "assistant"` and
+/// back-filling `refusal`/`content`/`logprobs` with `null` whenever the real
+/// serialization omitted them — then asserted against the *patched* document
+/// instead of the type's real wire output. That could never catch a schema
+/// mismatch in `ChatCompletionResponse`/`Choice`/`AssistantMessage`, since the
+/// patch papered over exactly the gaps a mismatch would produce. It now
+/// validates the real, unpatched `serde_json::to_value` output directly.
+///
+/// ~keep EXPECTED TO FAIL, for two independent reasons found while removing
+/// the patch: (1) `Choice` (crates/liter-llm/src/types/chat.rs) has no
+/// `logprobs` field at all, so the required `choices[].logprobs` key is never
+/// emitted; (2) `AssistantMessage` (crates/liter-llm/src/types/common.rs) has
+/// no `role` field at all — there is nowhere in the type to carry the
+/// required `"assistant"` const — and its `refusal` field is
+/// `#[serde(skip_serializing_if = "Option::is_none")]`, so a `None` refusal
+/// (the common case) omits the required `refusal` key rather than emitting
+/// `null`. All three are keys the schema requires to always be present
+/// (nullable where applicable, but present); this is genuine non-conformance
+/// in the real types, not a bug in this test.
 #[test]
 fn chat_completion_response_matches_schema() {
     use liter_llm::{AssistantMessage, ChatCompletionResponse, Choice, FinishReason, Usage};
@@ -122,6 +139,7 @@ fn chat_completion_response_matches_schema() {
                 reasoning_content: None,
             },
             finish_reason: Some(FinishReason::Stop),
+            logprobs: None,
         }],
         usage: Some(Usage {
             prompt_tokens: 10,
@@ -133,20 +151,7 @@ fn chat_completion_response_matches_schema() {
         service_tier: None,
     };
 
-    let mut json = serde_json::to_value(&response).unwrap();
-
-    let choices = json["choices"].as_array_mut().unwrap();
-    for choice in choices.iter_mut() {
-        let msg = &mut choice["message"];
-        msg["role"] = json!("assistant");
-        if msg.get("refusal").is_none() {
-            msg["refusal"] = json!(null);
-        }
-        if msg.get("content").is_none() {
-            msg["content"] = json!(null);
-        }
-        choice["logprobs"] = json!(null);
-    }
+    let json = serde_json::to_value(&response).unwrap();
 
     let validator = build_validator(CHAT_COMPLETION_SCHEMA, "CreateChatCompletionResponse");
     assert_valid(&validator, &json, "CreateChatCompletionResponse");
@@ -196,26 +201,36 @@ fn chat_completion_chunk_matches_schema() {
 /// The embedded usage requires `prompt_tokens` and `total_tokens`.
 /// Our `EmbeddingResponse` marks `usage` as `Option<Usage>` so we test the
 /// populated path here.
+///
+/// Regression pin: this test previously validated a hand-written
+/// `json!({...})` literal that never referenced `EmbeddingResponse`,
+/// `EmbeddingObject`, or `Usage` — the real types could be deleted and the
+/// test would still pass. It now serializes the actual types and validates
+/// that output.
 #[test]
 fn embedding_response_matches_schema() {
-    let instance = json!({
-        "object": "list",
-        "model": "text-embedding-3-small",
-        "data": [
-            {
-                "object": "embedding",
-                "index": 0,
-                "embedding": [0.1_f64, 0.2_f64, 0.3_f64]
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 8,
-            "total_tokens": 8
-        }
-    });
+    use liter_llm::{EmbeddingObject, EmbeddingResponse, Usage};
+
+    let response = EmbeddingResponse {
+        object: "list".into(),
+        data: vec![EmbeddingObject {
+            object: "embedding".into(),
+            index: 0,
+            embedding: vec![0.1, 0.2, 0.3],
+        }],
+        model: "text-embedding-3-small".into(),
+        usage: Some(Usage {
+            prompt_tokens: 8,
+            completion_tokens: 0,
+            total_tokens: 8,
+            prompt_tokens_details: None,
+        }),
+    };
+
+    let json = serde_json::to_value(&response).unwrap();
 
     let validator = build_validator(EMBEDDING_SCHEMA, "CreateEmbeddingResponse");
-    assert_valid(&validator, &instance, "CreateEmbeddingResponse");
+    assert_valid(&validator, &json, "CreateEmbeddingResponse");
 }
 
 /// Validate a single `Embedding` object.
@@ -323,7 +338,39 @@ fn models_list_response_deserializes_deepseek_shape() {
     assert_eq!(parsed.data[0].created, 0);
 }
 
+// ~keep NOTE ON `error_response_matches_schema` / `error_object_with_code_matches_schema`
+// below: both were flagged as vacuous — they build a `json!({..})` literal by
+// hand and validate that literal, never constructing or serializing a real
+// Rust type. Investigating what the "real type" would even be turned up a
+// blocker: `crates/liter-llm/src/error.rs` defines `pub(crate) struct
+// ErrorResponse { error: ApiError }` and `pub(crate) struct ApiError {
+// message: String, code: Option<String> }` — both `pub(crate)`, and neither
+// is re-exported from the crate root (`lib.rs` only re-exports
+// `error::{LiterLlmError, Result}`). `tests/contract.rs` is a separate
+// integration-test crate that only sees the crate's public API, so
+// `ErrorResponse`/`ApiError` are not nameable here at all; there is no way to
+// `use liter_llm::ErrorResponse` or `liter_llm::ApiError`. Nor does the crate
+// expose any other public type shaped like the OpenAI wire error object (no
+// `pub` struct anywhere in the crate carries a `param` field). These two
+// tests are therefore left validating the same hand-written literal as
+// before — genuinely still vacuous — because fixing them for real requires
+// either exposing `ApiError`/`ErrorResponse` for testing or moving the check
+// into a `#[cfg(test)]` unit test inside `src/error.rs` (which has
+// crate-internal visibility), and both of those are edits outside
+// `tests/contract.rs`, which is the only file this change is scoped to touch.
+//
+// This also surfaces a second, independent defect worth flagging: even if
+// `ApiError` were made reachable, it only has `message` and `code` fields —
+// it has no `type` or `param` field at all — while the `Error` schema
+// requires `type`, `message`, `param`, and `code` to always be present as
+// keys. Serializing the real `ApiError` today would fail this schema on two
+// required keys (`type`, `param`), regardless of visibility.
+
 /// Validate the `ErrorResponse` wrapper and the inner `Error` object.
+///
+/// See the block comment above: the real `pub(crate)` `ErrorResponse`/
+/// `ApiError` types cannot be named from this integration-test crate, so this
+/// still validates a hand-written literal rather than a serialized real type.
 #[test]
 fn error_response_matches_schema() {
     let instance = json!({
@@ -339,6 +386,10 @@ fn error_response_matches_schema() {
     assert_valid(&validator, &instance, "ErrorResponse");
 }
 
+/// See the block comment above `error_response_matches_schema`: the real
+/// `pub(crate)` `ApiError` type cannot be named from this integration-test
+/// crate, so this still validates a hand-written literal rather than a
+/// serialized real type.
 #[test]
 fn error_object_with_code_matches_schema() {
     let instance = json!({

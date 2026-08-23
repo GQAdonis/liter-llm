@@ -35,6 +35,8 @@
 //!   with pluggable [`circuit::CircuitPolicy`].
 //! - [`hedge::HedgeLayer`] / [`hedge::HedgeService`] — hedged retry that races
 //!   concurrent requests and cancels losers.
+//! - [`in_flight::InFlightLimitLayer`] / [`in_flight::InFlightLimitService`] —
+//!   global per-client provider concurrency limiting.
 //!
 //! # Example
 //!
@@ -84,6 +86,8 @@ pub mod hedge;
 pub mod hooks;
 /// Idempotency-Key dedup layer (OpenAI convention, pluggable store, 24h default TTL).
 pub mod idempotency;
+/// Global per-client in-flight provider request limiter.
+pub mod in_flight;
 /// OTel-native GenAI semantic-convention metrics layer.
 pub mod metrics;
 /// Per-provider rate limiter.
@@ -115,9 +119,9 @@ pub use crate::vectorstore::OpenDalVectorStore;
 pub use crate::vectorstore::{InMemoryVectorStore, VectorMatch, VectorMetadata, VectorStore};
 
 pub use budget::{
-    BudgetConfig, BudgetDimension, BudgetLayer, BudgetLedger, BudgetService, BudgetSnapshot, BudgetState,
-    BudgetVerdict, CostCheckContext, CostRecordContext, DimensionLimits, Enforcement, InMemoryBudgetLedger,
-    should_hedge,
+    BudgetConfig, BudgetDimension, BudgetLayer, BudgetLedger, BudgetLedgerLayer, BudgetLedgerService, BudgetService,
+    BudgetSnapshot, BudgetState, BudgetVerdict, CostCheckContext, CostRecordContext, DimensionLimits, Enforcement,
+    InMemoryBudgetLedger, should_hedge,
 };
 pub use cache::{
     CacheBackend, CacheConfig, CacheLayer, CacheMetadata, CacheService, CacheStore, CachedResponse, InMemoryStore,
@@ -135,12 +139,12 @@ pub use cooldown::{CooldownLayer, CooldownService};
 pub use cost::{CostTrackingLayer, CostTrackingService};
 pub use fallback::{FallbackLayer, FallbackService};
 pub use fallback_chain::{DefaultRetryPolicy, FallbackChainLayer, FallbackChainService, RetryClass, RetryPolicy};
-pub use guardrail::{GuardrailLayer, GuardrailService};
+pub use guardrail::{GuardrailLayer, GuardrailService, TENANT_ID_METADATA_KEY};
 pub use health::{
     HealthCheckConfig, HealthCheckLayer, HealthCheckService, HealthChecker, HealthStatus, HttpProbeHealthChecker,
     PerProviderHealthCheck,
 };
-pub use hedge::{FixedDelayHedge, HedgeLayer, HedgePolicy, HedgeService};
+pub use hedge::{BudgetAwareHedge, FixedDelayHedge, HedgeLayer, HedgePolicy, HedgeService};
 pub use hooks::{HooksLayer, HooksService, LlmHook};
 /// `IdempotencyStoreError` is accessible via the `tower` module.
 ///
@@ -153,6 +157,7 @@ pub use idempotency::{
     IdempotencyEntry, IdempotencyLayer, IdempotencyService, IdempotencyStore, IdempotencyStoreError,
     InMemoryIdempotencyStore,
 };
+pub use in_flight::{InFlightLimitConfig, InFlightLimitLayer, InFlightLimitService};
 pub use metrics::{MetricsLayer, MetricsService};
 pub use rate_limit::{
     CostRateLimitConfig, CostRateLimitLayer, CostRateLimitService, ModelRateLimitLayer, ModelRateLimitService,

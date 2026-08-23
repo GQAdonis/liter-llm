@@ -19,6 +19,40 @@ pub(crate) fn unix_timestamp_secs() -> u64 {
         .unwrap_or(0)
 }
 
+/// Validate that a sampling parameter present in the request body falls within a
+/// provider's documented range, rejecting it with a [`LiterLlmError::BadRequest`]
+/// when it does not.
+///
+/// `ChatCompletionRequest::temperature` and `top_p` are documented at the widest
+/// range accepted by any supported provider, so a value that is legal per that
+/// doc can still be illegal for a specific provider (e.g. Anthropic caps
+/// `temperature` at `1.0`, not OpenAI's `2.0`). Rejecting the value here, before
+/// the request reaches the wire, turns an opaque provider-side 400 into a local,
+/// actionable error instead of silently rewriting the caller's requested
+/// sampling behaviour, which a clamp would do. A missing field is not an error;
+/// only a present, out-of-range value is rejected.
+pub(crate) fn validate_sampling_param_range(
+    body: &serde_json::Value,
+    field: &str,
+    provider: &str,
+    min: f64,
+    max: f64,
+) -> Result<()> {
+    let Some(value) = body.get(field).and_then(serde_json::Value::as_f64) else {
+        return Ok(());
+    };
+    if value < min || value > max {
+        return Err(LiterLlmError::BadRequest {
+            message: format!(
+                "{field}={value} is outside {provider}'s supported range [{min}, {max}]; lower \
+                 the requested value or omit `{field}` to use the provider default"
+            ),
+            status: 400,
+        });
+    }
+    Ok(())
+}
+
 /// The streaming wire format a provider uses for its response stream.
 ///
 /// Most providers use standard Server-Sent Events (SSE).  AWS Bedrock uses
@@ -115,7 +149,13 @@ const PROVIDERS_JSON: &str = include_str!("../../schemas/providers.json");
 static REGISTRY: LazyLock<std::result::Result<ProviderRegistry, String>> = LazyLock::new(|| {
     serde_json::from_str::<ProviderRegistryRaw>(PROVIDERS_JSON)
         .map(ProviderRegistry::from_raw)
-        .map_err(|e| e.to_string())
+        .map_err(|e| {
+            // ~keep Logged once here (LazyLock evaluates its closure exactly once) rather
+            // than at every `detect_provider`/`capabilities` call site that silently
+            // falls back to "no provider found" on this error.
+            tracing::error!(error = %e, "embedded schemas/providers.json failed to parse");
+            e.to_string()
+        })
 });
 
 /// Access the registry, returning an error if the embedded JSON was invalid.
@@ -126,6 +166,15 @@ fn registry() -> Result<&'static ProviderRegistry> {
     })
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+struct RegionalEndpointConfig {
+    region: String,
+    openai_base_url: String,
+    anthropic_base_url: String,
+    docs_root: String,
+}
+
 /// Internal JSON shape: each provider entry with capability flags and streaming
 /// format, stored separately from the public [`ProviderConfig`] schema.
 #[derive(Debug, Deserialize)]
@@ -134,6 +183,10 @@ struct ProviderEntry {
     config: ProviderConfig,
     #[serde(default)]
     capabilities: ProviderCapabilities,
+    /// Protocol-specific base URLs available in each supported region.
+    #[allow(dead_code)]
+    #[serde(default)]
+    regional_endpoints: Vec<RegionalEndpointConfig>,
     /// Streaming wire format for this provider.
     ///
     /// Deserialized from `providers.json` and available to future workstreams
@@ -494,9 +547,14 @@ pub(crate) trait Provider: Send + Sync {
     /// - `method`: HTTP method string, e.g. `"POST"`.
     /// - `url`: Full request URL including path and query string.
     /// - `body`: Serialised request body bytes (used in the payload hash).
-    fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Vec<(String, String)> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the signing headers cannot be computed (e.g. an
+    /// internal signing-library failure). The default implementation never fails.
+    fn signing_headers(&self, method: &str, url: &str, body: &[u8]) -> Result<Vec<(String, String)>> {
         let _ = (method, url, body);
-        vec![]
+        Ok(vec![])
     }
 }
 
@@ -762,7 +820,7 @@ pub(crate) fn detect_provider(model: &str) -> Option<Box<dyn Provider>> {
         return Some(Box::new(openai));
     }
 
-    let anthropic = anthropic::AnthropicProvider;
+    let anthropic = anthropic::AnthropicProvider::default();
     if anthropic.matches_model(model) {
         return Some(Box::new(anthropic));
     }
@@ -852,6 +910,135 @@ pub fn complex_provider_names() -> Result<&'static HashSet<String>> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// Revert line: delete the `if value < min || value > max { ... }` check inside
+    /// `validate_sampling_param_range` (or make it always return `Ok(())`) to make
+    /// this test fail.
+    #[test]
+    fn validate_sampling_param_range_rejects_out_of_range_value() {
+        let body = json!({"temperature": 1.8});
+        let err = validate_sampling_param_range(&body, "temperature", "Anthropic", 0.0, 1.0)
+            .expect_err("1.8 is outside [0.0, 1.0]");
+        assert_eq!(err.status_code(), 400);
+        assert_eq!(
+            err.to_string(),
+            "bad request: temperature=1.8 is outside Anthropic's supported range [0, 1]; lower \
+             the requested value or omit `temperature` to use the provider default"
+        );
+    }
+
+    #[test]
+    fn validate_sampling_param_range_accepts_in_range_value() {
+        let body = json!({"temperature": 0.5});
+        assert!(validate_sampling_param_range(&body, "temperature", "Anthropic", 0.0, 1.0).is_ok());
+    }
+
+    #[test]
+    fn validate_sampling_param_range_ignores_absent_field() {
+        let body = json!({"model": "claude-3-5-sonnet"});
+        assert!(validate_sampling_param_range(&body, "temperature", "Anthropic", 0.0, 1.0).is_ok());
+    }
+
+    /// Every provider that authenticates with a static API key must name the
+    /// environment variable that key is conventionally read from.
+    ///
+    /// `env_var` is the sole gate in `DefaultClient::new`, and it is checked
+    /// with `if let Some(..)` — so a provider returning `None` does not merely
+    /// skip auto-loading, it skips the "no API key" error too.  The client is
+    /// built with an empty key and the failure only surfaces as a 401 on the
+    /// first request.  Bedrock, Vertex AI and GitHub Copilot legitimately
+    /// return `None`: their credentials come from SigV4, ADC and an OAuth
+    /// device-flow exchange respectively, not from a key variable.
+    #[test]
+    fn static_key_providers_declare_their_env_var() {
+        let cases: Vec<(&str, Box<dyn Provider>)> = vec![
+            ("OPENAI_API_KEY", Box::new(OpenAiProvider)),
+            (
+                "ANTHROPIC_API_KEY",
+                Box::new(super::anthropic::AnthropicProvider::new()),
+            ),
+            ("COHERE_API_KEY", Box::new(super::cohere::CohereProvider)),
+            ("MISTRAL_API_KEY", Box::new(super::mistral::MistralProvider)),
+            ("GEMINI_API_KEY", Box::new(super::google_ai::GoogleAiProvider)),
+            (
+                "AZURE_OPENAI_API_KEY",
+                Box::new(super::azure::AzureProvider::with_base_url("https://x.openai.azure.com")),
+            ),
+        ];
+
+        for (expected, provider) in cases {
+            assert_eq!(
+                provider.env_var(),
+                Some(expected),
+                "{} must declare {expected}",
+                provider.name()
+            );
+        }
+    }
+
+    #[test]
+    fn minimax_regional_endpoints_are_registered() {
+        let registry = registry().expect("registry should load");
+        let provider = registry
+            .providers
+            .iter()
+            .find(|entry| entry.config.name == "minimax")
+            .expect("MiniMax provider should be registered");
+
+        assert!(provider.capabilities.reasoning);
+        assert_eq!(
+            provider.regional_endpoints,
+            vec![
+                RegionalEndpointConfig {
+                    region: "global_en".into(),
+                    openai_base_url: "https://api.minimax.io/v1".into(),
+                    anthropic_base_url: "https://api.minimax.io/anthropic".into(),
+                    docs_root: "https://platform.minimax.io/docs".into(),
+                },
+                RegionalEndpointConfig {
+                    region: "cn_zh".into(),
+                    openai_base_url: "https://api.minimaxi.com/v1".into(),
+                    anthropic_base_url: "https://api.minimaxi.com/anthropic".into(),
+                    docs_root: "https://platform.minimaxi.com/docs".into(),
+                },
+            ]
+        );
+    }
+
+    /// `OpenAiProvider::transform_request` is a no-op — the wire body is exactly what
+    /// serde produces from the typed `Message`/`ToolMessage` API. Asserts the exact
+    /// serialized JSON shape of a `Parts` tool result: OpenAI's chat-completions
+    /// `content` array accepts `image_url` parts inside a tool message verbatim.
+    #[test]
+    fn openai_tool_result_image_part_serializes_to_exact_content_array() {
+        use crate::types::{ContentPart, Message, ToolMessage, UserContent};
+
+        let message = Message::Tool(ToolMessage {
+            content: UserContent::Parts(vec![
+                ContentPart::text("Here is a screenshot:"),
+                ContentPart::image_data_url("data:image/png;base64,abc123"),
+            ]),
+            tool_call_id: "call_shot".into(),
+            name: None,
+        });
+        let mut body = json!({"model": "gpt-4o", "messages": [message]});
+
+        OpenAiProvider
+            .transform_request(&mut body)
+            .expect("transform_request should not fail");
+
+        assert_eq!(
+            body["messages"][0],
+            json!({
+                "role": "tool",
+                "content": [
+                    {"type": "text", "text": "Here is a screenshot:"},
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc123"}}
+                ],
+                "tool_call_id": "call_shot"
+            })
+        );
+    }
 
     #[test]
     fn transform_response_audio_message_hoisted() {

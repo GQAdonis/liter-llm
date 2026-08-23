@@ -4,16 +4,16 @@ title: "Configuration"
 ---
 
 import { Tabs, TabItem } from "@astrojs/starlight/components";
-import { Content as Snip_python_guides_configuration } from "../../../snippets/python/guides/configuration.md";
-import { Content as Snip_typescript_guides_configuration } from "../../../snippets/typescript/guides/configuration.md";
-import { Content as Snip_rust_usage_configuration } from "../../../snippets/rust/usage/configuration.md";
-import { Content as Snip_go_guides_configuration } from "../../../snippets/go/guides/configuration.md";
-import { Content as Snip_java_usage_configuration } from "../../../snippets/java/usage/configuration.md";
-import { Content as Snip_csharp_usage_configuration } from "../../../snippets/csharp/usage/configuration.md";
-import { Content as Snip_ruby_usage_configuration } from "../../../snippets/ruby/usage/configuration.md";
-import { Content as Snip_php_usage_configuration } from "../../../snippets/php/usage/configuration.md";
-import { Content as Snip_elixir_usage_configuration } from "../../../snippets/elixir/usage/configuration.md";
-import { Content as Snip_wasm_usage_configuration } from "../../../snippets/wasm/usage/configuration.md";
+import { Content as Snip_python_guides_configuration } from "../../../snippets/python/configuration/custom-base-url.md";
+import { Content as Snip_typescript_guides_configuration } from "../../../snippets/typescript/configuration/custom-base-url.md";
+import { Content as Snip_rust_usage_configuration } from "../../../snippets/rust/configuration/custom-base-url.md";
+import { Content as Snip_go_guides_configuration } from "../../../snippets/go/configuration/custom-base-url.md";
+import { Content as Snip_java_usage_configuration } from "../../../snippets/java/configuration/custom-base-url.md";
+import { Content as Snip_csharp_usage_configuration } from "../../../snippets/csharp/configuration/custom-base-url.md";
+import { Content as Snip_ruby_usage_configuration } from "../../../snippets/ruby/configuration/custom-base-url.md";
+import { Content as Snip_php_usage_configuration } from "../../../snippets/php/configuration/custom-base-url.md";
+import { Content as Snip_elixir_usage_configuration } from "../../../snippets/elixir/configuration/custom-base-url.md";
+import { Content as Snip_wasm_usage_configuration } from "../../../snippets/wasm/configuration/custom-base-url.md";
 
 :::tip[Snippets marked `compile-only`]
 Snippets with the `<!-- snippet:compile-only -->` HTML comment are extracted from CI test fixtures, kept in sync with the API at every build, and may include test scaffolding (assertions, fixture setup). Strip the scaffolding when copying into your application.
@@ -58,6 +58,9 @@ enforcement = "hard"
 rpm = 60
 tpm = 100000
 window_seconds = 60
+
+[in_flight_limit]
+max_in_flight = 8
 
 [[providers]]
 name = "my-provider"
@@ -107,6 +110,12 @@ The `backend` and `backend_config` fields are only honored when liter-llm is com
 | `rpm`            | int  | Maximum requests per window.              |
 | `tpm`            | int  | Maximum tokens per window.                |
 | `window_seconds` | int  | Window duration in seconds (default: 60). |
+
+### `[in_flight_limit]`
+
+| Field           | Type | Description                                                   |
+| --------------- | ---- | ------------------------------------------------------------- |
+| `max_in_flight` | int  | Maximum outstanding provider requests. Must be greater than 0. |
 
 ### `[[providers]]`
 
@@ -451,6 +460,33 @@ let layer = ModelRateLimitLayer::new(config);
 </TabItem>
 </Tabs>
 
+## In-flight concurrency limiting
+
+Bound simultaneous provider requests across all operations that share a managed client. Requests wait for a permit; cached responses do not consume one.
+
+<Tabs syncKey="lang">
+<TabItem label="TOML">
+
+```toml
+[in_flight_limit]
+max_in_flight = 8
+```
+
+</TabItem>
+<TabItem label="Rust">
+
+```rust
+use liter_llm::InFlightLimitConfig;
+
+let config = InFlightLimitConfig {
+    max_in_flight: Some(8),
+};
+let builder = builder.in_flight_limit(config);
+```
+
+</TabItem>
+</Tabs>
+
 ## Hooks
 
 Hooks are implemented via the Rust `LlmHook` trait and are wired into the Tower stack through `HooksLayer`. They are not currently exposed through the language bindings.
@@ -517,7 +553,7 @@ register_custom_provider(CustomProviderConfig {
 })?;
 ```
 
-Unregister with `unregister_custom_provider("my-provider")` (returns `bool`).
+Unregister with `unregister_custom_provider("my-provider")` (returns `Result<bool>`: `Ok(true)` if a provider with that name existed).
 
 </TabItem>
 <TabItem label="Python">
@@ -543,7 +579,7 @@ unregister_custom_provider("my-provider")
 </TabItem>
 <TabItem label="TOML">
 
-Custom providers declared in `liter-llm.toml` are registered automatically when a `ClientConfigBuilder` is constructed from the file:
+`liter-llm.toml` can declare custom providers, but loading the file does **not** register them automatically — `FileConfig::into_builder()` only maps client-level settings onto `ClientConfigBuilder`. Read the entries back with `FileConfig::providers()` and call `register_custom_provider` yourself for each one:
 
 ```toml
 [[providers]]
@@ -553,10 +589,25 @@ auth_header = "Bearer"
 model_prefixes = ["my-provider/"]
 ```
 
+```rust
+use liter_llm::{register_custom_provider, AuthHeaderFormat, CustomProviderConfig, FileConfig};
+
+if let Some(file) = FileConfig::discover()? {
+    for provider in file.providers() {
+        register_custom_provider(CustomProviderConfig {
+            name: provider.name.clone(),
+            base_url: provider.base_url.clone(),
+            auth_header: AuthHeaderFormat::Bearer,
+            model_prefixes: provider.model_prefixes.clone(),
+        })?;
+    }
+}
+```
+
 </TabItem>
 </Tabs>
 
-`AuthHeaderFormat` has three variants: `Bearer` (sends `Authorization: Bearer <key>`), `ApiKey(header_name)` (sends a custom header), and `None` (no auth header).
+`AuthHeaderFormat` has three variants: `Bearer` (sends `Authorization: Bearer <key>`), `ApiKey(header_name)` (sends a custom header), and `None` (no auth header). Note that `FileProviderConfig::auth_header` (from TOML) is a raw header-name string, not an `AuthHeaderFormat`; map it to the enum yourself as shown above.
 
 ## Tracing
 

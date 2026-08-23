@@ -1,6 +1,11 @@
 {
   "id": "rate_limit_429",
   "description": "429 Too Many Requests error when the rate limit is exceeded",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "rate-limit-429",
+    "title": "429 Too Many Requests error when the rate limit is exceeded"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

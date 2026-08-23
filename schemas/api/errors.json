@@ -33,31 +33,21 @@
           "type": "string"
         }
       },
-      "required": [
-        "type",
-        "message",
-        "param",
-        "code"
-      ]
+      "required": ["type", "message", "param", "code"]
     },
     "ErrorEvent": {
       "type": "object",
       "properties": {
         "event": {
           "type": "string",
-          "enum": [
-            "error"
-          ],
+          "enum": ["error"],
           "x-stainless-const": true
         },
         "data": {
           "$ref": "#/$defs/Error"
         }
       },
-      "required": [
-        "event",
-        "data"
-      ],
+      "required": ["event", "data"],
       "description": "Occurs when an [error](/docs/guides/error-codes#api-errors) occurs. This can happen due to an internal server error or a timeout.",
       "x-oaiMeta": {
         "dataDescription": "`data` is an [error](/docs/guides/error-codes#api-errors)"
@@ -70,9 +60,7 @@
           "$ref": "#/$defs/Error"
         }
       },
-      "required": [
-        "error"
-      ]
+      "required": ["error"]
     }
   }
 }

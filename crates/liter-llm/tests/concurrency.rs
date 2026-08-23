@@ -45,6 +45,7 @@ impl liter_llm::client::LlmClient for ConcurrencyMockClient {
                     reasoning_content: None,
                 },
                 finish_reason: Some(liter_llm::types::FinishReason::Stop),
+                logprobs: None,
             }],
             usage: Some(liter_llm::types::Usage {
                 prompt_tokens: 10,

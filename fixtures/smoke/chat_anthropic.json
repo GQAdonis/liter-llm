@@ -1,6 +1,11 @@
 {
   "id": "smoke_chat_anthropic",
   "description": "Basic chat completion against real Anthropic API",
+  "docs": {
+    "topic": "smoke",
+    "stem": "smoke-chat-anthropic",
+    "title": "Basic chat completion against real Anthropic API"
+  },
   "category": "smoke",
   "tags": ["smoke", "anthropic", "chat"],
   "call": "chat",

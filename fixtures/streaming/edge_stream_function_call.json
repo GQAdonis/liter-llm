@@ -1,6 +1,11 @@
 {
   "id": "edge_stream_function_call",
   "description": "Streaming chat completion with tool/function call chunks",
+  "docs": {
+    "topic": "streaming",
+    "stem": "edge-stream-function-call",
+    "title": "Streaming chat completion with tool/function call chunks"
+  },
   "category": "streaming",
   "tags": ["streaming", "edge-case"],
   "call": "chat_stream",

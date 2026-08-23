@@ -1,6 +1,11 @@
 {
   "id": "edge_embed_empty_input",
   "description": "Embedding request with empty string input returns empty data array",
+  "docs": {
+    "topic": "embed",
+    "stem": "edge-embed-empty-input",
+    "title": "Embedding request with empty string input returns empty data array"
+  },
   "category": "embed",
   "tags": ["embed", "edge-case"],
   "call": "embed",

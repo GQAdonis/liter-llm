@@ -1,3 +1,12 @@
+---
+id: legacy_elixir_guides_error_handling
+language: elixir
+target: elixir
+level: syntax
+requires: []
+side_effect: network
+---
+
 ```elixir
 {:ok, client} = LiterLlm.create_client(System.get_env("OPENAI_API_KEY"))
 

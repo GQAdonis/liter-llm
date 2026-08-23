@@ -1,6 +1,11 @@
 {
   "id": "smoke_streaming_openai",
   "description": "Chat streaming against real OpenAI API, verifies chunks received",
+  "docs": {
+    "topic": "smoke",
+    "stem": "smoke-streaming-openai",
+    "title": "Chat streaming against real OpenAI API, verifies chunks received"
+  },
   "category": "smoke",
   "tags": ["smoke", "openai", "streaming"],
   "call": "chat_stream",

@@ -31,8 +31,8 @@
   <a href="https://github.com/xberg-io/liter-llm/tree/main/packages/go">
     <img src="https://img.shields.io/github/v/tag/xberg-io/liter-llm?label=Go&color=007ec6" alt="Go" />
   </a>
-  <a href="https://www.nuget.org/packages/LiterLlm">
-    <img src="https://img.shields.io/nuget/v/LiterLlm?label=C%23&color=007ec6" alt="C#" />
+  <a href="https://www.nuget.org/packages/XbergIo.LiterLlm">
+    <img src="https://img.shields.io/nuget/v/XbergIo.LiterLlm?label=C%23&color=007ec6" alt="C#" />
   </a>
   <a href="https://packagist.org/packages/xberg-io/liter-llm">
     <img src="https://img.shields.io/packagist/v/xberg-io/liter-llm?label=PHP&color=007ec6" alt="PHP" />
@@ -217,7 +217,7 @@ To use the MCP server inside a coding agent, install the **liter-llm plugin** fr
 
 ## Part of Xberg.io
 
-- [Xberg](https://github.com/xberg-io/xberg) — document intelligence: text, tables, metadata from 91+ formats with optional OCR.
+- [Xberg](https://github.com/xberg-io/xberg) — document intelligence: text, tables, metadata from 101 formats with optional OCR.
 - [Xberg Enterprise](https://github.com/xberg-io/xberg-enterprise) — managed extraction API with SDKs, dashboards, and observability.
 - [crawlberg](https://github.com/xberg-io/crawlberg) — web crawling and scraping with HTML→Markdown and headless-Chrome fallback.
 - [html-to-markdown](https://github.com/xberg-io/html-to-markdown) — fast, lossless HTML→Markdown engine.

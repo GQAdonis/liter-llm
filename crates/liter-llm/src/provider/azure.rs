@@ -98,6 +98,10 @@ impl Provider for AzureProvider {
         &self.base_url
     }
 
+    fn env_var(&self) -> Option<&str> {
+        Some("AZURE_OPENAI_API_KEY")
+    }
+
     fn auth_header<'a>(&'a self, api_key: &'a str) -> Option<(Cow<'static, str>, Cow<'a, str>)> {
         // ~keep Azure uses `api-key`, not Authorization: Bearer.
         Some((Cow::Borrowed("api-key"), Cow::Borrowed(api_key)))

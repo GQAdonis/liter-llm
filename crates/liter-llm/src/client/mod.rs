@@ -5,6 +5,8 @@ pub mod config;
 /// On-disk client configuration schema (TOML / JSON / YAML).
 #[allow(missing_docs)]
 pub mod config_file;
+/// Canonical, binding-friendly [`LlmConfig`] and its conversion into [`ClientConfigBuilder`].
+pub mod llm_config;
 /// Tower-backed managed client wired with rate limit, cache, routing, etc.
 #[cfg(all(feature = "native-http", feature = "tower"))]
 pub mod managed;
@@ -25,7 +27,7 @@ use crate::types::moderation::{ModerationRequest, ModerationResponse};
 use crate::types::ocr::{OcrRequest, OcrResponse};
 use crate::types::raw::{RawExchange, RawStreamExchange};
 use crate::types::rerank::{RerankRequest, RerankResponse};
-use crate::types::responses::{CreateResponseRequest, ResponseObject};
+use crate::types::responses::{CreateResponseRequest, ResponseObject, ResponseStreamEvent};
 use crate::types::search::{SearchRequest, SearchResponse};
 use crate::types::{
     ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, EmbeddingRequest, EmbeddingResponse,
@@ -44,6 +46,10 @@ use secrecy::ExposeSecret;
 pub use builder::{ClientBuilder, NoApiKey, NoProvider, WithApiKey, WithProvider};
 pub use config::{ClientConfig, ClientConfigBuilder};
 pub use config_file::FileConfig;
+pub use llm_config::{
+    BedrockConfig, LlmBudgetConfig, LlmCacheConfig, LlmConfig, LlmInFlightLimitConfig, LlmProviderConfig,
+    LlmRateLimitConfig,
+};
 
 use crate::types::batch::BatchStatus;
 use std::time::Duration;
@@ -163,6 +169,85 @@ struct PreparedRequest {
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 fn str_pair(pair: &(String, String)) -> (&str, &str) {
     (pair.0.as_str(), pair.1.as_str())
+}
+
+/// Shallow-merge a top-level `"extra_body"` key into `body`, OpenAI-Python-SDK
+/// style: `{**body, **extra_body}` — extra_body keys override identically
+/// named top-level keys.
+///
+/// On the chat path, providers that consume `extra_body` themselves (Anthropic,
+/// Vertex, Bedrock) already strip it inside their own `transform_request`, so by the
+/// time this runs there is nothing left for them to merge; there it only has an
+/// effect for OpenAI-compatible providers, which pass `extra_body` through
+/// unchanged. That caveat is chat-path-only: the Responses path
+/// ([`response_request_body`]) runs no provider transform at all, so the merged keys
+/// always reach the wire as literal OpenAI Responses fields.
+///
+/// A non-object `extra_body` cannot be merged into the body root, so it is dropped
+/// with a warning rather than sent to the wire.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn merge_extra_body(body: &mut serde_json::Value) {
+    let Some(obj) = body.as_object_mut() else {
+        return;
+    };
+    let Some(extra_body) = obj.remove("extra_body") else {
+        return;
+    };
+    match extra_body {
+        serde_json::Value::Object(extra_fields) => {
+            obj.extend(extra_fields);
+        }
+        other => {
+            tracing::warn!(
+                extra_body_type = json_value_type_name(&other),
+                "ignoring non-object extra_body; it cannot be merged into the request body"
+            );
+        }
+    }
+}
+
+/// Serialize a Responses API request body with `extra_body` merged in,
+/// via [`merge_extra_body`] — the same merge semantics as the chat path.
+///
+/// The merge is the *only* thing shared with the chat path. There is deliberately no
+/// [`Provider::transform_request`] call here: the Responses body is a different wire
+/// shape from the chat body, and the provider transforms are written against the chat
+/// shape, so applying them would mangle the request rather than adapt it. The Responses
+/// path is OpenAI-only — see [`ResponseClient`](trait@ResponseClient).
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn response_request_body(req: &CreateResponseRequest) -> Result<serde_json::Value> {
+    let mut body = serde_json::to_value(req)?;
+    merge_extra_body(&mut body);
+    Ok(body)
+}
+
+/// Like [`response_request_body`], but for `create_response_stream`: forces
+/// `stream: true` in the request, both before and after the `extra_body`
+/// merge.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn response_stream_request_body(mut req: CreateResponseRequest) -> Result<serde_json::Value> {
+    req.stream = Some(true);
+    let mut body = response_request_body(&req)?;
+    // ~keep extra_body must never override `stream`: the transport path (post_json_raw vs
+    // post_stream) is chosen by the calling method, not the body, so a mismatched wire flag
+    // would desync request from response parsing.
+    if let Some(obj) = body.as_object_mut() {
+        obj.insert("stream".into(), serde_json::Value::Bool(true));
+    }
+    Ok(body)
+}
+
+/// Human-readable JSON type name, used only for diagnostic tracing fields.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn json_value_type_name(value: &serde_json::Value) -> &'static str {
+    match value {
+        serde_json::Value::Null => "null",
+        serde_json::Value::Bool(_) => "boolean",
+        serde_json::Value::Number(_) => "number",
+        serde_json::Value::String(_) => "string",
+        serde_json::Value::Array(_) => "array",
+        serde_json::Value::Object(_) => "object",
+    }
 }
 
 /// Core LLM client trait.
@@ -466,12 +551,61 @@ pub trait BatchClient {
     fn cancel_batch(&self, batch_id: &str) -> BoxFuture<'_, Result<BatchObject>>;
 }
 
-/// Responses API operations (create, retrieve, cancel).
+/// OpenAI Responses API operations (create, retrieve, cancel).
+///
+/// # Provider support: OpenAI only
+///
+/// Every other client trait in this module is provider-agnostic — requests go through
+/// a shared `prepare_request` step that resolves the provider from the model prefix,
+/// strips that prefix, and applies [`Provider::transform_request`] /
+/// [`Provider::transform_response`]. **This trait does none of that.** The
+/// implementation sends [`CreateResponseRequest`] to
+/// `{base_url}` + [`Provider::responses_path`] verbatim and deserializes the reply
+/// straight into [`ResponseObject`], so both directions assume the OpenAI Responses
+/// wire format.
+///
+/// Consequently:
+///
+/// - No provider overrides [`Provider::responses_path`], and no entry in
+///   `schemas/providers.json` declares a `responses` endpoint — provider Responses
+///   support is not modeled anywhere in the registry.
+/// - Requests stay pinned to the provider the client was constructed with. A
+///   `provider/model` prefix in [`CreateResponseRequest::model`] is neither stripped
+///   nor used for routing; it travels to the wire intact.
+/// - Providers that rewrite the request or normalize the response for chat (Anthropic,
+///   Vertex, Bedrock, Cohere, Google AI) get no such chance here. Their transforms are
+///   written against the Chat Completions body shape and would corrupt a Responses body,
+///   which is why they are not applied rather than merely forgotten.
+/// - Bedrock, Vertex, and Google AI embed the model into `build_url`, but only for the
+///   `chat/completions` and `embeddings` paths they special-case; `responses_path()` falls
+///   through to their plain `{base}{endpoint_path}` branch, so the empty model passed here is
+///   harmless for them. Azure embeds the model unconditionally, so the empty model yields
+///   `.../openai/deployments//responses` — an empty path segment. The four call sites below
+///   detect that shape via `reject_malformed_responses_url` and fail fast with
+///   [`LiterLlmError::EndpointNotSupported`] instead of sending it.
+///
+/// Use these methods with OpenAI, or with a gateway that serves OpenAI's `/responses`
+/// contract natively. For cross-provider work use [`LlmClient::chat`].
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg_attr(alef, alef(skip))]
 pub trait ResponseClient: Send + Sync {
     /// Create a new response.
     fn create_response(&self, req: CreateResponseRequest) -> BoxFuture<'_, Result<ResponseObject>>;
+
+    /// Create a new response and stream its SSE events as they arrive.
+    ///
+    /// Returns a stream of `ResponseStreamEvent` items. The stream terminates
+    /// when a terminal event (`response.completed`, `response.incomplete`, or
+    /// `response.failed`) is yielded and the underlying connection closes.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`create_response`](Self::create_response).
+    /// Stream errors are returned as `Err` items in the stream itself.
+    fn create_response_stream(
+        &self,
+        req: CreateResponseRequest,
+    ) -> BoxFuture<'_, Result<BoxStream<'static, Result<ResponseStreamEvent>>>>;
 
     /// Retrieve a response by ID.
     fn retrieve_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>>;
@@ -480,12 +614,35 @@ pub trait ResponseClient: Send + Sync {
     fn cancel_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>>;
 }
 
-/// Responses API operations (create, retrieve, cancel) (WASM variant).
+/// OpenAI Responses API operations (create, retrieve, cancel) (WASM variant).
+///
+/// # Provider support: OpenAI only
+///
+/// See the non-WASM `ResponseClient` for the full rationale. In short: this path sends
+/// `CreateResponseRequest` verbatim and parses the reply as the OpenAI Responses wire
+/// format. It applies no provider request/response transform, performs no model-prefix
+/// routing, and no provider in `schemas/providers.json` declares a `responses`
+/// endpoint. Use the chat path for cross-provider work.
 #[cfg(target_arch = "wasm32")]
 #[cfg_attr(alef, alef(skip))]
 pub trait ResponseClient {
     /// Create a new response.
     fn create_response(&self, req: CreateResponseRequest) -> BoxFuture<'_, Result<ResponseObject>>;
+
+    /// Create a new response and stream its SSE events as they arrive.
+    ///
+    /// Returns a stream of `ResponseStreamEvent` items. The stream terminates
+    /// when a terminal event (`response.completed`, `response.incomplete`, or
+    /// `response.failed`) is yielded and the underlying connection closes.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`create_response`](Self::create_response).
+    /// Stream errors are returned as `Err` items in the stream itself.
+    fn create_response_stream(
+        &self,
+        req: CreateResponseRequest,
+    ) -> BoxFuture<'_, Result<BoxStream<'static, Result<ResponseStreamEvent>>>>;
 
     /// Retrieve a response by ID.
     fn retrieve_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>>;
@@ -653,6 +810,9 @@ impl DefaultClient {
         if self.provider.matches_model(model) {
             return Arc::clone(&self.provider);
         }
+        if model.starts_with("bedrock/") {
+            return build_bedrock_provider(&self.config);
+        }
         if let Some(detected) = provider::detect_provider(model) {
             return Arc::from(detected);
         }
@@ -680,6 +840,11 @@ impl DefaultClient {
     }
 
     /// Build the combined header list for a request using a specific provider.
+    ///
+    /// # Errors
+    ///
+    /// Propagates a signing failure from [`Provider::signing_headers`] (e.g. an
+    /// internal Bedrock SigV4 error) instead of sending an unsigned request.
     fn all_headers_for_provider(
         &self,
         prov: &dyn Provider,
@@ -687,15 +852,15 @@ impl DefaultClient {
         url: &str,
         body_json: &serde_json::Value,
         body_bytes: &[u8],
-    ) -> Vec<(String, String)> {
-        let mut headers = prov.signing_headers(method, url, body_bytes);
+    ) -> Result<Vec<(String, String)>> {
+        let mut headers = prov.signing_headers(method, url, body_bytes)?;
         headers.extend(
             prov.extra_headers()
                 .iter()
                 .map(|&(name, value)| (name.to_owned(), value.to_owned())),
         );
         headers.extend(prov.dynamic_headers(body_json));
-        headers
+        Ok(headers)
     }
 
     /// Shared helper: resolve the per-request provider, build the URL, strip
@@ -736,6 +901,24 @@ impl DefaultClient {
             }
         }
         prov.transform_request(&mut body)?;
+        // ~keep Whether the provider's wire format carries `stream` at all is the provider's
+        // decision, recorded here by whether the key survived `transform_request`. Providers that
+        // rebuild the body into a native format (Vertex/Gemini `generateContent`, Bedrock
+        // `converse`) drop it deliberately -- those APIs select streaming by endpoint and reject
+        // the field outright ("Unknown name \"stream\": Cannot find field", HTTP 400). Providers
+        // whose format does carry it (OpenAI-compatible, Anthropic, Cohere) keep it.
+        let provider_wire_carries_stream = body.get("stream").is_some();
+        merge_extra_body(&mut body);
+        // ~keep extra_body must never override `stream`: the transport path
+        // (post_json_raw vs post_stream) is chosen by the calling method, not the
+        // body, so a mismatched wire flag would desync request from response parsing.
+        // Restoring it is therefore scoped to providers that had it after the transform.
+        if provider_wire_carries_stream
+            && let Some(s) = stream
+            && let Some(obj) = body.as_object_mut()
+        {
+            obj.insert("stream".into(), serde_json::Value::Bool(s));
+        }
 
         // ~keep Serialize once so signing bytes and request body bytes are identical.
         let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body)?);
@@ -771,17 +954,22 @@ impl DefaultClient {
     /// Build the combined header list using the construction-time provider.
     ///
     /// Uses pre-computed cached extra headers for efficiency.
+    ///
+    /// # Errors
+    ///
+    /// Propagates a signing failure from [`Provider::signing_headers`] (e.g. an
+    /// internal Bedrock SigV4 error) instead of sending an unsigned request.
     fn all_headers(
         &self,
         method: &str,
         url: &str,
         body_json: &serde_json::Value,
         body_bytes: &[u8],
-    ) -> Vec<(String, String)> {
-        let mut headers = self.provider.signing_headers(method, url, body_bytes);
+    ) -> Result<Vec<(String, String)>> {
+        let mut headers = self.provider.signing_headers(method, url, body_bytes)?;
         headers.extend(self.cached_extra_headers.iter().cloned());
         headers.extend(self.provider.dynamic_headers(body_json));
-        headers
+        Ok(headers)
     }
 }
 
@@ -804,6 +992,11 @@ fn build_provider(config: &ClientConfig, model_hint: Option<&str>) -> Arc<dyn Pr
         {
             return Arc::new(provider::azure::AzureProvider::with_base_url(base_url.clone()));
         }
+        if let Some(model) = model_hint
+            && model.starts_with("anthropic/")
+        {
+            return Arc::new(provider::anthropic::AnthropicProvider::with_base_url(base_url.clone()));
+        }
         return Arc::new(OpenAiCompatibleProvider {
             name: "custom".into(),
             base_url: base_url.clone(),
@@ -812,13 +1005,31 @@ fn build_provider(config: &ClientConfig, model_hint: Option<&str>) -> Arc<dyn Pr
         });
     }
 
-    if let Some(model) = model_hint
-        && let Some(p) = provider::detect_provider(model)
-    {
-        return Arc::from(p);
+    if let Some(model) = model_hint {
+        if model.starts_with("bedrock/") {
+            return build_bedrock_provider(config);
+        }
+        if let Some(p) = provider::detect_provider(model) {
+            return Arc::from(p);
+        }
     }
 
     Arc::new(OpenAiProvider)
+}
+
+/// Build a [`provider::bedrock::BedrockProvider`] from `config`, threading
+/// through any explicit region, cross-region prefix, and credentials set on
+/// [`ClientConfig`]. Falls back to the environment for anything left unset,
+/// matching [`provider::bedrock::BedrockProvider::from_env`].
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn build_bedrock_provider(config: &ClientConfig) -> Arc<dyn Provider> {
+    Arc::new(provider::bedrock::BedrockProvider::from_config(
+        config.bedrock_region.clone(),
+        config.bedrock_cross_region_prefix.clone(),
+        config.bedrock_access_key_id.clone(),
+        config.bedrock_secret_access_key.clone(),
+        config.bedrock_session_token.clone(),
+    ))
 }
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
@@ -837,7 +1048,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -878,7 +1089,7 @@ impl LlmClient for DefaultClient {
                 &url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -929,7 +1140,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -953,7 +1164,7 @@ impl LlmClient for DefaultClient {
             let url = self.provider.build_url(self.provider.models_path(), "");
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let mut raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -976,7 +1187,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1007,7 +1218,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1036,7 +1247,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1068,7 +1279,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1099,7 +1310,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1130,7 +1341,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1161,7 +1372,7 @@ impl LlmClient for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1196,7 +1407,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1244,7 +1455,7 @@ impl LlmClientRaw for DefaultClient {
                 &url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -1295,7 +1506,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1336,7 +1547,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1379,7 +1590,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1420,7 +1631,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1460,7 +1671,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1500,7 +1711,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1540,7 +1751,7 @@ impl LlmClientRaw for DefaultClient {
                 &prepared.url,
                 &prepared.body_json,
                 &prepared.body_bytes,
-            );
+            )?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
@@ -1574,7 +1785,7 @@ impl FileClient for DefaultClient {
             let url = self.provider.build_url(self.provider.files_path(), "");
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("POST", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("POST", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             use base64::Engine;
@@ -1610,7 +1821,7 @@ impl FileClient for DefaultClient {
             );
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1628,7 +1839,7 @@ impl FileClient for DefaultClient {
             );
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("DELETE", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("DELETE", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::delete_json(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1660,7 +1871,7 @@ impl FileClient for DefaultClient {
             };
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1678,7 +1889,7 @@ impl FileClient for DefaultClient {
             );
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             http::request::get_binary(&self.http, &url, auth, &extra, self.config.max_retries).await
@@ -1695,7 +1906,7 @@ impl BatchClient for DefaultClient {
             let body_json = serde_json::to_value(&req)?;
 
             let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -1715,7 +1926,7 @@ impl BatchClient for DefaultClient {
             );
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1744,7 +1955,7 @@ impl BatchClient for DefaultClient {
             };
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1763,7 +1974,7 @@ impl BatchClient for DefaultClient {
             let auth_header = self.resolve_auth_header().await?;
             let body_json = serde_json::Value::Null;
             let body_bytes = bytes::Bytes::new();
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -1874,16 +2085,74 @@ impl DefaultClient {
     }
 }
 
+/// Parse a single Responses API SSE `data:` payload into a [`ResponseStreamEvent`].
+///
+/// Unlike [`Provider::parse_stream_event`], this has no provider dispatch: it always
+/// decodes the OpenAI Responses `response.*` event vocabulary. That is not evidence
+/// that the format is portable — the Responses path is OpenAI-only (see
+/// [`ResponseClient`](trait@ResponseClient)), so there is no second format to dispatch
+/// on. Unrecognized `type` values decode into
+/// [`ResponseStreamEvent::Unknown`] rather than failing (see
+/// `ResponseStreamEvent`'s `Deserialize` impl), so this only returns `Err`
+/// for payloads that are not valid JSON at all.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn parse_response_stream_event(data: &str) -> Result<Option<ResponseStreamEvent>> {
+    serde_json::from_str::<ResponseStreamEvent>(data)
+        .map(Some)
+        .map_err(|e| LiterLlmError::Streaming {
+            message: format!("failed to parse Responses SSE data: {e}"),
+        })
+}
+
+/// Reject a Responses URL that contains an empty path segment (`//`).
+///
+/// The four `ResponseClient` call sites pass `""` as the model to
+/// [`Provider::build_url`] / [`Provider::build_stream_url`], because none of `create_response`,
+/// `retrieve_response`, or `cancel_response` has a model available to give the URL-embedding
+/// providers (see the `ResponseClient` trait doc). Most providers' `build_url` ignores the model
+/// for the `/responses` path — it only fires for `chat/completions` and `embeddings` — so an
+/// empty model is harmless there. Azure's `build_url` embeds the model unconditionally, so an
+/// empty model turns into an empty path segment: `.../openai/deployments//responses`.
+///
+/// This checks the URL shape rather than `provider.name()` on purpose: naming a specific
+/// provider would either allow-list `"openai"` and reject supported OpenAI-compatible gateways
+/// running under a different provider name, or deny-list `"azure"` and silently miss any future
+/// provider with the same URL-embedding bug. Checking for the empty segment catches exactly the
+/// malformed case, from whichever provider produces it, and never fires for a provider whose
+/// `build_url` output is well-formed. ~keep
+///
+/// One other configuration can trip this, so do not read the error as "this provider cannot do
+/// Responses" without checking: [`ClientConfig::base_url`] is a public field, so a value set
+/// directly rather than through [`ClientConfigBuilder::base_url`] or
+/// [`ClientConfig::with_base_url`] skips their `trim_end_matches('/')`, and a trailing slash
+/// then yields `.../v1//responses` here too. That configuration is already broken for every
+/// other endpoint as well, so it should surface long before this check — but if this fires for
+/// a provider that ought to work, inspect `base_url` before suspecting the provider. ~keep
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn reject_malformed_responses_url(url: &str, provider_name: &str) -> Result<()> {
+    let path = url.split_once("://").map_or(url, |(_, rest)| rest);
+    let path = path.split_once('/').map_or("", |(_, rest)| rest);
+    let path = path.split(['?', '#']).next().unwrap_or("");
+    if format!("/{path}").contains("//") {
+        return Err(LiterLlmError::EndpointNotSupported {
+            endpoint: "responses".into(),
+            provider: provider_name.into(),
+        });
+    }
+    Ok(())
+}
+
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 impl ResponseClient for DefaultClient {
     fn create_response(&self, req: CreateResponseRequest) -> BoxFuture<'_, Result<ResponseObject>> {
         Box::pin(async move {
             let url = self.provider.build_url(self.provider.responses_path(), "");
-            let body_bytes = bytes::Bytes::from(serde_json::to_vec(&req)?);
-            let body_json = serde_json::to_value(&req)?;
+            reject_malformed_responses_url(&url, self.provider.name())?;
+            let body_json = response_request_body(&req)?;
+            let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
 
             let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -1893,17 +2162,44 @@ impl ResponseClient for DefaultClient {
         })
     }
 
+    fn create_response_stream(
+        &self,
+        req: CreateResponseRequest,
+    ) -> BoxFuture<'_, Result<BoxStream<'static, Result<ResponseStreamEvent>>>> {
+        Box::pin(async move {
+            // ~keep Force streaming on the wire regardless of what the caller (or extra_body) set.
+            let url = self.provider.build_stream_url(self.provider.responses_path(), "");
+            reject_malformed_responses_url(&url, self.provider.name())?;
+            let body_json = response_stream_request_body(req)?;
+            let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
+
+            let auth_header = self.resolve_auth_header().await?;
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
+            let auth = auth_header.as_ref().map(str_pair);
+
+            http::streaming::post_stream(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                body_bytes,
+                self.config.max_retries,
+                parse_response_stream_event,
+            )
+            .await
+        })
+    }
+
     fn retrieve_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>> {
         let response_id = response_id.to_owned();
         Box::pin(async move {
-            let url = format!(
-                "{}/{}",
-                self.provider.build_url(self.provider.responses_path(), ""),
-                response_id
-            );
+            let base_url = self.provider.build_url(self.provider.responses_path(), "");
+            reject_malformed_responses_url(&base_url, self.provider.name())?;
+            let url = format!("{base_url}/{response_id}");
             let auth_header = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[]);
+            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
@@ -1914,15 +2210,13 @@ impl ResponseClient for DefaultClient {
     fn cancel_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>> {
         let response_id = response_id.to_owned();
         Box::pin(async move {
-            let url = format!(
-                "{}/{}/cancel",
-                self.provider.build_url(self.provider.responses_path(), ""),
-                response_id
-            );
+            let base_url = self.provider.build_url(self.provider.responses_path(), "");
+            reject_malformed_responses_url(&base_url, self.provider.name())?;
+            let url = format!("{base_url}/{response_id}/cancel");
             let auth_header = self.resolve_auth_header().await?;
             let body_json = serde_json::Value::Null;
             let body_bytes = bytes::Bytes::new();
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes);
+            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -1937,6 +2231,86 @@ impl ResponseClient for DefaultClient {
 mod build_provider_tests {
     use super::*;
     use crate::client::config::ClientConfigBuilder;
+
+    /// Revert line: reverting `reject_malformed_responses_url` in `crates/liter-llm/src/client/
+    /// mod.rs` to always return `Ok(())` makes this test fail — it would no longer catch the
+    /// empty `/openai/deployments//responses` segment Azure produces when no deployment name
+    /// (model) is available, which is the case at all four `ResponseClient` call sites.
+    #[test]
+    fn reject_malformed_responses_url_rejects_azure_empty_deployment() {
+        let provider = provider::azure::AzureProvider::with_base_url("https://resourceA.openai.azure.com");
+        let url = provider.build_url(provider.responses_path(), "");
+
+        assert!(
+            url.contains("/openai/deployments//responses"),
+            "test setup assumption broken, url = {url}"
+        );
+
+        let result = reject_malformed_responses_url(&url, provider.name());
+        match result {
+            Err(LiterLlmError::EndpointNotSupported {
+                endpoint,
+                provider: rejected_provider,
+            }) => {
+                assert_eq!(endpoint, "responses");
+                assert_eq!(rejected_provider, "azure");
+            }
+            other => panic!("expected Err(EndpointNotSupported), got {other:?}"),
+        }
+    }
+
+    /// Azure base URLs that already pin a deployment (`/openai/deployments/{name}`) never reach
+    /// the model-embedding branch of `AzureProvider::build_url`, so the produced URL has no empty
+    /// segment and must not be rejected.
+    #[test]
+    fn reject_malformed_responses_url_allows_azure_with_pinned_deployment() {
+        let base_url = "https://resourceA.openai.azure.com/openai/deployments/my-gpt4-deployment";
+        let provider = provider::azure::AzureProvider::with_base_url(base_url);
+        let url = provider.build_url(provider.responses_path(), "");
+
+        assert!(
+            !url.contains("deployments//"),
+            "test setup assumption broken: pinned-deployment URL should have no empty segment, url = {url}"
+        );
+
+        assert!(
+            reject_malformed_responses_url(&url, provider.name()).is_ok(),
+            "a pinned-deployment Azure URL must not be rejected, url = {url}"
+        );
+    }
+
+    /// Bedrock, Vertex, and Google AI embed the model into `build_url` only for the
+    /// `chat/completions` and `embeddings` paths; `responses_path()` matches neither, so the
+    /// empty model passed at the four `ResponseClient` call sites must not be rejected for them.
+    #[test]
+    fn reject_malformed_responses_url_allows_bedrock_google_ai_and_vertex() {
+        let bedrock = provider::bedrock::BedrockProvider::from_config(
+            Some("us-east-1".into()),
+            None,
+            Some("test-access-key".into()),
+            Some("test-secret-key".into()),
+            None,
+        );
+        let bedrock_url = bedrock.build_url(bedrock.responses_path(), "");
+        assert!(
+            reject_malformed_responses_url(&bedrock_url, bedrock.name()).is_ok(),
+            "bedrock url = {bedrock_url}"
+        );
+
+        let google_ai = provider::google_ai::GoogleAiProvider;
+        let google_ai_url = google_ai.build_url(google_ai.responses_path(), "");
+        assert!(
+            reject_malformed_responses_url(&google_ai_url, google_ai.name()).is_ok(),
+            "google ai url = {google_ai_url}"
+        );
+
+        let vertex = provider::vertex::VertexAiProvider::new("my-project", "us-central1");
+        let vertex_url = vertex.build_url(vertex.responses_path(), "");
+        assert!(
+            reject_malformed_responses_url(&vertex_url, vertex.name()).is_ok(),
+            "vertex url = {vertex_url}"
+        );
+    }
 
     #[test]
     fn azure_model_with_per_model_base_url_uses_azure_provider() {
@@ -1968,6 +2342,197 @@ mod build_provider_tests {
         let config = ClientConfigBuilder::new("test-key").build();
         let p = build_provider(&config, Some("azure/gpt-4o"));
         assert_eq!(p.name(), "azure");
+    }
+
+    #[test]
+    fn anthropic_model_with_per_model_base_url_uses_anthropic_provider() {
+        let config = ClientConfigBuilder::new("test-key")
+            .base_url("https://proxy.internal/anthropic/")
+            .build();
+        let p = build_provider(&config, Some("anthropic/claude-3-5-sonnet-20241022"));
+        assert_eq!(p.name(), "anthropic");
+        assert_eq!(p.base_url(), "https://proxy.internal/anthropic");
+    }
+
+    #[test]
+    fn default_anthropic_provider_uses_official_base_url() {
+        assert_eq!(
+            provider::anthropic::AnthropicProvider::new().base_url(),
+            "https://api.anthropic.com/v1"
+        );
+        assert_eq!(
+            provider::anthropic::AnthropicProvider::default().base_url(),
+            "https://api.anthropic.com/v1"
+        );
+    }
+
+    #[test]
+    fn extra_body_object_is_merged_and_overrides_existing_key() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("gpt-4"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            extra_body: Some(serde_json::json!({
+                "thinking": {"type": "enabled"},
+                "model": "extra-body-override"
+            })),
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("extra_body").is_none(),
+            "extra_body key must be removed from the final body"
+        );
+        assert_eq!(prepared.body_json["thinking"], serde_json::json!({"type": "enabled"}));
+        assert_eq!(
+            prepared.body_json["model"], "extra-body-override",
+            "extra_body keys must override identically named top-level keys"
+        );
+    }
+
+    #[test]
+    fn extra_body_cannot_override_the_transport_controlled_stream_flag() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("gpt-4"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            extra_body: Some(serde_json::json!({"stream": false})),
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(true))
+            .expect("prepare_request should not fail");
+
+        assert_eq!(
+            prepared.body_json["stream"],
+            serde_json::json!(true),
+            "the caller-selected stream flag must win over extra_body"
+        );
+    }
+
+    #[test]
+    fn extra_body_non_object_is_dropped_without_reaching_the_body() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("gpt-4"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            extra_body: Some(serde_json::json!(["not", "an", "object"])),
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("extra_body").is_none(),
+            "non-object extra_body must never reach the wire"
+        );
+    }
+
+    #[test]
+    fn anthropic_provider_leaves_no_extra_body_key_in_final_body() {
+        let client = DefaultClient::new(
+            ClientConfigBuilder::new("test-key").build(),
+            Some("claude-3-5-sonnet-20241022"),
+        )
+        .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "claude-3-5-sonnet-20241022".into(),
+            messages: vec![crate::types::Message::User(crate::types::UserMessage {
+                content: crate::types::UserContent::Text("Hi".into()),
+                name: None,
+            })],
+            max_tokens: Some(100),
+            extra_body: Some(serde_json::json!({"reasoning_effort": "high"})),
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("extra_body").is_none(),
+            "anthropic's own transform_request already strips extra_body"
+        );
+        assert_eq!(prepared.body_json["thinking"]["budget_tokens"], 16384);
+    }
+
+    fn base_response_request() -> CreateResponseRequest {
+        CreateResponseRequest {
+            model: "gpt-5".into(),
+            input: serde_json::json!("What is the capital of France?"),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn responses_extra_body_object_is_merged_and_overrides_existing_key() {
+        let mut req = base_response_request();
+        req.extra_body = Some(serde_json::json!({
+            "reasoning": {"effort": "none"},
+            "model": "extra-body-override"
+        }));
+
+        let body = response_request_body(&req).expect("body should serialize");
+
+        assert!(
+            body.get("extra_body").is_none(),
+            "extra_body key must be removed from the final Responses body"
+        );
+        assert_eq!(body["reasoning"], serde_json::json!({"effort": "none"}));
+        assert_eq!(
+            body["model"], "extra-body-override",
+            "extra_body keys must override identically named top-level keys, matching chat-path semantics"
+        );
+    }
+
+    #[test]
+    fn responses_extra_body_non_object_is_dropped_without_reaching_the_body() {
+        let mut req = base_response_request();
+        req.extra_body = Some(serde_json::json!(["not", "an", "object"]));
+
+        let body = response_request_body(&req).expect("body should serialize");
+
+        assert!(
+            body.get("extra_body").is_none(),
+            "non-object extra_body must never reach the wire"
+        );
+        assert_eq!(
+            body["model"], "gpt-5",
+            "a dropped extra_body must leave the real fields untouched"
+        );
+    }
+
+    #[test]
+    fn responses_streaming_path_also_merges_extra_body_and_keeps_stream_forced() {
+        let mut req = base_response_request();
+        req.extra_body = Some(serde_json::json!({
+            "reasoning": {"effort": "none"},
+            "stream": false
+        }));
+
+        let body = response_stream_request_body(req).expect("body should serialize");
+
+        assert!(
+            body.get("extra_body").is_none(),
+            "extra_body key must be removed from the streaming Responses body too"
+        );
+        assert_eq!(body["reasoning"], serde_json::json!({"effort": "none"}));
+        assert_eq!(
+            body["stream"],
+            serde_json::json!(true),
+            "the streaming transport's stream flag must win over extra_body"
+        );
     }
 
     /// When the resolved provider is Vertex AI and the caller supplied neither
@@ -2125,6 +2690,118 @@ mod build_provider_tests {
                 assert_eq!(t.expose_secret(), "static-token");
             }
             _ => panic!("expected BearerToken"),
+        }
+    }
+
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    fn vertex_client() -> DefaultClient {
+        DefaultClient::new(
+            ClientConfigBuilder::new("ya29.pre-obtained-token")
+                .load_env(false)
+                .build(),
+            Some("vertex_ai/gemini-2.5-flash"),
+        )
+        .expect("DefaultClient::new should succeed")
+    }
+
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    struct VertexProjectGuard(Option<String>);
+
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    impl VertexProjectGuard {
+        fn set() -> Self {
+            let prior = std::env::var("VERTEXAI_PROJECT").ok();
+            unsafe {
+                std::env::set_var("VERTEXAI_PROJECT", "test-project");
+            }
+            Self(prior)
+        }
+    }
+
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    impl Drop for VertexProjectGuard {
+        fn drop(&mut self) {
+            unsafe {
+                match &self.0 {
+                    Some(value) => std::env::set_var("VERTEXAI_PROJECT", value),
+                    None => std::env::remove_var("VERTEXAI_PROJECT"),
+                }
+            }
+        }
+    }
+
+    /// Vertex/Gemini rebuilds the body into native `generateContent` shape, which has no
+    /// `stream` field. Restoring the transport flag after `transform_request` therefore shipped
+    /// `"stream": false` on every non-streaming call, and Vertex rejects the whole request with
+    /// HTTP 400 `Invalid JSON payload received. Unknown name "stream": Cannot find field.`
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    #[test]
+    #[serial_test::serial]
+    fn vertex_non_streaming_request_carries_no_stream_key() {
+        let _guard = VertexProjectGuard::set();
+        let client = vertex_client();
+        let req = ChatCompletionRequest {
+            model: "vertex_ai/gemini-2.5-flash".into(),
+            messages: vec![],
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("stream").is_none(),
+            "generateContent has no `stream` field; sending it is a hard 400, body was: {}",
+            prepared.body_json
+        );
+    }
+
+    /// Streaming against Vertex is selected by endpoint (`streamGenerateContent`), not by a body
+    /// flag, so the streaming path must not reintroduce the key either.
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    #[test]
+    #[serial_test::serial]
+    fn vertex_streaming_request_carries_no_stream_key() {
+        let _guard = VertexProjectGuard::set();
+        let client = vertex_client();
+        let req = ChatCompletionRequest {
+            model: "vertex_ai/gemini-2.5-flash".into(),
+            messages: vec![],
+            ..Default::default()
+        };
+
+        let prepared = client
+            .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(true))
+            .expect("prepare_request should not fail");
+
+        assert!(
+            prepared.body_json.get("stream").is_none(),
+            "streaming is endpoint-selected on Vertex; body was: {}",
+            prepared.body_json
+        );
+    }
+
+    /// Guard against over-correcting: providers whose wire format does carry `stream` must still
+    /// get the transport-controlled flag, so the request cannot desync from the response parser.
+    #[test]
+    fn openai_shaped_provider_still_carries_the_stream_flag() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("gpt-4"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            ..Default::default()
+        };
+
+        for streaming in [false, true] {
+            let prepared = client
+                .prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(streaming))
+                .expect("prepare_request should not fail");
+            assert_eq!(
+                prepared.body_json["stream"], streaming,
+                "OpenAI-shaped bodies must keep the transport-controlled stream flag"
+            );
         }
     }
 }

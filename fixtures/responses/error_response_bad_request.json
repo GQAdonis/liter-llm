@@ -1,6 +1,11 @@
 {
   "id": "error_response_bad_request",
   "description": "400 Bad Request when creating response with invalid model",
+  "docs": {
+    "topic": "responses",
+    "stem": "error-response-bad-request",
+    "title": "400 Bad Request when creating response with invalid model"
+  },
   "category": "responses",
   "tags": ["error-handling", "responses"],
   "call": "create_response",

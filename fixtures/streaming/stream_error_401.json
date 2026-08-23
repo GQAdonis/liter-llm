@@ -1,6 +1,11 @@
 {
   "id": "stream_error_401",
   "description": "401 Unauthorized error on stream initiation before any chunks are received",
+  "docs": {
+    "topic": "streaming",
+    "stem": "stream-error-401",
+    "title": "401 Unauthorized error on stream initiation before any chunks are received"
+  },
   "category": "streaming",
   "tags": ["streaming", "error-handling"],
   "call": "chat_stream",

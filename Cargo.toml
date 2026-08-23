@@ -44,7 +44,7 @@ dbg_macro = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(alef)'] }
 
 [workspace.package]
-version = "1.12.0"
+version = "1.18.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
@@ -76,7 +76,7 @@ futures-util = "0.3"
 gcp_auth = { version = "0.12", default-features = false, features = ["ring"] }
 hex = "0.4"
 http = "1"
-jsonschema = "0.49"
+jsonschema = "0.50"
 jsonwebtoken = { version = "11", default-features = false, features = ["use_pem"] }
 
 magnus = "0.8"
@@ -86,7 +86,7 @@ napi = { version = "3", features = ["napi4", "serde-json", "async"] }
 napi-build = "2"
 napi-derive = "3"
 notify = { version = "8", features = ["macos_kqueue"] }
-opendal = { version = "0.57", default-features = false, features = [
+opendal = { version = "0.58", default-features = false, features = [
     "services-memory",
     "services-redis",
     "services-fs",
@@ -100,9 +100,10 @@ pyo3 = { version = "0.29", features = ["abi3-py310", "multiple-pymethods"] }
 pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }
 rayon = "1"
 rb-sys = "0.9"
+regex = "1"
 # ~keep Async / HTTP: TLS-agnostic base only; each crate adds TLS features target-conditionally.
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form"] }
-rmcp = { version = "3.0", features = [
+rmcp = { version = "3.1", features = [
     "server",
     "macros",
     "transport-io",

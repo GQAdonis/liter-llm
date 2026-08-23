@@ -304,6 +304,7 @@ mod tests {
                     ..Default::default()
                 },
                 finish_reason: Some(FinishReason::Stop),
+                logprobs: None,
             }],
             usage: None,
             system_fingerprint: None,

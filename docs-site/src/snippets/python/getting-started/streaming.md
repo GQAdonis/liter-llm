@@ -1,10 +1,20 @@
+---
+id: readme_python_streaming
+language: python
+target: python
+level: syntax
+requires: []
+side_effect: network
+---
+
+Stream tokens in real time.
+
 ```python
 import asyncio
 import os
 
 from liter_llm import create_client
 from liter_llm._internal_bindings import ChatCompletionRequest
-
 
 async def main() -> None:
     client = create_client(api_key=os.environ["OPENAI_API_KEY"])
@@ -15,7 +25,6 @@ async def main() -> None:
         if chunk.choices and chunk.choices[0].delta.content:
             print(chunk.choices[0].delta.content, end="", flush=True)
     print()
-
 
 asyncio.run(main())
 ```

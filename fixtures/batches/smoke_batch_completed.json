@@ -1,6 +1,11 @@
 {
   "id": "smoke_batch_completed",
   "description": "Retrieve a completed batch job with output file",
+  "docs": {
+    "topic": "batches",
+    "stem": "smoke-batch-completed",
+    "title": "Retrieve a completed batch job with output file"
+  },
   "category": "batches",
   "tags": ["smoke", "batches"],
   "call": "retrieve_batch",

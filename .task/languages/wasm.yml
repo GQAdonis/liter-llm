@@ -79,5 +79,6 @@ tasks:
 
   e2e:test:
     desc: Run WASM E2E tests using Alef-configured test commands
+    deps: [e2e:setup]
     cmds:
       - alef test --lang wasm --e2e

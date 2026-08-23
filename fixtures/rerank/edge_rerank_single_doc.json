@@ -1,6 +1,11 @@
 {
   "id": "edge_rerank_single_doc",
   "description": "Reranking with only a single document",
+  "docs": {
+    "topic": "rerank",
+    "stem": "edge-rerank-single-doc",
+    "title": "Reranking with only a single document"
+  },
   "category": "rerank",
   "tags": ["edge-case", "rerank"],
   "call": "rerank",

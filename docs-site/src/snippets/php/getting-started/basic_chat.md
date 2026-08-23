@@ -1,3 +1,14 @@
+---
+id: readme_php_basic_chat
+language: php
+target: php
+level: syntax
+requires: []
+side_effect: network
+---
+
+Send a message to any provider using the `provider/model` prefix.
+
 ```php
 <?php
 

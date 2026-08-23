@@ -5,9 +5,7 @@
     {
       "name": "a2a",
       "display_name": "A2A",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -27,9 +25,7 @@
         "type": "bearer",
         "env_var": "ABLITERATION_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -49,13 +45,8 @@
         "type": "bearer",
         "env_var": "AI21_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "j2-",
-        "jamba-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["j2-", "jamba-"],
       "model_count": 12,
       "capabilities": {
         "vision": false,
@@ -76,9 +67,7 @@
         "type": "bearer",
         "env_var": "AI21_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -98,12 +87,8 @@
         "type": "bearer",
         "env_var": "AIHUBMIX_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "aihubmix/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["aihubmix/"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -123,17 +108,8 @@
         "type": "bearer",
         "env_var": "AIML_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding",
-        "image"
-      ],
-      "model_prefixes": [
-        "aiml/",
-        "aiml/dall-",
-        "aiml/flux-",
-        "aiml/flux/kontext-"
-      ],
+      "endpoints": ["chat", "embedding", "image"],
+      "model_prefixes": ["aiml/", "aiml/dall-", "aiml/flux-", "aiml/flux/kontext-"],
       "model_count": 12,
       "capabilities": {
         "vision": true,
@@ -149,13 +125,8 @@
     {
       "name": "amazon_nova",
       "display_name": "Amazon Nova",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "amazon-",
-        "amazon-nova/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["amazon-", "amazon-nova/"],
       "model_count": 4,
       "base_url": "https://api.nova.amazon.com/v1",
       "auth": {
@@ -181,13 +152,8 @@
         "type": "bearer",
         "env_var": "ANTHROPIC_API_KEY"
       },
-      "endpoints": [
-        "batch",
-        "chat"
-      ],
-      "model_prefixes": [
-        "claude-"
-      ],
+      "endpoints": ["batch", "chat"],
+      "model_prefixes": ["claude-"],
       "model_count": 18,
       "capabilities": {
         "vision": true,
@@ -208,10 +174,7 @@
         "type": "bearer",
         "env_var": "ANTHROPIC_API_KEY"
       },
-      "endpoints": [
-        "batch",
-        "chat"
-      ],
+      "endpoints": ["batch", "chat"],
       "capabilities": {
         "vision": false,
         "reasoning": true,
@@ -234,10 +197,7 @@
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
+      "endpoints": ["chat", "embedding"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -257,13 +217,8 @@
         "type": "bearer",
         "env_var": "ASSEMBLYAI_API_KEY"
       },
-      "endpoints": [
-        "audio",
-        "chat"
-      ],
-      "model_prefixes": [
-        "assemblyai/"
-      ],
+      "endpoints": ["audio", "chat"],
+      "model_prefixes": ["assemblyai/"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -279,9 +234,7 @@
     {
       "name": "auto_router",
       "display_name": "Auto Router",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": true,
@@ -296,12 +249,8 @@
     {
       "name": "aws_polly",
       "display_name": "AWS - Polly",
-      "endpoints": [
-        "audio"
-      ],
-      "model_prefixes": [
-        "aws_polly/"
-      ],
+      "endpoints": ["audio"],
+      "model_prefixes": ["aws_polly/"],
       "model_count": 4,
       "capabilities": {
         "vision": false,
@@ -317,15 +266,7 @@
     {
       "name": "azure",
       "display_name": "Azure",
-      "endpoints": [
-        "audio",
-        "batch",
-        "chat",
-        "completion",
-        "embedding",
-        "image",
-        "moderation"
-      ],
+      "endpoints": ["audio", "batch", "chat", "completion", "embedding", "image", "moderation"],
       "model_prefixes": [
         "azure/",
         "azure/eu/gpt-",
@@ -368,15 +309,7 @@
     {
       "name": "azure_ai",
       "display_name": "Azure AI",
-      "endpoints": [
-        "audio",
-        "batch",
-        "chat",
-        "embedding",
-        "image",
-        "moderation",
-        "ocr"
-      ],
+      "endpoints": ["audio", "batch", "chat", "embedding", "image", "moderation", "ocr"],
       "model_prefixes": [
         "azure_ai/",
         "azure_ai/Cohere-",
@@ -406,9 +339,7 @@
     {
       "name": "azure_ai/agents",
       "display_name": "Azure AI Foundry Agents",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -423,9 +354,7 @@
     {
       "name": "azure_ai/doc-intelligence",
       "display_name": "Azure AI Document Intelligence",
-      "endpoints": [
-        "ocr"
-      ],
+      "endpoints": ["ocr"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -440,16 +369,8 @@
     {
       "name": "azure_text",
       "display_name": "Azure Text",
-      "endpoints": [
-        "audio",
-        "batch",
-        "chat",
-        "moderation"
-      ],
-      "model_prefixes": [
-        "azure/",
-        "azure/gpt-"
-      ],
+      "endpoints": ["audio", "batch", "chat", "moderation"],
+      "model_prefixes": ["azure/", "azure/gpt-"],
       "model_count": 3,
       "capabilities": {
         "vision": false,
@@ -465,9 +386,7 @@
     {
       "name": "baseten",
       "display_name": "Baseten",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "base_url": "https://inference.baseten.co/v1",
       "auth": {
         "type": "bearer",
@@ -487,11 +406,7 @@
     {
       "name": "bedrock",
       "display_name": "AWS - Bedrock",
-      "endpoints": [
-        "chat",
-        "embedding",
-        "rerank"
-      ],
+      "endpoints": ["chat", "embedding", "rerank"],
       "model_prefixes": [
         "1024-",
         "1024-x-1024/",
@@ -541,12 +456,8 @@
     {
       "name": "bedrock_mantle",
       "display_name": "AWS - Bedrock Mantle",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "bedrock_mantle/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["bedrock_mantle/"],
       "model_count": 13,
       "capabilities": {
         "vision": true,
@@ -563,12 +474,8 @@
       "name": "black_forest_labs",
       "display_name": "Black Forest Labs",
       "base_url": "https://api.bfl.ai",
-      "endpoints": [
-        "image"
-      ],
-      "model_prefixes": [
-        "black_forest_labs/"
-      ],
+      "endpoints": ["image"],
+      "model_prefixes": ["black_forest_labs/"],
       "model_count": 8,
       "capabilities": {
         "vision": false,
@@ -589,9 +496,7 @@
         "type": "bearer",
         "env_var": "BRAVE_API_KEY"
       },
-      "endpoints": [
-        "search"
-      ],
+      "endpoints": ["search"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -611,9 +516,7 @@
         "type": "bearer",
         "env_var": "BYTEZ_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -633,14 +536,8 @@
         "type": "bearer",
         "env_var": "CEREBRAS_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "cerebras/",
-        "cerebras/llama3.1-",
-        "cerebras/zai-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["cerebras/", "cerebras/llama3.1-", "cerebras/zai-"],
       "model_count": 7,
       "capabilities": {
         "vision": false,
@@ -661,12 +558,8 @@
         "type": "bearer",
         "env_var": "CHARITY_ENGINE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "charity_engine/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["charity_engine/"],
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
@@ -684,13 +577,8 @@
     {
       "name": "chatgpt",
       "display_name": "ChatGPT Subscription",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "chatgpt/",
-        "chatgpt/gpt-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["chatgpt/", "chatgpt/gpt-"],
       "model_count": 10,
       "capabilities": {
         "vision": true,
@@ -714,10 +602,7 @@
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
+      "endpoints": ["chat", "embedding"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -737,9 +622,7 @@
         "type": "bearer",
         "env_var": "CLARIFAI_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -754,13 +637,8 @@
     {
       "name": "cloudflare",
       "display_name": "Cloudflare AI Workers",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "cloudflare/",
-        "cloudflare/@cf/meta/llama-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["cloudflare/", "cloudflare/@cf/meta/llama-"],
       "model_count": 4,
       "capabilities": {
         "vision": true,
@@ -781,13 +659,8 @@
         "type": "bearer",
         "env_var": "CODESTRAL_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "codestral/",
-        "codestral/codestral-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["codestral/", "codestral/codestral-"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -803,20 +676,14 @@
     {
       "name": "cohere",
       "display_name": "Cohere",
-      "base_url": "https://api.cohere.ai/v1",
+      "base_url": "https://api.cohere.com/v1",
+      "$comment": "api.cohere.ai is a working alias for the same API; api.cohere.com matches Cohere's own docs and crates/liter-llm/src/provider/cohere.rs, do not change this back.",
       "auth": {
         "type": "bearer",
         "env_var": "COHERE_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding",
-        "rerank"
-      ],
-      "model_prefixes": [
-        "embed-",
-        "rerank-"
-      ],
+      "endpoints": ["chat", "embedding", "rerank"],
+      "model_prefixes": ["embed-", "rerank-"],
       "model_count": 15,
       "capabilities": {
         "vision": false,
@@ -832,17 +699,14 @@
     {
       "name": "cohere_chat",
       "display_name": "Cohere Chat",
-      "base_url": "https://api.cohere.ai/v2",
+      "base_url": "https://api.cohere.com/v2",
+      "$comment": "api.cohere.ai is a working alias for the same API; api.cohere.com matches Cohere's own docs and crates/liter-llm/src/provider/cohere.rs, do not change this back.",
       "auth": {
         "type": "bearer",
         "env_var": "COHERE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "command-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["command-"],
       "model_count": 7,
       "capabilities": {
         "vision": false,
@@ -863,11 +727,7 @@
         "type": "bearer",
         "env_var": "COMETAPI_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding",
-        "image"
-      ],
+      "endpoints": ["chat", "embedding", "image"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -882,9 +742,7 @@
     {
       "name": "compactifai",
       "display_name": "CompactifAI",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "base_url": "https://api.compactif.ai/v1",
       "auth": {
         "type": "bearer",
@@ -909,12 +767,8 @@
         "type": "bearer",
         "env_var": "CRUSOE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "crusoe/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["crusoe/"],
       "model_count": 7,
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
@@ -933,9 +787,7 @@
     {
       "name": "cursor",
       "display_name": "Cursor BYOK",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": true,
@@ -950,9 +802,7 @@
     {
       "name": "custom",
       "display_name": "Custom",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -967,12 +817,7 @@
     {
       "name": "custom_openai",
       "display_name": "Custom OpenAI",
-      "endpoints": [
-        "audio",
-        "batch",
-        "chat",
-        "moderation"
-      ],
+      "endpoints": ["audio", "batch", "chat", "moderation"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -992,12 +837,8 @@
         "type": "bearer",
         "env_var": "DARKBLOOM_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "darkbloom/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["darkbloom/"],
       "model_count": 2,
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
@@ -1021,17 +862,8 @@
         "type": "bearer",
         "env_var": "DASHSCOPE_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding",
-        "image",
-        "rerank"
-      ],
-      "model_prefixes": [
-        "dashscope/",
-        "dashscope/qwen-",
-        "dashscope/qwen3-"
-      ],
+      "endpoints": ["chat", "embedding", "image", "rerank"],
+      "model_prefixes": ["dashscope/", "dashscope/qwen-", "dashscope/qwen3-"],
       "model_count": 32,
       "capabilities": {
         "vision": true,
@@ -1047,13 +879,8 @@
     {
       "name": "databricks",
       "display_name": "Databricks",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "databricks/",
-        "databricks/databricks-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["databricks/", "databricks/databricks-"],
       "model_count": 28,
       "capabilities": {
         "vision": true,
@@ -1074,9 +901,7 @@
         "type": "bearer",
         "env_var": "DATAFORSEO_API_KEY"
       },
-      "endpoints": [
-        "search"
-      ],
+      "endpoints": ["search"],
       "model_count": 1,
       "capabilities": {
         "vision": false,
@@ -1092,9 +917,7 @@
     {
       "name": "datarobot",
       "display_name": "DataRobot",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "base_url": "https://app.datarobot.com",
       "auth": {
         "type": "bearer",
@@ -1119,17 +942,8 @@
         "type": "bearer",
         "env_var": "DEEPGRAM_API_KEY"
       },
-      "endpoints": [
-        "audio",
-        "chat"
-      ],
-      "model_prefixes": [
-        "deepgram/",
-        "deepgram/base-",
-        "deepgram/enhanced-",
-        "deepgram/nova-",
-        "deepgram/whisper-"
-      ],
+      "endpoints": ["audio", "chat"],
+      "model_prefixes": ["deepgram/", "deepgram/base-", "deepgram/enhanced-", "deepgram/nova-", "deepgram/whisper-"],
       "model_count": 36,
       "capabilities": {
         "vision": false,
@@ -1150,10 +964,7 @@
         "type": "bearer",
         "env_var": "DEEPINFRA_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "rerank"
-      ],
+      "endpoints": ["chat", "rerank"],
       "model_prefixes": [
         "deepinfra/",
         "deepinfra/NousResearch/Hermes-",
@@ -1192,14 +1003,8 @@
         "type": "bearer",
         "env_var": "DEEPSEEK_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "deepseek-",
-        "deepseek/",
-        "deepseek/deepseek-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["deepseek-", "deepseek/", "deepseek/deepseek-"],
       "model_count": 8,
       "capabilities": {
         "vision": false,
@@ -1215,9 +1020,7 @@
     {
       "name": "docker_model_runner",
       "display_name": "Docker Model Runner",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "base_url": "http://localhost:22088/engines/llama.cpp",
       "auth": {
         "type": "none"
@@ -1236,9 +1039,7 @@
     {
       "name": "duckduckgo",
       "display_name": "DuckDuckGo",
-      "endpoints": [
-        "search"
-      ],
+      "endpoints": ["search"],
       "model_count": 1,
       "base_url": "https://api.duckduckgo.com",
       "auth": {
@@ -1263,13 +1064,8 @@
         "type": "bearer",
         "env_var": "ELEVENLABS_API_KEY"
       },
-      "endpoints": [
-        "audio",
-        "chat"
-      ],
-      "model_prefixes": [
-        "elevenlabs/"
-      ],
+      "endpoints": ["audio", "chat"],
+      "model_prefixes": ["elevenlabs/"],
       "model_count": 4,
       "capabilities": {
         "vision": false,
@@ -1290,12 +1086,8 @@
         "type": "bearer",
         "env_var": "EMPIRIOLABS_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "empiriolabs/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["empiriolabs/"],
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
@@ -1318,9 +1110,7 @@
         "type": "bearer",
         "env_var": "EMPOWER_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -1340,9 +1130,7 @@
         "type": "bearer",
         "env_var": "EXA_API_KEY"
       },
-      "endpoints": [
-        "search"
-      ],
+      "endpoints": ["search"],
       "model_count": 1,
       "capabilities": {
         "vision": false,
@@ -1363,14 +1151,8 @@
         "type": "bearer",
         "env_var": "FAL_KEY"
       },
-      "endpoints": [
-        "chat",
-        "image"
-      ],
-      "model_prefixes": [
-        "fal_ai/",
-        "fal_ai/fal-"
-      ],
+      "endpoints": ["chat", "image"],
+      "model_prefixes": ["fal_ai/", "fal_ai/fal-"],
       "model_count": 12,
       "capabilities": {
         "vision": true,
@@ -1391,13 +1173,8 @@
         "type": "bearer",
         "env_var": "FEATHERLESS_AI_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "featherless_ai/",
-        "featherless_ai/featherless-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["featherless_ai/", "featherless_ai/featherless-"],
       "model_count": 2,
       "capabilities": {
         "vision": true,
@@ -1418,9 +1195,7 @@
         "type": "bearer",
         "env_var": "FIRECRAWL_API_KEY"
       },
-      "endpoints": [
-        "search"
-      ],
+      "endpoints": ["search"],
       "model_count": 1,
       "capabilities": {
         "vision": false,
@@ -1441,11 +1216,7 @@
         "type": "bearer",
         "env_var": "FIREWORKS_AI_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding",
-        "rerank"
-      ],
+      "endpoints": ["chat", "embedding", "rerank"],
       "model_prefixes": [
         "fireworks-",
         "fireworks_ai/",
@@ -1509,13 +1280,8 @@
         "type": "bearer",
         "env_var": "FRIENDLI_TOKEN"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "friendliai/",
-        "friendliai/meta-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["friendliai/", "friendliai/meta-"],
       "model_count": 2,
       "capabilities": {
         "vision": true,
@@ -1536,9 +1302,7 @@
         "type": "bearer",
         "env_var": "GALADRIEL_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -1553,12 +1317,8 @@
     {
       "name": "gdc",
       "display_name": "Google - Distributed Cloud (Gemini)",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "gdc/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["gdc/"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -1578,16 +1338,8 @@
         "type": "bearer",
         "env_var": "GEMINI_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "gemini-",
-        "gemini/",
-        "gemini/gemini-",
-        "gemini/imagen-",
-        "gemini/veo-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["gemini-", "gemini/", "gemini/gemini-", "gemini/imagen-", "gemini/veo-"],
       "model_count": 60,
       "capabilities": {
         "vision": true,
@@ -1608,14 +1360,8 @@
         "type": "bearer",
         "env_var": "GIGACHAT_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
-      "model_prefixes": [
-        "gigachat/",
-        "gigachat/GigaChat-"
-      ],
+      "endpoints": ["chat", "embedding"],
+      "model_prefixes": ["gigachat/", "gigachat/GigaChat-"],
       "model_count": 6,
       "capabilities": {
         "vision": false,
@@ -1636,9 +1382,7 @@
         "type": "bearer",
         "env_var": "GITHUB_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": true,
@@ -1653,9 +1397,7 @@
     {
       "name": "github_copilot",
       "display_name": "GitHub Copilot",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "model_prefixes": [
         "github_copilot/",
         "github_copilot/claude-",
@@ -1683,16 +1425,8 @@
         "type": "bearer",
         "env_var": "GMI_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "gmi/",
-        "gmi/anthropic/claude-",
-        "gmi/deepseek-",
-        "gmi/google/gemini-",
-        "gmi/openai/gpt-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["gmi/", "gmi/anthropic/claude-", "gmi/deepseek-", "gmi/google/gemini-", "gmi/openai/gpt-"],
       "model_count": 17,
       "capabilities": {
         "vision": true,
@@ -1713,9 +1447,7 @@
         "type": "bearer",
         "env_var": "GOOGLE_PSE_API_KEY"
       },
-      "endpoints": [
-        "search"
-      ],
+      "endpoints": ["search"],
       "model_count": 1,
       "capabilities": {
         "vision": false,
@@ -1736,14 +1468,8 @@
         "type": "bearer",
         "env_var": "GRADIENT_AI_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "gradient_ai/",
-        "gradient_ai/anthropic-",
-        "gradient_ai/openai-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["gradient_ai/", "gradient_ai/anthropic-", "gradient_ai/openai-"],
       "model_count": 13,
       "capabilities": {
         "vision": false,
@@ -1764,17 +1490,8 @@
         "type": "bearer",
         "env_var": "GROQ_API_KEY"
       },
-      "endpoints": [
-        "audio",
-        "chat"
-      ],
-      "model_prefixes": [
-        "groq/",
-        "groq/llama-",
-        "groq/meta-",
-        "groq/openai/gpt-",
-        "groq/whisper-"
-      ],
+      "endpoints": ["audio", "chat"],
+      "model_prefixes": ["groq/", "groq/llama-", "groq/meta-", "groq/openai/gpt-", "groq/whisper-"],
       "model_count": 14,
       "capabilities": {
         "vision": true,
@@ -1795,9 +1512,7 @@
         "type": "bearer",
         "env_var": "HELICONE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": true,
@@ -1817,13 +1532,8 @@
         "type": "bearer",
         "env_var": "HEROKU_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "heroku/",
-        "heroku/claude-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["heroku/", "heroku/claude-"],
       "model_count": 4,
       "capabilities": {
         "vision": false,
@@ -1839,13 +1549,7 @@
     {
       "name": "hosted_vllm",
       "display_name": "Hosted VLLM",
-      "endpoints": [
-        "batch",
-        "chat",
-        "embedding",
-        "files",
-        "rerank"
-      ],
+      "endpoints": ["batch", "chat", "embedding", "files", "rerank"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -1865,11 +1569,7 @@
         "type": "bearer",
         "env_var": "HUGGINGFACE_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding",
-        "rerank"
-      ],
+      "endpoints": ["chat", "embedding", "rerank"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -1889,15 +1589,8 @@
         "type": "bearer",
         "env_var": "HYPERBOLIC_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "hyperbolic/",
-        "hyperbolic/Qwen/Qwen2.5-",
-        "hyperbolic/deepseek-",
-        "hyperbolic/meta-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["hyperbolic/", "hyperbolic/Qwen/Qwen2.5-", "hyperbolic/deepseek-", "hyperbolic/meta-"],
       "model_count": 16,
       "capabilities": {
         "vision": true,
@@ -1918,12 +1611,8 @@
         "type": "bearer",
         "env_var": "INCEPTION_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "inception/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["inception/"],
       "model_count": 1,
       "capabilities": {
         "vision": false,
@@ -1943,9 +1632,7 @@
       "auth": {
         "type": "none"
       },
-      "endpoints": [
-        "embedding"
-      ],
+      "endpoints": ["embedding"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -1965,10 +1652,7 @@
         "type": "bearer",
         "env_var": "JINA_API_KEY"
       },
-      "endpoints": [
-        "embedding",
-        "rerank"
-      ],
+      "endpoints": ["embedding", "rerank"],
       "model_count": 1,
       "capabilities": {
         "vision": true,
@@ -1989,9 +1673,7 @@
         "type": "bearer",
         "env_var": "LAMBDA_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "model_prefixes": [
         "lambda_ai/",
         "lambda_ai/deepseek-",
@@ -2016,9 +1698,7 @@
     {
       "name": "langgraph",
       "display_name": "LangGraph",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "base_url": "http://localhost:2024",
       "auth": {
         "type": "bearer",
@@ -2038,14 +1718,8 @@
     {
       "name": "lemonade",
       "display_name": "Lemonade",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "lemonade/",
-        "lemonade/Qwen3-",
-        "lemonade/gpt-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["lemonade/", "lemonade/Qwen3-", "lemonade/gpt-"],
       "model_count": 5,
       "base_url": "http://localhost:8000/api/v1",
       "auth": {
@@ -2070,12 +1744,8 @@
         "type": "bearer",
         "env_var": "LIBERTAI_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "libertai/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["libertai/"],
       "model_count": 12,
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
@@ -2099,12 +1769,8 @@
         "type": "bearer",
         "env_var": "LINKUP_API_KEY"
       },
-      "endpoints": [
-        "search"
-      ],
-      "model_prefixes": [
-        "linkup/"
-      ],
+      "endpoints": ["search"],
+      "model_prefixes": ["linkup/"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -2120,11 +1786,7 @@
     {
       "name": "litellm_proxy",
       "display_name": "LiteLLM Proxy",
-      "endpoints": [
-        "chat",
-        "embedding",
-        "image"
-      ],
+      "endpoints": ["chat", "embedding", "image"],
       "capabilities": {
         "vision": true,
         "reasoning": true,
@@ -2143,9 +1805,7 @@
       "auth": {
         "type": "none"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -2164,15 +1824,8 @@
       "auth": {
         "type": "none"
       },
-      "endpoints": [
-        "chat",
-        "completion",
-        "embedding",
-        "rerank"
-      ],
-      "model_prefixes": [
-        "llamacpp/"
-      ],
+      "endpoints": ["chat", "completion", "embedding", "rerank"],
+      "model_prefixes": ["llamacpp/"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -2195,15 +1848,8 @@
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "llamagate/",
-        "llamagate/deepseek-",
-        "llamagate/llama-",
-        "llamagate/qwen3-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["llamagate/", "llamagate/deepseek-", "llamagate/llama-", "llamagate/qwen3-"],
       "model_count": 16,
       "capabilities": {
         "vision": true,
@@ -2223,15 +1869,8 @@
       "auth": {
         "type": "none"
       },
-      "endpoints": [
-        "chat",
-        "completion",
-        "embedding"
-      ],
-      "model_prefixes": [
-        "lmstudio/",
-        "lm_studio/"
-      ],
+      "endpoints": ["chat", "completion", "embedding"],
+      "model_prefixes": ["lmstudio/", "lm_studio/"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -2250,17 +1889,8 @@
       "auth": {
         "type": "none"
       },
-      "endpoints": [
-        "audio",
-        "chat",
-        "completion",
-        "embedding",
-        "image",
-        "rerank"
-      ],
-      "model_prefixes": [
-        "localai/"
-      ],
+      "endpoints": ["audio", "chat", "completion", "embedding", "image", "rerank"],
+      "model_prefixes": ["localai/"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -2275,10 +1905,7 @@
     {
       "name": "manus",
       "display_name": "Manus",
-      "endpoints": [
-        "chat",
-        "files"
-      ],
+      "endpoints": ["chat", "files"],
       "capabilities": {
         "vision": true,
         "reasoning": true,
@@ -2298,9 +1925,7 @@
         "type": "bearer",
         "env_var": "MARITALK_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -2320,12 +1945,8 @@
         "type": "bearer",
         "env_var": "META_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "meta/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["meta/"],
       "model_count": 1,
       "capabilities": {
         "vision": true,
@@ -2346,13 +1967,8 @@
         "type": "bearer",
         "env_var": "LLAMA_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "meta_llama/",
-        "meta_llama/Llama-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["meta_llama/", "meta_llama/Llama-"],
       "model_count": 4,
       "capabilities": {
         "vision": true,
@@ -2383,22 +1999,30 @@
       "name": "minimax",
       "display_name": "Minimax",
       "base_url": "https://api.minimax.io/v1",
+      "regional_endpoints": [
+        {
+          "region": "global_en",
+          "openai_base_url": "https://api.minimax.io/v1",
+          "anthropic_base_url": "https://api.minimax.io/anthropic",
+          "docs_root": "https://platform.minimax.io/docs"
+        },
+        {
+          "region": "cn_zh",
+          "openai_base_url": "https://api.minimaxi.com/v1",
+          "anthropic_base_url": "https://api.minimaxi.com/anthropic",
+          "docs_root": "https://platform.minimaxi.com/docs"
+        }
+      ],
       "auth": {
         "type": "bearer",
         "env_var": "MINIMAX_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "minimax/",
-        "minimax/MiniMax-",
-        "minimax/speech-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["minimax/", "minimax/MiniMax-", "minimax/speech-"],
       "model_count": 9,
       "capabilities": {
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "structured_output": true,
         "function_calling": true,
         "audio_in": true,
@@ -2415,11 +2039,7 @@
         "type": "bearer",
         "env_var": "MISTRAL_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding",
-        "ocr"
-      ],
+      "endpoints": ["chat", "embedding", "ocr"],
       "model_prefixes": [
         "mistral/",
         "mistral/codestral-",
@@ -2450,13 +2070,8 @@
         "type": "bearer",
         "env_var": "MODELSCOPE_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "image"
-      ],
-      "model_prefixes": [
-        "modelscope/"
-      ],
+      "endpoints": ["chat", "image"],
+      "model_prefixes": ["modelscope/"],
       "model_count": 35,
       "capabilities": {
         "vision": false,
@@ -2477,14 +2092,8 @@
         "type": "bearer",
         "env_var": "MOONSHOT_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "moonshot/",
-        "moonshot/kimi-",
-        "moonshot/moonshot-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["moonshot/", "moonshot/kimi-", "moonshot/moonshot-"],
       "model_count": 21,
       "capabilities": {
         "vision": true,
@@ -2508,13 +2117,8 @@
         "type": "bearer",
         "env_var": "MORPH_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "morph/",
-        "morph/morph-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["morph/", "morph/morph-"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -2535,10 +2139,7 @@
         "type": "bearer",
         "env_var": "NANOGPT_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
+      "endpoints": ["chat", "embedding"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -2558,10 +2159,7 @@
         "type": "bearer",
         "env_var": "NEBIUS_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
+      "endpoints": ["chat", "embedding"],
       "model_prefixes": [
         "nebius/",
         "nebius/BAAI/bge-",
@@ -2595,12 +2193,8 @@
         "type": "bearer",
         "env_var": "NEOSANTARA_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "neosantara/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["neosantara/"],
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
@@ -2623,9 +2217,7 @@
         "type": "bearer",
         "env_var": "NLP_CLOUD_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -2646,9 +2238,7 @@
         "type": "bearer",
         "env_var": "NOVITA_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "model_prefixes": [
         "novita/",
         "novita/baai/bge-",
@@ -2685,15 +2275,8 @@
         "type": "bearer",
         "env_var": "NSCALE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "nscale/",
-        "nscale/Qwen/Qwen2.5-",
-        "nscale/deepseek-",
-        "nscale/meta-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["nscale/", "nscale/Qwen/Qwen2.5-", "nscale/deepseek-", "nscale/meta-"],
       "model_count": 16,
       "capabilities": {
         "vision": true,
@@ -2714,13 +2297,8 @@
         "type": "bearer",
         "env_var": "NVIDIA_NIM_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "rerank"
-      ],
-      "model_prefixes": [
-        "nvidia_nim/"
-      ],
+      "endpoints": ["chat", "rerank"],
+      "model_prefixes": ["nvidia_nim/"],
       "model_count": 3,
       "capabilities": {
         "vision": true,
@@ -2739,12 +2317,8 @@
     {
       "name": "nvidia_riva",
       "display_name": "Nvidia Riva",
-      "endpoints": [
-        "audio"
-      ],
-      "model_prefixes": [
-        "nvidia_riva/"
-      ],
+      "endpoints": ["audio"],
+      "model_prefixes": ["nvidia_riva/"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -2759,15 +2333,8 @@
     {
       "name": "oci",
       "display_name": "OCI",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "oci/",
-        "oci/cohere.command-",
-        "oci/meta.llama-",
-        "oci/xai.grok-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["oci/", "oci/cohere.command-", "oci/meta.llama-", "oci/xai.grok-"],
       "model_count": 13,
       "capabilities": {
         "vision": true,
@@ -2787,10 +2354,7 @@
       "auth": {
         "type": "none"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
+      "endpoints": ["chat", "embedding"],
       "model_prefixes": [
         "ollama/",
         "ollama/deepseek-",
@@ -2818,12 +2382,7 @@
       "auth": {
         "type": "none"
       },
-      "endpoints": [
-        "audio",
-        "batch",
-        "chat",
-        "moderation"
-      ],
+      "endpoints": ["audio", "batch", "chat", "moderation"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -2843,15 +2402,7 @@
         "type": "bearer",
         "env_var": "OPENAI_API_KEY"
       },
-      "endpoints": [
-        "audio",
-        "batch",
-        "chat",
-        "completion",
-        "embedding",
-        "image",
-        "moderation"
-      ],
+      "endpoints": ["audio", "batch", "chat", "completion", "embedding", "image", "moderation"],
       "model_prefixes": [
         "1024-",
         "1024-x-1024/",
@@ -2901,9 +2452,7 @@
     {
       "name": "openai_like",
       "display_name": "OpenAI-like",
-      "endpoints": [
-        "embedding"
-      ],
+      "endpoints": ["embedding"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -2923,12 +2472,8 @@
         "type": "bearer",
         "env_var": "OPENCODE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "opencode/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["opencode/"],
       "capabilities": {
         "vision": true,
         "reasoning": true,
@@ -2948,12 +2493,8 @@
         "type": "bearer",
         "env_var": "OPENCODE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "opencode-go/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["opencode-go/"],
       "capabilities": {
         "vision": true,
         "reasoning": true,
@@ -2973,10 +2514,7 @@
         "type": "bearer",
         "env_var": "OPENROUTER_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
+      "endpoints": ["chat", "embedding"],
       "model_prefixes": [
         "openrouter/",
         "openrouter/anthropic/claude-",
@@ -3012,18 +2550,8 @@
         "type": "bearer",
         "env_var": "OVH_API_KEY"
       },
-      "endpoints": [
-        "audio",
-        "chat",
-        "embedding"
-      ],
-      "model_prefixes": [
-        "ovhcloud/",
-        "ovhcloud/Meta-",
-        "ovhcloud/Mistral-",
-        "ovhcloud/Qwen2.5-",
-        "ovhcloud/gpt-"
-      ],
+      "endpoints": ["audio", "chat", "embedding"],
+      "model_prefixes": ["ovhcloud/", "ovhcloud/Meta-", "ovhcloud/Mistral-", "ovhcloud/Qwen2.5-", "ovhcloud/gpt-"],
       "model_count": 15,
       "capabilities": {
         "vision": true,
@@ -3044,12 +2572,8 @@
         "type": "bearer",
         "env_var": "PARALLEL_AI_API_KEY"
       },
-      "endpoints": [
-        "search"
-      ],
-      "model_prefixes": [
-        "parallel_ai/"
-      ],
+      "endpoints": ["search"],
+      "model_prefixes": ["parallel_ai/"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -3070,12 +2594,8 @@
         "type": "bearer",
         "env_var": "PARASAIL_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "parasail/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["parasail/"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -3095,10 +2615,7 @@
         "type": "bearer",
         "env_var": "PERPLEXITYAI_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "search"
-      ],
+      "endpoints": ["chat", "search"],
       "model_prefixes": [
         "perplexity/",
         "perplexity/anthropic/claude-",
@@ -3124,9 +2641,7 @@
     {
       "name": "petals",
       "display_name": "Petals",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -3160,13 +2675,8 @@
         "type": "bearer",
         "env_var": "PINSTRIPES_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
-      "model_prefixes": [
-        "pinstripes/"
-      ],
+      "endpoints": ["chat", "embedding"],
+      "model_prefixes": ["pinstripes/"],
       "model_count": 6,
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
@@ -3193,10 +2703,7 @@
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
+      "endpoints": ["chat", "embedding"],
       "capabilities": {
         "vision": true,
         "reasoning": true,
@@ -3216,9 +2723,7 @@
         "type": "bearer",
         "env_var": "PREDIBASE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -3241,15 +2746,8 @@
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "publicai/",
-        "publicai/BSC-",
-        "publicai/allenai/Olmo-",
-        "publicai/swiss-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["publicai/", "publicai/BSC-", "publicai/allenai/Olmo-", "publicai/swiss-"],
       "model_count": 9,
       "capabilities": {
         "vision": false,
@@ -3279,9 +2777,7 @@
     {
       "name": "ragflow",
       "display_name": "RAGFlow",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -3301,12 +2797,8 @@
         "type": "bearer",
         "env_var": "RECRAFT_API_KEY"
       },
-      "endpoints": [
-        "image"
-      ],
-      "model_prefixes": [
-        "recraft/"
-      ],
+      "endpoints": ["image"],
+      "model_prefixes": ["recraft/"],
       "model_count": 2,
       "capabilities": {
         "vision": true,
@@ -3327,12 +2819,8 @@
         "type": "bearer",
         "env_var": "REDUCTO_API_KEY"
       },
-      "endpoints": [
-        "ocr"
-      ],
-      "model_prefixes": [
-        "reducto/"
-      ],
+      "endpoints": ["ocr"],
+      "model_prefixes": ["reducto/"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -3353,9 +2841,7 @@
         "type": "bearer",
         "env_var": "REPLICATE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "model_prefixes": [
         "replicate/",
         "replicate/anthropic/claude-",
@@ -3385,13 +2871,8 @@
         "type": "bearer",
         "env_var": "RUNWAYML_API_KEY"
       },
-      "endpoints": [
-        "audio",
-        "image"
-      ],
-      "model_prefixes": [
-        "runwayml/"
-      ],
+      "endpoints": ["audio", "image"],
+      "model_prefixes": ["runwayml/"],
       "model_count": 6,
       "capabilities": {
         "vision": true,
@@ -3421,14 +2902,8 @@
     {
       "name": "sagemaker",
       "display_name": "AWS - Sagemaker",
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
-      "model_prefixes": [
-        "sagemaker/",
-        "sagemaker/meta-"
-      ],
+      "endpoints": ["chat", "embedding"],
+      "model_prefixes": ["sagemaker/", "sagemaker/meta-"],
       "model_count": 6,
       "capabilities": {
         "vision": false,
@@ -3444,9 +2919,7 @@
     {
       "name": "sagemaker_chat",
       "display_name": "Sagemaker Chat",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -3466,16 +2939,8 @@
         "type": "bearer",
         "env_var": "SAMBANOVA_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
-      "model_prefixes": [
-        "sambanova/",
-        "sambanova/DeepSeek-",
-        "sambanova/Llama-",
-        "sambanova/Meta-"
-      ],
+      "endpoints": ["chat", "embedding"],
+      "model_prefixes": ["sambanova/", "sambanova/DeepSeek-", "sambanova/Llama-", "sambanova/Meta-"],
       "model_count": 16,
       "capabilities": {
         "vision": false,
@@ -3491,9 +2956,7 @@
     {
       "name": "sap",
       "display_name": "SAP Generative AI Hub",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -3516,9 +2979,7 @@
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "model_count": 1,
       "capabilities": {
         "vision": false,
@@ -3539,9 +3000,7 @@
         "type": "bearer",
         "env_var": "SCW_SECRET_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -3556,9 +3015,7 @@
     {
       "name": "searxng",
       "display_name": "SearXNG",
-      "endpoints": [
-        "search"
-      ],
+      "endpoints": ["search"],
       "model_count": 1,
       "capabilities": {
         "vision": false,
@@ -3579,9 +3036,7 @@
         "type": "bearer",
         "env_var": "SERPER_API_KEY"
       },
-      "endpoints": [
-        "search"
-      ],
+      "endpoints": ["search"],
       "model_count": 1,
       "capabilities": {
         "vision": false,
@@ -3597,9 +3052,7 @@
     {
       "name": "snowflake",
       "display_name": "Snowflake",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "model_prefixes": [
         "snowflake/",
         "snowflake/jamba-",
@@ -3630,12 +3083,8 @@
         "type": "bearer",
         "env_var": "SONIOX_API_KEY"
       },
-      "endpoints": [
-        "audio"
-      ],
-      "model_prefixes": [
-        "soniox/"
-      ],
+      "endpoints": ["audio"],
+      "model_prefixes": ["soniox/"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -3656,16 +3105,8 @@
         "type": "bearer",
         "env_var": "STABILITY_API_KEY"
       },
-      "endpoints": [
-        "image"
-      ],
-      "model_prefixes": [
-        "stability/",
-        "stability/sd3-",
-        "stability/sd3.5-",
-        "stability/search-",
-        "stability/stable-"
-      ],
+      "endpoints": ["image"],
+      "model_prefixes": ["stability/", "stability/sd3-", "stability/sd3.5-", "stability/search-", "stability/stable-"],
       "model_count": 23,
       "capabilities": {
         "vision": true,
@@ -3689,10 +3130,7 @@
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
+      "endpoints": ["chat", "embedding"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -3712,12 +3150,8 @@
         "type": "bearer",
         "env_var": "TAVILY_API_KEY"
       },
-      "endpoints": [
-        "search"
-      ],
-      "model_prefixes": [
-        "tavily/"
-      ],
+      "endpoints": ["search"],
+      "model_prefixes": ["tavily/"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -3738,12 +3172,8 @@
         "type": "bearer",
         "env_var": "TENCENT_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "tencent/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["tencent/"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -3764,12 +3194,8 @@
         "type": "bearer",
         "env_var": "TENSORMESH_INFERENCE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "tensormesh/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["tensormesh/"],
       "model_count": 10,
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
@@ -3793,13 +3219,8 @@
         "type": "bearer",
         "env_var": "CODESTRAL_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "text-",
-        "text-completion-codestral/"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["text-", "text-completion-codestral/"],
       "model_count": 2,
       "capabilities": {
         "vision": false,
@@ -3820,15 +3241,8 @@
         "type": "bearer",
         "env_var": "OPENAI_API_KEY"
       },
-      "endpoints": [
-        "audio",
-        "batch",
-        "chat",
-        "moderation"
-      ],
-      "model_prefixes": [
-        "gpt-"
-      ],
+      "endpoints": ["audio", "batch", "chat", "moderation"],
+      "model_prefixes": ["gpt-"],
       "model_count": 6,
       "capabilities": {
         "vision": false,
@@ -3849,9 +3263,7 @@
         "type": "bearer",
         "env_var": "TOGETHER_AI_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "model_prefixes": [
         "together-",
         "together_ai/",
@@ -3898,9 +3310,7 @@
     {
       "name": "triton",
       "display_name": "Triton",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -3915,13 +3325,8 @@
     {
       "name": "v0",
       "display_name": "V0",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "v0/",
-        "v0/v0-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["v0/", "v0/v0-"],
       "model_count": 3,
       "base_url": "https://api.v0.dev/v1",
       "auth": {
@@ -3947,9 +3352,7 @@
         "type": "bearer",
         "env_var": "VENICE_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -3964,10 +3367,7 @@
     {
       "name": "vercel_ai_gateway",
       "display_name": "Vercel AI Gateway",
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
+      "endpoints": ["chat", "embedding"],
       "model_prefixes": [
         "vercel_ai_gateway/",
         "vercel_ai_gateway/alibaba/qwen-",
@@ -4010,17 +3410,8 @@
     {
       "name": "vertex_ai",
       "display_name": "Google - Vertex AI",
-      "endpoints": [
-        "audio",
-        "chat",
-        "embedding",
-        "image",
-        "ocr"
-      ],
-      "model_prefixes": [
-        "vertex_ai/",
-        "vertex_ai/gemini-"
-      ],
+      "endpoints": ["audio", "chat", "embedding", "image", "ocr"],
+      "model_prefixes": ["vertex_ai/", "vertex_ai/gemini-"],
       "model_count": 9,
       "capabilities": {
         "vision": true,
@@ -4036,9 +3427,7 @@
     {
       "name": "vertex_ai/agent_engine",
       "display_name": "Vertex AI Agent Engine",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -4057,13 +3446,7 @@
       "auth": {
         "type": "none"
       },
-      "endpoints": [
-        "batch",
-        "chat",
-        "embedding",
-        "files",
-        "rerank"
-      ],
+      "endpoints": ["batch", "chat", "embedding", "files", "rerank"],
       "capabilities": {
         "vision": true,
         "reasoning": false,
@@ -4083,15 +3466,8 @@
         "type": "bearer",
         "env_var": "VOLCENGINE_API_KEY"
       },
-      "endpoints": [
-        "chat",
-        "embedding"
-      ],
-      "model_prefixes": [
-        "doubao-",
-        "volcengine/",
-        "volcengine/doubao-"
-      ],
+      "endpoints": ["chat", "embedding"],
+      "model_prefixes": ["doubao-", "volcengine/", "volcengine/doubao-"],
       "model_count": 12,
       "capabilities": {
         "vision": true,
@@ -4115,15 +3491,8 @@
         "type": "bearer",
         "env_var": "VOYAGE_API_KEY"
       },
-      "endpoints": [
-        "embedding",
-        "rerank"
-      ],
-      "model_prefixes": [
-        "voyage/",
-        "voyage/rerank-",
-        "voyage/voyage-"
-      ],
+      "endpoints": ["embedding", "rerank"],
+      "model_prefixes": ["voyage/", "voyage/rerank-", "voyage/voyage-"],
       "model_count": 19,
       "capabilities": {
         "vision": false,
@@ -4144,16 +3513,8 @@
         "type": "bearer",
         "env_var": "WANDB_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "wandb/",
-        "wandb/Qwen/Qwen3-",
-        "wandb/deepseek-",
-        "wandb/meta-",
-        "wandb/openai/gpt-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["wandb/", "wandb/Qwen/Qwen3-", "wandb/deepseek-", "wandb/meta-", "wandb/openai/gpt-"],
       "model_count": 14,
       "capabilities": {
         "vision": false,
@@ -4169,17 +3530,8 @@
     {
       "name": "watsonx",
       "display_name": "IBM - Watsonx.ai",
-      "endpoints": [
-        "audio",
-        "chat",
-        "embedding"
-      ],
-      "model_prefixes": [
-        "watsonx/",
-        "watsonx/ibm/granite-",
-        "watsonx/meta-",
-        "watsonx/mistralai/mistral-"
-      ],
+      "endpoints": ["audio", "chat", "embedding"],
+      "model_prefixes": ["watsonx/", "watsonx/ibm/granite-", "watsonx/meta-", "watsonx/mistralai/mistral-"],
       "model_count": 29,
       "capabilities": {
         "vision": false,
@@ -4195,9 +3547,7 @@
     {
       "name": "watsonx_text",
       "display_name": "Watsonx Text",
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -4217,13 +3567,8 @@
         "type": "bearer",
         "env_var": "XAI_API_KEY"
       },
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "xai/",
-        "xai/grok-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["xai/", "xai/grok-"],
       "model_count": 35,
       "capabilities": {
         "vision": true,
@@ -4250,9 +3595,7 @@
       "param_mappings": {
         "max_completion_tokens": "max_tokens"
       },
-      "endpoints": [
-        "chat"
-      ],
+      "endpoints": ["chat"],
       "capabilities": {
         "vision": false,
         "reasoning": true,
@@ -4271,9 +3614,7 @@
       "auth": {
         "type": "none"
       },
-      "endpoints": [
-        "embedding"
-      ],
+      "endpoints": ["embedding"],
       "capabilities": {
         "vision": false,
         "reasoning": false,
@@ -4288,13 +3629,8 @@
     {
       "name": "zai",
       "display_name": "Z.AI",
-      "endpoints": [
-        "chat"
-      ],
-      "model_prefixes": [
-        "zai/",
-        "zai/glm-"
-      ],
+      "endpoints": ["chat"],
+      "model_prefixes": ["zai/", "zai/glm-"],
       "model_count": 11,
       "base_url": "https://api.z.ai/api/paas/v4",
       "auth": {

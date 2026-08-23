@@ -34,7 +34,7 @@ use crate::tower::OpenDalCacheStore;
 use crate::tower::types::{LlmRequest, LlmResponse};
 use crate::tower::{
     BudgetLayer, BudgetState, CacheBackend, CacheLayer, CooldownLayer, CostTrackingLayer, HealthCheckLayer, HooksLayer,
-    LlmService, ModelRateLimitLayer, TracingLayer,
+    InFlightLimitLayer, LlmService, ModelRateLimitLayer, TracingLayer,
 };
 use crate::types::audio::{CreateSpeechRequest, CreateTranscriptionRequest, TranscriptionResponse};
 use crate::types::batch::{BatchListQuery, BatchListResponse, BatchObject, CreateBatchRequest};
@@ -43,7 +43,7 @@ use crate::types::image::{CreateImageRequest, ImagesResponse};
 use crate::types::moderation::{ModerationRequest, ModerationResponse};
 use crate::types::ocr::{OcrRequest, OcrResponse};
 use crate::types::rerank::{RerankRequest, RerankResponse};
-use crate::types::responses::{CreateResponseRequest, ResponseObject};
+use crate::types::responses::{CreateResponseRequest, ResponseObject, ResponseStreamEvent};
 use crate::types::search::{SearchRequest, SearchResponse};
 use crate::types::{
     ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, EmbeddingRequest, EmbeddingResponse,
@@ -125,7 +125,7 @@ impl ManagedClient {
         let client = DefaultClient::new(config.clone(), model_hint)?;
         let inner = Arc::new(client);
 
-        let (service, budget_state) = build_service_stack(&config, Arc::clone(&inner));
+        let (service, budget_state) = build_service_stack(&config, Arc::clone(&inner))?;
 
         Ok(Self {
             inner,
@@ -180,12 +180,13 @@ impl ManagedClient {
 fn build_service_stack(
     config: &ClientConfig,
     client: Arc<DefaultClient>,
-) -> (Option<SyncService>, Option<Arc<BudgetState>>) {
+) -> Result<(Option<SyncService>, Option<Arc<BudgetState>>)> {
     let has_cache = config.cache_config.is_some();
     let has_budget = config.budget_config.is_some();
     let has_hooks = !config.hooks.is_empty();
     let has_cooldown = config.cooldown_duration.is_some();
     let has_rate_limit = config.rate_limit_config.is_some();
+    let has_in_flight_limit = config.in_flight_limit_config.is_some();
     let has_health_check = config.health_check_interval.is_some();
     let has_cost = config.enable_cost_tracking;
     let has_tracing = config.enable_tracing;
@@ -195,11 +196,12 @@ fn build_service_stack(
         && !has_hooks
         && !has_cooldown
         && !has_rate_limit
+        && !has_in_flight_limit
         && !has_health_check
         && !has_cost
         && !has_tracing
     {
-        return (None, None);
+        return Ok((None, None));
     }
 
     let base = LlmService::new_from_arc(client);
@@ -210,9 +212,16 @@ fn build_service_stack(
 
     let svc: Bcs = tower::util::BoxCloneService::new(base);
 
+    let svc = if let Some(ref in_flight_cfg) = config.in_flight_limit_config {
+        let layer = InFlightLimitLayer::new(in_flight_cfg.clone())?;
+        tower::util::BoxCloneService::new(layer.layer(svc))
+    } else {
+        svc
+    };
+
     let svc = if let Some(ref cache_cfg) = config.cache_config {
         let layer = if let Some(ref store) = config.cache_store {
-            CacheLayer::with_store(Arc::clone(store))
+            CacheLayer::with_store_and_config(Arc::clone(store), cache_cfg)
         } else {
             match &cache_cfg.backend {
                 CacheBackend::Memory => CacheLayer::new(cache_cfg.clone()),
@@ -222,7 +231,7 @@ fn build_service_stack(
                     config: backend_config,
                 } => {
                     match OpenDalCacheStore::from_config(scheme, backend_config.clone(), "llm-cache/", cache_cfg.ttl) {
-                        Ok(store) => CacheLayer::with_store(Arc::new(store)),
+                        Ok(store) => CacheLayer::with_store_and_config(Arc::new(store), cache_cfg),
                         Err(e) => {
                             tracing::warn!("Failed to create OpenDAL cache store, falling back to in-memory: {e}");
                             CacheLayer::new(cache_cfg.clone())
@@ -285,7 +294,7 @@ fn build_service_stack(
         svc
     };
 
-    (Some(SyncService { inner: Mutex::new(svc) }), budget_state)
+    Ok((Some(SyncService { inner: Mutex::new(svc) }), budget_state))
 }
 
 impl LlmClient for ManagedClient {
@@ -505,6 +514,13 @@ impl ResponseClient for ManagedClient {
         self.inner.create_response(req)
     }
 
+    fn create_response_stream(
+        &self,
+        req: CreateResponseRequest,
+    ) -> BoxFuture<'_, Result<BoxStream<'static, Result<ResponseStreamEvent>>>> {
+        self.inner.create_response_stream(req)
+    }
+
     fn retrieve_response(&self, response_id: &str) -> BoxFuture<'_, Result<ResponseObject>> {
         self.inner.retrieve_response(response_id)
     }
@@ -578,6 +594,29 @@ mod tests {
         let config = ClientConfigBuilder::new("test-key").cost_tracking(true).build();
         let client = ManagedClient::new(config, None).expect("should build");
         assert!(client.has_middleware());
+    }
+
+    #[test]
+    fn middleware_active_with_in_flight_limit() {
+        use crate::tower::InFlightLimitConfig;
+        let config = ClientConfigBuilder::new("test-key")
+            .in_flight_limit(InFlightLimitConfig { max_in_flight: Some(4) })
+            .build();
+        let client = ManagedClient::new(config, None).expect("should build");
+        assert!(client.has_middleware());
+    }
+
+    #[test]
+    fn zero_in_flight_limit_is_rejected() {
+        use crate::tower::InFlightLimitConfig;
+        let config = ClientConfigBuilder::new("test-key")
+            .in_flight_limit(InFlightLimitConfig { max_in_flight: Some(0) })
+            .build();
+        let error = match ManagedClient::new(config, None) {
+            Ok(_) => panic!("zero limit should be rejected"),
+            Err(error) => error,
+        };
+        assert!(matches!(error, LiterLlmError::BadRequest { status: 400, .. }));
     }
 
     /// Verify that tracing=false alone does not activate middleware.

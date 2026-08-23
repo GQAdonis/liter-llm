@@ -1,4 +1,13 @@
-<!-- snippet:compile-only -->
+---
+id: readme_java_streaming
+language: java
+target: java
+level: syntax
+requires: []
+side_effect: network
+---
+
+Stream tokens in real time.
 
 ```java
 import io.xberg.literllm.*;

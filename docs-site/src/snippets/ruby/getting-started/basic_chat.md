@@ -1,3 +1,14 @@
+---
+id: readme_ruby_basic_chat
+language: ruby
+target: ruby
+level: syntax
+requires: []
+side_effect: network
+---
+
+Send a message to any provider using the `provider/model` prefix.
+
 ```ruby
 # frozen_string_literal: true
 

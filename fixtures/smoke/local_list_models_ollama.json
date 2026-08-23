@@ -1,6 +1,11 @@
 {
   "id": "local_list_models_ollama",
   "description": "List models from local Ollama instance",
+  "docs": {
+    "topic": "smoke",
+    "stem": "local-list-models-ollama",
+    "title": "List models from local Ollama instance"
+  },
   "category": "smoke",
   "tags": ["smoke", "local", "ollama"],
   "call": "list_models",
@@ -33,7 +38,6 @@
       "elixir",
       "wasm",
       "c",
-      "kotlin",
       "kotlin_android",
       "swift",
       "dart",

@@ -11,6 +11,14 @@ pub(crate) fn retry_after_from_response(resp: &reqwest::Response) -> Option<std:
     retry::parse_retry_after(value)
 }
 
+/// Sleep for a retry back-off delay, on native or WASM targets.
+async fn sleep_for_retry(delay: std::time::Duration) {
+    #[cfg(not(target_arch = "wasm32"))]
+    tokio::time::sleep(delay).await;
+    #[cfg(target_arch = "wasm32")]
+    gloo_timers::future::sleep(std::time::Duration::from_millis(delay.as_millis() as u64)).await;
+}
+
 /// Drive a single-request closure through the retry / back-off loop.
 ///
 /// `send` is called once per attempt and must return a future that resolves to
@@ -18,7 +26,9 @@ pub(crate) fn retry_after_from_response(resp: &reqwest::Response) -> Option<std:
 ///
 /// - Attempt counting and the `max_retries` budget.
 /// - Parsing the `Retry-After` header before consuming the response body.
-/// - Exponential back-off via `retry::should_retry`.
+/// - Exponential back-off via `retry::should_retry`, including for
+///   transport-level failures (connection reset, DNS failure, timeout) that
+///   never produce a response at all.
 /// - Reading the error body and mapping it to `LiterLlmError` on final failure.
 ///
 /// On success the **successful** `Response` is returned so the caller can
@@ -31,7 +41,26 @@ where
     let mut attempt = 0u32;
 
     loop {
-        let resp = send().await?;
+        let resp = match send().await {
+            Ok(resp) => resp,
+            Err(transport_error) => {
+                // ~keep A transport-level error means no response was ever received, so it
+                // must go through the same retry budget as a 5xx — otherwise a single
+                // connection reset fails the whole request even though `max_retries > 0`.
+                if let Some(delay) = retry::should_retry_transport_error(attempt, max_retries) {
+                    attempt += 1;
+                    tracing::warn!(
+                        error = %transport_error,
+                        attempt,
+                        max_retries,
+                        "transport-level error sending request; retrying"
+                    );
+                    sleep_for_retry(delay).await;
+                    continue;
+                }
+                return Err(LiterLlmError::from(transport_error));
+            }
+        };
         let status = resp.status().as_u16();
 
         if resp.status().is_success() {
@@ -42,10 +71,7 @@ where
 
         if let Some(delay) = retry::should_retry(status, attempt, max_retries, server_retry_after) {
             attempt += 1;
-            #[cfg(not(target_arch = "wasm32"))]
-            tokio::time::sleep(delay).await;
-            #[cfg(target_arch = "wasm32")]
-            gloo_timers::future::sleep(std::time::Duration::from_millis(delay.as_millis() as u64)).await;
+            sleep_for_retry(delay).await;
             continue;
         }
 
@@ -65,6 +91,7 @@ where
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "POST",
@@ -116,6 +143,7 @@ pub async fn post_json_raw(
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "POST",
@@ -168,6 +196,7 @@ pub async fn post_binary(
 /// `auth_header` is `Some((name, value))` when the provider requires
 /// authentication, or `None` when no auth header should be added.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "POST",
@@ -218,6 +247,7 @@ pub async fn post_multipart(
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "GET",
@@ -264,6 +294,7 @@ pub async fn get_json_raw(
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "DELETE",
@@ -310,6 +341,7 @@ pub async fn delete_json(
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
 #[tracing::instrument(
+    level = "debug",
     skip_all,
     fields(
         http.method = "GET",
@@ -347,4 +379,63 @@ pub async fn get_binary(
     }
 
     resp.bytes().await.map_err(LiterLlmError::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Bind an ephemeral loopback port, then immediately release it. Connections to
+    /// the now-closed port are refused instantly (no live network, no timeout wait),
+    /// giving a deterministic, genuine `reqwest::Error` transport failure for tests.
+    fn closed_port_url() -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
+        let port = listener.local_addr().expect("local_addr").port();
+        drop(listener);
+        format!("http://127.0.0.1:{port}/")
+    }
+
+    #[tokio::test]
+    async fn with_retry_retries_transport_errors_before_giving_up() {
+        // ~keep Regression test for #44: before the fix, `send().await?` propagated a
+        // transport-level error (e.g. connection refused) immediately via `?`,
+        // bypassing the retry loop entirely regardless of `max_retries`.
+        let client = reqwest::Client::new();
+        let url = closed_port_url();
+        let mut attempts = 0u32;
+
+        let result = with_retry(2, || {
+            attempts += 1;
+            client.get(url.as_str()).send()
+        })
+        .await;
+
+        assert!(
+            result.is_err(),
+            "every attempt fails at the transport layer, so the final result must be Err"
+        );
+        assert_eq!(
+            attempts, 3,
+            "must attempt once plus 2 retries (matching max_retries) before giving up"
+        );
+    }
+
+    #[tokio::test]
+    async fn with_retry_does_not_retry_transport_errors_when_max_retries_is_zero() {
+        let client = reqwest::Client::new();
+        let url = closed_port_url();
+        let mut attempts = 0u32;
+
+        let result = with_retry(0, || {
+            attempts += 1;
+            client.get(url.as_str()).send()
+        })
+        .await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            attempts, 1,
+            "max_retries = 0 must still make exactly one attempt and no retries"
+        );
+    }
 }

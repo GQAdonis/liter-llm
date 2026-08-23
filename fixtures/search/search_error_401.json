@@ -1,6 +1,11 @@
 {
   "id": "search_error_401",
   "description": "401 Unauthorized error on web search due to invalid API credentials",
+  "docs": {
+    "topic": "search",
+    "stem": "search-error-401",
+    "title": "401 Unauthorized error on web search due to invalid API credentials"
+  },
   "category": "search",
   "tags": ["search", "error-handling"],
   "call": "search",

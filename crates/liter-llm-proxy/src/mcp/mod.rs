@@ -141,7 +141,10 @@ impl LiterLlmMcp {
     fn check_model_access(key_ctx: &KeyContext, model: &str) -> Result<(), rmcp::ErrorData> {
         if !key_ctx.can_access_model(model) {
             return Err(rmcp::ErrorData::invalid_params(
-                format!("key '{}' is not allowed to access model '{model}'", key_ctx.key_id),
+                format!(
+                    "key '{}' is not allowed to access model '{model}'",
+                    key_ctx.redacted_id()
+                ),
                 None,
             ));
         }
@@ -157,7 +160,7 @@ impl LiterLlmMcp {
             return Err(rmcp::ErrorData::invalid_params(
                 format!(
                     "tool '{tool}' requires master-key access; key '{}' is restricted",
-                    key_ctx.key_id
+                    key_ctx.redacted_id()
                 ),
                 None,
             ));
@@ -384,6 +387,7 @@ mod tests {
     fn restricted_ctx(key_id: &str, models: Vec<String>) -> KeyContext {
         let cfg = VirtualKeyConfig {
             key: key_id.to_string(),
+            tenant_id: None,
             description: None,
             models,
             rpm: None,
@@ -401,7 +405,14 @@ mod tests {
         assert!(result.is_err(), "should reject unlisted model");
         let err = result.unwrap_err();
         let msg = &err.message;
-        assert!(msg.contains("vk-test"), "error must name the key: {msg}");
+        // ~keep This asserted `vk-test` — the raw key token — so it pinned the leak
+        // ~keep it was meant to guard. The message must identify the key without
+        // ~keep reproducing the credential.
+        assert!(!msg.contains("vk-test"), "error must not echo the key token: {msg}");
+        assert!(
+            msg.contains(&key_ctx.redacted_id()),
+            "error must still identify the key: {msg}"
+        );
         assert!(msg.contains("claude-sonnet"), "error must name the model: {msg}");
     }
 
@@ -427,7 +438,11 @@ mod tests {
         assert!(result.is_err(), "restricted key must be rejected for create_file");
         let msg = &result.unwrap_err().message;
         assert!(msg.contains("create_file"), "error must name the tool: {msg}");
-        assert!(msg.contains("vk-limited"), "error must name the key: {msg}");
+        assert!(!msg.contains("vk-limited"), "error must not echo the key token: {msg}");
+        assert!(
+            msg.contains(&key_ctx.redacted_id()),
+            "error must still identify the key: {msg}"
+        );
         assert!(msg.contains("master-key"), "error must mention master-key: {msg}");
     }
 
@@ -436,6 +451,23 @@ mod tests {
         let key_ctx = KeyContext::master();
         assert!(LiterLlmMcp::check_master_access(&key_ctx, "list_files").is_ok());
         assert!(LiterLlmMcp::check_master_access(&key_ctx, "create_batch").is_ok());
+        assert!(LiterLlmMcp::check_master_access(&key_ctx, "create_response").is_ok());
+    }
+
+    /// Pins the guard `create_response` must use. It previously called
+    /// `require_model_access` (the guard for model-routed tools) instead of
+    /// `require_master` (the guard every other file/batch/response
+    /// management tool uses), letting any virtual key create a response in
+    /// the shared upstream account — see issue #70.
+    #[test]
+    fn restricted_key_rejected_for_create_response() {
+        let key_ctx = restricted_ctx("vk-limited", vec!["gpt-4o".to_string()]);
+        let result = LiterLlmMcp::check_master_access(&key_ctx, "create_response");
+        assert!(
+            result.is_err(),
+            "a virtual key with model access must still be rejected for create_response"
+        );
+        assert!(result.unwrap_err().message.contains("create_response"));
     }
 
     #[test]

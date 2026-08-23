@@ -1,6 +1,11 @@
 {
   "id": "content_policy_violation",
   "description": "400 error when a request is rejected due to content policy",
+  "docs": {
+    "topic": "error-handling",
+    "stem": "content-policy-violation",
+    "title": "400 error when a request is rejected due to content policy"
+  },
   "category": "error-handling",
   "tags": ["error-handling"],
   "call": "chat",

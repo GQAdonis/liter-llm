@@ -1,6 +1,11 @@
 {
   "id": "contract_search",
   "description": "Verify search() method exists in all bindings",
+  "docs": {
+    "topic": "contract",
+    "stem": "contract-search",
+    "title": "Verify search() method exists in all bindings"
+  },
   "category": "contract",
   "tags": ["contract", "parity"],
   "call": "search",

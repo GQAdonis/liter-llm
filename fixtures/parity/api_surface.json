@@ -1,6 +1,11 @@
 {
   "id": "api_surface_parity",
   "description": "Canonical API surface definition for cross-binding parity verification",
+  "docs": {
+    "topic": "parity",
+    "stem": "api-surface-parity",
+    "title": "Canonical API surface definition for cross-binding parity verification"
+  },
   "category": "parity",
   "call": "chat",
   "input": {

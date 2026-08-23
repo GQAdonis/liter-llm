@@ -1,6 +1,11 @@
 {
   "id": "smoke_transcribe_basic",
   "description": "Basic audio transcription",
+  "docs": {
+    "topic": "transcribe",
+    "stem": "smoke-transcribe-basic",
+    "title": "Basic audio transcription"
+  },
   "category": "transcribe",
   "tags": ["smoke", "transcribe"],
   "call": "transcribe",

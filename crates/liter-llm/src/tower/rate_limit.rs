@@ -27,10 +27,12 @@ use std::time::{Duration, Instant, SystemTime};
 use dashmap::DashMap;
 use tower::{Layer, Service};
 
+use super::cost::observe_stream_usage;
 use super::types::{LlmRequest, LlmResponse};
 use crate::client::BoxFuture;
 use crate::cost;
 use crate::error::{LiterLlmError, Result};
+use crate::types::Usage;
 
 /// Configuration for per-model rate limits.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -185,16 +187,49 @@ where
         Box::pin(async move {
             let resp = fut.await?;
 
-            if let Some(usage) = resp.usage() {
-                let total_tokens = usage.prompt_tokens + usage.completion_tokens;
-                if let Some(mut entry) = state.get_mut(&model) {
-                    entry.maybe_reset(config.window);
-                    entry.token_count += total_tokens;
+            match resp {
+                // ~keep LlmResponse::usage() always returns None for ChatStream; record once the stream
+                // ~keep completes instead of silently skipping every streamed request's token count.
+                LlmResponse::ChatStream(stream) => {
+                    let model_for_completion = model.clone();
+                    let state_for_completion = Arc::clone(&state);
+                    let config_for_completion = config.clone();
+                    let wrapped = observe_stream_usage(stream, move |usage| {
+                        record_tokens(
+                            &state_for_completion,
+                            &config_for_completion,
+                            &model_for_completion,
+                            usage.as_ref(),
+                        );
+                    });
+                    Ok(LlmResponse::ChatStream(wrapped))
+                }
+                other => {
+                    record_tokens(&state, &config, &model, other.usage());
+                    Ok(other)
                 }
             }
-
-            Ok(resp)
         })
+    }
+}
+
+/// Add `usage`'s token count to `model`'s rate-limit window, resetting the
+/// window first if it has elapsed. No-op when `usage` is `None`.
+///
+/// Shared by the non-streaming response path (usage known immediately) and
+/// the `ChatStream` completion callback (usage only known once the stream is
+/// fully consumed).
+fn record_tokens(
+    state: &DashMap<String, ModelRateState>,
+    config: &RateLimitConfig,
+    model: &str,
+    usage: Option<&Usage>,
+) {
+    let Some(usage) = usage else { return };
+    let total_tokens = usage.prompt_tokens + usage.completion_tokens;
+    if let Some(mut entry) = state.get_mut(model) {
+        entry.maybe_reset(config.window);
+        entry.token_count += total_tokens;
     }
 }
 
@@ -241,14 +276,32 @@ impl CostWindow {
     }
 
     /// Return current spend in USD, resetting if the window has elapsed.
+    ///
+    /// Uses a `compare_exchange` CAS so that under concurrent calls exactly
+    /// one thread wins the rollover, mirroring
+    /// [`super::budget::WindowEntry::spend_usd`]. The previous
+    /// unconditional `store(0, ..)` let every thread that observed an
+    /// elapsed window reset the counter independently — two threads racing
+    /// at the boundary could each zero `spend_mc` after the other's
+    /// `fetch_add` in [`Self::add`] had already landed, silently dropping
+    /// that contribution (a torn read/write, not just a redundant reset).
     fn spend_usd(&self, now_secs: u64) -> f64 {
-        let start = self.window_start_secs.load(Ordering::Relaxed);
+        let start = self.window_start_secs.load(Ordering::Acquire);
         if now_secs.saturating_sub(start) >= self.window_secs {
-            self.spend_mc.store(0, Ordering::Relaxed);
-            self.window_start_secs.store(now_secs, Ordering::Relaxed);
+            // ~keep Snapshot before CAS so racing increments after this point are preserved.
+            let old_mc = self.spend_mc.load(Ordering::Acquire);
+
+            // ~keep Only the CAS winner performs rollover; losers keep the winner's reset.
+            if self
+                .window_start_secs
+                .compare_exchange(start, now_secs, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                // ~keep Subtract only the old-window amount so new-window racing increments remain.
+                self.spend_mc.fetch_sub(old_mc, Ordering::AcqRel);
+            }
         }
-        let mc = self.spend_mc.load(Ordering::Relaxed);
-        mc as f64 / 1_000_000.0
+        self.spend_mc.load(Ordering::Acquire) as f64 / 1_000_000.0
     }
 
     /// Add `usd` to the window accumulator.
@@ -256,7 +309,7 @@ impl CostWindow {
         let _ = self.spend_usd(now_secs);
         if usd > 0.0 {
             let mc = (usd * 1_000_000.0).round() as u64;
-            self.spend_mc.fetch_add(mc, Ordering::Relaxed);
+            self.spend_mc.fetch_add(mc, Ordering::AcqRel);
         }
     }
 }
@@ -410,14 +463,36 @@ where
         Box::pin(async move {
             let resp = fut.await?;
 
-            if let Some(usage) = resp.usage()
-                && let Some(usd) = cost::completion_cost(&model, usage.prompt_tokens, usage.completion_tokens)
-            {
-                state.record(usd);
+            match resp {
+                // ~keep LlmResponse::usage() always returns None for ChatStream; record once the stream
+                // ~keep completes instead of silently skipping every streamed request's cost.
+                LlmResponse::ChatStream(stream) => {
+                    let model_for_completion = model.clone();
+                    let state_for_completion = Arc::clone(&state);
+                    let wrapped = observe_stream_usage(stream, move |usage| {
+                        record_cost_window(&state_for_completion, &model_for_completion, usage.as_ref());
+                    });
+                    Ok(LlmResponse::ChatStream(wrapped))
+                }
+                other => {
+                    record_cost_window(&state, &model, other.usage());
+                    Ok(other)
+                }
             }
-
-            Ok(resp)
         })
+    }
+}
+
+/// Compute the cost of `usage` and record it into `state`'s minute/hour/day
+/// windows. No-op when `usage` is `None` or the model has no pricing data.
+///
+/// Shared by the non-streaming response path (usage known immediately) and
+/// the `ChatStream` completion callback (usage only known once the stream is
+/// fully consumed).
+fn record_cost_window(state: &CostRateLimitState, model: &str, usage: Option<&Usage>) {
+    let Some(usage) = usage else { return };
+    if let Some(usd) = cost::completion_cost(model, usage.prompt_tokens, usage.completion_tokens) {
+        state.record(usd);
     }
 }
 
@@ -597,5 +672,137 @@ mod tests {
             .await
             .expect_err("inner error should propagate");
         assert!(matches!(err, LiterLlmError::Timeout));
+    }
+
+    /// Regression for the `CostWindow` rollover race: 200 parallel `add($0.10)`
+    /// calls at a rollover boundary must total exactly $20.00. Before the CAS
+    /// fix, `spend_usd` reset the counter unconditionally
+    /// (`self.spend_mc.store(0, ..)`) whenever it observed an elapsed window,
+    /// so two threads racing at the boundary could each zero the counter
+    /// independently, silently dropping any `fetch_add` from [`CostWindow::add`]
+    /// that landed between the two resets.
+    #[test]
+    fn cost_window_rollover_under_concurrent_threads_does_not_undercount() {
+        use std::sync::Barrier;
+        use std::thread;
+
+        let window = Arc::new(CostWindow::new(Duration::from_secs(1)));
+        let future_now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+            + 2;
+
+        const WRITERS: usize = 200;
+        let barrier = Arc::new(Barrier::new(WRITERS));
+        let mut handles = Vec::with_capacity(WRITERS);
+        for _ in 0..WRITERS {
+            let w = Arc::clone(&window);
+            let b = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                b.wait();
+                w.add(0.10, future_now);
+            }));
+        }
+        for h in handles {
+            h.join().expect("writer must not panic");
+        }
+
+        let total = window.spend_mc.load(Ordering::Relaxed) as f64 / 1_000_000.0;
+        assert!(
+            (total - 20.0_f64).abs() < 1e-4,
+            "expected $20.00 total after 200 concurrent adds at rollover; got ${total:.6}"
+        );
+    }
+
+    /// Regression for the "streaming bypasses rate-limit accounting" bug:
+    /// `LlmResponse::usage()` always returns `None` for `ChatStream`, so a
+    /// naive post-response check never sees a streamed call's token count and
+    /// `ModelRateLimitService` never updates its TPM window for it — a caller
+    /// could stream unlimited tokens through a TPM-limited model.
+    #[tokio::test]
+    async fn model_rate_limit_records_tokens_for_streamed_response() {
+        use std::collections::VecDeque;
+
+        use futures_core::Stream;
+        use futures_util::StreamExt as _;
+
+        use crate::client::BoxStream;
+        use crate::types::ChatCompletionChunk;
+
+        struct ChunkStream(VecDeque<ChatCompletionChunk>);
+        impl Stream for ChunkStream {
+            type Item = Result<ChatCompletionChunk>;
+            fn poll_next(
+                mut self: std::pin::Pin<&mut Self>,
+                _cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Option<Self::Item>> {
+                std::task::Poll::Ready(self.0.pop_front().map(Ok))
+            }
+        }
+
+        fn usage_chunk(usage: Option<Usage>) -> ChatCompletionChunk {
+            ChatCompletionChunk {
+                id: "chunk".into(),
+                object: "chat.completion.chunk".into(),
+                created: 0,
+                model: "gpt-4".into(),
+                choices: vec![],
+                usage,
+                system_fingerprint: None,
+                service_tier: None,
+            }
+        }
+
+        #[derive(Clone)]
+        struct StreamingUsageService;
+        impl tower::Service<LlmRequest> for StreamingUsageService {
+            type Response = LlmResponse;
+            type Error = LiterLlmError;
+            type Future = BoxFuture<'static, Result<LlmResponse>>;
+            fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<()>> {
+                std::task::Poll::Ready(Ok(()))
+            }
+            fn call(&mut self, _req: LlmRequest) -> Self::Future {
+                Box::pin(async move {
+                    let usage = Usage {
+                        prompt_tokens: 30,
+                        completion_tokens: 20,
+                        total_tokens: 50,
+                        prompt_tokens_details: None,
+                    };
+                    let chunks = VecDeque::from([usage_chunk(None), usage_chunk(Some(usage))]);
+                    let stream: BoxStream<'static, Result<ChatCompletionChunk>> = Box::pin(ChunkStream(chunks));
+                    Ok(LlmResponse::ChatStream(stream))
+                })
+            }
+        }
+
+        let config = RateLimitConfig {
+            rpm: None,
+            tpm: Some(50),
+            window: Duration::from_secs(60),
+        };
+        let layer = ModelRateLimitLayer::new(config);
+        let mut svc = layer.layer(StreamingUsageService);
+
+        let resp = svc
+            .call(LlmRequest::ChatStream(chat_req("gpt-4")))
+            .await
+            .expect("streamed call should succeed");
+        let LlmResponse::ChatStream(mut stream) = resp else {
+            panic!("expected a ChatStream response");
+        };
+        while stream.next().await.is_some() {}
+
+        // The TPM window is now at exactly its 50-token limit; a second call must be rejected.
+        let err = svc
+            .call(LlmRequest::ChatStream(chat_req("gpt-4")))
+            .await
+            .expect_err("second call must be rejected once the streamed call's 50 tokens are recorded");
+        assert!(
+            matches!(err, LiterLlmError::RateLimited { .. }),
+            "expected RateLimited once streamed tokens push the window to its TPM limit; got {err:?}"
+        );
     }
 }

@@ -5,6 +5,12 @@ dist/
 wheelhouse/
 .gradle/
 
+# Git worktrees checked out inside the repo. Untracked-but-not-ignored, poly
+# walks them and reports the worktree's own copies of files as failures, so a
+# single worktree turns `poly fmt --check .` red for reasons unrelated to the
+# tree being checked. ~keep
+.worktrees/
+
 # Astro docs-site
 docs-site/dist/
 docs-site/.astro/
@@ -210,6 +216,10 @@ CLAUDE.md
 .windsurfrules
 .codex/
 .mcp.json
+# plugin/.mcp.json is an ai-rulez-generated plugin bundle (provenance in
+# plugin/.ai-rulez-generated.json) that CI's `ai-rulez verify --plugin` reads;
+# it must be committed like its sibling bundles. ~keep
+!plugin/.mcp.json
 .github/copilot-instructions.md
 AGENTS.md
 GEMINI.md
@@ -295,6 +305,11 @@ test_apps/swift_e2e/*.artifactbundle.zip
 !.claude/skills/mcp/SKILL.md
 
 poly.local.toml
+
+# Alef snippet validator scratch workspaces and caches ~keep
+**/.alef-snippet-*/
+**/.alef-cache/
+**/.alef/
 
 # BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
 .ai-rulez/.generated-manifest.json

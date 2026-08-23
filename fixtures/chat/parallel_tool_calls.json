@@ -1,6 +1,11 @@
 {
   "id": "parallel_tool_calls",
   "description": "Chat request that results in parallel tool calls in the response",
+  "docs": {
+    "topic": "chat",
+    "stem": "parallel-tool-calls",
+    "title": "Chat request that results in parallel tool calls in the response"
+  },
   "category": "chat",
   "tags": ["chat", "tool-calling"],
   "call": "chat",

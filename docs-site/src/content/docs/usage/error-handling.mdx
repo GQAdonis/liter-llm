@@ -1,5 +1,5 @@
 ---
-description: "The 17 LiterLlmError variants, HTTP status mapping, transient classification, retry behaviour, and links to per-language exception types."
+description: "The 20 LiterLlmError variants, HTTP status mapping, transient classification, retry behaviour, and links to per-language exception types."
 title: "Error Handling"
 ---
 
@@ -15,13 +15,13 @@ import { Content as Snip_php_guides_error_handling } from "../../../snippets/php
 import { Content as Snip_elixir_guides_error_handling } from "../../../snippets/elixir/guides/error_handling.md";
 import { Content as Snip_wasm_guides_error_handling } from "../../../snippets/wasm/guides/error_handling.md";
 
-Every liter-llm client and the proxy return the same error taxonomy, defined by the `LiterLlmError` enum in `crates/liter-llm/src/error.rs`. Seventeen variants cover authentication, rate limits, payload problems, transport failures, and internal bugs. Language bindings map each variant to an idiomatic exception type but preserve the original semantics.
+Every liter-llm client and the proxy return the same error taxonomy, defined by the `LiterLlmError` enum in `crates/liter-llm/src/error.rs`. Twenty variants cover authentication, rate limits, payload problems, transport failures, idempotency conflicts, and internal bugs. Language bindings map each variant to an idiomatic exception type but preserve the original semantics.
 
 This page is the canonical reference. See [API Reference](/reference/api-python/) for the per-language exception names.
 
 ## Variants
 
-The 17 variants, their typical cause, and whether the Tower middleware treats them as transient:
+The 20 variants, their typical cause, and whether the Tower middleware treats them as transient:
 
 | Variant                 | Typical trigger                                                                                                   | Transient? |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -42,6 +42,9 @@ The 17 variants, their typical cause, and whether the Tower middleware treats th
 | `BudgetExceeded`        | A `[budget]` or virtual-key `budget_limit` cap was hit. Returns 402 through the proxy.                            | no         |
 | `HookRejected`          | A registered hook explicitly rejected the request.                                                                | no         |
 | `InternalError`         | Library bug. Should never surface in normal operation.                                                            | no         |
+| `OutboundForbidden`     | The active outbound policy (`[security].outbound_policy`) blocked a request URL, e.g. a private-range address under `deny_private`. | no         |
+| `IdempotencyConflict`   | The same `Idempotency-Key` was reused with a different request body. Returns 409.                                 | no         |
+| `IdempotencyInFlight`   | Another request with the same `Idempotency-Key` is currently in flight. Returns 409. Not auto-retried by the Tower middleware — the caller should wait briefly and retry. | no         |
 
 Transient variants trigger fallbacks and retries. The [Fallback & Routing](/usage/fallback-routing/) layer calls `LiterLlmError::is_transient()` to decide whether to try the next endpoint or return the error to the caller.
 
@@ -83,8 +86,8 @@ Each binding exposes the Rust error taxonomy in whatever shape is idiomatic for 
 
 | Binding    | Surface                                                                                                                                     | Categories                                                                                                                                                                                                                                                               |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Rust       | `LiterLlmError` enum with 17 variants.                                                                                                      | 1:1 with the canonical list. `is_transient()` and `error_type()` available.                                                                                                                                                                                              |
-| Python     | Exception hierarchy rooted at `LlmError`.                                                                                                   | 16 classes (every variant except `InternalError`, which surfaces as the base `LlmError`). `ContextWindowExceededError` and `ContentPolicyError` inherit from `BadRequestError`.                                                                                          |
+| Rust       | `LiterLlmError` enum with 20 variants.                                                                                                      | 1:1 with the canonical list. `is_transient()` and `error_type()` available.                                                                                                                                                                                              |
+| Python     | Exception hierarchy rooted at `LlmError`.                                                                                                   | 19 classes (every variant except `InternalError`, which surfaces as the base `LlmError`). `ContextWindowExceededError` and `ContentPolicyError` inherit from `BadRequestError`.                                                                                          |
 | TypeScript | Thrown JavaScript `Error` objects.                                                                                                          | Single `Error` type. The message starts with a bracketed category label (`[Authentication]`, `[RateLimited]`, …). Match on the label rather than the class.                                                                                                              |
 | Go         | Sentinel errors plus `*APIError` and `*StreamError` wrapper types.                                                                          | 8 sentinels: `ErrInvalidRequest`, `ErrAuthentication`, `ErrRateLimit`, `ErrNotFound`, `ErrProviderError`, `ErrStream`, `ErrBudgetExceeded`, `ErrHookRejected`. Use `errors.Is` and `errors.As`. `*APIError` exposes `StatusCode` and `Message`.                          |
 | Java       | `LlmException` base plus seven inner subclasses and two standalone subclasses.                                                              | `InvalidRequestException`, `AuthenticationException`, `RateLimitException`, `NotFoundException`, `ProviderException`, `StreamException`, `SerializationException`, `BudgetExceededException`, `HookRejectedException`. Every subclass carries a stable `getErrorCode()`. |

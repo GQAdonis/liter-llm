@@ -95,6 +95,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchStatus dco_decode_batch_status(dynamic raw);
 
   @protected
+  BedrockConfig dco_decode_bedrock_config(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
@@ -114,6 +117,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BatchRequestCounts dco_decode_box_autoadd_batch_request_counts(dynamic raw);
+
+  @protected
+  BedrockConfig dco_decode_box_autoadd_bedrock_config(dynamic raw);
 
   @protected
   bool dco_decode_box_autoadd_bool(dynamic raw);
@@ -198,6 +204,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LiterLlmError dco_decode_box_autoadd_liter_llm_error(dynamic raw);
+
+  @protected
+  LlmBudgetConfig dco_decode_box_autoadd_llm_budget_config(dynamic raw);
+
+  @protected
+  LlmCacheConfig dco_decode_box_autoadd_llm_cache_config(dynamic raw);
+
+  @protected
+  LlmInFlightLimitConfig dco_decode_box_autoadd_llm_in_flight_limit_config(
+    dynamic raw,
+  );
+
+  @protected
+  LlmRateLimitConfig dco_decode_box_autoadd_llm_rate_limit_config(dynamic raw);
 
   @protected
   ModelInfo dco_decode_box_autoadd_model_info(dynamic raw);
@@ -339,6 +359,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DocumentContent dco_decode_document_content(dynamic raw);
 
   @protected
+  EmbeddingContentPart dco_decode_embedding_content_part(dynamic raw);
+
+  @protected
   EmbeddingFormat dco_decode_embedding_format(dynamic raw);
 
   @protected
@@ -405,6 +428,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImagesResponse dco_decode_images_response(dynamic raw);
 
   @protected
+  InFlightLimitConfig dco_decode_in_flight_limit_config(dynamic raw);
+
+  @protected
   JsonSchemaFormat dco_decode_json_schema_format(dynamic raw);
 
   @protected
@@ -426,6 +452,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ContentPart> dco_decode_list_content_part(dynamic raw);
 
   @protected
+  List<EmbeddingContentPart> dco_decode_list_embedding_content_part(
+    dynamic raw,
+  );
+
+  @protected
   List<EmbeddingObject> dco_decode_list_embedding_object(dynamic raw);
 
   @protected
@@ -433,6 +464,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Image> dco_decode_list_image(dynamic raw);
+
+  @protected
+  List<LlmProviderConfig> dco_decode_list_llm_provider_config(dynamic raw);
 
   @protected
   List<Message> dco_decode_list_message(dynamic raw);
@@ -505,6 +539,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LiterLlmError dco_decode_liter_llm_error(dynamic raw);
+
+  @protected
+  LlmBudgetConfig dco_decode_llm_budget_config(dynamic raw);
+
+  @protected
+  LlmCacheConfig dco_decode_llm_cache_config(dynamic raw);
+
+  @protected
+  LlmConfig dco_decode_llm_config(dynamic raw);
+
+  @protected
+  LlmInFlightLimitConfig dco_decode_llm_in_flight_limit_config(dynamic raw);
+
+  @protected
+  LlmProviderConfig dco_decode_llm_provider_config(dynamic raw);
+
+  @protected
+  LlmRateLimitConfig dco_decode_llm_rate_limit_config(dynamic raw);
 
   @protected
   Message dco_decode_message(dynamic raw);
@@ -581,6 +633,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  BedrockConfig? dco_decode_opt_box_autoadd_bedrock_config(dynamic raw);
+
+  @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
@@ -606,6 +661,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageDetail? dco_decode_opt_box_autoadd_image_detail(dynamic raw);
+
+  @protected
+  LlmBudgetConfig? dco_decode_opt_box_autoadd_llm_budget_config(dynamic raw);
+
+  @protected
+  LlmCacheConfig? dco_decode_opt_box_autoadd_llm_cache_config(dynamic raw);
+
+  @protected
+  LlmInFlightLimitConfig? dco_decode_opt_box_autoadd_llm_in_flight_limit_config(
+    dynamic raw,
+  );
+
+  @protected
+  LlmRateLimitConfig? dco_decode_opt_box_autoadd_llm_rate_limit_config(
+    dynamic raw,
+  );
 
   @protected
   ModelInfo? dco_decode_opt_box_autoadd_model_info(dynamic raw);
@@ -659,6 +730,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ChatCompletionTool>? dco_decode_opt_list_chat_completion_tool(
     dynamic raw,
   );
+
+  @protected
+  List<LlmProviderConfig>? dco_decode_opt_list_llm_provider_config(dynamic raw);
 
   @protected
   List<Modality>? dco_decode_opt_list_modality(dynamic raw);
@@ -900,6 +974,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchStatus sse_decode_batch_status(SseDeserializer deserializer);
 
   @protected
+  BedrockConfig sse_decode_bedrock_config(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
@@ -927,6 +1004,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BatchRequestCounts sse_decode_box_autoadd_batch_request_counts(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BedrockConfig sse_decode_box_autoadd_bedrock_config(
     SseDeserializer deserializer,
   );
 
@@ -1043,6 +1125,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LiterLlmError sse_decode_box_autoadd_liter_llm_error(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmBudgetConfig sse_decode_box_autoadd_llm_budget_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmCacheConfig sse_decode_box_autoadd_llm_cache_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmInFlightLimitConfig sse_decode_box_autoadd_llm_in_flight_limit_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmRateLimitConfig sse_decode_box_autoadd_llm_rate_limit_config(
     SseDeserializer deserializer,
   );
 
@@ -1238,6 +1340,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DocumentContent sse_decode_document_content(SseDeserializer deserializer);
 
   @protected
+  EmbeddingContentPart sse_decode_embedding_content_part(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   EmbeddingFormat sse_decode_embedding_format(SseDeserializer deserializer);
 
   @protected
@@ -1306,6 +1413,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImagesResponse sse_decode_images_response(SseDeserializer deserializer);
 
   @protected
+  InFlightLimitConfig sse_decode_in_flight_limit_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   JsonSchemaFormat sse_decode_json_schema_format(SseDeserializer deserializer);
 
   @protected
@@ -1331,6 +1443,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ContentPart> sse_decode_list_content_part(SseDeserializer deserializer);
 
   @protected
+  List<EmbeddingContentPart> sse_decode_list_embedding_content_part(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<EmbeddingObject> sse_decode_list_embedding_object(
     SseDeserializer deserializer,
   );
@@ -1340,6 +1457,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Image> sse_decode_list_image(SseDeserializer deserializer);
+
+  @protected
+  List<LlmProviderConfig> sse_decode_list_llm_provider_config(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<Message> sse_decode_list_message(SseDeserializer deserializer);
@@ -1438,6 +1560,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LiterLlmError sse_decode_liter_llm_error(SseDeserializer deserializer);
 
   @protected
+  LlmBudgetConfig sse_decode_llm_budget_config(SseDeserializer deserializer);
+
+  @protected
+  LlmCacheConfig sse_decode_llm_cache_config(SseDeserializer deserializer);
+
+  @protected
+  LlmConfig sse_decode_llm_config(SseDeserializer deserializer);
+
+  @protected
+  LlmInFlightLimitConfig sse_decode_llm_in_flight_limit_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmProviderConfig sse_decode_llm_provider_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmRateLimitConfig sse_decode_llm_rate_limit_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   Message sse_decode_message(SseDeserializer deserializer);
 
   @protected
@@ -1530,6 +1676,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  BedrockConfig? sse_decode_opt_box_autoadd_bedrock_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
@@ -1565,6 +1716,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImageDetail? sse_decode_opt_box_autoadd_image_detail(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmBudgetConfig? sse_decode_opt_box_autoadd_llm_budget_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmCacheConfig? sse_decode_opt_box_autoadd_llm_cache_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmInFlightLimitConfig? sse_decode_opt_box_autoadd_llm_in_flight_limit_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LlmRateLimitConfig? sse_decode_opt_box_autoadd_llm_rate_limit_config(
     SseDeserializer deserializer,
   );
 
@@ -1634,6 +1805,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ChatCompletionTool>? sse_decode_opt_list_chat_completion_tool(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LlmProviderConfig>? sse_decode_opt_list_llm_provider_config(
     SseDeserializer deserializer,
   );
 
@@ -1925,6 +2101,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_batch_status(BatchStatus self, SseSerializer serializer);
 
   @protected
+  void sse_encode_bedrock_config(BedrockConfig self, SseSerializer serializer);
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
@@ -1960,6 +2139,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_batch_request_counts(
     BatchRequestCounts self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_bedrock_config(
+    BedrockConfig self,
     SseSerializer serializer,
   );
 
@@ -2104,6 +2289,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_liter_llm_error(
     LiterLlmError self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_llm_budget_config(
+    LlmBudgetConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_llm_cache_config(
+    LlmCacheConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_llm_in_flight_limit_config(
+    LlmInFlightLimitConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_llm_rate_limit_config(
+    LlmRateLimitConfig self,
     SseSerializer serializer,
   );
 
@@ -2357,6 +2566,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_embedding_content_part(
+    EmbeddingContentPart self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_embedding_format(
     EmbeddingFormat self,
     SseSerializer serializer,
@@ -2450,6 +2665,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_in_flight_limit_config(
+    InFlightLimitConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_json_schema_format(
     JsonSchemaFormat self,
     SseSerializer serializer,
@@ -2486,6 +2707,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_embedding_content_part(
+    List<EmbeddingContentPart> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_embedding_object(
     List<EmbeddingObject> self,
     SseSerializer serializer,
@@ -2499,6 +2726,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_image(List<Image> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_llm_provider_config(
+    List<LlmProviderConfig> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_message(List<Message> self, SseSerializer serializer);
@@ -2624,6 +2857,39 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_liter_llm_error(LiterLlmError self, SseSerializer serializer);
 
   @protected
+  void sse_encode_llm_budget_config(
+    LlmBudgetConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_llm_cache_config(
+    LlmCacheConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_llm_config(LlmConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_llm_in_flight_limit_config(
+    LlmInFlightLimitConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_llm_provider_config(
+    LlmProviderConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_llm_rate_limit_config(
+    LlmRateLimitConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_message(Message self, SseSerializer serializer);
 
   @protected
@@ -2735,6 +3001,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_bedrock_config(
+    BedrockConfig? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
@@ -2779,6 +3051,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_image_detail(
     ImageDetail? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_llm_budget_config(
+    LlmBudgetConfig? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_llm_cache_config(
+    LlmCacheConfig? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_llm_in_flight_limit_config(
+    LlmInFlightLimitConfig? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_llm_rate_limit_config(
+    LlmRateLimitConfig? self,
     SseSerializer serializer,
   );
 
@@ -2863,6 +3159,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_list_chat_completion_tool(
     List<ChatCompletionTool>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_list_llm_provider_config(
+    List<LlmProviderConfig>? self,
     SseSerializer serializer,
   );
 
