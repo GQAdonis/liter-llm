@@ -817,211 +817,6 @@ LITERLLMAlefHandle literllm_default_client_chat_stream_next(LITERLLMAlefHandle h
 void literllm_default_client_chat_stream_free(LITERLLMAlefHandle handle);
 
 /**
- * Create a `SystemMessage` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_system_message_free`.
- */
-LITERLLMAlefHandle literllm_system_message_from_json(const char *json);
-
-/**
- * Serialize a `SystemMessage` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_system_message_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `SystemMessage` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_system_message_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `content` field from a `SystemMessage`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_user_content_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_system_message_content(LITERLLMAlefHandle handle);
-
-/**
- * Get the `name` field from a `SystemMessage`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_system_message_name(LITERLLMAlefHandle handle);
-
-/**
- * Create a `UserMessage` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_user_message_free`.
- */
-LITERLLMAlefHandle literllm_user_message_from_json(const char *json);
-
-/**
- * Serialize a `UserMessage` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_user_message_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `UserMessage` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_user_message_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `content` field from a `UserMessage`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_user_content_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_user_message_content(LITERLLMAlefHandle handle);
-
-/**
- * Get the `name` field from a `UserMessage`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_user_message_name(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ImageUrl` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_image_url_free`.
- */
-LITERLLMAlefHandle literllm_image_url_from_json(const char *json);
-
-/**
- * Serialize a `ImageUrl` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_image_url_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ImageUrl` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_image_url_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `url` field from a `ImageUrl`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_image_url_url(LITERLLMAlefHandle handle);
-
-/**
- * Get the `detail` field from a `ImageUrl`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_image_detail_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_image_url_detail(LITERLLMAlefHandle handle);
-
-/**
- * Create a `DocumentContent` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_document_content_free`.
- */
-LITERLLMAlefHandle literllm_document_content_from_json(const char *json);
-
-/**
- * Serialize a `DocumentContent` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_document_content_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `DocumentContent` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_document_content_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `data` field from a `DocumentContent`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_document_content_data(LITERLLMAlefHandle handle);
-
-/**
- * Get the `media_type` field from a `DocumentContent`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_document_content_media_type(LITERLLMAlefHandle handle);
-
-/**
- * Create a `AudioContent` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_audio_content_free`.
- */
-LITERLLMAlefHandle literllm_audio_content_from_json(const char *json);
-
-/**
- * Serialize a `AudioContent` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_audio_content_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `AudioContent` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_audio_content_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `data` field from a `AudioContent`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_audio_content_data(LITERLLMAlefHandle handle);
-
-/**
- * Get the `format` field from a `AudioContent`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_audio_content_format(LITERLLMAlefHandle handle);
-
-/**
  * Create a `AssistantMessage` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
@@ -1140,545 +935,732 @@ char *literllm_assistant_message_output_images(LITERLLMAlefHandle this_);
 char *literllm_assistant_message_output_audio(LITERLLMAlefHandle this_);
 
 /**
- * Create a `ToolMessage` from a JSON string. Returns null on failure.
+ * Create a `AudioContent` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_tool_message_free`.
+ * Returned handle must be freed with `literllm_audio_content_free`.
  */
-LITERLLMAlefHandle literllm_tool_message_from_json(const char *json);
+LITERLLMAlefHandle literllm_audio_content_from_json(const char *json);
 
 /**
- * Serialize a `ToolMessage` to a JSON string. Returns null on failure.
+ * Serialize a `AudioContent` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_tool_message_to_json(LITERLLMAlefHandle handle);
+char *literllm_audio_content_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `ToolMessage` handle.
+ * Free a `AudioContent` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_tool_message_free(LITERLLMAlefHandle handle);
+void literllm_audio_content_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `content` field from a `ToolMessage`.
+ * Get the `data` field from a `AudioContent`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_audio_content_data(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `format` field from a `AudioContent`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_audio_content_format(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `AuthConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_auth_config_free`.
+ */
+LITERLLMAlefHandle literllm_auth_config_from_json(const char *json);
+
+/**
+ * Serialize a `AuthConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_auth_config_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `AuthConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_auth_config_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `auth_type` field from a `AuthConfig`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_user_content_free`.
+ * It must be freed with `literllm_auth_type_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_tool_message_content(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_auth_config_auth_type(LITERLLMAlefHandle handle);
 
 /**
- * Get the `tool_call_id` field from a `ToolMessage`.
+ * Get the `env_var` field from a `AuthConfig`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_tool_message_tool_call_id(LITERLLMAlefHandle handle);
+char *literllm_auth_config_env_var(LITERLLMAlefHandle handle);
 
 /**
- * Get the `name` field from a `ToolMessage`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_tool_message_name(LITERLLMAlefHandle handle);
-
-/**
- * Create a `DeveloperMessage` from a JSON string. Returns null on failure.
+ * Create a `BatchListQuery` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_developer_message_free`.
+ * Returned handle must be freed with `literllm_batch_list_query_free`.
  */
-LITERLLMAlefHandle literllm_developer_message_from_json(const char *json);
+LITERLLMAlefHandle literllm_batch_list_query_from_json(const char *json);
 
 /**
- * Serialize a `DeveloperMessage` to a JSON string. Returns null on failure.
+ * Serialize a `BatchListQuery` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_developer_message_to_json(LITERLLMAlefHandle handle);
+char *literllm_batch_list_query_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `DeveloperMessage` handle.
+ * Free a `BatchListQuery` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_developer_message_free(LITERLLMAlefHandle handle);
+void literllm_batch_list_query_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `content` field from a `DeveloperMessage`.
+ * Get the `limit` field from a `BatchListQuery`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_batch_list_query_limit(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `after` field from a `BatchListQuery`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_developer_message_content(LITERLLMAlefHandle handle);
+char *literllm_batch_list_query_after(LITERLLMAlefHandle handle);
 
 /**
- * Get the `name` field from a `DeveloperMessage`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_developer_message_name(LITERLLMAlefHandle handle);
-
-/**
- * Create a `FunctionMessage` from a JSON string. Returns null on failure.
+ * Create a `BatchListResponse` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_function_message_free`.
+ * Returned handle must be freed with `literllm_batch_list_response_free`.
  */
-LITERLLMAlefHandle literllm_function_message_from_json(const char *json);
+LITERLLMAlefHandle literllm_batch_list_response_from_json(const char *json);
 
 /**
- * Serialize a `FunctionMessage` to a JSON string. Returns null on failure.
+ * Serialize a `BatchListResponse` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_function_message_to_json(LITERLLMAlefHandle handle);
+char *literllm_batch_list_response_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `FunctionMessage` handle.
+ * Free a `BatchListResponse` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_function_message_free(LITERLLMAlefHandle handle);
+void literllm_batch_list_response_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `content` field from a `FunctionMessage`.
+ * Get the `object` field from a `BatchListResponse`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_function_message_content(LITERLLMAlefHandle handle);
+char *literllm_batch_list_response_object(LITERLLMAlefHandle handle);
 
 /**
- * Get the `name` field from a `FunctionMessage`.
+ * Get the `data` field from a `BatchListResponse`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_function_message_name(LITERLLMAlefHandle handle);
+char *literllm_batch_list_response_data(LITERLLMAlefHandle handle);
 
 /**
- * Create a `ChatCompletionTool` from a JSON string. Returns null on failure.
+ * Get the `has_more` field from a `BatchListResponse`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_batch_list_response_has_more(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `first_id` field from a `BatchListResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_list_response_first_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `last_id` field from a `BatchListResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_list_response_last_id(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `BatchObject` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_chat_completion_tool_free`.
+ * Returned handle must be freed with `literllm_batch_object_free`.
  */
-LITERLLMAlefHandle literllm_chat_completion_tool_from_json(const char *json);
+LITERLLMAlefHandle literllm_batch_object_from_json(const char *json);
 
 /**
- * Serialize a `ChatCompletionTool` to a JSON string. Returns null on failure.
+ * Serialize a `BatchObject` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_chat_completion_tool_to_json(LITERLLMAlefHandle handle);
+char *literllm_batch_object_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `ChatCompletionTool` handle.
+ * Free a `BatchObject` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_chat_completion_tool_free(LITERLLMAlefHandle handle);
+void literllm_batch_object_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `tool_type` field from a `ChatCompletionTool`.
+ * Get the `id` field from a `BatchObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_object_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `object` field from a `BatchObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_object_object(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `endpoint` field from a `BatchObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_object_endpoint(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `input_file_id` field from a `BatchObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_object_input_file_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `completion_window` field from a `BatchObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_object_completion_window(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `status` field from a `BatchObject`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_tool_type_free`.
+ * It must be freed with `literllm_batch_status_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_chat_completion_tool_tool_type(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_batch_object_status(LITERLLMAlefHandle handle);
 
 /**
- * Get the `function` field from a `ChatCompletionTool`.
+ * Get the `output_file_id` field from a `BatchObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_object_output_file_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `error_file_id` field from a `BatchObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_object_error_file_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `created_at` field from a `BatchObject`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_batch_object_created_at(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `completed_at` field from a `BatchObject`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_batch_object_completed_at(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `failed_at` field from a `BatchObject`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_batch_object_failed_at(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `expired_at` field from a `BatchObject`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_batch_object_expired_at(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `request_counts` field from a `BatchObject`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_function_definition_free`.
+ * It must be freed with `literllm_batch_request_counts_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_chat_completion_tool_function(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_batch_object_request_counts(LITERLLMAlefHandle handle);
 
 /**
- * Create a `FunctionDefinition` from a JSON string. Returns null on failure.
+ * Get the `metadata` field from a `BatchObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_batch_object_metadata(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `BatchRequestCounts` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_function_definition_free`.
+ * Returned handle must be freed with `literllm_batch_request_counts_free`.
  */
-LITERLLMAlefHandle literllm_function_definition_from_json(const char *json);
+LITERLLMAlefHandle literllm_batch_request_counts_from_json(const char *json);
 
 /**
- * Serialize a `FunctionDefinition` to a JSON string. Returns null on failure.
+ * Serialize a `BatchRequestCounts` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_function_definition_to_json(LITERLLMAlefHandle handle);
+char *literllm_batch_request_counts_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `FunctionDefinition` handle.
+ * Free a `BatchRequestCounts` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_function_definition_free(LITERLLMAlefHandle handle);
+void literllm_batch_request_counts_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `name` field from a `FunctionDefinition`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
+ * Get the `total` field from a `BatchRequestCounts`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_function_definition_name(LITERLLMAlefHandle handle);
+uint64_t literllm_batch_request_counts_total(LITERLLMAlefHandle handle);
 
 /**
- * Get the `description` field from a `FunctionDefinition`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
+ * Get the `completed` field from a `BatchRequestCounts`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_function_definition_description(LITERLLMAlefHandle handle);
+uint64_t literllm_batch_request_counts_completed(LITERLLMAlefHandle handle);
 
 /**
- * Get the `parameters` field from a `FunctionDefinition`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
+ * Get the `failed` field from a `BatchRequestCounts`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_function_definition_parameters(LITERLLMAlefHandle handle);
+uint64_t literllm_batch_request_counts_failed(LITERLLMAlefHandle handle);
 
 /**
- * Get the `strict` field from a `FunctionDefinition`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_function_definition_strict(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ToolCall` from a JSON string. Returns null on failure.
+ * Create a `BedrockConfig` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_tool_call_free`.
+ * Returned handle must be freed with `literllm_bedrock_config_free`.
  */
-LITERLLMAlefHandle literllm_tool_call_from_json(const char *json);
+LITERLLMAlefHandle literllm_bedrock_config_from_json(const char *json);
 
 /**
- * Serialize a `ToolCall` to a JSON string. Returns null on failure.
+ * Serialize a `BedrockConfig` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_tool_call_to_json(LITERLLMAlefHandle handle);
+char *literllm_bedrock_config_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `ToolCall` handle.
+ * Free a `BedrockConfig` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_tool_call_free(LITERLLMAlefHandle handle);
+void literllm_bedrock_config_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `id` field from a `ToolCall`.
+ * Get the `region` field from a `BedrockConfig`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_tool_call_id(LITERLLMAlefHandle handle);
+char *literllm_bedrock_config_region(LITERLLMAlefHandle handle);
 
 /**
- * Get the `call_type` field from a `ToolCall`.
+ * Get the `cross_region_prefix` field from a `BedrockConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_bedrock_config_cross_region_prefix(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `access_key_id` field from a `BedrockConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_bedrock_config_access_key_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `secret_access_key` field from a `BedrockConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_bedrock_config_secret_access_key(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `session_token` field from a `BedrockConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_bedrock_config_session_token(LITERLLMAlefHandle handle);
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Create a `BudgetConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_budget_config_free`.
+ */
+LITERLLMAlefHandle literllm_budget_config_from_json(const char *json);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Serialize a `BudgetConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_budget_config_to_json(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Free a `BudgetConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_budget_config_free(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `global_limit` field from a `BudgetConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_budget_config_global_limit(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `model_limits` field from a `BudgetConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_budget_config_model_limits(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `enforcement` field from a `BudgetConfig`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_tool_type_free`.
+ * It must be freed with `literllm_enforcement_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_tool_call_call_type(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_budget_config_enforcement(LITERLLMAlefHandle handle);
+#endif
 
+#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Get the `function` field from a `ToolCall`.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_budget_config_default(void);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Create a `CacheConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_cache_config_free`.
+ */
+LITERLLMAlefHandle literllm_cache_config_from_json(const char *json);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Serialize a `CacheConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_cache_config_to_json(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Free a `CacheConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_cache_config_free(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `max_entries` field from a `CacheConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uintptr_t literllm_cache_config_max_entries(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `ttl` field from a `CacheConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_cache_config_ttl(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `backend` field from a `CacheConfig`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_function_call_free`.
+ * It must be freed with `literllm_cache_backend_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_tool_call_function(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_cache_config_backend(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_cache_config_default(void);
+#endif
 
 /**
- * Create a `FunctionCall` from a JSON string. Returns null on failure.
+ * Create a `CatalogRefreshConfig` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_function_call_free`.
+ * Returned handle must be freed with `literllm_catalog_refresh_config_free`.
  */
-LITERLLMAlefHandle literllm_function_call_from_json(const char *json);
+LITERLLMAlefHandle literllm_catalog_refresh_config_from_json(const char *json);
 
 /**
- * Serialize a `FunctionCall` to a JSON string. Returns null on failure.
+ * Serialize a `CatalogRefreshConfig` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_function_call_to_json(LITERLLMAlefHandle handle);
+char *literllm_catalog_refresh_config_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `FunctionCall` handle.
+ * Free a `CatalogRefreshConfig` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_function_call_free(LITERLLMAlefHandle handle);
+void literllm_catalog_refresh_config_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `name` field from a `FunctionCall`.
+ * Get the `enabled` field from a `CatalogRefreshConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_catalog_refresh_config_enabled(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `source_url` field from a `CatalogRefreshConfig`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_function_call_name(LITERLLMAlefHandle handle);
+char *literllm_catalog_refresh_config_source_url(LITERLLMAlefHandle handle);
 
 /**
- * Get the `arguments` field from a `FunctionCall`.
+ * Get the `ttl_seconds` field from a `CatalogRefreshConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_catalog_refresh_config_ttl_seconds(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `cache_path` field from a `CatalogRefreshConfig`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_function_call_arguments(LITERLLMAlefHandle handle);
+char *literllm_catalog_refresh_config_cache_path(LITERLLMAlefHandle handle);
 
 /**
- * Create a `SpecificToolChoice` from a JSON string. Returns null on failure.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_catalog_refresh_config_default(void);
+
+/**
+ * Create a `ChatCompletionChunk` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_specific_tool_choice_free`.
+ * Returned handle must be freed with `literllm_chat_completion_chunk_free`.
  */
-LITERLLMAlefHandle literllm_specific_tool_choice_from_json(const char *json);
+LITERLLMAlefHandle literllm_chat_completion_chunk_from_json(const char *json);
 
 /**
- * Serialize a `SpecificToolChoice` to a JSON string. Returns null on failure.
+ * Serialize a `ChatCompletionChunk` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_specific_tool_choice_to_json(LITERLLMAlefHandle handle);
+char *literllm_chat_completion_chunk_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `SpecificToolChoice` handle.
+ * Free a `ChatCompletionChunk` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_specific_tool_choice_free(LITERLLMAlefHandle handle);
+void literllm_chat_completion_chunk_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `choice_type` field from a `SpecificToolChoice`.
+ * Get the `id` field from a `ChatCompletionChunk`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_chat_completion_chunk_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `object` field from a `ChatCompletionChunk`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_chat_completion_chunk_object(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `created` field from a `ChatCompletionChunk`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_chat_completion_chunk_created(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `ChatCompletionChunk`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_chat_completion_chunk_model(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `choices` field from a `ChatCompletionChunk`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_chat_completion_chunk_choices(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `usage` field from a `ChatCompletionChunk`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_tool_type_free`.
+ * It must be freed with `literllm_usage_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_specific_tool_choice_choice_type(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_chat_completion_chunk_usage(LITERLLMAlefHandle handle);
 
 /**
- * Get the `function` field from a `SpecificToolChoice`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_specific_function_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_specific_tool_choice_function(LITERLLMAlefHandle handle);
-
-/**
- * Create a `SpecificFunction` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_specific_function_free`.
- */
-LITERLLMAlefHandle literllm_specific_function_from_json(const char *json);
-
-/**
- * Serialize a `SpecificFunction` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_specific_function_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `SpecificFunction` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_specific_function_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `name` field from a `SpecificFunction`.
+ * Get the `system_fingerprint` field from a `ChatCompletionChunk`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_specific_function_name(LITERLLMAlefHandle handle);
+char *literllm_chat_completion_chunk_system_fingerprint(LITERLLMAlefHandle handle);
 
 /**
- * Create a `JsonSchemaFormat` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_json_schema_format_free`.
- */
-LITERLLMAlefHandle literllm_json_schema_format_from_json(const char *json);
-
-/**
- * Serialize a `JsonSchemaFormat` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_json_schema_format_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `JsonSchemaFormat` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_json_schema_format_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `name` field from a `JsonSchemaFormat`.
+ * Get the `service_tier` field from a `ChatCompletionChunk`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_json_schema_format_name(LITERLLMAlefHandle handle);
-
-/**
- * Get the `description` field from a `JsonSchemaFormat`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_json_schema_format_description(LITERLLMAlefHandle handle);
-
-/**
- * Get the `schema` field from a `JsonSchemaFormat`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_json_schema_format_schema(LITERLLMAlefHandle handle);
-
-/**
- * Get the `strict` field from a `JsonSchemaFormat`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_json_schema_format_strict(LITERLLMAlefHandle handle);
-
-/**
- * Create a `Usage` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_usage_free`.
- */
-LITERLLMAlefHandle literllm_usage_from_json(const char *json);
-
-/**
- * Serialize a `Usage` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_usage_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `Usage` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_usage_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `prompt_tokens` field from a `Usage`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_usage_prompt_tokens(LITERLLMAlefHandle handle);
-
-/**
- * Get the `completion_tokens` field from a `Usage`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_usage_completion_tokens(LITERLLMAlefHandle handle);
-
-/**
- * Get the `total_tokens` field from a `Usage`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_usage_total_tokens(LITERLLMAlefHandle handle);
-
-/**
- * Get the `prompt_tokens_details` field from a `Usage`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_prompt_tokens_details_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_usage_prompt_tokens_details(LITERLLMAlefHandle handle);
-
-/**
- * Create a `PromptTokensDetails` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_prompt_tokens_details_free`.
- */
-LITERLLMAlefHandle literllm_prompt_tokens_details_from_json(const char *json);
-
-/**
- * Serialize a `PromptTokensDetails` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_prompt_tokens_details_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `PromptTokensDetails` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_prompt_tokens_details_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `cached_tokens` field from a `PromptTokensDetails`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_prompt_tokens_details_cached_tokens(LITERLLMAlefHandle handle);
-
-/**
- * Get the `audio_tokens` field from a `PromptTokensDetails`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_prompt_tokens_details_audio_tokens(LITERLLMAlefHandle handle);
+char *literllm_chat_completion_chunk_service_tier(LITERLLMAlefHandle handle);
 
 /**
  * Create a `ChatCompletionRequest` from a JSON string. Returns null on failure.
@@ -1948,36 +1930,6 @@ char *literllm_chat_completion_request_web_search_options(LITERLLMAlefHandle han
 char *literllm_chat_completion_request_extra_body(LITERLLMAlefHandle handle);
 
 /**
- * Create a `StreamOptions` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_stream_options_free`.
- */
-LITERLLMAlefHandle literllm_stream_options_from_json(const char *json);
-
-/**
- * Serialize a `StreamOptions` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_stream_options_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `StreamOptions` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_stream_options_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `include_usage` field from a `StreamOptions`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_stream_options_include_usage(LITERLLMAlefHandle handle);
-
-/**
  * Create a `ChatCompletionResponse` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
@@ -2071,6 +2023,47 @@ char *literllm_chat_completion_response_system_fingerprint(LITERLLMAlefHandle ha
 char *literllm_chat_completion_response_service_tier(LITERLLMAlefHandle handle);
 
 /**
+ * Create a `ChatCompletionTool` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_chat_completion_tool_free`.
+ */
+LITERLLMAlefHandle literllm_chat_completion_tool_from_json(const char *json);
+
+/**
+ * Serialize a `ChatCompletionTool` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_chat_completion_tool_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ChatCompletionTool` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_chat_completion_tool_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `tool_type` field from a `ChatCompletionTool`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_tool_type_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_chat_completion_tool_tool_type(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `function` field from a `ChatCompletionTool`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_function_definition_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_chat_completion_tool_function(LITERLLMAlefHandle handle);
+
+/**
  * Create a `Choice` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
@@ -2128,493 +2121,113 @@ LITERLLMAlefHandle literllm_choice_finish_reason(LITERLLMAlefHandle handle);
 char *literllm_choice_logprobs(LITERLLMAlefHandle handle);
 
 /**
- * Create a `ChatCompletionChunk` from a JSON string. Returns null on failure.
+ * Create a `CreateBatchRequest` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_chat_completion_chunk_free`.
+ * Returned handle must be freed with `literllm_create_batch_request_free`.
  */
-LITERLLMAlefHandle literllm_chat_completion_chunk_from_json(const char *json);
+LITERLLMAlefHandle literllm_create_batch_request_from_json(const char *json);
 
 /**
- * Serialize a `ChatCompletionChunk` to a JSON string. Returns null on failure.
+ * Serialize a `CreateBatchRequest` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_chat_completion_chunk_to_json(LITERLLMAlefHandle handle);
+char *literllm_create_batch_request_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `ChatCompletionChunk` handle.
+ * Free a `CreateBatchRequest` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_chat_completion_chunk_free(LITERLLMAlefHandle handle);
+void literllm_create_batch_request_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `id` field from a `ChatCompletionChunk`.
+ * Get the `input_file_id` field from a `CreateBatchRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_chat_completion_chunk_id(LITERLLMAlefHandle handle);
+char *literllm_create_batch_request_input_file_id(LITERLLMAlefHandle handle);
 
 /**
- * Get the `object` field from a `ChatCompletionChunk`.
+ * Get the `endpoint` field from a `CreateBatchRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_chat_completion_chunk_object(LITERLLMAlefHandle handle);
+char *literllm_create_batch_request_endpoint(LITERLLMAlefHandle handle);
 
 /**
- * Get the `created` field from a `ChatCompletionChunk`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_chat_completion_chunk_created(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `ChatCompletionChunk`.
+ * Get the `completion_window` field from a `CreateBatchRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_chat_completion_chunk_model(LITERLLMAlefHandle handle);
+char *literllm_create_batch_request_completion_window(LITERLLMAlefHandle handle);
 
 /**
- * Get the `choices` field from a `ChatCompletionChunk`.
+ * Get the `metadata` field from a `CreateBatchRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_chat_completion_chunk_choices(LITERLLMAlefHandle handle);
+char *literllm_create_batch_request_metadata(LITERLLMAlefHandle handle);
 
 /**
- * Get the `usage` field from a `ChatCompletionChunk`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_usage_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_chat_completion_chunk_usage(LITERLLMAlefHandle handle);
-
-/**
- * Get the `system_fingerprint` field from a `ChatCompletionChunk`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_chat_completion_chunk_system_fingerprint(LITERLLMAlefHandle handle);
-
-/**
- * Get the `service_tier` field from a `ChatCompletionChunk`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_chat_completion_chunk_service_tier(LITERLLMAlefHandle handle);
-
-/**
- * Create a `StreamChoice` from a JSON string. Returns null on failure.
+ * Create a `CreateFileRequest` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_stream_choice_free`.
+ * Returned handle must be freed with `literllm_create_file_request_free`.
  */
-LITERLLMAlefHandle literllm_stream_choice_from_json(const char *json);
+LITERLLMAlefHandle literllm_create_file_request_from_json(const char *json);
 
 /**
- * Serialize a `StreamChoice` to a JSON string. Returns null on failure.
+ * Serialize a `CreateFileRequest` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_stream_choice_to_json(LITERLLMAlefHandle handle);
+char *literllm_create_file_request_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `StreamChoice` handle.
+ * Free a `CreateFileRequest` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_stream_choice_free(LITERLLMAlefHandle handle);
+void literllm_create_file_request_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `index` field from a `StreamChoice`.
+ * Get the `file` field from a `CreateFileRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-uint32_t literllm_stream_choice_index(LITERLLMAlefHandle handle);
+char *literllm_create_file_request_file(LITERLLMAlefHandle handle);
 
 /**
- * Get the `delta` field from a `StreamChoice`.
+ * Get the `purpose` field from a `CreateFileRequest`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_stream_delta_free`.
+ * It must be freed with `literllm_file_purpose_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_stream_choice_delta(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_create_file_request_purpose(LITERLLMAlefHandle handle);
 
 /**
- * Get the `finish_reason` field from a `StreamChoice`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_finish_reason_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_stream_choice_finish_reason(LITERLLMAlefHandle handle);
-
-/**
- * Create a `StreamDelta` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_stream_delta_free`.
- */
-LITERLLMAlefHandle literllm_stream_delta_from_json(const char *json);
-
-/**
- * Serialize a `StreamDelta` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_stream_delta_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `StreamDelta` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_stream_delta_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `role` field from a `StreamDelta`.
+ * Get the `filename` field from a `CreateFileRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_stream_delta_role(LITERLLMAlefHandle handle);
-
-/**
- * Get the `content` field from a `StreamDelta`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_stream_delta_content(LITERLLMAlefHandle handle);
-
-/**
- * Get the `tool_calls` field from a `StreamDelta`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_stream_delta_tool_calls(LITERLLMAlefHandle handle);
-
-/**
- * Get the `function_call` field from a `StreamDelta`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_stream_function_call_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_stream_delta_function_call(LITERLLMAlefHandle handle);
-
-/**
- * Get the `refusal` field from a `StreamDelta`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_stream_delta_refusal(LITERLLMAlefHandle handle);
-
-/**
- * Get the `reasoning_content` field from a `StreamDelta`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_stream_delta_reasoning_content(LITERLLMAlefHandle handle);
-
-/**
- * Create a `StreamToolCall` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_stream_tool_call_free`.
- */
-LITERLLMAlefHandle literllm_stream_tool_call_from_json(const char *json);
-
-/**
- * Serialize a `StreamToolCall` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_stream_tool_call_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `StreamToolCall` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_stream_tool_call_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `index` field from a `StreamToolCall`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_stream_tool_call_index(LITERLLMAlefHandle handle);
-
-/**
- * Get the `id` field from a `StreamToolCall`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_stream_tool_call_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `call_type` field from a `StreamToolCall`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_tool_type_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_stream_tool_call_call_type(LITERLLMAlefHandle handle);
-
-/**
- * Get the `function` field from a `StreamToolCall`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_stream_function_call_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_stream_tool_call_function(LITERLLMAlefHandle handle);
-
-/**
- * Create a `StreamFunctionCall` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_stream_function_call_free`.
- */
-LITERLLMAlefHandle literllm_stream_function_call_from_json(const char *json);
-
-/**
- * Serialize a `StreamFunctionCall` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_stream_function_call_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `StreamFunctionCall` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_stream_function_call_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `name` field from a `StreamFunctionCall`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_stream_function_call_name(LITERLLMAlefHandle handle);
-
-/**
- * Get the `arguments` field from a `StreamFunctionCall`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_stream_function_call_arguments(LITERLLMAlefHandle handle);
-
-/**
- * Create a `EmbeddingRequest` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_embedding_request_free`.
- */
-LITERLLMAlefHandle literllm_embedding_request_from_json(const char *json);
-
-/**
- * Serialize a `EmbeddingRequest` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_embedding_request_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `EmbeddingRequest` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_embedding_request_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `EmbeddingRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_embedding_request_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `input` field from a `EmbeddingRequest`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_embedding_input_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_embedding_request_input(LITERLLMAlefHandle handle);
-
-/**
- * Get the `encoding_format` field from a `EmbeddingRequest`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_embedding_format_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_embedding_request_encoding_format(LITERLLMAlefHandle handle);
-
-/**
- * Get the `dimensions` field from a `EmbeddingRequest`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_embedding_request_dimensions(LITERLLMAlefHandle handle);
-
-/**
- * Get the `user` field from a `EmbeddingRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_embedding_request_user(LITERLLMAlefHandle handle);
-
-/**
- * Create a `EmbeddingResponse` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_embedding_response_free`.
- */
-LITERLLMAlefHandle literllm_embedding_response_from_json(const char *json);
-
-/**
- * Serialize a `EmbeddingResponse` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_embedding_response_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `EmbeddingResponse` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_embedding_response_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `EmbeddingResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_embedding_response_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `data` field from a `EmbeddingResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_embedding_response_data(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `EmbeddingResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_embedding_response_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `usage` field from a `EmbeddingResponse`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_usage_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_embedding_response_usage(LITERLLMAlefHandle handle);
-
-/**
- * Create a `EmbeddingObject` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_embedding_object_free`.
- */
-LITERLLMAlefHandle literllm_embedding_object_from_json(const char *json);
-
-/**
- * Serialize a `EmbeddingObject` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_embedding_object_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `EmbeddingObject` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_embedding_object_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `EmbeddingObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_embedding_object_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `embedding` field from a `EmbeddingObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_embedding_object_embedding(LITERLLMAlefHandle handle);
-
-/**
- * Get the `index` field from a `EmbeddingObject`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_embedding_object_index(LITERLLMAlefHandle handle);
+char *literllm_create_file_request_filename(LITERLLMAlefHandle handle);
 
 /**
  * Create a `CreateImageRequest` from a JSON string. Returns null on failure.
@@ -2710,135 +2323,102 @@ char *literllm_create_image_request_response_format(LITERLLMAlefHandle handle);
 char *literllm_create_image_request_user(LITERLLMAlefHandle handle);
 
 /**
- * Create a `ImagesResponse` from a JSON string. Returns null on failure.
+ * Create a `CreateResponseRequest` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_images_response_free`.
+ * Returned handle must be freed with `literllm_create_response_request_free`.
  */
-LITERLLMAlefHandle literllm_images_response_from_json(const char *json);
+LITERLLMAlefHandle literllm_create_response_request_from_json(const char *json);
 
 /**
- * Serialize a `ImagesResponse` to a JSON string. Returns null on failure.
+ * Serialize a `CreateResponseRequest` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_images_response_to_json(LITERLLMAlefHandle handle);
+char *literllm_create_response_request_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `ImagesResponse` handle.
+ * Free a `CreateResponseRequest` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_images_response_free(LITERLLMAlefHandle handle);
+void literllm_create_response_request_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `created` field from a `ImagesResponse`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_images_response_created(LITERLLMAlefHandle handle);
-
-/**
- * Get the `data` field from a `ImagesResponse`.
+ * Get the `model` field from a `CreateResponseRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_images_response_data(LITERLLMAlefHandle handle);
+char *literllm_create_response_request_model(LITERLLMAlefHandle handle);
 
 /**
- * Create a `Image` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_image_free`.
- */
-LITERLLMAlefHandle literllm_image_from_json(const char *json);
-
-/**
- * Serialize a `Image` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_image_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `Image` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_image_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `url` field from a `Image`.
+ * Get the `input` field from a `CreateResponseRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_image_url(LITERLLMAlefHandle handle);
+char *literllm_create_response_request_input(LITERLLMAlefHandle handle);
 
 /**
- * Get the `b64_json` field from a `Image`.
+ * Get the `instructions` field from a `CreateResponseRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_image_b64_json(LITERLLMAlefHandle handle);
+char *literllm_create_response_request_instructions(LITERLLMAlefHandle handle);
 
 /**
- * Get the `revised_prompt` field from a `Image`.
+ * Get the `tools` field from a `CreateResponseRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_image_revised_prompt(LITERLLMAlefHandle handle);
+char *literllm_create_response_request_tools(LITERLLMAlefHandle handle);
 
 /**
- * Create a `DecodedDataUrl` from a JSON string. Returns null on failure.
+ * Get the `temperature` field from a `CreateResponseRequest`.
  * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_decoded_data_url_free`.
+ * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_decoded_data_url_from_json(const char *json);
+double literllm_create_response_request_temperature(LITERLLMAlefHandle handle);
 
 /**
- * Serialize a `DecodedDataUrl` to a JSON string. Returns null on failure.
+ * Get the `max_output_tokens` field from a `CreateResponseRequest`.
  * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
+ * Pointer must be a valid handle returned by this library.
  */
-char *literllm_decoded_data_url_to_json(LITERLLMAlefHandle handle);
+uint64_t literllm_create_response_request_max_output_tokens(LITERLLMAlefHandle handle);
 
 /**
- * Free a `DecodedDataUrl` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_decoded_data_url_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `mime` field from a `DecodedDataUrl`.
+ * Get the `metadata` field from a `CreateResponseRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_decoded_data_url_mime(LITERLLMAlefHandle handle);
+char *literllm_create_response_request_metadata(LITERLLMAlefHandle handle);
 
 /**
- * Get the `data` field from a `DecodedDataUrl`.
- * The returned byte pointer is borrowed from `ptr` and must not be freed.
- * It remains valid until `ptr` is destroyed or the field is mutated.
+ * Get the `extra_body` field from a `CreateResponseRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-uint8_t *literllm_decoded_data_url_data(LITERLLMAlefHandle handle,
-                                        uintptr_t *out_len);
+char *literllm_create_response_request_extra_body(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `stream` field from a `CreateResponseRequest`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_create_response_request_stream(LITERLLMAlefHandle handle);
 
 /**
  * Create a `CreateSpeechRequest` from a JSON string. Returns null on failure.
@@ -2982,2646 +2562,105 @@ char *literllm_create_transcription_request_response_format(LITERLLMAlefHandle h
 double literllm_create_transcription_request_temperature(LITERLLMAlefHandle handle);
 
 /**
- * Create a `TranscriptionResponse` from a JSON string. Returns null on failure.
+ * Create a `CustomProviderConfig` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_transcription_response_free`.
+ * Returned handle must be freed with `literllm_custom_provider_config_free`.
  */
-LITERLLMAlefHandle literllm_transcription_response_from_json(const char *json);
+LITERLLMAlefHandle literllm_custom_provider_config_from_json(const char *json);
 
 /**
- * Serialize a `TranscriptionResponse` to a JSON string. Returns null on failure.
+ * Serialize a `CustomProviderConfig` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_transcription_response_to_json(LITERLLMAlefHandle handle);
+char *literllm_custom_provider_config_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `TranscriptionResponse` handle.
+ * Free a `CustomProviderConfig` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_transcription_response_free(LITERLLMAlefHandle handle);
+void literllm_custom_provider_config_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `text` field from a `TranscriptionResponse`.
+ * Get the `name` field from a `CustomProviderConfig`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_transcription_response_text(LITERLLMAlefHandle handle);
+char *literllm_custom_provider_config_name(LITERLLMAlefHandle handle);
 
 /**
- * Get the `language` field from a `TranscriptionResponse`.
+ * Get the `base_url` field from a `CustomProviderConfig`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_transcription_response_language(LITERLLMAlefHandle handle);
+char *literllm_custom_provider_config_base_url(LITERLLMAlefHandle handle);
 
 /**
- * Get the `duration` field from a `TranscriptionResponse`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_transcription_response_duration(LITERLLMAlefHandle handle);
-
-/**
- * Get the `segments` field from a `TranscriptionResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_transcription_response_segments(LITERLLMAlefHandle handle);
-
-/**
- * Create a `TranscriptionSegment` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_transcription_segment_free`.
- */
-LITERLLMAlefHandle literllm_transcription_segment_from_json(const char *json);
-
-/**
- * Serialize a `TranscriptionSegment` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_transcription_segment_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `TranscriptionSegment` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_transcription_segment_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `id` field from a `TranscriptionSegment`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_transcription_segment_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `start` field from a `TranscriptionSegment`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_transcription_segment_start(LITERLLMAlefHandle handle);
-
-/**
- * Get the `end` field from a `TranscriptionSegment`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_transcription_segment_end(LITERLLMAlefHandle handle);
-
-/**
- * Get the `text` field from a `TranscriptionSegment`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_transcription_segment_text(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ModerationRequest` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_moderation_request_free`.
- */
-LITERLLMAlefHandle literllm_moderation_request_from_json(const char *json);
-
-/**
- * Serialize a `ModerationRequest` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_moderation_request_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ModerationRequest` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_moderation_request_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `input` field from a `ModerationRequest`.
+ * Get the `auth_header` field from a `CustomProviderConfig`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_moderation_input_free`.
+ * It must be freed with `literllm_auth_header_format_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_moderation_request_input(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_custom_provider_config_auth_header(LITERLLMAlefHandle handle);
 
 /**
- * Get the `model` field from a `ModerationRequest`.
+ * Get the `model_prefixes` field from a `CustomProviderConfig`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_moderation_request_model(LITERLLMAlefHandle handle);
+char *literllm_custom_provider_config_model_prefixes(LITERLLMAlefHandle handle);
 
 /**
- * Create a `ModerationResponse` from a JSON string. Returns null on failure.
+ * Create a `DecodedDataUrl` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_moderation_response_free`.
+ * Returned handle must be freed with `literllm_decoded_data_url_free`.
  */
-LITERLLMAlefHandle literllm_moderation_response_from_json(const char *json);
+LITERLLMAlefHandle literllm_decoded_data_url_from_json(const char *json);
 
 /**
- * Serialize a `ModerationResponse` to a JSON string. Returns null on failure.
+ * Serialize a `DecodedDataUrl` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_moderation_response_to_json(LITERLLMAlefHandle handle);
+char *literllm_decoded_data_url_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `ModerationResponse` handle.
+ * Free a `DecodedDataUrl` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_moderation_response_free(LITERLLMAlefHandle handle);
+void literllm_decoded_data_url_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `id` field from a `ModerationResponse`.
+ * Get the `mime` field from a `DecodedDataUrl`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_moderation_response_id(LITERLLMAlefHandle handle);
+char *literllm_decoded_data_url_mime(LITERLLMAlefHandle handle);
 
 /**
- * Get the `model` field from a `ModerationResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_moderation_response_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `results` field from a `ModerationResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_moderation_response_results(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ModerationResult` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_moderation_result_free`.
- */
-LITERLLMAlefHandle literllm_moderation_result_from_json(const char *json);
-
-/**
- * Serialize a `ModerationResult` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_moderation_result_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ModerationResult` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_moderation_result_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `flagged` field from a `ModerationResult`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_result_flagged(LITERLLMAlefHandle handle);
-
-/**
- * Get the `categories` field from a `ModerationResult`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_moderation_categories_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_moderation_result_categories(LITERLLMAlefHandle handle);
-
-/**
- * Get the `category_scores` field from a `ModerationResult`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_moderation_category_scores_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_moderation_result_category_scores(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ModerationCategories` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_moderation_categories_free`.
- */
-LITERLLMAlefHandle literllm_moderation_categories_from_json(const char *json);
-
-/**
- * Serialize a `ModerationCategories` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_moderation_categories_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ModerationCategories` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_moderation_categories_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `sexual` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_sexual(LITERLLMAlefHandle handle);
-
-/**
- * Get the `hate` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_hate(LITERLLMAlefHandle handle);
-
-/**
- * Get the `harassment` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_harassment(LITERLLMAlefHandle handle);
-
-/**
- * Get the `self_harm` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_self_harm(LITERLLMAlefHandle handle);
-
-/**
- * Get the `sexual_minors` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_sexual_minors(LITERLLMAlefHandle handle);
-
-/**
- * Get the `hate_threatening` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_hate_threatening(LITERLLMAlefHandle handle);
-
-/**
- * Get the `violence_graphic` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_violence_graphic(LITERLLMAlefHandle handle);
-
-/**
- * Get the `self_harm_intent` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_self_harm_intent(LITERLLMAlefHandle handle);
-
-/**
- * Get the `self_harm_instructions` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_self_harm_instructions(LITERLLMAlefHandle handle);
-
-/**
- * Get the `harassment_threatening` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_harassment_threatening(LITERLLMAlefHandle handle);
-
-/**
- * Get the `violence` field from a `ModerationCategories`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_moderation_categories_violence(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ModerationCategoryScores` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_moderation_category_scores_free`.
- */
-LITERLLMAlefHandle literllm_moderation_category_scores_from_json(const char *json);
-
-/**
- * Serialize a `ModerationCategoryScores` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_moderation_category_scores_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ModerationCategoryScores` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_moderation_category_scores_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `sexual` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_sexual(LITERLLMAlefHandle handle);
-
-/**
- * Get the `hate` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_hate(LITERLLMAlefHandle handle);
-
-/**
- * Get the `harassment` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_harassment(LITERLLMAlefHandle handle);
-
-/**
- * Get the `self_harm` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_self_harm(LITERLLMAlefHandle handle);
-
-/**
- * Get the `sexual_minors` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_sexual_minors(LITERLLMAlefHandle handle);
-
-/**
- * Get the `hate_threatening` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_hate_threatening(LITERLLMAlefHandle handle);
-
-/**
- * Get the `violence_graphic` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_violence_graphic(LITERLLMAlefHandle handle);
-
-/**
- * Get the `self_harm_intent` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_self_harm_intent(LITERLLMAlefHandle handle);
-
-/**
- * Get the `self_harm_instructions` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_self_harm_instructions(LITERLLMAlefHandle handle);
-
-/**
- * Get the `harassment_threatening` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_harassment_threatening(LITERLLMAlefHandle handle);
-
-/**
- * Get the `violence` field from a `ModerationCategoryScores`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_moderation_category_scores_violence(LITERLLMAlefHandle handle);
-
-/**
- * Create a `RerankRequest` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_rerank_request_free`.
- */
-LITERLLMAlefHandle literllm_rerank_request_from_json(const char *json);
-
-/**
- * Serialize a `RerankRequest` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_rerank_request_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `RerankRequest` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_rerank_request_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `RerankRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_rerank_request_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `query` field from a `RerankRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_rerank_request_query(LITERLLMAlefHandle handle);
-
-/**
- * Get the `documents` field from a `RerankRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_rerank_request_documents(LITERLLMAlefHandle handle);
-
-/**
- * Get the `top_n` field from a `RerankRequest`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_rerank_request_top_n(LITERLLMAlefHandle handle);
-
-/**
- * Get the `return_documents` field from a `RerankRequest`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_rerank_request_return_documents(LITERLLMAlefHandle handle);
-
-/**
- * Create a `RerankResponse` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_rerank_response_free`.
- */
-LITERLLMAlefHandle literllm_rerank_response_from_json(const char *json);
-
-/**
- * Serialize a `RerankResponse` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_rerank_response_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `RerankResponse` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_rerank_response_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `id` field from a `RerankResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_rerank_response_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `results` field from a `RerankResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_rerank_response_results(LITERLLMAlefHandle handle);
-
-/**
- * Get the `meta` field from a `RerankResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_rerank_response_meta(LITERLLMAlefHandle handle);
-
-/**
- * Create a `RerankResult` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_rerank_result_free`.
- */
-LITERLLMAlefHandle literllm_rerank_result_from_json(const char *json);
-
-/**
- * Serialize a `RerankResult` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_rerank_result_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `RerankResult` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_rerank_result_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `index` field from a `RerankResult`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_rerank_result_index(LITERLLMAlefHandle handle);
-
-/**
- * Get the `relevance_score` field from a `RerankResult`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_rerank_result_relevance_score(LITERLLMAlefHandle handle);
-
-/**
- * Get the `document` field from a `RerankResult`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_rerank_result_document_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_rerank_result_document(LITERLLMAlefHandle handle);
-
-/**
- * Create a `RerankResultDocument` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_rerank_result_document_free`.
- */
-LITERLLMAlefHandle literllm_rerank_result_document_from_json(const char *json);
-
-/**
- * Serialize a `RerankResultDocument` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_rerank_result_document_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `RerankResultDocument` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_rerank_result_document_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `text` field from a `RerankResultDocument`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_rerank_result_document_text(LITERLLMAlefHandle handle);
-
-/**
- * Create a `SearchRequest` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_search_request_free`.
- */
-LITERLLMAlefHandle literllm_search_request_from_json(const char *json);
-
-/**
- * Serialize a `SearchRequest` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_search_request_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `SearchRequest` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_search_request_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `SearchRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_request_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `query` field from a `SearchRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_request_query(LITERLLMAlefHandle handle);
-
-/**
- * Get the `max_results` field from a `SearchRequest`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_search_request_max_results(LITERLLMAlefHandle handle);
-
-/**
- * Get the `search_domain_filter` field from a `SearchRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_request_search_domain_filter(LITERLLMAlefHandle handle);
-
-/**
- * Get the `country` field from a `SearchRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_request_country(LITERLLMAlefHandle handle);
-
-/**
- * Create a `SearchResponse` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_search_response_free`.
- */
-LITERLLMAlefHandle literllm_search_response_from_json(const char *json);
-
-/**
- * Serialize a `SearchResponse` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_search_response_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `SearchResponse` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_search_response_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `results` field from a `SearchResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_response_results(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `SearchResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_response_model(LITERLLMAlefHandle handle);
-
-/**
- * Create a `SearchResult` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_search_result_free`.
- */
-LITERLLMAlefHandle literllm_search_result_from_json(const char *json);
-
-/**
- * Serialize a `SearchResult` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_search_result_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `SearchResult` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_search_result_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `title` field from a `SearchResult`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_result_title(LITERLLMAlefHandle handle);
-
-/**
- * Get the `url` field from a `SearchResult`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_result_url(LITERLLMAlefHandle handle);
-
-/**
- * Get the `snippet` field from a `SearchResult`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_result_snippet(LITERLLMAlefHandle handle);
-
-/**
- * Get the `date` field from a `SearchResult`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_search_result_date(LITERLLMAlefHandle handle);
-
-/**
- * Create a `OcrRequest` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_ocr_request_free`.
- */
-LITERLLMAlefHandle literllm_ocr_request_from_json(const char *json);
-
-/**
- * Serialize a `OcrRequest` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_ocr_request_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `OcrRequest` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_ocr_request_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `OcrRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_ocr_request_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `document` field from a `OcrRequest`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_ocr_document_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_ocr_request_document(LITERLLMAlefHandle handle);
-
-/**
- * Get the `pages` field from a `OcrRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_ocr_request_pages(LITERLLMAlefHandle handle);
-
-/**
- * Get the `include_image_base64` field from a `OcrRequest`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_ocr_request_include_image_base64(LITERLLMAlefHandle handle);
-
-/**
- * Create a `OcrResponse` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_ocr_response_free`.
- */
-LITERLLMAlefHandle literllm_ocr_response_from_json(const char *json);
-
-/**
- * Serialize a `OcrResponse` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_ocr_response_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `OcrResponse` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_ocr_response_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `pages` field from a `OcrResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_ocr_response_pages(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `OcrResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_ocr_response_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `usage` field from a `OcrResponse`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_usage_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_ocr_response_usage(LITERLLMAlefHandle handle);
-
-/**
- * Create a `OcrPage` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_ocr_page_free`.
- */
-LITERLLMAlefHandle literllm_ocr_page_from_json(const char *json);
-
-/**
- * Serialize a `OcrPage` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_ocr_page_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `OcrPage` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_ocr_page_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `index` field from a `OcrPage`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_ocr_page_index(LITERLLMAlefHandle handle);
-
-/**
- * Get the `markdown` field from a `OcrPage`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_ocr_page_markdown(LITERLLMAlefHandle handle);
-
-/**
- * Get the `images` field from a `OcrPage`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_ocr_page_images(LITERLLMAlefHandle handle);
-
-/**
- * Get the `dimensions` field from a `OcrPage`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_page_dimensions_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_ocr_page_dimensions(LITERLLMAlefHandle handle);
-
-/**
- * Create a `OcrImage` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_ocr_image_free`.
- */
-LITERLLMAlefHandle literllm_ocr_image_from_json(const char *json);
-
-/**
- * Serialize a `OcrImage` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_ocr_image_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `OcrImage` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_ocr_image_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `id` field from a `OcrImage`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_ocr_image_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `image_base64` field from a `OcrImage`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_ocr_image_image_base64(LITERLLMAlefHandle handle);
-
-/**
- * Create a `PageDimensions` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_page_dimensions_free`.
- */
-LITERLLMAlefHandle literllm_page_dimensions_from_json(const char *json);
-
-/**
- * Serialize a `PageDimensions` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_page_dimensions_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `PageDimensions` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_page_dimensions_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `width` field from a `PageDimensions`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_page_dimensions_width(LITERLLMAlefHandle handle);
-
-/**
- * Get the `height` field from a `PageDimensions`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_page_dimensions_height(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ModelsListResponse` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_models_list_response_free`.
- */
-LITERLLMAlefHandle literllm_models_list_response_from_json(const char *json);
-
-/**
- * Serialize a `ModelsListResponse` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_models_list_response_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ModelsListResponse` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_models_list_response_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `ModelsListResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_models_list_response_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `data` field from a `ModelsListResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_models_list_response_data(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ModelObject` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_model_object_free`.
- */
-LITERLLMAlefHandle literllm_model_object_from_json(const char *json);
-
-/**
- * Serialize a `ModelObject` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_model_object_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ModelObject` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_model_object_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `id` field from a `ModelObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_model_object_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `ModelObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_model_object_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `created` field from a `ModelObject`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_model_object_created(LITERLLMAlefHandle handle);
-
-/**
- * Get the `owned_by` field from a `ModelObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_model_object_owned_by(LITERLLMAlefHandle handle);
-
-/**
- * Create a `CreateFileRequest` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_create_file_request_free`.
- */
-LITERLLMAlefHandle literllm_create_file_request_from_json(const char *json);
-
-/**
- * Serialize a `CreateFileRequest` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_create_file_request_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `CreateFileRequest` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_create_file_request_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `file` field from a `CreateFileRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_file_request_file(LITERLLMAlefHandle handle);
-
-/**
- * Get the `purpose` field from a `CreateFileRequest`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_file_purpose_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_create_file_request_purpose(LITERLLMAlefHandle handle);
-
-/**
- * Get the `filename` field from a `CreateFileRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_file_request_filename(LITERLLMAlefHandle handle);
-
-/**
- * Create a `FileObject` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_file_object_free`.
- */
-LITERLLMAlefHandle literllm_file_object_from_json(const char *json);
-
-/**
- * Serialize a `FileObject` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_file_object_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `FileObject` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_file_object_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `id` field from a `FileObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_file_object_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `FileObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_file_object_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `bytes` field from a `FileObject`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_file_object_bytes(LITERLLMAlefHandle handle);
-
-/**
- * Get the `created_at` field from a `FileObject`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_file_object_created_at(LITERLLMAlefHandle handle);
-
-/**
- * Get the `filename` field from a `FileObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_file_object_filename(LITERLLMAlefHandle handle);
-
-/**
- * Get the `purpose` field from a `FileObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_file_object_purpose(LITERLLMAlefHandle handle);
-
-/**
- * Get the `status` field from a `FileObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_file_object_status(LITERLLMAlefHandle handle);
-
-/**
- * Create a `FileListResponse` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_file_list_response_free`.
- */
-LITERLLMAlefHandle literllm_file_list_response_from_json(const char *json);
-
-/**
- * Serialize a `FileListResponse` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_file_list_response_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `FileListResponse` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_file_list_response_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `FileListResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_file_list_response_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `data` field from a `FileListResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_file_list_response_data(LITERLLMAlefHandle handle);
-
-/**
- * Get the `has_more` field from a `FileListResponse`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_file_list_response_has_more(LITERLLMAlefHandle handle);
-
-/**
- * Create a `FileListQuery` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_file_list_query_free`.
- */
-LITERLLMAlefHandle literllm_file_list_query_from_json(const char *json);
-
-/**
- * Serialize a `FileListQuery` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_file_list_query_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `FileListQuery` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_file_list_query_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `purpose` field from a `FileListQuery`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_file_list_query_purpose(LITERLLMAlefHandle handle);
-
-/**
- * Get the `limit` field from a `FileListQuery`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_file_list_query_limit(LITERLLMAlefHandle handle);
-
-/**
- * Get the `after` field from a `FileListQuery`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_file_list_query_after(LITERLLMAlefHandle handle);
-
-/**
- * Create a `DeleteResponse` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_delete_response_free`.
- */
-LITERLLMAlefHandle literllm_delete_response_from_json(const char *json);
-
-/**
- * Serialize a `DeleteResponse` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_delete_response_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `DeleteResponse` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_delete_response_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `id` field from a `DeleteResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_delete_response_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `DeleteResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_delete_response_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `deleted` field from a `DeleteResponse`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_delete_response_deleted(LITERLLMAlefHandle handle);
-
-/**
- * Create a `CreateBatchRequest` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_create_batch_request_free`.
- */
-LITERLLMAlefHandle literllm_create_batch_request_from_json(const char *json);
-
-/**
- * Serialize a `CreateBatchRequest` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_create_batch_request_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `CreateBatchRequest` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_create_batch_request_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `input_file_id` field from a `CreateBatchRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_batch_request_input_file_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `endpoint` field from a `CreateBatchRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_batch_request_endpoint(LITERLLMAlefHandle handle);
-
-/**
- * Get the `completion_window` field from a `CreateBatchRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_batch_request_completion_window(LITERLLMAlefHandle handle);
-
-/**
- * Get the `metadata` field from a `CreateBatchRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_batch_request_metadata(LITERLLMAlefHandle handle);
-
-/**
- * Create a `BatchObject` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_batch_object_free`.
- */
-LITERLLMAlefHandle literllm_batch_object_from_json(const char *json);
-
-/**
- * Serialize a `BatchObject` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_batch_object_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `BatchObject` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_batch_object_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `id` field from a `BatchObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_object_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `BatchObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_object_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `endpoint` field from a `BatchObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_object_endpoint(LITERLLMAlefHandle handle);
-
-/**
- * Get the `input_file_id` field from a `BatchObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_object_input_file_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `completion_window` field from a `BatchObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_object_completion_window(LITERLLMAlefHandle handle);
-
-/**
- * Get the `status` field from a `BatchObject`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_batch_status_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_batch_object_status(LITERLLMAlefHandle handle);
-
-/**
- * Get the `output_file_id` field from a `BatchObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_object_output_file_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `error_file_id` field from a `BatchObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_object_error_file_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `created_at` field from a `BatchObject`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_batch_object_created_at(LITERLLMAlefHandle handle);
-
-/**
- * Get the `completed_at` field from a `BatchObject`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_batch_object_completed_at(LITERLLMAlefHandle handle);
-
-/**
- * Get the `failed_at` field from a `BatchObject`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_batch_object_failed_at(LITERLLMAlefHandle handle);
-
-/**
- * Get the `expired_at` field from a `BatchObject`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_batch_object_expired_at(LITERLLMAlefHandle handle);
-
-/**
- * Get the `request_counts` field from a `BatchObject`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_batch_request_counts_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_batch_object_request_counts(LITERLLMAlefHandle handle);
-
-/**
- * Get the `metadata` field from a `BatchObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_object_metadata(LITERLLMAlefHandle handle);
-
-/**
- * Create a `BatchRequestCounts` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_batch_request_counts_free`.
- */
-LITERLLMAlefHandle literllm_batch_request_counts_from_json(const char *json);
-
-/**
- * Serialize a `BatchRequestCounts` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_batch_request_counts_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `BatchRequestCounts` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_batch_request_counts_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `total` field from a `BatchRequestCounts`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_batch_request_counts_total(LITERLLMAlefHandle handle);
-
-/**
- * Get the `completed` field from a `BatchRequestCounts`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_batch_request_counts_completed(LITERLLMAlefHandle handle);
-
-/**
- * Get the `failed` field from a `BatchRequestCounts`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_batch_request_counts_failed(LITERLLMAlefHandle handle);
-
-/**
- * Create a `BatchListResponse` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_batch_list_response_free`.
- */
-LITERLLMAlefHandle literllm_batch_list_response_from_json(const char *json);
-
-/**
- * Serialize a `BatchListResponse` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_batch_list_response_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `BatchListResponse` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_batch_list_response_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `BatchListResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_list_response_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `data` field from a `BatchListResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_list_response_data(LITERLLMAlefHandle handle);
-
-/**
- * Get the `has_more` field from a `BatchListResponse`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_batch_list_response_has_more(LITERLLMAlefHandle handle);
-
-/**
- * Get the `first_id` field from a `BatchListResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_list_response_first_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `last_id` field from a `BatchListResponse`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_list_response_last_id(LITERLLMAlefHandle handle);
-
-/**
- * Create a `BatchListQuery` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_batch_list_query_free`.
- */
-LITERLLMAlefHandle literllm_batch_list_query_from_json(const char *json);
-
-/**
- * Serialize a `BatchListQuery` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_batch_list_query_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `BatchListQuery` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_batch_list_query_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `limit` field from a `BatchListQuery`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_batch_list_query_limit(LITERLLMAlefHandle handle);
-
-/**
- * Get the `after` field from a `BatchListQuery`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_batch_list_query_after(LITERLLMAlefHandle handle);
-
-/**
- * Create a `CreateResponseRequest` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_create_response_request_free`.
- */
-LITERLLMAlefHandle literllm_create_response_request_from_json(const char *json);
-
-/**
- * Serialize a `CreateResponseRequest` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_create_response_request_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `CreateResponseRequest` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_create_response_request_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `CreateResponseRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_response_request_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `input` field from a `CreateResponseRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_response_request_input(LITERLLMAlefHandle handle);
-
-/**
- * Get the `instructions` field from a `CreateResponseRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_response_request_instructions(LITERLLMAlefHandle handle);
-
-/**
- * Get the `tools` field from a `CreateResponseRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_response_request_tools(LITERLLMAlefHandle handle);
-
-/**
- * Get the `temperature` field from a `CreateResponseRequest`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_create_response_request_temperature(LITERLLMAlefHandle handle);
-
-/**
- * Get the `max_output_tokens` field from a `CreateResponseRequest`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_create_response_request_max_output_tokens(LITERLLMAlefHandle handle);
-
-/**
- * Get the `metadata` field from a `CreateResponseRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_response_request_metadata(LITERLLMAlefHandle handle);
-
-/**
- * Get the `extra_body` field from a `CreateResponseRequest`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_create_response_request_extra_body(LITERLLMAlefHandle handle);
-
-/**
- * Get the `stream` field from a `CreateResponseRequest`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_create_response_request_stream(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ResponseTool` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_response_tool_free`.
- */
-LITERLLMAlefHandle literllm_response_tool_from_json(const char *json);
-
-/**
- * Serialize a `ResponseTool` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_response_tool_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ResponseTool` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_response_tool_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `tool_type` field from a `ResponseTool`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_tool_tool_type(LITERLLMAlefHandle handle);
-
-/**
- * Get the `config` field from a `ResponseTool`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_tool_config(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ResponseObject` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_response_object_free`.
- */
-LITERLLMAlefHandle literllm_response_object_from_json(const char *json);
-
-/**
- * Serialize a `ResponseObject` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_response_object_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ResponseObject` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_response_object_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `id` field from a `ResponseObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_object_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `object` field from a `ResponseObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_object_object(LITERLLMAlefHandle handle);
-
-/**
- * Get the `created_at` field from a `ResponseObject`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_response_object_created_at(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `ResponseObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_object_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `status` field from a `ResponseObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_object_status(LITERLLMAlefHandle handle);
-
-/**
- * Get the `output` field from a `ResponseObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_object_output(LITERLLMAlefHandle handle);
-
-/**
- * Get the `usage` field from a `ResponseObject`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_response_usage_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_response_object_usage(LITERLLMAlefHandle handle);
-
-/**
- * Get the `error` field from a `ResponseObject`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_object_error(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ResponseOutputItem` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_response_output_item_free`.
- */
-LITERLLMAlefHandle literllm_response_output_item_from_json(const char *json);
-
-/**
- * Serialize a `ResponseOutputItem` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_response_output_item_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ResponseOutputItem` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_response_output_item_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `item_type` field from a `ResponseOutputItem`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_output_item_item_type(LITERLLMAlefHandle handle);
-
-/**
- * Get the `content` field from a `ResponseOutputItem`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_response_output_item_content(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ResponseUsage` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_response_usage_free`.
- */
-LITERLLMAlefHandle literllm_response_usage_from_json(const char *json);
-
-/**
- * Serialize a `ResponseUsage` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_response_usage_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ResponseUsage` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_response_usage_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `input_tokens` field from a `ResponseUsage`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_response_usage_input_tokens(LITERLLMAlefHandle handle);
-
-/**
- * Get the `output_tokens` field from a `ResponseUsage`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_response_usage_output_tokens(LITERLLMAlefHandle handle);
-
-/**
- * Get the `total_tokens` field from a `ResponseUsage`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_response_usage_total_tokens(LITERLLMAlefHandle handle);
-
-/**
- * Create a `LlmConfig` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_llm_config_free`.
- */
-LITERLLMAlefHandle literllm_llm_config_from_json(const char *json);
-
-/**
- * Serialize a `LlmConfig` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_llm_config_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `LlmConfig` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_llm_config_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model` field from a `LlmConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_config_model(LITERLLMAlefHandle handle);
-
-/**
- * Get the `api_key` field from a `LlmConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_config_api_key(LITERLLMAlefHandle handle);
-
-/**
- * Get the `base_url` field from a `LlmConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_config_base_url(LITERLLMAlefHandle handle);
-
-/**
- * Get the `timeout_secs` field from a `LlmConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_llm_config_timeout_secs(LITERLLMAlefHandle handle);
-
-/**
- * Get the `max_retries` field from a `LlmConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_llm_config_max_retries(LITERLLMAlefHandle handle);
-
-/**
- * Get the `temperature` field from a `LlmConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_llm_config_temperature(LITERLLMAlefHandle handle);
-
-/**
- * Get the `max_tokens` field from a `LlmConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_llm_config_max_tokens(LITERLLMAlefHandle handle);
-
-/**
- * Get the `load_env` field from a `LlmConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_llm_config_load_env(LITERLLMAlefHandle handle);
-
-/**
- * Get the `headers` field from a `LlmConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_config_headers(LITERLLMAlefHandle handle);
-
-/**
- * Get the `providers` field from a `LlmConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_config_providers(LITERLLMAlefHandle handle);
-
-/**
- * Get the `cache` field from a `LlmConfig`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_llm_cache_config_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_llm_config_cache(LITERLLMAlefHandle handle);
-
-/**
- * Get the `budget` field from a `LlmConfig`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_llm_budget_config_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_llm_config_budget(LITERLLMAlefHandle handle);
-
-/**
- * Get the `rate_limit` field from a `LlmConfig`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_llm_rate_limit_config_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_llm_config_rate_limit(LITERLLMAlefHandle handle);
-
-/**
- * Get the `in_flight_limit` field from a `LlmConfig`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_llm_in_flight_limit_config_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_llm_config_in_flight_limit(LITERLLMAlefHandle handle);
-
-/**
- * Get the `cost_tracking` field from a `LlmConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_llm_config_cost_tracking(LITERLLMAlefHandle handle);
-
-/**
- * Get the `tracing` field from a `LlmConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_llm_config_tracing(LITERLLMAlefHandle handle);
-
-/**
- * Get the `cooldown_secs` field from a `LlmConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_llm_config_cooldown_secs(LITERLLMAlefHandle handle);
-
-/**
- * Get the `health_check_secs` field from a `LlmConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_llm_config_health_check_secs(LITERLLMAlefHandle handle);
-
-/**
- * Get the `bedrock` field from a `LlmConfig`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_bedrock_config_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_llm_config_bedrock(LITERLLMAlefHandle handle);
-
-/**
- * Create a `LlmCacheConfig` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_llm_cache_config_free`.
- */
-LITERLLMAlefHandle literllm_llm_cache_config_from_json(const char *json);
-
-/**
- * Serialize a `LlmCacheConfig` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_llm_cache_config_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `LlmCacheConfig` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_llm_cache_config_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `max_entries` field from a `LlmCacheConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uintptr_t literllm_llm_cache_config_max_entries(LITERLLMAlefHandle handle);
-
-/**
- * Get the `ttl_seconds` field from a `LlmCacheConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_llm_cache_config_ttl_seconds(LITERLLMAlefHandle handle);
-
-/**
- * Get the `backend` field from a `LlmCacheConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_cache_config_backend(LITERLLMAlefHandle handle);
-
-/**
- * Get the `backend_config` field from a `LlmCacheConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_cache_config_backend_config(LITERLLMAlefHandle handle);
-
-/**
- * Create a `LlmBudgetConfig` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_llm_budget_config_free`.
- */
-LITERLLMAlefHandle literllm_llm_budget_config_from_json(const char *json);
-
-/**
- * Serialize a `LlmBudgetConfig` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_llm_budget_config_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `LlmBudgetConfig` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_llm_budget_config_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `global_limit` field from a `LlmBudgetConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_llm_budget_config_global_limit(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model_limits` field from a `LlmBudgetConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_budget_config_model_limits(LITERLLMAlefHandle handle);
-
-/**
- * Get the `enforcement` field from a `LlmBudgetConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_budget_config_enforcement(LITERLLMAlefHandle handle);
-
-/**
- * Create a `LlmRateLimitConfig` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_llm_rate_limit_config_free`.
- */
-LITERLLMAlefHandle literllm_llm_rate_limit_config_from_json(const char *json);
-
-/**
- * Serialize a `LlmRateLimitConfig` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_llm_rate_limit_config_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `LlmRateLimitConfig` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_llm_rate_limit_config_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `rpm` field from a `LlmRateLimitConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint32_t literllm_llm_rate_limit_config_rpm(LITERLLMAlefHandle handle);
-
-/**
- * Get the `tpm` field from a `LlmRateLimitConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_llm_rate_limit_config_tpm(LITERLLMAlefHandle handle);
-
-/**
- * Get the `window_seconds` field from a `LlmRateLimitConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_llm_rate_limit_config_window_seconds(LITERLLMAlefHandle handle);
-
-/**
- * Create a `LlmInFlightLimitConfig` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_llm_in_flight_limit_config_free`.
- */
-LITERLLMAlefHandle literllm_llm_in_flight_limit_config_from_json(const char *json);
-
-/**
- * Serialize a `LlmInFlightLimitConfig` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_llm_in_flight_limit_config_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `LlmInFlightLimitConfig` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_llm_in_flight_limit_config_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `max_in_flight` field from a `LlmInFlightLimitConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uintptr_t literllm_llm_in_flight_limit_config_max_in_flight(LITERLLMAlefHandle handle);
-
-/**
- * Create a `LlmProviderConfig` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_llm_provider_config_free`.
- */
-LITERLLMAlefHandle literllm_llm_provider_config_from_json(const char *json);
-
-/**
- * Serialize a `LlmProviderConfig` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_llm_provider_config_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `LlmProviderConfig` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_llm_provider_config_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `name` field from a `LlmProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_provider_config_name(LITERLLMAlefHandle handle);
-
-/**
- * Get the `base_url` field from a `LlmProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_provider_config_base_url(LITERLLMAlefHandle handle);
-
-/**
- * Get the `auth_header` field from a `LlmProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_provider_config_auth_header(LITERLLMAlefHandle handle);
-
-/**
- * Get the `model_prefixes` field from a `LlmProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_llm_provider_config_model_prefixes(LITERLLMAlefHandle handle);
-
-/**
- * Create a `BedrockConfig` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_bedrock_config_free`.
- */
-LITERLLMAlefHandle literllm_bedrock_config_from_json(const char *json);
-
-/**
- * Serialize a `BedrockConfig` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_bedrock_config_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `BedrockConfig` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_bedrock_config_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `region` field from a `BedrockConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_bedrock_config_region(LITERLLMAlefHandle handle);
-
-/**
- * Get the `cross_region_prefix` field from a `BedrockConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_bedrock_config_cross_region_prefix(LITERLLMAlefHandle handle);
-
-/**
- * Get the `access_key_id` field from a `BedrockConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_bedrock_config_access_key_id(LITERLLMAlefHandle handle);
-
-/**
- * Get the `secret_access_key` field from a `BedrockConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_bedrock_config_secret_access_key(LITERLLMAlefHandle handle);
-
-/**
- * Get the `session_token` field from a `BedrockConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_bedrock_config_session_token(LITERLLMAlefHandle handle);
-
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
-/**
- * Create a `WaitForBatchConfig` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_wait_for_batch_config_free`.
- */
-LITERLLMAlefHandle literllm_wait_for_batch_config_from_json(const char *json);
-#endif
-
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
-/**
- * Serialize a `WaitForBatchConfig` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_wait_for_batch_config_to_json(LITERLLMAlefHandle handle);
-#endif
-
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
-/**
- * Free a `WaitForBatchConfig` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_wait_for_batch_config_free(LITERLLMAlefHandle handle);
-#endif
-
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
-/**
- * Get the `initial_interval_secs` field from a `WaitForBatchConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_wait_for_batch_config_initial_interval_secs(LITERLLMAlefHandle handle);
-#endif
-
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
-/**
- * Get the `max_interval_secs` field from a `WaitForBatchConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_wait_for_batch_config_max_interval_secs(LITERLLMAlefHandle handle);
-#endif
-
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
-/**
- * Get the `backoff_multiplier` field from a `WaitForBatchConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-float literllm_wait_for_batch_config_backoff_multiplier(LITERLLMAlefHandle handle);
-#endif
-
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
-/**
- * Get the `timeout_secs` field from a `WaitForBatchConfig`.
+ * Get the `data` field from a `DecodedDataUrl`.
+ * The returned byte pointer is borrowed from `ptr` and must not be freed.
+ * It remains valid until `ptr` is destroyed or the field is mutated.
  * # Safety
  * Pointer must be a valid handle returned by this library.
- */
-double literllm_wait_for_batch_config_timeout_secs(LITERLLMAlefHandle handle);
-#endif
-
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
-/**
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
  */
-LITERLLMAlefHandle literllm_wait_for_batch_config_default(void);
-#endif
+uint8_t *literllm_decoded_data_url_data(LITERLLMAlefHandle handle,
+                                        uintptr_t *out_len);
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
@@ -5883,262 +2922,1303 @@ LITERLLMAlefHandle literllm_default_client_cancel_response(LITERLLMAlefHandle th
 #endif
 
 /**
- * Create a `CustomProviderConfig` from a JSON string. Returns null on failure.
+ * Create a `DeleteResponse` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_custom_provider_config_free`.
+ * Returned handle must be freed with `literllm_delete_response_free`.
  */
-LITERLLMAlefHandle literllm_custom_provider_config_from_json(const char *json);
+LITERLLMAlefHandle literllm_delete_response_from_json(const char *json);
 
 /**
- * Serialize a `CustomProviderConfig` to a JSON string. Returns null on failure.
+ * Serialize a `DeleteResponse` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_custom_provider_config_to_json(LITERLLMAlefHandle handle);
+char *literllm_delete_response_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `CustomProviderConfig` handle.
+ * Free a `DeleteResponse` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_custom_provider_config_free(LITERLLMAlefHandle handle);
+void literllm_delete_response_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `name` field from a `CustomProviderConfig`.
+ * Get the `id` field from a `DeleteResponse`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_custom_provider_config_name(LITERLLMAlefHandle handle);
+char *literllm_delete_response_id(LITERLLMAlefHandle handle);
 
 /**
- * Get the `base_url` field from a `CustomProviderConfig`.
+ * Get the `object` field from a `DeleteResponse`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_custom_provider_config_base_url(LITERLLMAlefHandle handle);
+char *literllm_delete_response_object(LITERLLMAlefHandle handle);
 
 /**
- * Get the `auth_header` field from a `CustomProviderConfig`.
+ * Get the `deleted` field from a `DeleteResponse`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_delete_response_deleted(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `DeveloperMessage` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_developer_message_free`.
+ */
+LITERLLMAlefHandle literllm_developer_message_from_json(const char *json);
+
+/**
+ * Serialize a `DeveloperMessage` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_developer_message_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `DeveloperMessage` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_developer_message_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `content` field from a `DeveloperMessage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_developer_message_content(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `DeveloperMessage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_developer_message_name(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `DocumentContent` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_document_content_free`.
+ */
+LITERLLMAlefHandle literllm_document_content_from_json(const char *json);
+
+/**
+ * Serialize a `DocumentContent` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_document_content_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `DocumentContent` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_document_content_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `data` field from a `DocumentContent`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_document_content_data(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `media_type` field from a `DocumentContent`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_document_content_media_type(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `EmbeddingObject` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_embedding_object_free`.
+ */
+LITERLLMAlefHandle literllm_embedding_object_from_json(const char *json);
+
+/**
+ * Serialize a `EmbeddingObject` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_embedding_object_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `EmbeddingObject` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_embedding_object_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `object` field from a `EmbeddingObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_embedding_object_object(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `embedding` field from a `EmbeddingObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_embedding_object_embedding(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `index` field from a `EmbeddingObject`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_embedding_object_index(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `EmbeddingRequest` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_embedding_request_free`.
+ */
+LITERLLMAlefHandle literllm_embedding_request_from_json(const char *json);
+
+/**
+ * Serialize a `EmbeddingRequest` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_embedding_request_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `EmbeddingRequest` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_embedding_request_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `EmbeddingRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_embedding_request_model(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `input` field from a `EmbeddingRequest`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_auth_header_format_free`.
+ * It must be freed with `literllm_embedding_input_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_custom_provider_config_auth_header(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_embedding_request_input(LITERLLMAlefHandle handle);
 
 /**
- * Get the `model_prefixes` field from a `CustomProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_custom_provider_config_model_prefixes(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ProviderCapabilities` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_provider_capabilities_free`.
- */
-LITERLLMAlefHandle literllm_provider_capabilities_from_json(const char *json);
-
-/**
- * Serialize a `ProviderCapabilities` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_provider_capabilities_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ProviderCapabilities` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_provider_capabilities_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `vision` field from a `ProviderCapabilities`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_provider_capabilities_vision(LITERLLMAlefHandle handle);
-
-/**
- * Get the `reasoning` field from a `ProviderCapabilities`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_provider_capabilities_reasoning(LITERLLMAlefHandle handle);
-
-/**
- * Get the `structured_output` field from a `ProviderCapabilities`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_provider_capabilities_structured_output(LITERLLMAlefHandle handle);
-
-/**
- * Get the `function_calling` field from a `ProviderCapabilities`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_provider_capabilities_function_calling(LITERLLMAlefHandle handle);
-
-/**
- * Get the `audio_in` field from a `ProviderCapabilities`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_provider_capabilities_audio_in(LITERLLMAlefHandle handle);
-
-/**
- * Get the `audio_out` field from a `ProviderCapabilities`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_provider_capabilities_audio_out(LITERLLMAlefHandle handle);
-
-/**
- * Get the `video_in` field from a `ProviderCapabilities`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_provider_capabilities_video_in(LITERLLMAlefHandle handle);
-
-/**
- * Create a `ProviderConfig` from a JSON string. Returns null on failure.
- * # Safety
- * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_provider_config_free`.
- */
-LITERLLMAlefHandle literllm_provider_config_from_json(const char *json);
-
-/**
- * Serialize a `ProviderConfig` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_provider_config_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ProviderConfig` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_provider_config_free(LITERLLMAlefHandle handle);
-
-/**
- * Get the `name` field from a `ProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_provider_config_name(LITERLLMAlefHandle handle);
-
-/**
- * Get the `display_name` field from a `ProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_provider_config_display_name(LITERLLMAlefHandle handle);
-
-/**
- * Get the `base_url` field from a `ProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_provider_config_base_url(LITERLLMAlefHandle handle);
-
-/**
- * Get the `auth` field from a `ProviderConfig`.
+ * Get the `encoding_format` field from a `EmbeddingRequest`.
  * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_auth_config_free`.
+ * It must be freed with `literllm_embedding_format_free`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_provider_config_auth(LITERLLMAlefHandle handle);
+LITERLLMAlefHandle literllm_embedding_request_encoding_format(LITERLLMAlefHandle handle);
 
 /**
- * Get the `endpoints` field from a `ProviderConfig`.
+ * Get the `dimensions` field from a `EmbeddingRequest`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_embedding_request_dimensions(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `user` field from a `EmbeddingRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_provider_config_endpoints(LITERLLMAlefHandle handle);
+char *literllm_embedding_request_user(LITERLLMAlefHandle handle);
 
 /**
- * Get the `model_prefixes` field from a `ProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_provider_config_model_prefixes(LITERLLMAlefHandle handle);
-
-/**
- * Get the `param_mappings` field from a `ProviderConfig`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_provider_config_param_mappings(LITERLLMAlefHandle handle);
-
-/**
- * Create a `AuthConfig` from a JSON string. Returns null on failure.
+ * Create a `EmbeddingResponse` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_auth_config_free`.
+ * Returned handle must be freed with `literllm_embedding_response_free`.
  */
-LITERLLMAlefHandle literllm_auth_config_from_json(const char *json);
+LITERLLMAlefHandle literllm_embedding_response_from_json(const char *json);
 
 /**
- * Serialize a `AuthConfig` to a JSON string. Returns null on failure.
+ * Serialize a `EmbeddingResponse` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_auth_config_to_json(LITERLLMAlefHandle handle);
+char *literllm_embedding_response_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `AuthConfig` handle.
+ * Free a `EmbeddingResponse` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_auth_config_free(LITERLLMAlefHandle handle);
+void literllm_embedding_response_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `auth_type` field from a `AuthConfig`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_auth_type_free`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-LITERLLMAlefHandle literllm_auth_config_auth_type(LITERLLMAlefHandle handle);
-
-/**
- * Get the `env_var` field from a `AuthConfig`.
+ * Get the `object` field from a `EmbeddingResponse`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_auth_config_env_var(LITERLLMAlefHandle handle);
+char *literllm_embedding_response_object(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `data` field from a `EmbeddingResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_embedding_response_data(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `EmbeddingResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_embedding_response_model(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `usage` field from a `EmbeddingResponse`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_usage_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_embedding_response_usage(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `FileListQuery` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_file_list_query_free`.
+ */
+LITERLLMAlefHandle literllm_file_list_query_from_json(const char *json);
+
+/**
+ * Serialize a `FileListQuery` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_file_list_query_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `FileListQuery` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_file_list_query_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `purpose` field from a `FileListQuery`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_file_list_query_purpose(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `limit` field from a `FileListQuery`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_file_list_query_limit(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `after` field from a `FileListQuery`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_file_list_query_after(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `FileListResponse` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_file_list_response_free`.
+ */
+LITERLLMAlefHandle literllm_file_list_response_from_json(const char *json);
+
+/**
+ * Serialize a `FileListResponse` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_file_list_response_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `FileListResponse` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_file_list_response_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `object` field from a `FileListResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_file_list_response_object(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `data` field from a `FileListResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_file_list_response_data(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `has_more` field from a `FileListResponse`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_file_list_response_has_more(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `FileObject` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_file_object_free`.
+ */
+LITERLLMAlefHandle literllm_file_object_from_json(const char *json);
+
+/**
+ * Serialize a `FileObject` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_file_object_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `FileObject` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_file_object_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `id` field from a `FileObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_file_object_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `object` field from a `FileObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_file_object_object(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `bytes` field from a `FileObject`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_file_object_bytes(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `created_at` field from a `FileObject`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_file_object_created_at(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `filename` field from a `FileObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_file_object_filename(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `purpose` field from a `FileObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_file_object_purpose(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `status` field from a `FileObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_file_object_status(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `FunctionCall` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_function_call_free`.
+ */
+LITERLLMAlefHandle literllm_function_call_from_json(const char *json);
+
+/**
+ * Serialize a `FunctionCall` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_function_call_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `FunctionCall` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_function_call_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `FunctionCall`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_function_call_name(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `arguments` field from a `FunctionCall`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_function_call_arguments(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `FunctionDefinition` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_function_definition_free`.
+ */
+LITERLLMAlefHandle literllm_function_definition_from_json(const char *json);
+
+/**
+ * Serialize a `FunctionDefinition` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_function_definition_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `FunctionDefinition` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_function_definition_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `FunctionDefinition`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_function_definition_name(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `description` field from a `FunctionDefinition`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_function_definition_description(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `parameters` field from a `FunctionDefinition`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_function_definition_parameters(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `strict` field from a `FunctionDefinition`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_function_definition_strict(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `FunctionMessage` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_function_message_free`.
+ */
+LITERLLMAlefHandle literllm_function_message_from_json(const char *json);
+
+/**
+ * Serialize a `FunctionMessage` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_function_message_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `FunctionMessage` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_function_message_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `content` field from a `FunctionMessage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_function_message_content(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `FunctionMessage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_function_message_name(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `Image` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_image_free`.
+ */
+LITERLLMAlefHandle literllm_image_from_json(const char *json);
+
+/**
+ * Serialize a `Image` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_image_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `Image` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_image_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `url` field from a `Image`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_image_url(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `b64_json` field from a `Image`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_image_b64_json(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `revised_prompt` field from a `Image`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_image_revised_prompt(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ImageUrl` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_image_url_free`.
+ */
+LITERLLMAlefHandle literllm_image_url_from_json(const char *json);
+
+/**
+ * Serialize a `ImageUrl` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_image_url_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ImageUrl` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_image_url_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `url` field from a `ImageUrl`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_image_url_url(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `detail` field from a `ImageUrl`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_image_detail_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_image_url_detail(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ImagesResponse` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_images_response_free`.
+ */
+LITERLLMAlefHandle literllm_images_response_from_json(const char *json);
+
+/**
+ * Serialize a `ImagesResponse` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_images_response_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ImagesResponse` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_images_response_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `created` field from a `ImagesResponse`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_images_response_created(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `data` field from a `ImagesResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_images_response_data(LITERLLMAlefHandle handle);
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Create a `InFlightLimitConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_in_flight_limit_config_free`.
+ */
+LITERLLMAlefHandle literllm_in_flight_limit_config_from_json(const char *json);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Serialize a `InFlightLimitConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_in_flight_limit_config_to_json(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Free a `InFlightLimitConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_in_flight_limit_config_free(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `max_in_flight` field from a `InFlightLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uintptr_t literllm_in_flight_limit_config_max_in_flight(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Free a `IntentPrototype` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_intent_prototype_free(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `name` field from a `IntentPrototype`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_intent_prototype_name(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `embedding` field from a `IntentPrototype`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_intent_prototype_embedding(LITERLLMAlefHandle handle);
+#endif
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Get the `model` field from a `IntentPrototype`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_intent_prototype_model(LITERLLMAlefHandle handle);
+#endif
+
+/**
+ * Create a `JsonSchemaFormat` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_json_schema_format_free`.
+ */
+LITERLLMAlefHandle literllm_json_schema_format_from_json(const char *json);
+
+/**
+ * Serialize a `JsonSchemaFormat` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_json_schema_format_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `JsonSchemaFormat` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_json_schema_format_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `JsonSchemaFormat`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_json_schema_format_name(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `description` field from a `JsonSchemaFormat`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_json_schema_format_description(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `schema` field from a `JsonSchemaFormat`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_json_schema_format_schema(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `strict` field from a `JsonSchemaFormat`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_json_schema_format_strict(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `LlmBudgetConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_budget_config_free`.
+ */
+LITERLLMAlefHandle literllm_llm_budget_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmBudgetConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_budget_config_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `LlmBudgetConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_llm_budget_config_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `global_limit` field from a `LlmBudgetConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_llm_budget_config_global_limit(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model_limits` field from a `LlmBudgetConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_budget_config_model_limits(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `enforcement` field from a `LlmBudgetConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_budget_config_enforcement(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `LlmCacheConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_cache_config_free`.
+ */
+LITERLLMAlefHandle literllm_llm_cache_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmCacheConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_cache_config_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `LlmCacheConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_llm_cache_config_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `max_entries` field from a `LlmCacheConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uintptr_t literllm_llm_cache_config_max_entries(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `ttl_seconds` field from a `LlmCacheConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_cache_config_ttl_seconds(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `backend` field from a `LlmCacheConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_cache_config_backend(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `backend_config` field from a `LlmCacheConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_cache_config_backend_config(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `LlmConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_config_free`.
+ */
+LITERLLMAlefHandle literllm_llm_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_config_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `LlmConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_llm_config_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `LlmConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_model(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `api_key` field from a `LlmConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_api_key(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `base_url` field from a `LlmConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_base_url(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `timeout_secs` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_config_timeout_secs(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `max_retries` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_llm_config_max_retries(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `temperature` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_llm_config_temperature(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `max_tokens` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_config_max_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `load_env` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_llm_config_load_env(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `headers` field from a `LlmConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_headers(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `providers` field from a `LlmConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_config_providers(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `cache` field from a `LlmConfig`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_llm_cache_config_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_llm_config_cache(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `budget` field from a `LlmConfig`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_llm_budget_config_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_llm_config_budget(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `rate_limit` field from a `LlmConfig`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_llm_rate_limit_config_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_llm_config_rate_limit(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `in_flight_limit` field from a `LlmConfig`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_llm_in_flight_limit_config_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_llm_config_in_flight_limit(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `cost_tracking` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_llm_config_cost_tracking(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `tracing` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_llm_config_tracing(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `cooldown_secs` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_config_cooldown_secs(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `health_check_secs` field from a `LlmConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_config_health_check_secs(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `bedrock` field from a `LlmConfig`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_bedrock_config_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_llm_config_bedrock(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `LlmInFlightLimitConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_in_flight_limit_config_free`.
+ */
+LITERLLMAlefHandle literllm_llm_in_flight_limit_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmInFlightLimitConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_in_flight_limit_config_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `LlmInFlightLimitConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_llm_in_flight_limit_config_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `max_in_flight` field from a `LlmInFlightLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uintptr_t literllm_llm_in_flight_limit_config_max_in_flight(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `LlmProviderConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_provider_config_free`.
+ */
+LITERLLMAlefHandle literllm_llm_provider_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmProviderConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_provider_config_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `LlmProviderConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_llm_provider_config_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `LlmProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_provider_config_name(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `base_url` field from a `LlmProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_provider_config_base_url(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `auth_header` field from a `LlmProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_provider_config_auth_header(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model_prefixes` field from a `LlmProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_llm_provider_config_model_prefixes(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `LlmRateLimitConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_llm_rate_limit_config_free`.
+ */
+LITERLLMAlefHandle literllm_llm_rate_limit_config_from_json(const char *json);
+
+/**
+ * Serialize a `LlmRateLimitConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_llm_rate_limit_config_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `LlmRateLimitConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_llm_rate_limit_config_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `rpm` field from a `LlmRateLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_llm_rate_limit_config_rpm(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `tpm` field from a `LlmRateLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_rate_limit_config_tpm(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `window_seconds` field from a `LlmRateLimitConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_llm_rate_limit_config_window_seconds(LITERLLMAlefHandle handle);
 
 /**
  * Create a `ModelInfo` from a JSON string. Returns null on failure.
@@ -6301,6 +4381,63 @@ int32_t literllm_model_info_supports_prompt_caching(LITERLLMAlefHandle handle);
 char *literllm_model_info_tiers(LITERLLMAlefHandle handle);
 
 /**
+ * Create a `ModelObject` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_model_object_free`.
+ */
+LITERLLMAlefHandle literllm_model_object_from_json(const char *json);
+
+/**
+ * Serialize a `ModelObject` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_model_object_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ModelObject` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_model_object_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `id` field from a `ModelObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_model_object_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `object` field from a `ModelObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_model_object_object(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `created` field from a `ModelObject`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_model_object_created(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `owned_by` field from a `ModelObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_model_object_owned_by(LITERLLMAlefHandle handle);
+
+/**
  * Create a `ModelTier` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
@@ -6379,186 +4516,822 @@ double literllm_model_tier_output_cost_per_audio_token(LITERLLMAlefHandle handle
  */
 double literllm_model_tier_output_cost_per_reasoning_token(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Create a `BudgetConfig` from a JSON string. Returns null on failure.
+ * Create a `ModelsListResponse` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_budget_config_free`.
+ * Returned handle must be freed with `literllm_models_list_response_free`.
  */
-LITERLLMAlefHandle literllm_budget_config_from_json(const char *json);
-#endif
+LITERLLMAlefHandle literllm_models_list_response_from_json(const char *json);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Serialize a `BudgetConfig` to a JSON string. Returns null on failure.
+ * Serialize a `ModelsListResponse` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_budget_config_to_json(LITERLLMAlefHandle handle);
-#endif
+char *literllm_models_list_response_to_json(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Free a `BudgetConfig` handle.
+ * Free a `ModelsListResponse` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_budget_config_free(LITERLLMAlefHandle handle);
-#endif
+void literllm_models_list_response_free(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Get the `global_limit` field from a `BudgetConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-double literllm_budget_config_global_limit(LITERLLMAlefHandle handle);
-#endif
-
-#if defined(LITERLLM_FEATURE_TOWER)
-/**
- * Get the `model_limits` field from a `BudgetConfig`.
+ * Get the `object` field from a `ModelsListResponse`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_budget_config_model_limits(LITERLLMAlefHandle handle);
-#endif
+char *literllm_models_list_response_object(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Get the `enforcement` field from a `BudgetConfig`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_enforcement_free`.
+ * Get the `data` field from a `ModelsListResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_budget_config_enforcement(LITERLLMAlefHandle handle);
-#endif
+char *literllm_models_list_response_data(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
- */
-LITERLLMAlefHandle literllm_budget_config_default(void);
-#endif
-
-#if defined(LITERLLM_FEATURE_TOWER)
-/**
- * Create a `CacheConfig` from a JSON string. Returns null on failure.
+ * Create a `ModerationCategories` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_cache_config_free`.
+ * Returned handle must be freed with `literllm_moderation_categories_free`.
  */
-LITERLLMAlefHandle literllm_cache_config_from_json(const char *json);
-#endif
+LITERLLMAlefHandle literllm_moderation_categories_from_json(const char *json);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Serialize a `CacheConfig` to a JSON string. Returns null on failure.
+ * Serialize a `ModerationCategories` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_cache_config_to_json(LITERLLMAlefHandle handle);
-#endif
+char *literllm_moderation_categories_to_json(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Free a `CacheConfig` handle.
+ * Free a `ModerationCategories` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_cache_config_free(LITERLLMAlefHandle handle);
-#endif
+void literllm_moderation_categories_free(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Get the `max_entries` field from a `CacheConfig`.
+ * Get the `sexual` field from a `ModerationCategories`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-uintptr_t literllm_cache_config_max_entries(LITERLLMAlefHandle handle);
-#endif
+int32_t literllm_moderation_categories_sexual(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Get the `ttl` field from a `CacheConfig`.
+ * Get the `hate` field from a `ModerationCategories`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-uint64_t literllm_cache_config_ttl(LITERLLMAlefHandle handle);
-#endif
+int32_t literllm_moderation_categories_hate(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Get the `backend` field from a `CacheConfig`.
- * A non-null returned handle is owned by the caller.
- * It must be freed with `literllm_cache_backend_free`.
+ * Get the `harassment` field from a `ModerationCategories`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-LITERLLMAlefHandle literllm_cache_config_backend(LITERLLMAlefHandle handle);
-#endif
+int32_t literllm_moderation_categories_harassment(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
- */
-LITERLLMAlefHandle literllm_cache_config_default(void);
-#endif
-
-#if defined(LITERLLM_FEATURE_TOWER)
-/**
- * Free a `SingleflightResult` handle.
+ * Get the `self_harm` field from a `ModerationCategories`.
  * # Safety
- * Handle must have been returned by this library, or be zero.
+ * Pointer must be a valid handle returned by this library.
  */
-void literllm_singleflight_result_free(LITERLLMAlefHandle handle);
-#endif
+int32_t literllm_moderation_categories_self_harm(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Create a `InFlightLimitConfig` from a JSON string. Returns null on failure.
+ * Get the `sexual_minors` field from a `ModerationCategories`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_moderation_categories_sexual_minors(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `hate_threatening` field from a `ModerationCategories`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_moderation_categories_hate_threatening(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `violence_graphic` field from a `ModerationCategories`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_moderation_categories_violence_graphic(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `self_harm_intent` field from a `ModerationCategories`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_moderation_categories_self_harm_intent(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `self_harm_instructions` field from a `ModerationCategories`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_moderation_categories_self_harm_instructions(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `harassment_threatening` field from a `ModerationCategories`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_moderation_categories_harassment_threatening(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `violence` field from a `ModerationCategories`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_moderation_categories_violence(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ModerationCategoryScores` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_in_flight_limit_config_free`.
+ * Returned handle must be freed with `literllm_moderation_category_scores_free`.
  */
-LITERLLMAlefHandle literllm_in_flight_limit_config_from_json(const char *json);
-#endif
+LITERLLMAlefHandle literllm_moderation_category_scores_from_json(const char *json);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Serialize a `InFlightLimitConfig` to a JSON string. Returns null on failure.
+ * Serialize a `ModerationCategoryScores` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_in_flight_limit_config_to_json(LITERLLMAlefHandle handle);
-#endif
+char *literllm_moderation_category_scores_to_json(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Free a `InFlightLimitConfig` handle.
+ * Free a `ModerationCategoryScores` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_in_flight_limit_config_free(LITERLLMAlefHandle handle);
-#endif
+void literllm_moderation_category_scores_free(LITERLLMAlefHandle handle);
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Get the `max_in_flight` field from a `InFlightLimitConfig`.
+ * Get the `sexual` field from a `ModerationCategoryScores`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-uintptr_t literllm_in_flight_limit_config_max_in_flight(LITERLLMAlefHandle handle);
-#endif
+double literllm_moderation_category_scores_sexual(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `hate` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_hate(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `harassment` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_harassment(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `self_harm` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_self_harm(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `sexual_minors` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_sexual_minors(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `hate_threatening` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_hate_threatening(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `violence_graphic` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_violence_graphic(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `self_harm_intent` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_self_harm_intent(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `self_harm_instructions` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_self_harm_instructions(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `harassment_threatening` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_harassment_threatening(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `violence` field from a `ModerationCategoryScores`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_moderation_category_scores_violence(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ModerationRequest` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_moderation_request_free`.
+ */
+LITERLLMAlefHandle literllm_moderation_request_from_json(const char *json);
+
+/**
+ * Serialize a `ModerationRequest` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_moderation_request_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ModerationRequest` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_moderation_request_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `input` field from a `ModerationRequest`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_moderation_input_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_moderation_request_input(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `ModerationRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_moderation_request_model(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ModerationResponse` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_moderation_response_free`.
+ */
+LITERLLMAlefHandle literllm_moderation_response_from_json(const char *json);
+
+/**
+ * Serialize a `ModerationResponse` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_moderation_response_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ModerationResponse` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_moderation_response_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `id` field from a `ModerationResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_moderation_response_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `ModerationResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_moderation_response_model(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `results` field from a `ModerationResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_moderation_response_results(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ModerationResult` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_moderation_result_free`.
+ */
+LITERLLMAlefHandle literllm_moderation_result_from_json(const char *json);
+
+/**
+ * Serialize a `ModerationResult` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_moderation_result_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ModerationResult` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_moderation_result_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `flagged` field from a `ModerationResult`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_moderation_result_flagged(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `categories` field from a `ModerationResult`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_moderation_categories_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_moderation_result_categories(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `category_scores` field from a `ModerationResult`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_moderation_category_scores_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_moderation_result_category_scores(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `OcrImage` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_ocr_image_free`.
+ */
+LITERLLMAlefHandle literllm_ocr_image_from_json(const char *json);
+
+/**
+ * Serialize a `OcrImage` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_ocr_image_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `OcrImage` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_ocr_image_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `id` field from a `OcrImage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_ocr_image_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `image_base64` field from a `OcrImage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_ocr_image_image_base64(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `OcrPage` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_ocr_page_free`.
+ */
+LITERLLMAlefHandle literllm_ocr_page_from_json(const char *json);
+
+/**
+ * Serialize a `OcrPage` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_ocr_page_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `OcrPage` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_ocr_page_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `index` field from a `OcrPage`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_ocr_page_index(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `markdown` field from a `OcrPage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_ocr_page_markdown(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `images` field from a `OcrPage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_ocr_page_images(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `dimensions` field from a `OcrPage`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_page_dimensions_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_ocr_page_dimensions(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `OcrRequest` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_ocr_request_free`.
+ */
+LITERLLMAlefHandle literllm_ocr_request_from_json(const char *json);
+
+/**
+ * Serialize a `OcrRequest` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_ocr_request_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `OcrRequest` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_ocr_request_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `OcrRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_ocr_request_model(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `document` field from a `OcrRequest`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_ocr_document_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_ocr_request_document(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `pages` field from a `OcrRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_ocr_request_pages(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `include_image_base64` field from a `OcrRequest`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_ocr_request_include_image_base64(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `OcrResponse` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_ocr_response_free`.
+ */
+LITERLLMAlefHandle literllm_ocr_response_from_json(const char *json);
+
+/**
+ * Serialize a `OcrResponse` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_ocr_response_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `OcrResponse` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_ocr_response_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `pages` field from a `OcrResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_ocr_response_pages(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `OcrResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_ocr_response_model(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `usage` field from a `OcrResponse`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_usage_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_ocr_response_usage(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `PageDimensions` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_page_dimensions_free`.
+ */
+LITERLLMAlefHandle literllm_page_dimensions_from_json(const char *json);
+
+/**
+ * Serialize a `PageDimensions` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_page_dimensions_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `PageDimensions` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_page_dimensions_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `width` field from a `PageDimensions`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_page_dimensions_width(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `height` field from a `PageDimensions`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_page_dimensions_height(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `PromptTokensDetails` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_prompt_tokens_details_free`.
+ */
+LITERLLMAlefHandle literllm_prompt_tokens_details_from_json(const char *json);
+
+/**
+ * Serialize a `PromptTokensDetails` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_prompt_tokens_details_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `PromptTokensDetails` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_prompt_tokens_details_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `cached_tokens` field from a `PromptTokensDetails`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_prompt_tokens_details_cached_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `audio_tokens` field from a `PromptTokensDetails`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_prompt_tokens_details_audio_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ProviderCapabilities` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_provider_capabilities_free`.
+ */
+LITERLLMAlefHandle literllm_provider_capabilities_from_json(const char *json);
+
+/**
+ * Serialize a `ProviderCapabilities` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_provider_capabilities_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ProviderCapabilities` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_provider_capabilities_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `vision` field from a `ProviderCapabilities`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_provider_capabilities_vision(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `reasoning` field from a `ProviderCapabilities`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_provider_capabilities_reasoning(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `structured_output` field from a `ProviderCapabilities`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_provider_capabilities_structured_output(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `function_calling` field from a `ProviderCapabilities`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_provider_capabilities_function_calling(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `audio_in` field from a `ProviderCapabilities`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_provider_capabilities_audio_in(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `audio_out` field from a `ProviderCapabilities`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_provider_capabilities_audio_out(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `video_in` field from a `ProviderCapabilities`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_provider_capabilities_video_in(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ProviderConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_provider_config_free`.
+ */
+LITERLLMAlefHandle literllm_provider_config_from_json(const char *json);
+
+/**
+ * Serialize a `ProviderConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_provider_config_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ProviderConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_provider_config_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `ProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_provider_config_name(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `display_name` field from a `ProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_provider_config_display_name(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `base_url` field from a `ProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_provider_config_base_url(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `auth` field from a `ProviderConfig`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_auth_config_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_provider_config_auth(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `endpoints` field from a `ProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_provider_config_endpoints(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model_prefixes` field from a `ProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_provider_config_model_prefixes(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `param_mappings` field from a `ProviderConfig`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_provider_config_param_mappings(LITERLLMAlefHandle handle);
 
 #if defined(LITERLLM_FEATURE_TOWER)
 /**
@@ -6624,168 +5397,1335 @@ uint64_t literllm_rate_limit_config_window(LITERLLMAlefHandle handle);
 LITERLLMAlefHandle literllm_rate_limit_config_default(void);
 #endif
 
-#if defined(LITERLLM_FEATURE_TOWER)
 /**
- * Free a `IntentPrototype` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_intent_prototype_free(LITERLLMAlefHandle handle);
-#endif
-
-#if defined(LITERLLM_FEATURE_TOWER)
-/**
- * Get the `name` field from a `IntentPrototype`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_intent_prototype_name(LITERLLMAlefHandle handle);
-#endif
-
-#if defined(LITERLLM_FEATURE_TOWER)
-/**
- * Get the `embedding` field from a `IntentPrototype`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_intent_prototype_embedding(LITERLLMAlefHandle handle);
-#endif
-
-#if defined(LITERLLM_FEATURE_TOWER)
-/**
- * Get the `model` field from a `IntentPrototype`.
- * A non-null returned pointer is owned by the caller.
- * It must be freed with `literllm_free_string`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-char *literllm_intent_prototype_model(LITERLLMAlefHandle handle);
-#endif
-
-/**
- * Create a `CatalogRefreshConfig` from a JSON string. Returns null on failure.
+ * Create a `RerankRequest` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
- * Returned handle must be freed with `literllm_catalog_refresh_config_free`.
+ * Returned handle must be freed with `literllm_rerank_request_free`.
  */
-LITERLLMAlefHandle literllm_catalog_refresh_config_from_json(const char *json);
+LITERLLMAlefHandle literllm_rerank_request_from_json(const char *json);
 
 /**
- * Serialize a `CatalogRefreshConfig` to a JSON string. Returns null on failure.
+ * Serialize a `RerankRequest` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_catalog_refresh_config_to_json(LITERLLMAlefHandle handle);
+char *literllm_rerank_request_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Free a `CatalogRefreshConfig` handle.
+ * Free a `RerankRequest` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_catalog_refresh_config_free(LITERLLMAlefHandle handle);
+void literllm_rerank_request_free(LITERLLMAlefHandle handle);
 
 /**
- * Get the `enabled` field from a `CatalogRefreshConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-int32_t literllm_catalog_refresh_config_enabled(LITERLLMAlefHandle handle);
-
-/**
- * Get the `source_url` field from a `CatalogRefreshConfig`.
+ * Get the `model` field from a `RerankRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_catalog_refresh_config_source_url(LITERLLMAlefHandle handle);
+char *literllm_rerank_request_model(LITERLLMAlefHandle handle);
 
 /**
- * Get the `ttl_seconds` field from a `CatalogRefreshConfig`.
- * # Safety
- * Pointer must be a valid handle returned by this library.
- */
-uint64_t literllm_catalog_refresh_config_ttl_seconds(LITERLLMAlefHandle handle);
-
-/**
- * Get the `cache_path` field from a `CatalogRefreshConfig`.
+ * Get the `query` field from a `RerankRequest`.
  * A non-null returned pointer is owned by the caller.
  * It must be freed with `literllm_free_string`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
  */
-char *literllm_catalog_refresh_config_cache_path(LITERLLMAlefHandle handle);
+char *literllm_rerank_request_query(LITERLLMAlefHandle handle);
 
+/**
+ * Get the `documents` field from a `RerankRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_rerank_request_documents(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `top_n` field from a `RerankRequest`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_rerank_request_top_n(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `return_documents` field from a `RerankRequest`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_rerank_request_return_documents(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `RerankResponse` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_rerank_response_free`.
+ */
+LITERLLMAlefHandle literllm_rerank_response_from_json(const char *json);
+
+/**
+ * Serialize a `RerankResponse` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_rerank_response_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `RerankResponse` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_rerank_response_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `id` field from a `RerankResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_rerank_response_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `results` field from a `RerankResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_rerank_response_results(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `meta` field from a `RerankResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_rerank_response_meta(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `RerankResult` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_rerank_result_free`.
+ */
+LITERLLMAlefHandle literllm_rerank_result_from_json(const char *json);
+
+/**
+ * Serialize a `RerankResult` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_rerank_result_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `RerankResult` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_rerank_result_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `index` field from a `RerankResult`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_rerank_result_index(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `relevance_score` field from a `RerankResult`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_rerank_result_relevance_score(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `document` field from a `RerankResult`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_rerank_result_document_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_rerank_result_document(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `RerankResultDocument` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_rerank_result_document_free`.
+ */
+LITERLLMAlefHandle literllm_rerank_result_document_from_json(const char *json);
+
+/**
+ * Serialize a `RerankResultDocument` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_rerank_result_document_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `RerankResultDocument` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_rerank_result_document_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `text` field from a `RerankResultDocument`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_rerank_result_document_text(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ResponseObject` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_response_object_free`.
+ */
+LITERLLMAlefHandle literllm_response_object_from_json(const char *json);
+
+/**
+ * Serialize a `ResponseObject` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_response_object_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ResponseObject` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_response_object_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `id` field from a `ResponseObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_object_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `object` field from a `ResponseObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_object_object(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `created_at` field from a `ResponseObject`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_response_object_created_at(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `ResponseObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_object_model(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `status` field from a `ResponseObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_object_status(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `output` field from a `ResponseObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_object_output(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `usage` field from a `ResponseObject`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_response_usage_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_response_object_usage(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `error` field from a `ResponseObject`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_object_error(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ResponseOutputItem` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_response_output_item_free`.
+ */
+LITERLLMAlefHandle literllm_response_output_item_from_json(const char *json);
+
+/**
+ * Serialize a `ResponseOutputItem` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_response_output_item_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ResponseOutputItem` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_response_output_item_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `item_type` field from a `ResponseOutputItem`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_output_item_item_type(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `content` field from a `ResponseOutputItem`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_output_item_content(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ResponseTool` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_response_tool_free`.
+ */
+LITERLLMAlefHandle literllm_response_tool_from_json(const char *json);
+
+/**
+ * Serialize a `ResponseTool` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_response_tool_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ResponseTool` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_response_tool_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `tool_type` field from a `ResponseTool`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_tool_tool_type(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `config` field from a `ResponseTool`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_response_tool_config(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ResponseUsage` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_response_usage_free`.
+ */
+LITERLLMAlefHandle literllm_response_usage_from_json(const char *json);
+
+/**
+ * Serialize a `ResponseUsage` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_response_usage_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ResponseUsage` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_response_usage_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `input_tokens` field from a `ResponseUsage`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_response_usage_input_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `output_tokens` field from a `ResponseUsage`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_response_usage_output_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `total_tokens` field from a `ResponseUsage`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_response_usage_total_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `SearchRequest` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_search_request_free`.
+ */
+LITERLLMAlefHandle literllm_search_request_from_json(const char *json);
+
+/**
+ * Serialize a `SearchRequest` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_search_request_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `SearchRequest` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_search_request_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `SearchRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_request_model(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `query` field from a `SearchRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_request_query(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `max_results` field from a `SearchRequest`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_search_request_max_results(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `search_domain_filter` field from a `SearchRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_request_search_domain_filter(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `country` field from a `SearchRequest`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_request_country(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `SearchResponse` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_search_response_free`.
+ */
+LITERLLMAlefHandle literllm_search_response_from_json(const char *json);
+
+/**
+ * Serialize a `SearchResponse` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_search_response_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `SearchResponse` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_search_response_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `results` field from a `SearchResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_response_results(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `model` field from a `SearchResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_response_model(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `SearchResult` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_search_result_free`.
+ */
+LITERLLMAlefHandle literllm_search_result_from_json(const char *json);
+
+/**
+ * Serialize a `SearchResult` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_search_result_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `SearchResult` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_search_result_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `title` field from a `SearchResult`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_result_title(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `url` field from a `SearchResult`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_result_url(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `snippet` field from a `SearchResult`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_result_snippet(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `date` field from a `SearchResult`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_search_result_date(LITERLLMAlefHandle handle);
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Free a `SingleflightResult` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_singleflight_result_free(LITERLLMAlefHandle handle);
+#endif
+
+/**
+ * Create a `SpecificFunction` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_specific_function_free`.
+ */
+LITERLLMAlefHandle literllm_specific_function_from_json(const char *json);
+
+/**
+ * Serialize a `SpecificFunction` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_specific_function_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `SpecificFunction` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_specific_function_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `SpecificFunction`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_specific_function_name(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `SpecificToolChoice` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_specific_tool_choice_free`.
+ */
+LITERLLMAlefHandle literllm_specific_tool_choice_from_json(const char *json);
+
+/**
+ * Serialize a `SpecificToolChoice` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_specific_tool_choice_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `SpecificToolChoice` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_specific_tool_choice_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `choice_type` field from a `SpecificToolChoice`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_tool_type_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_specific_tool_choice_choice_type(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `function` field from a `SpecificToolChoice`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_specific_function_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_specific_tool_choice_function(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `StreamChoice` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_stream_choice_free`.
+ */
+LITERLLMAlefHandle literllm_stream_choice_from_json(const char *json);
+
+/**
+ * Serialize a `StreamChoice` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_stream_choice_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `StreamChoice` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_stream_choice_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `index` field from a `StreamChoice`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_stream_choice_index(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `delta` field from a `StreamChoice`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_stream_delta_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_stream_choice_delta(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `finish_reason` field from a `StreamChoice`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_finish_reason_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_stream_choice_finish_reason(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `StreamDelta` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_stream_delta_free`.
+ */
+LITERLLMAlefHandle literllm_stream_delta_from_json(const char *json);
+
+/**
+ * Serialize a `StreamDelta` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_stream_delta_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `StreamDelta` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_stream_delta_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `role` field from a `StreamDelta`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_stream_delta_role(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `content` field from a `StreamDelta`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_stream_delta_content(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `tool_calls` field from a `StreamDelta`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_stream_delta_tool_calls(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `function_call` field from a `StreamDelta`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_stream_function_call_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_stream_delta_function_call(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `refusal` field from a `StreamDelta`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_stream_delta_refusal(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `reasoning_content` field from a `StreamDelta`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_stream_delta_reasoning_content(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `StreamFunctionCall` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_stream_function_call_free`.
+ */
+LITERLLMAlefHandle literllm_stream_function_call_from_json(const char *json);
+
+/**
+ * Serialize a `StreamFunctionCall` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_stream_function_call_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `StreamFunctionCall` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_stream_function_call_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `StreamFunctionCall`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_stream_function_call_name(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `arguments` field from a `StreamFunctionCall`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_stream_function_call_arguments(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `StreamOptions` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_stream_options_free`.
+ */
+LITERLLMAlefHandle literllm_stream_options_from_json(const char *json);
+
+/**
+ * Serialize a `StreamOptions` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_stream_options_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `StreamOptions` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_stream_options_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `include_usage` field from a `StreamOptions`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_stream_options_include_usage(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `StreamToolCall` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_stream_tool_call_free`.
+ */
+LITERLLMAlefHandle literllm_stream_tool_call_from_json(const char *json);
+
+/**
+ * Serialize a `StreamToolCall` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_stream_tool_call_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `StreamToolCall` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_stream_tool_call_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `index` field from a `StreamToolCall`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_stream_tool_call_index(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `id` field from a `StreamToolCall`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_stream_tool_call_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `call_type` field from a `StreamToolCall`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_tool_type_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_stream_tool_call_call_type(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `function` field from a `StreamToolCall`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_stream_function_call_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_stream_tool_call_function(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `SystemMessage` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_system_message_free`.
+ */
+LITERLLMAlefHandle literllm_system_message_from_json(const char *json);
+
+/**
+ * Serialize a `SystemMessage` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_system_message_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `SystemMessage` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_system_message_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `content` field from a `SystemMessage`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_user_content_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_system_message_content(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `SystemMessage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_system_message_name(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ToolCall` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_tool_call_free`.
+ */
+LITERLLMAlefHandle literllm_tool_call_from_json(const char *json);
+
+/**
+ * Serialize a `ToolCall` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_tool_call_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ToolCall` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_tool_call_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `id` field from a `ToolCall`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_tool_call_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `call_type` field from a `ToolCall`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_tool_type_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_tool_call_call_type(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `function` field from a `ToolCall`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_function_call_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_tool_call_function(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `ToolMessage` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_tool_message_free`.
+ */
+LITERLLMAlefHandle literllm_tool_message_from_json(const char *json);
+
+/**
+ * Serialize a `ToolMessage` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_tool_message_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ToolMessage` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_tool_message_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `content` field from a `ToolMessage`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_user_content_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_tool_message_content(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `tool_call_id` field from a `ToolMessage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_tool_message_tool_call_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `ToolMessage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_tool_message_name(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `TranscriptionResponse` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_transcription_response_free`.
+ */
+LITERLLMAlefHandle literllm_transcription_response_from_json(const char *json);
+
+/**
+ * Serialize a `TranscriptionResponse` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_transcription_response_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `TranscriptionResponse` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_transcription_response_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `text` field from a `TranscriptionResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_transcription_response_text(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `language` field from a `TranscriptionResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_transcription_response_language(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `duration` field from a `TranscriptionResponse`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_transcription_response_duration(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `segments` field from a `TranscriptionResponse`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_transcription_response_segments(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `TranscriptionSegment` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_transcription_segment_free`.
+ */
+LITERLLMAlefHandle literllm_transcription_segment_from_json(const char *json);
+
+/**
+ * Serialize a `TranscriptionSegment` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_transcription_segment_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `TranscriptionSegment` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_transcription_segment_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `id` field from a `TranscriptionSegment`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint32_t literllm_transcription_segment_id(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `start` field from a `TranscriptionSegment`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_transcription_segment_start(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `end` field from a `TranscriptionSegment`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_transcription_segment_end(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `text` field from a `TranscriptionSegment`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_transcription_segment_text(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `Usage` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_usage_free`.
+ */
+LITERLLMAlefHandle literllm_usage_from_json(const char *json);
+
+/**
+ * Serialize a `Usage` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_usage_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `Usage` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_usage_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `prompt_tokens` field from a `Usage`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_usage_prompt_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `completion_tokens` field from a `Usage`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_usage_completion_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `total_tokens` field from a `Usage`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_usage_total_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `prompt_tokens_details` field from a `Usage`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_prompt_tokens_details_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_usage_prompt_tokens_details(LITERLLMAlefHandle handle);
+
+/**
+ * Create a `UserMessage` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_user_message_free`.
+ */
+LITERLLMAlefHandle literllm_user_message_from_json(const char *json);
+
+/**
+ * Serialize a `UserMessage` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_user_message_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `UserMessage` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_user_message_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `content` field from a `UserMessage`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_user_content_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_user_message_content(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `name` field from a `UserMessage`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_user_message_name(LITERLLMAlefHandle handle);
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Create a `WaitForBatchConfig` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_wait_for_batch_config_free`.
+ */
+LITERLLMAlefHandle literllm_wait_for_batch_config_from_json(const char *json);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Serialize a `WaitForBatchConfig` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_wait_for_batch_config_to_json(LITERLLMAlefHandle handle);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Free a `WaitForBatchConfig` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_wait_for_batch_config_free(LITERLLMAlefHandle handle);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Get the `initial_interval_secs` field from a `WaitForBatchConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_wait_for_batch_config_initial_interval_secs(LITERLLMAlefHandle handle);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Get the `max_interval_secs` field from a `WaitForBatchConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_wait_for_batch_config_max_interval_secs(LITERLLMAlefHandle handle);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Get the `backoff_multiplier` field from a `WaitForBatchConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+float literllm_wait_for_batch_config_backoff_multiplier(LITERLLMAlefHandle handle);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Get the `timeout_secs` field from a `WaitForBatchConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+double literllm_wait_for_batch_config_timeout_secs(LITERLLMAlefHandle handle);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
-LITERLLMAlefHandle literllm_catalog_refresh_config_default(void);
-
-/**
- * Convert an integer to a `Message` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_message_from_i32(int32_t value);
-
-/**
- * Convert a `Message` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_message_from_str(const char *name);
-
-/**
- * Convert an integer to a `UserContent` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_user_content_from_i32(int32_t value);
-
-/**
- * Convert a `UserContent` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_user_content_from_str(const char *name);
-
-/**
- * Convert an integer to a `ContentPart` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_content_part_from_i32(int32_t value);
-
-/**
- * Convert a `ContentPart` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_content_part_from_str(const char *name);
-
-/**
- * Convert an integer to a `ImageDetail` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_image_detail_from_i32(int32_t value);
-
-/**
- * Convert a `ImageDetail` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_image_detail_from_str(const char *name);
+LITERLLMAlefHandle literllm_wait_for_batch_config_default(void);
+#endif
 
 /**
  * Convert an integer to a `AssistantContent` variant. Returns -1 on invalid input.
@@ -6818,246 +6758,6 @@ int32_t literllm_assistant_part_from_i32(int32_t value);
 int32_t literllm_assistant_part_from_str(const char *name);
 
 /**
- * Convert an integer to a `ToolType` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_tool_type_from_i32(int32_t value);
-
-/**
- * Convert a `ToolType` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_tool_type_from_str(const char *name);
-
-/**
- * Convert an integer to a `ToolChoice` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_tool_choice_from_i32(int32_t value);
-
-/**
- * Convert a `ToolChoice` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_tool_choice_from_str(const char *name);
-
-/**
- * Convert an integer to a `ToolChoiceMode` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_tool_choice_mode_from_i32(int32_t value);
-
-/**
- * Convert a `ToolChoiceMode` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_tool_choice_mode_from_str(const char *name);
-
-/**
- * Convert an integer to a `ResponseFormat` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_response_format_from_i32(int32_t value);
-
-/**
- * Convert a `ResponseFormat` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_response_format_from_str(const char *name);
-
-/**
- * Convert an integer to a `StopSequence` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_stop_sequence_from_i32(int32_t value);
-
-/**
- * Convert a `StopSequence` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_stop_sequence_from_str(const char *name);
-
-/**
- * Convert an integer to a `Modality` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_modality_from_i32(int32_t value);
-
-/**
- * Convert a `Modality` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_modality_from_str(const char *name);
-
-/**
- * Convert an integer to a `FinishReason` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_finish_reason_from_i32(int32_t value);
-
-/**
- * Convert a `FinishReason` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_finish_reason_from_str(const char *name);
-
-/**
- * Convert an integer to a `ReasoningEffort` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_reasoning_effort_from_i32(int32_t value);
-
-/**
- * Convert a `ReasoningEffort` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_reasoning_effort_from_str(const char *name);
-
-/**
- * Convert an integer to a `EmbeddingFormat` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_embedding_format_from_i32(int32_t value);
-
-/**
- * Convert a `EmbeddingFormat` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_embedding_format_from_str(const char *name);
-
-/**
- * Convert an integer to a `EmbeddingInput` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_embedding_input_from_i32(int32_t value);
-
-/**
- * Convert a `EmbeddingInput` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_embedding_input_from_str(const char *name);
-
-/**
- * Convert an integer to a `EmbeddingContentPart` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_embedding_content_part_from_i32(int32_t value);
-
-/**
- * Convert a `EmbeddingContentPart` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_embedding_content_part_from_str(const char *name);
-
-/**
- * Convert an integer to a `ModerationInput` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_moderation_input_from_i32(int32_t value);
-
-/**
- * Convert a `ModerationInput` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_moderation_input_from_str(const char *name);
-
-/**
- * Convert an integer to a `RerankDocument` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_rerank_document_from_i32(int32_t value);
-
-/**
- * Convert a `RerankDocument` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_rerank_document_from_str(const char *name);
-
-/**
- * Convert an integer to a `OcrDocument` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_ocr_document_from_i32(int32_t value);
-
-/**
- * Convert a `OcrDocument` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_ocr_document_from_str(const char *name);
-
-/**
- * Convert an integer to a `FilePurpose` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_file_purpose_from_i32(int32_t value);
-
-/**
- * Convert a `FilePurpose` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_file_purpose_from_str(const char *name);
-
-/**
- * Convert an integer to a `BatchStatus` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_batch_status_from_i32(int32_t value);
-
-/**
- * Convert a `BatchStatus` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_batch_status_from_str(const char *name);
-
-/**
  * Convert an integer to a `AuthHeaderFormat` variant. Returns -1 on invalid input.
  * # Safety
  * Caller must ensure all pointer arguments are valid or null.
@@ -7071,21 +6771,6 @@ int32_t literllm_auth_header_format_from_i32(int32_t value);
  * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
  */
 int32_t literllm_auth_header_format_from_str(const char *name);
-
-/**
- * Convert an integer to a `StreamFormat` variant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure all pointer arguments are valid or null.
- * Returned pointers must be freed with the appropriate free function.
- */
-int32_t literllm_stream_format_from_i32(int32_t value);
-
-/**
- * Convert a `StreamFormat` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
- * # Safety
- * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
- */
-int32_t literllm_stream_format_from_str(const char *name);
 
 /**
  * Convert an integer to a `AuthType` variant. Returns -1 on invalid input.
@@ -7103,19 +6788,19 @@ int32_t literllm_auth_type_from_i32(int32_t value);
 int32_t literllm_auth_type_from_str(const char *name);
 
 /**
- * Convert an integer to a `Enforcement` variant. Returns -1 on invalid input.
+ * Convert an integer to a `BatchStatus` variant. Returns -1 on invalid input.
  * # Safety
  * Caller must ensure all pointer arguments are valid or null.
  * Returned pointers must be freed with the appropriate free function.
  */
-int32_t literllm_enforcement_from_i32(int32_t value);
+int32_t literllm_batch_status_from_i32(int32_t value);
 
 /**
- * Convert a `Enforcement` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * Convert a `BatchStatus` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
  * # Safety
  * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
  */
-int32_t literllm_enforcement_from_str(const char *name);
+int32_t literllm_batch_status_from_str(const char *name);
 
 /**
  * Convert an integer to a `CacheBackend` variant. Returns -1 on invalid input.
@@ -7148,6 +6833,111 @@ int32_t literllm_circuit_state_from_i32(int32_t value);
 int32_t literllm_circuit_state_from_str(const char *name);
 
 /**
+ * Convert an integer to a `ContentPart` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_content_part_from_i32(int32_t value);
+
+/**
+ * Convert a `ContentPart` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_content_part_from_str(const char *name);
+
+/**
+ * Convert an integer to a `EmbeddingContentPart` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_embedding_content_part_from_i32(int32_t value);
+
+/**
+ * Convert a `EmbeddingContentPart` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_embedding_content_part_from_str(const char *name);
+
+/**
+ * Convert an integer to a `EmbeddingFormat` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_embedding_format_from_i32(int32_t value);
+
+/**
+ * Convert a `EmbeddingFormat` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_embedding_format_from_str(const char *name);
+
+/**
+ * Convert an integer to a `EmbeddingInput` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_embedding_input_from_i32(int32_t value);
+
+/**
+ * Convert a `EmbeddingInput` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_embedding_input_from_str(const char *name);
+
+/**
+ * Convert an integer to a `Enforcement` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_enforcement_from_i32(int32_t value);
+
+/**
+ * Convert a `Enforcement` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_enforcement_from_str(const char *name);
+
+/**
+ * Convert an integer to a `FilePurpose` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_file_purpose_from_i32(int32_t value);
+
+/**
+ * Convert a `FilePurpose` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_file_purpose_from_str(const char *name);
+
+/**
+ * Convert an integer to a `FinishReason` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_finish_reason_from_i32(int32_t value);
+
+/**
+ * Convert a `FinishReason` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_finish_reason_from_str(const char *name);
+
+/**
  * Convert an integer to a `HealthStatus` variant. Returns -1 on invalid input.
  * # Safety
  * Caller must ensure all pointer arguments are valid or null.
@@ -7161,6 +6951,96 @@ int32_t literllm_health_status_from_i32(int32_t value);
  * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
  */
 int32_t literllm_health_status_from_str(const char *name);
+
+/**
+ * Convert an integer to a `ImageDetail` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_image_detail_from_i32(int32_t value);
+
+/**
+ * Convert a `ImageDetail` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_image_detail_from_str(const char *name);
+
+/**
+ * Convert an integer to a `Message` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_message_from_i32(int32_t value);
+
+/**
+ * Convert a `Message` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_message_from_str(const char *name);
+
+/**
+ * Convert an integer to a `Modality` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_modality_from_i32(int32_t value);
+
+/**
+ * Convert a `Modality` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_modality_from_str(const char *name);
+
+/**
+ * Convert an integer to a `ModerationInput` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_moderation_input_from_i32(int32_t value);
+
+/**
+ * Convert a `ModerationInput` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_moderation_input_from_str(const char *name);
+
+/**
+ * Convert an integer to a `OcrDocument` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_ocr_document_from_i32(int32_t value);
+
+/**
+ * Convert a `OcrDocument` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_ocr_document_from_str(const char *name);
+
+/**
+ * Convert an integer to a `ReasoningEffort` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_reasoning_effort_from_i32(int32_t value);
+
+/**
+ * Convert a `ReasoningEffort` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_reasoning_effort_from_str(const char *name);
 
 /**
  * Convert an integer to a `RefreshOutcome` variant. Returns -1 on invalid input.
@@ -7178,54 +7058,124 @@ int32_t literllm_refresh_outcome_from_i32(int32_t value);
 int32_t literllm_refresh_outcome_from_str(const char *name);
 
 /**
- * Free a `UserContent` handle.
+ * Convert an integer to a `RerankDocument` variant. Returns -1 on invalid input.
  * # Safety
- * Handle must have been returned by this library, or be zero.
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
  */
-void literllm_user_content_free(LITERLLMAlefHandle handle);
+int32_t literllm_rerank_document_from_i32(int32_t value);
 
 /**
- * Serialize a `UserContent` to a JSON string. Returns null on failure.
+ * Convert a `RerankDocument` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
  * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
  */
-char *literllm_user_content_to_json(LITERLLMAlefHandle handle);
+int32_t literllm_rerank_document_from_str(const char *name);
 
 /**
- * Render a `UserContent` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
+ * Convert an integer to a `ResponseFormat` variant. Returns -1 on invalid input.
  * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
  */
-char *literllm_user_content_to_string(LITERLLMAlefHandle handle);
+int32_t literllm_response_format_from_i32(int32_t value);
 
 /**
- * Free a `ImageDetail` handle.
+ * Convert a `ResponseFormat` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
  * # Safety
- * Handle must have been returned by this library, or be zero.
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
  */
-void literllm_image_detail_free(LITERLLMAlefHandle handle);
+int32_t literllm_response_format_from_str(const char *name);
 
 /**
- * Serialize a `ImageDetail` to a JSON string. Returns null on failure.
+ * Convert an integer to a `StopSequence` variant. Returns -1 on invalid input.
  * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
  */
-char *literllm_image_detail_to_json(LITERLLMAlefHandle handle);
+int32_t literllm_stop_sequence_from_i32(int32_t value);
 
 /**
- * Render a `ImageDetail` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
+ * Convert a `StopSequence` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
  * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
  */
-char *literllm_image_detail_to_string(LITERLLMAlefHandle handle);
+int32_t literllm_stop_sequence_from_str(const char *name);
+
+/**
+ * Convert an integer to a `StreamFormat` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_stream_format_from_i32(int32_t value);
+
+/**
+ * Convert a `StreamFormat` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_stream_format_from_str(const char *name);
+
+/**
+ * Convert an integer to a `ToolChoice` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_tool_choice_from_i32(int32_t value);
+
+/**
+ * Convert a `ToolChoice` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_tool_choice_from_str(const char *name);
+
+/**
+ * Convert an integer to a `ToolChoiceMode` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_tool_choice_mode_from_i32(int32_t value);
+
+/**
+ * Convert a `ToolChoiceMode` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_tool_choice_mode_from_str(const char *name);
+
+/**
+ * Convert an integer to a `ToolType` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_tool_type_from_i32(int32_t value);
+
+/**
+ * Convert a `ToolType` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_tool_type_from_str(const char *name);
+
+/**
+ * Convert an integer to a `UserContent` variant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * Returned pointers must be freed with the appropriate free function.
+ */
+int32_t literllm_user_content_from_i32(int32_t value);
+
+/**
+ * Convert a `UserContent` serde wire value (C string) to its integer discriminant. Returns -1 on invalid input.
+ * # Safety
+ * Caller must ensure `ptr` is a valid pointer to a `c_char` or null.
+ */
+int32_t literllm_user_content_from_str(const char *name);
 
 /**
  * Free a `AssistantContent` handle.
@@ -7251,306 +7201,6 @@ char *literllm_assistant_content_to_json(LITERLLMAlefHandle handle);
  * The returned string must be freed with `literllm_free_string`.
  */
 char *literllm_assistant_content_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ToolType` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_tool_type_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `ToolType` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_tool_type_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `ToolType` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_tool_type_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ToolChoice` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_tool_choice_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `ToolChoice` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_tool_choice_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `ToolChoice` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_tool_choice_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ResponseFormat` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_response_format_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `ResponseFormat` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_response_format_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `ResponseFormat` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_response_format_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `StopSequence` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_stop_sequence_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `StopSequence` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_stop_sequence_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `StopSequence` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_stop_sequence_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `FinishReason` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_finish_reason_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `FinishReason` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_finish_reason_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `FinishReason` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_finish_reason_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ReasoningEffort` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_reasoning_effort_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `ReasoningEffort` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_reasoning_effort_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `ReasoningEffort` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_reasoning_effort_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `EmbeddingFormat` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_embedding_format_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `EmbeddingFormat` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_embedding_format_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `EmbeddingFormat` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_embedding_format_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `EmbeddingInput` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_embedding_input_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `EmbeddingInput` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_embedding_input_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `EmbeddingInput` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_embedding_input_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `ModerationInput` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_moderation_input_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `ModerationInput` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_moderation_input_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `ModerationInput` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_moderation_input_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `OcrDocument` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_ocr_document_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `OcrDocument` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_ocr_document_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `OcrDocument` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_ocr_document_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `FilePurpose` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_file_purpose_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `FilePurpose` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_file_purpose_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `FilePurpose` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_file_purpose_to_string(LITERLLMAlefHandle handle);
-
-/**
- * Free a `BatchStatus` handle.
- * # Safety
- * Handle must have been returned by this library, or be zero.
- */
-void literllm_batch_status_free(LITERLLMAlefHandle handle);
-
-/**
- * Serialize a `BatchStatus` to a JSON string. Returns null on failure.
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_batch_status_to_json(LITERLLMAlefHandle handle);
-
-/**
- * Render a `BatchStatus` as its string representation
- * (the unit-variant name as serialized by serde — e.g. `"completed"`,
- * without surrounding JSON quotes).
- * # Safety
- * `handle` must be a valid, non-zero handle returned by a `literllm` function.
- * The returned string must be freed with `literllm_free_string`.
- */
-char *literllm_batch_status_to_string(LITERLLMAlefHandle handle);
 
 /**
  * Free a `AuthHeaderFormat` handle.
@@ -7603,29 +7253,29 @@ char *literllm_auth_type_to_json(LITERLLMAlefHandle handle);
 char *literllm_auth_type_to_string(LITERLLMAlefHandle handle);
 
 /**
- * Free a `Enforcement` handle.
+ * Free a `BatchStatus` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
  */
-void literllm_enforcement_free(LITERLLMAlefHandle handle);
+void literllm_batch_status_free(LITERLLMAlefHandle handle);
 
 /**
- * Serialize a `Enforcement` to a JSON string. Returns null on failure.
+ * Serialize a `BatchStatus` to a JSON string. Returns null on failure.
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_enforcement_to_json(LITERLLMAlefHandle handle);
+char *literllm_batch_status_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Render a `Enforcement` as its string representation
+ * Render a `BatchStatus` as its string representation
  * (the unit-variant name as serialized by serde — e.g. `"completed"`,
  * without surrounding JSON quotes).
  * # Safety
  * `handle` must be a valid, non-zero handle returned by a `literllm` function.
  * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_enforcement_to_string(LITERLLMAlefHandle handle);
+char *literllm_batch_status_to_string(LITERLLMAlefHandle handle);
 
 /**
  * Free a `CacheBackend` handle.
@@ -7653,6 +7303,231 @@ char *literllm_cache_backend_to_json(LITERLLMAlefHandle handle);
 char *literllm_cache_backend_to_string(LITERLLMAlefHandle handle);
 
 /**
+ * Free a `EmbeddingFormat` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_embedding_format_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `EmbeddingFormat` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_embedding_format_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `EmbeddingFormat` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_embedding_format_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `EmbeddingInput` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_embedding_input_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `EmbeddingInput` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_embedding_input_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `EmbeddingInput` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_embedding_input_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `Enforcement` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_enforcement_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `Enforcement` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_enforcement_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `Enforcement` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_enforcement_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `FilePurpose` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_file_purpose_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `FilePurpose` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_file_purpose_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `FilePurpose` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_file_purpose_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `FinishReason` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_finish_reason_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `FinishReason` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_finish_reason_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `FinishReason` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_finish_reason_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ImageDetail` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_image_detail_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `ImageDetail` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_image_detail_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `ImageDetail` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_image_detail_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ModerationInput` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_moderation_input_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `ModerationInput` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_moderation_input_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `ModerationInput` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_moderation_input_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `OcrDocument` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_ocr_document_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `OcrDocument` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_ocr_document_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `OcrDocument` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_ocr_document_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ReasoningEffort` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_reasoning_effort_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `ReasoningEffort` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_reasoning_effort_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `ReasoningEffort` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_reasoning_effort_to_string(LITERLLMAlefHandle handle);
+
+/**
  * Free a `RefreshOutcome` handle.
  * # Safety
  * Handle must have been returned by this library, or be zero.
@@ -7677,137 +7552,130 @@ char *literllm_refresh_outcome_to_json(LITERLLMAlefHandle handle);
  */
 char *literllm_refresh_outcome_to_string(LITERLLMAlefHandle handle);
 
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
- * Create a new LLM client with simple scalar configuration.
- *
- * This is the primary binding entry-point. All parameters except `api_key`
- * are optional â omitting them uses the same defaults as
- * `ClientConfigBuilder`.
- * \note Returns `LiterLlmError` if the underlying HTTP client cannot be
- * constructed, or if the resolved provider configuration is invalid.
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
+ * Free a `ResponseFormat` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
  */
-LITERLLMAlefHandle literllm_create_client(const char *api_key,
-                                          const char *base_url,
-                                          uint64_t timeout_secs,
-                                          uint32_t max_retries,
-                                          const char *model_hint);
-#endif
-
-#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
-/**
- * Create a new LLM client from a JSON string.
- *
- * The JSON object accepts the same fields as `liter-llm.toml` (snake_case).
- * \note Returns `LiterLlmError.BadRequest` if `json` is not valid JSON or
- * contains unknown fields.
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
- */
-LITERLLMAlefHandle literllm_create_client_from_json(const char *json);
-#endif
+void literllm_response_format_free(LITERLLMAlefHandle handle);
 
 /**
- * Encode bytes as a base64 data URL: `data:<mime>;base64,<b64>`.
- *
- * `mime` defaults to `IMAGE_PNG` when `None`.
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
- * \code
- * use liter_llm::image::{encode_data_url, IMAGE_PNG, IMAGE_JPEG};
- *
- * let url = encode_data_url(b"\x89PNG", Some(IMAGE_PNG));
- * assert!(url.starts_with("data:image/png;base64,"));
- *
- * let url_default = encode_data_url(b"\x89PNG", None);
- * assert!(url_default.starts_with("data:image/png;base64,"));
- *
- * let jpeg_url = encode_data_url(b"\xff\xd8\xff", Some(IMAGE_JPEG));
- * assert!(jpeg_url.starts_with("data:image/jpeg;base64,"));
- * \endcode
+ * Serialize a `ResponseFormat` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
  */
-char *literllm_encode_data_url(const uint8_t *bytes,
-                               uintptr_t bytes_len,
-                               const char *mime);
+char *literllm_response_format_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Return the byte length of the C string most recently returned by `literllm_encode_data_url` on this
- * thread. Returns 0 when the primary call returned null or failed before producing a string. Enables
- * safe slice construction in Zig and Java FFM Panama without a NUL-scan.
- * \note SAFETY: Pointer arguments are ignored and are present only to keep the companion ABI aligned
- * with `literllm_encode_data_url`.
+ * Render a `ResponseFormat` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
  */
-uintptr_t literllm_encode_data_url_len(const uint8_t *_bytes,
-                                       uintptr_t _bytes_len,
-                                       const char *_mime);
+char *literllm_response_format_to_string(LITERLLMAlefHandle handle);
 
 /**
- * Decode a base64 data URL into `DecodedDataUrl`.
- *
- * Returns `None` for:
- * - Non-data URLs (strings that do not start with `"data:"`).
- * - Malformed prefixes (missing `";base64,"` marker).
- * - Invalid base64 payloads.
- *
- * The returned MIME string is extracted verbatim from the URL prefix â
- * it is not validated or normalised.
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
- * \code
- * use liter_llm::image::{encode_data_url, decode_data_url, IMAGE_PNG};
- *
- * let url = encode_data_url(b"hello", Some(IMAGE_PNG));
- * let decoded = decode_data_url(&url).expect("valid data URL");
- * assert_eq!(decoded.mime, IMAGE_PNG);
- * assert_eq!(decoded.data, b"hello");
- *
- * // Non-data URLs return None.
- * assert!(decode_data_url("https://example.com/img.png").is_none());
- *
- * // Missing ;base64, marker returns None.
- * assert!(decode_data_url("data:image/png,plaintext").is_none());
- * \endcode
+ * Free a `StopSequence` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
  */
-LITERLLMAlefHandle literllm_decode_data_url(const char *url);
+void literllm_stop_sequence_free(LITERLLMAlefHandle handle);
 
 /**
- * Register a custom provider in the global runtime registry.
- *
- * The provider will be checked **before** all built-in providers during model
- * detection. If a provider with the same `name` already exists it is replaced.
- * \note Returns an error if the config is invalid (empty name, empty base_url, or
- * no model prefixes).
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
+ * Serialize a `StopSequence` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
  */
-int32_t literllm_register_custom_provider(LITERLLMAlefHandle config);
+char *literllm_stop_sequence_to_json(LITERLLMAlefHandle handle);
 
 /**
- * Remove a previously registered custom provider by name.
- *
- * Returns `true` if a provider with the given name was found and removed,
- * `false` if no such provider existed.
- * \note Returns an error if the custom-provider registry cannot be updated.
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
+ * Render a `StopSequence` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
  */
-int32_t literllm_unregister_custom_provider(const char *name);
+char *literllm_stop_sequence_to_string(LITERLLMAlefHandle handle);
 
 /**
- * Return the capability flags for a named provider.
- *
- * Performs an O(n) linear scan over the embedded registry (165 entries).
- * Returns an owned value so bindings can pass capability data without
- * borrowing registry internals.
- *
- * For unknown `provider_name` values the function returns an all-`false`
- * sentinel so callers never need to handle `Option`.
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
+ * Free a `ToolChoice` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
  */
-LITERLLMAlefHandle literllm_capabilities(const char *provider_name);
+void literllm_tool_choice_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `ToolChoice` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_tool_choice_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `ToolChoice` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_tool_choice_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `ToolType` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_tool_type_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `ToolType` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_tool_type_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `ToolType` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_tool_type_to_string(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `UserContent` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_user_content_free(LITERLLMAlefHandle handle);
+
+/**
+ * Serialize a `UserContent` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_user_content_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Render a `UserContent` as its string representation
+ * (the unit-variant name as serialized by serde — e.g. `"completed"`,
+ * without surrounding JSON quotes).
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_user_content_to_string(LITERLLMAlefHandle handle);
 
 /**
  * Return all provider configs from the registry.
@@ -7830,25 +7698,60 @@ char *literllm_all_providers(void);
 uintptr_t literllm_all_providers_len(void);
 
 /**
- * Return the set of complex provider names.
+ * Return the capability flags for a named provider.
  *
- * Complex providers require custom auth/routing logic beyond simple bearer
- * tokens (e.g. AWS Bedrock SigV4, Vertex AI OAuth2).
+ * Performs an O(n) linear scan over the embedded registry (165 entries).
+ * Returns an owned value so bindings can pass capability data without
+ * borrowing registry internals.
  *
- * The returned reference points into the static registry â no allocation.
+ * For unknown `provider_name` values the function returns an all-`false`
+ * sentinel so callers never need to handle `Option`.
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
-char *literllm_complex_provider_names(void);
+LITERLLMAlefHandle literllm_capabilities(const char *provider_name);
 
 /**
- * Return the byte length of the C string most recently returned by `literllm_complex_provider_names`
- * on this thread. Returns 0 when the primary call returned null or failed before producing a string.
- * Enables safe slice construction in Zig and Java FFM Panama without a NUL-scan.
- * \note SAFETY: Pointer arguments are ignored and are present only to keep the companion ABI aligned
- * with `literllm_complex_provider_names`.
+ * Assert that `current_len + incoming` does not exceed `limit`.
+ *
+ * Call this before appending `incoming` bytes to any buffer that must
+ * stay below `limit`.  Returns `Err(LiterLlmError::Streaming)` on overflow
+ * and emits a `tracing::warn!` with context.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ * \code
+ * check_bound("SSE buffer", buffer.len(), chunk.len(), SSE_BUFFER_MAX_BYTES)?;
+ * buffer.push_str(chunk_str);
+ * \endcode
  */
-uintptr_t literllm_complex_provider_names_len(void);
+int32_t literllm_check_bound(const char *context,
+                             uintptr_t current_len,
+                             uintptr_t incoming,
+                             uintptr_t limit);
+
+/**
+ * Remove all guardrails from the global registry.
+ *
+ * Primarily useful in tests to reset state between test cases.
+ *
+ * If the lock was poisoned by a panicking guardrail on a previous access,
+ * the poisoned state is recovered rather than propagating the panic.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+void literllm_clear(void);
+
+/**
+ * Clear the overlay registry, reverting `completion_cost`,
+ * `completion_cost_with_cache`, and `model_info` to the
+ * embedded catalog.
+ *
+ * Primarily a test seam (see `install_catalog_overlay_from_str`); also
+ * usable by long-running processes that want to abandon a runtime refresh.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+void literllm_clear_catalog_overlay(void);
 
 /**
  * Calculate the estimated cost of a completion given a model name and token
@@ -7902,48 +7805,25 @@ double literllm_completion_cost_with_cache(const char *model,
                                            uint64_t completion_tokens);
 
 /**
- * Look up FFI-friendly pricing and capability metadata for a model.
+ * Return the set of complex provider names.
  *
- * Returns `None` if the model is not present in the active pricing
- * registry. Uses the same exact-match-then-prefix-fallback resolution as
- * `model_pricing`; unlike `model_pricing`, the result is an owned
- * `ModelInfo` value safe to hand across the FFI boundary.
+ * Complex providers require custom auth/routing logic beyond simple bearer
+ * tokens (e.g. AWS Bedrock SigV4, Vertex AI OAuth2).
  *
- * When a runtime catalog refresh has succeeded, this reflects the refreshed
- * (overlay) catalog; otherwise it reflects the embedded catalog. See
- * `model_pricing` for the embedded-only alternative.
+ * The returned reference points into the static registry â no allocation.
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
-LITERLLMAlefHandle literllm_model_info(const char *model);
+char *literllm_complex_provider_names(void);
 
 /**
- * Remove all guardrails from the global registry.
- *
- * Primarily useful in tests to reset state between test cases.
- *
- * If the lock was poisoned by a panicking guardrail on a previous access,
- * the poisoned state is recovered rather than propagating the panic.
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
+ * Return the byte length of the C string most recently returned by `literllm_complex_provider_names`
+ * on this thread. Returns 0 when the primary call returned null or failed before producing a string.
+ * Enables safe slice construction in Zig and Java FFM Panama without a NUL-scan.
+ * \note SAFETY: Pointer arguments are ignored and are present only to keep the companion ABI aligned
+ * with `literllm_complex_provider_names`.
  */
-void literllm_clear(void);
-
-#if defined(LITERLLM_FEATURE_TOKENIZER)
-/**
- * Count tokens in a text string using the tokenizer for the given model.
- *
- * The tokenizer is resolved from the model name prefix (e.g. `"gpt-4o"` maps
- * to the `Xenova/gpt-4o` HuggingFace tokenizer). Tokenizers are cached after
- * first load.
- * \note Returns `LiterLlmError.BadRequest` if the tokenizer cannot be loaded
- * (e.g. network failure on first use) or if tokenization itself fails.
- * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
- * freed with the appropriate free function.
- */
-uintptr_t literllm_count_tokens(const char *model,
-                                const char *text);
-#endif
+uintptr_t literllm_complex_provider_names_len(void);
 
 #if defined(LITERLLM_FEATURE_TOKENIZER)
 /**
@@ -7962,39 +7842,116 @@ uintptr_t literllm_count_request_tokens(const char *model,
                                         LITERLLMAlefHandle req);
 #endif
 
-#if defined(LITERLLM_FEATURE_TOWER)
+#if defined(LITERLLM_FEATURE_TOKENIZER)
 /**
- * Record the estimated USD cost of a completion.
+ * Count tokens in a text string using the tokenizer for the given model.
  *
- * Call from `CostTrackingService` once a
- * completion's cost has been computed. Emits `gen_ai.client.cost.usd`.
- * If the meter has not been initialized, this call is a no-op.
+ * The tokenizer is resolved from the model name prefix (e.g. `"gpt-4o"` maps
+ * to the `Xenova/gpt-4o` HuggingFace tokenizer). Tokenizers are cached after
+ * first load.
+ * \note Returns `LiterLlmError.BadRequest` if the tokenizer cannot be loaded
+ * (e.g. network failure on first use) or if tokenization itself fails.
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
-void literllm_record_cost_usd(const char *system,
-                              const char *model,
-                              const char *operation,
-                              double cost_usd);
+uintptr_t literllm_count_tokens(const char *model,
+                                const char *text);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Create a new LLM client with simple scalar configuration.
+ *
+ * This is the primary binding entry-point. All parameters except `api_key`
+ * are optional â omitting them uses the same defaults as
+ * `ClientConfigBuilder`.
+ * \note Returns `LiterLlmError` if the underlying HTTP client cannot be
+ * constructed, or if the resolved provider configuration is invalid.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_create_client(const char *api_key,
+                                          const char *base_url,
+                                          uint64_t timeout_secs,
+                                          uint32_t max_retries,
+                                          const char *model_hint);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Create a new LLM client from a JSON string.
+ *
+ * The JSON object accepts the same fields as `liter-llm.toml` (snake_case).
+ * \note Returns `LiterLlmError.BadRequest` if `json` is not valid JSON or
+ * contains unknown fields.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_create_client_from_json(const char *json);
 #endif
 
 /**
- * Assert that `current_len + incoming` does not exceed `limit`.
+ * Decode a base64 data URL into `DecodedDataUrl`.
  *
- * Call this before appending `incoming` bytes to any buffer that must
- * stay below `limit`.  Returns `Err(LiterLlmError::Streaming)` on overflow
- * and emits a `tracing::warn!` with context.
+ * Returns `None` for:
+ * - Non-data URLs (strings that do not start with `"data:"`).
+ * - Malformed prefixes (missing `";base64,"` marker).
+ * - Invalid base64 payloads.
+ *
+ * The returned MIME string is extracted verbatim from the URL prefix â
+ * it is not validated or normalised.
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  * \code
- * check_bound("SSE buffer", buffer.len(), chunk.len(), SSE_BUFFER_MAX_BYTES)?;
- * buffer.push_str(chunk_str);
+ * use liter_llm::image::{encode_data_url, decode_data_url, IMAGE_PNG};
+ *
+ * let url = encode_data_url(b"hello", Some(IMAGE_PNG));
+ * let decoded = decode_data_url(&url).expect("valid data URL");
+ * assert_eq!(decoded.mime, IMAGE_PNG);
+ * assert_eq!(decoded.data, b"hello");
+ *
+ * // Non-data URLs return None.
+ * assert!(decode_data_url("https://example.com/img.png").is_none());
+ *
+ * // Missing ;base64, marker returns None.
+ * assert!(decode_data_url("data:image/png,plaintext").is_none());
  * \endcode
  */
-int32_t literllm_check_bound(const char *context,
-                             uintptr_t current_len,
-                             uintptr_t incoming,
-                             uintptr_t limit);
+LITERLLMAlefHandle literllm_decode_data_url(const char *url);
+
+/**
+ * Encode bytes as a base64 data URL: `data:<mime>;base64,<b64>`.
+ *
+ * `mime` defaults to `IMAGE_PNG` when `None`.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ * \code
+ * use liter_llm::image::{encode_data_url, IMAGE_PNG, IMAGE_JPEG};
+ *
+ * let url = encode_data_url(b"\x89PNG", Some(IMAGE_PNG));
+ * assert!(url.starts_with("data:image/png;base64,"));
+ *
+ * let url_default = encode_data_url(b"\x89PNG", None);
+ * assert!(url_default.starts_with("data:image/png;base64,"));
+ *
+ * let jpeg_url = encode_data_url(b"\xff\xd8\xff", Some(IMAGE_JPEG));
+ * assert!(jpeg_url.starts_with("data:image/jpeg;base64,"));
+ * \endcode
+ */
+char *literllm_encode_data_url(const uint8_t *bytes,
+                               uintptr_t bytes_len,
+                               const char *mime);
+
+/**
+ * Return the byte length of the C string most recently returned by `literllm_encode_data_url` on this
+ * thread. Returns 0 when the primary call returned null or failed before producing a string. Enables
+ * safe slice construction in Zig and Java FFM Panama without a NUL-scan.
+ * \note SAFETY: Pointer arguments are ignored and are present only to keep the companion ABI aligned
+ * with `literllm_encode_data_url`.
+ */
+uintptr_t literllm_encode_data_url_len(const uint8_t *_bytes,
+                                       uintptr_t _bytes_len,
+                                       const char *_mime);
 
 #if ((defined(LITERLLM_FEATURE_NATIVE_HTTP) && !defined(SKIF_WINDOWS)) || (defined(LITERLLM_FEATURE_NATIVE_HTTP) && defined(SKIF_WINDOWS)))
 /**
@@ -8040,16 +7997,36 @@ void literllm_ensure_crypto_provider(void);
 int32_t literllm_install_catalog_overlay_from_str(const char *catalog_json);
 
 /**
- * Clear the overlay registry, reverting `completion_cost`,
- * `completion_cost_with_cache`, and `model_info` to the
- * embedded catalog.
+ * Look up FFI-friendly pricing and capability metadata for a model.
  *
- * Primarily a test seam (see `install_catalog_overlay_from_str`); also
- * usable by long-running processes that want to abandon a runtime refresh.
+ * Returns `None` if the model is not present in the active pricing
+ * registry. Uses the same exact-match-then-prefix-fallback resolution as
+ * `model_pricing`; unlike `model_pricing`, the result is an owned
+ * `ModelInfo` value safe to hand across the FFI boundary.
+ *
+ * When a runtime catalog refresh has succeeded, this reflects the refreshed
+ * (overlay) catalog; otherwise it reflects the embedded catalog. See
+ * `model_pricing` for the embedded-only alternative.
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
-void literllm_clear_catalog_overlay(void);
+LITERLLMAlefHandle literllm_model_info(const char *model);
+
+#if defined(LITERLLM_FEATURE_TOWER)
+/**
+ * Record the estimated USD cost of a completion.
+ *
+ * Call from `CostTrackingService` once a
+ * completion's cost has been computed. Emits `gen_ai.client.cost.usd`.
+ * If the meter has not been initialized, this call is a no-op.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+void literllm_record_cost_usd(const char *system,
+                              const char *model,
+                              const char *operation,
+                              double cost_usd);
+#endif
 
 /**
  * Refresh the runtime catalog overlay per `config`.
@@ -8077,6 +8054,29 @@ void literllm_clear_catalog_overlay(void);
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_refresh_catalog(LITERLLMAlefHandle config);
+
+/**
+ * Register a custom provider in the global runtime registry.
+ *
+ * The provider will be checked **before** all built-in providers during model
+ * detection. If a provider with the same `name` already exists it is replaced.
+ * \note Returns an error if the config is invalid (empty name, empty base_url, or
+ * no model prefixes).
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+int32_t literllm_register_custom_provider(LITERLLMAlefHandle config);
+
+/**
+ * Remove a previously registered custom provider by name.
+ *
+ * Returns `true` if a provider with the given name was found and removed,
+ * `false` if no such provider existed.
+ * \note Returns an error if the custom-provider registry cannot be updated.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+int32_t literllm_unregister_custom_provider(const char *name);
 
 /**
  * Return the HTTP status code for the error pointed to by `err`.
