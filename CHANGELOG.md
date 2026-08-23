@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Repinned `alef.toml` `alef_version` from `0.66.0` to `0.67.2` and regenerated. Behaviour picked up
+  from the two upstream releases:
+  - `crates/liter-llm-ffi/build.rs`: C header generation is now opt-in behind
+    `ALEF_EXPORT_GENERATED_HEADERS=1` and writes both `crates/liter-llm-ffi/include/liter_llm.h` and
+    `packages/go/include/liter_llm.h` atomically with rollback. A plain `cargo build -p liter-llm-ffi`
+    no longer rewrites either header, so ordinary builds stop mutating committed source; regenerating
+    with the flag set reproduces the committed headers byte for byte. `alef verify` is the freshness
+    gate now.
+  - `packages/dart`: flutter_rust_bridge moved from 2.12.0 to 2.13.0 (`pubspec.yaml`,
+    `packages/dart/rust/Cargo.toml`, `Cargo.lock`, regenerated bridge). The generated bridge now
+    allows `mismatched_lifetime_syntaxes` and fully qualifies `std::result::Result::Ok`.
+    `packages/dart/rust/build.rs` passes `--no-deps-check` to `flutter_rust_bridge_codegen` and only
+    re-applies the FRB cfg gates after a regeneration — the committed bridge already carries them, so
+    the previous unconditional repair on every build was redundant.
+  - `docs-site/src/snippets`: 1,691 snippets regenerated. The generator now prints a field of the
+    result instead of the whole value (`System.out.println(result.data())` rather than
+    `System.out.println(result)`). Where the fixture's assertion path is not a field of the returned
+    type — `is_true` on `cost_tracked`, `equals` on `error.status_code`, or `audio` on a response the
+    binding flattens to a byte array — the emitted accessor does not exist and the snippet no longer
+    typechecks. Verified against built packages: 17 C# and 78 Java snippets regress this way. Tracked
+    upstream against alef; these snippets are generated and cannot be fixed in this repo.
+
 ## [1.18.1] - 2026-08-22
 
 ### Fixed
