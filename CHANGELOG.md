@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A drifted coding-agent plugin now fails the release instead of shipping.** `CI Plugin` already
+  re-ran on `Cargo.toml`, so `--check` caught drift on `main` — but nothing asserted the plugin
+  version against the tag actually being published. `scripts/sync_plugin_version.py` gains
+  `--expect <version>`, which requires core and `plugin/.ai-rulez/config.toml` `[plugin].version` to
+  both equal the version being released, and `publish.yaml`'s `validate-versions` job runs it against
+  `needs.prepare.outputs.version`. `.task/tools/version-sync.yml` joins the `ci-plugin.yaml` path
+  filter so edits to the sync task re-run the gate as well.
+
 ### Changed
 
 - Repinned `alef.toml` `alef_version` from `0.66.0` to `0.67.2` and regenerated. Behaviour picked up
