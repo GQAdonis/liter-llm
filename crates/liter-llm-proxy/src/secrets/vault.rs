@@ -27,7 +27,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
-use liter_llm::provider::outbound_policy::validate_outbound_url_sync;
+use liter_llm::provider::{configure_outbound_client_builder, validate_outbound_url_sync};
 use secrecy::{ExposeSecret, SecretString};
 use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
 
@@ -323,11 +323,10 @@ impl HashiCorpVaultProviderBuilder {
     /// # Security
     ///
     /// The caller-supplied `address` is validated against the global
-    /// [`liter_llm::provider::OutboundPolicy`] **before** the `VaultClient`
-    /// is constructed.  This prevents SSRF via operator misconfiguration or
-    /// config-file injection — an address pointing at `127.0.0.1:8200`,
-    /// `169.254.169.254`, or any other private/link-local range is rejected
-    /// when the policy is `DenyPrivate` (the proxy default).
+    /// [`liter_llm::provider::OutboundPolicy`] before construction. The
+    /// Vault transport then reapplies the policy to redirects and every DNS
+    /// result at connection time, preventing hostname rebinding from bypassing
+    /// the proxy-default `DenyPrivate` policy.
     pub fn build(self) -> Result<HashiCorpVaultProvider, SecretError> {
         let address = self.address.unwrap_or_else(|| "http://127.0.0.1:8200".to_owned());
         let token = self
@@ -347,8 +346,9 @@ impl HashiCorpVaultProviderBuilder {
             .build()
             .map_err(|e| SecretError::backend_msg(format!("invalid Vault client settings: {e}")))?;
 
-        let client = VaultClient::new(settings)
+        let mut client = VaultClient::new(settings.clone())
             .map_err(|e| SecretError::backend_msg(format!("failed to create Vault client: {e}")))?;
+        client.http.http = build_guarded_vault_http_client(&settings)?;
 
         Ok(HashiCorpVaultProvider {
             client: Arc::new(client),
@@ -358,9 +358,61 @@ impl HashiCorpVaultProviderBuilder {
     }
 }
 
+fn build_guarded_vault_http_client(
+    settings: &vaultrs::client::VaultClientSettings,
+) -> Result<reqwest::Client, SecretError> {
+    if settings.proxy.is_some()
+        && !matches!(
+            liter_llm::provider::current_policy(),
+            liter_llm::provider::OutboundPolicy::Off
+        )
+    {
+        return Err(SecretError::Forbidden(
+            "Vault proxy settings are incompatible with an active outbound policy because the proxy owns DNS".into(),
+        ));
+    }
+    liter_llm::ensure_crypto_provider();
+    let mut builder = reqwest::Client::builder().tls_backend_rustls();
+    if let Some(timeout) = settings.timeout {
+        builder = builder.timeout(timeout);
+    }
+    builder = builder.tls_danger_accept_invalid_certs(!settings.verify);
+
+    if settings.address.scheme() == "http" {
+        builder = builder.tls_certs_only(Vec::new());
+    } else {
+        for path in &settings.ca_certs {
+            let content = std::fs::read(path).map_err(|error| {
+                SecretError::backend_msg(format!("failed to read Vault CA certificate {path}: {error}"))
+            })?;
+            let certificates = reqwest::Certificate::from_pem_bundle(&content).map_err(|error| {
+                SecretError::backend_msg(format!("failed to parse Vault CA certificate {path}: {error}"))
+            })?;
+            builder = builder.tls_certs_merge(certificates);
+        }
+    }
+
+    if let Some(identity) = &settings.identity {
+        builder = builder.identity(identity.clone());
+    }
+    if let Some(proxy) = &settings.proxy {
+        let proxy = reqwest::Proxy::all(proxy.as_str())
+            .map_err(|error| SecretError::backend_msg(format!("invalid Vault proxy URL: {error}")))?;
+        builder = builder.proxy(proxy);
+    }
+
+    configure_outbound_client_builder(builder, None)
+        .build()
+        .map_err(|error| SecretError::backend_msg(format!("failed to create guarded Vault HTTP client: {error}")))
+}
+
 #[cfg(test)]
 mod tests {
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
+
+    use serial_test::serial;
 
     use super::*;
 
@@ -407,6 +459,7 @@ mod tests {
     /// concurrent tests that set a different policy can interfere.  In
     /// practice, the default `Off` policy makes most tests unaffected.
     #[test]
+    #[serial(outbound_policy)]
     fn vault_address_rejects_internal_endpoints() {
         use liter_llm::provider::{OutboundPolicy, set_outbound_policy};
 
@@ -487,6 +540,7 @@ mod tests {
 
     /// Verify that the builder falls back to sane defaults.
     #[test]
+    #[serial(outbound_policy)]
     fn builder_defaults_produce_provider() {
         let result = HashiCorpVaultProvider::builder()
             .address("http://127.0.0.1:8200")
@@ -499,6 +553,7 @@ mod tests {
     }
 
     #[test]
+    #[serial(outbound_policy)]
     fn builder_custom_mount() {
         let provider = HashiCorpVaultProvider::builder()
             .address("http://127.0.0.1:8200")
@@ -508,5 +563,56 @@ mod tests {
             .build()
             .expect("should build");
         assert_eq!(provider.mount, "kv");
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn vault_hostname_resolving_private_is_blocked_before_connection() {
+        use liter_llm::provider::{OutboundPolicy, set_outbound_policy};
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind Vault test server");
+        listener
+            .set_nonblocking(true)
+            .expect("set Vault test server nonblocking");
+        let address = listener.local_addr().expect("Vault test server address");
+        let hit = Arc::new(AtomicBool::new(false));
+        let hit_writer = Arc::clone(&hit);
+        let server = std::thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(1);
+            loop {
+                match listener.accept() {
+                    Ok(_) => {
+                        hit_writer.store(true, Ordering::SeqCst);
+                        break;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        if Instant::now() >= deadline {
+                            break;
+                        }
+                        std::thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("accept Vault test request: {error}"),
+                }
+            }
+        });
+
+        set_outbound_policy(OutboundPolicy::DenyPrivate);
+        let provider = HashiCorpVaultProvider::builder()
+            .address(format!("http://localhost:{}", address.port()))
+            .token("test-token")
+            .build()
+            .expect("hostname is accepted before connection-time DNS");
+        let result = provider.get("path/to/secret").await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        server.join().expect("Vault test server thread");
+        assert!(
+            result.is_err(),
+            "private hostname resolution must fail the Vault request"
+        );
+        assert!(
+            !hit.load(Ordering::SeqCst),
+            "blocked Vault address must not receive a request"
+        );
     }
 }

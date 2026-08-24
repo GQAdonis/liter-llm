@@ -67,7 +67,7 @@ pub struct WebIdentityCredentialProvider {
     session_name: String,
     region: String,
     cached: RwLock<Option<CachedCredentials>>,
-    http_client: reqwest::Client,
+    http_client: Option<reqwest::Client>,
 }
 
 impl WebIdentityCredentialProvider {
@@ -79,14 +79,13 @@ impl WebIdentityCredentialProvider {
         session_name: impl Into<String>,
         region: impl Into<String>,
     ) -> Self {
-        crate::ensure_crypto_provider();
         Self {
             role_arn: role_arn.into(),
             token_file: token_file.into(),
             session_name: session_name.into(),
             region: region.into(),
             cached: RwLock::new(None),
-            http_client: reqwest::Client::new(),
+            http_client: None,
         }
     }
 
@@ -110,9 +109,12 @@ impl WebIdentityCredentialProvider {
     }
 
     /// Override the HTTP client used for STS requests.
+    ///
+    /// This is a trusted transport override; policy-aware callers should use
+    /// [`crate::provider::configure_outbound_client_builder`].
     #[must_use]
     pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
-        self.http_client = client;
+        self.http_client = Some(client);
         self
     }
 
@@ -130,10 +132,15 @@ impl WebIdentityCredentialProvider {
             })?;
         let token = token.trim();
 
+        validate_region(&self.region)?;
         let url = format!("https://sts.{}.amazonaws.com/", self.region);
+        crate::provider::validate_outbound_url(&url).await?;
+        let http_client = match &self.http_client {
+            Some(client) => client.clone(),
+            None => crate::provider::authenticated_outbound_client()?,
+        };
 
-        let resp = self
-            .http_client
+        let resp = http_client
             .post(&url)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .form(&[
@@ -146,9 +153,11 @@ impl WebIdentityCredentialProvider {
             ])
             .send()
             .await
-            .map_err(|e| LiterLlmError::Authentication {
-                message: format!("STS AssumeRoleWithWebIdentity request failed: {e}"),
-                status: 401,
+            .map_err(|e| {
+                crate::provider::outbound_forbidden_from_reqwest(&e).unwrap_or_else(|| LiterLlmError::Authentication {
+                    message: format!("STS AssumeRoleWithWebIdentity request failed: {e}"),
+                    status: 401,
+                })
             })?;
 
         let status = resp.status();
@@ -174,6 +183,24 @@ impl WebIdentityCredentialProvider {
             expires_in_secs: DEFAULT_DURATION_SECS,
         })
     }
+}
+
+fn validate_region(region: &str) -> Result<(), LiterLlmError> {
+    let valid = !region.is_empty()
+        && region.len() <= 63
+        && !region.starts_with('-')
+        && !region.ends_with('-')
+        && region
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        && region.bytes().filter(|byte| *byte == b'-').count() >= 2;
+    if valid {
+        return Ok(());
+    }
+    Err(LiterLlmError::OutboundForbidden {
+        url: format!("aws-region:{region}"),
+        reason: "AWS region must contain only lowercase ASCII letters, digits, and interior hyphens".into(),
+    })
 }
 
 impl CredentialProvider for WebIdentityCredentialProvider {
@@ -345,6 +372,23 @@ mod tests {
         assert_eq!(provider.role_arn, "arn:aws:iam::123456789012:role/TestRole");
         assert_eq!(provider.session_name, "test-session");
         assert_eq!(provider.region, "eu-west-1");
+    }
+
+    #[test]
+    fn sts_region_rejects_url_authority_injection() {
+        for region in [
+            "us-east-1@169.254.169.254",
+            "us-east-1/path",
+            "us-east-1?host=x",
+            ".evil.test",
+        ] {
+            assert!(
+                validate_region(region).is_err(),
+                "region must reject URL syntax: {region}"
+            );
+        }
+        assert!(validate_region("us-gov-west-1").is_ok());
+        assert!(validate_region("ap-southeast-7").is_ok());
     }
 
     #[tokio::test]

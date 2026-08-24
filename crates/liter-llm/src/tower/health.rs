@@ -134,12 +134,11 @@ impl HttpProbeHealthChecker {
     /// The probe timeout is controlled entirely by the [`HealthCheckConfig::timeout`]
     /// passed to the probe loop, not by this constructor.
     pub fn new(probe_urls: impl IntoIterator<Item = (String, String)>) -> Result<Self> {
-        let client = reqwest::Client::builder()
-            .build()
-            .map_err(|e| LiterLlmError::BadRequest {
-                message: format!("failed to build HTTP client for health checker: {e}"),
-                status: 500,
-            })?;
+        let builder = crate::provider::configure_outbound_client_builder(reqwest::Client::builder(), None);
+        let client = builder.build().map_err(|e| LiterLlmError::BadRequest {
+            message: format!("failed to build HTTP client for health checker: {e}"),
+            status: 500,
+        })?;
         Ok(Self {
             client,
             probe_urls: probe_urls.into_iter().collect(),
@@ -156,6 +155,10 @@ impl HealthChecker for HttpProbeHealthChecker {
         let client = self.client.clone();
 
         Box::pin(async move {
+            if let Err(error) = crate::provider::validate_outbound_url(&url).await {
+                tracing::debug!(upstream = %url, error = %error, "health probe blocked by outbound policy");
+                return HealthStatus::Unhealthy;
+            }
             let result = client.get(&url).send().await;
             match result {
                 Ok(resp) if resp.status().is_success() || resp.status().is_redirection() => HealthStatus::Healthy,

@@ -6,8 +6,11 @@
 //! where the application owner registers their own providers and is trusted.
 //! The proxy switches the policy to [`OutboundPolicy::DenyPrivate`] at startup
 //! so multi-tenant deployments cannot SSRF into cloud metadata services or
-//! private networks.
+//! private networks. Native HTTP clients enforce the policy before each
+//! request, on redirects, and again after connection-time DNS resolution.
 
+#[cfg(all(any(feature = "native-http", feature = "wasm-http"), not(target_arch = "wasm32")))]
+use std::error::Error as _;
 use std::net::IpAddr;
 use std::sync::{OnceLock, RwLock};
 
@@ -18,9 +21,9 @@ use crate::error::LiterLlmError;
 /// Controls which upstream URLs the library is allowed to connect to.
 ///
 /// Set once at application startup via [`set_outbound_policy`].  Checked at
-/// provider registration time and, when a custom DNS resolver is wired into
-/// `reqwest`, at every TCP connection attempt (defense in depth against DNS
-/// rebinding).
+/// provider registration time, immediately before each effective request, on
+/// native redirect hops, and at every native TCP connection attempt (defense
+/// in depth against DNS rebinding).
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(alef, alef(skip))]
 pub enum OutboundPolicy {
@@ -30,7 +33,9 @@ pub enum OutboundPolicy {
     Off,
 
     /// Reject URLs whose host resolves to any private / loopback / link-local
-    /// / multicast / CGNAT address.  Recommended for multi-tenant proxies.
+    /// / multicast / CGNAT address. Recommended for native multi-tenant proxies.
+    /// WASM can reject literal addresses but browser-owned DNS and redirects
+    /// cannot be inspected by this policy.
     DenyPrivate,
 
     /// Only allow URLs whose origin (scheme + host + port) matches one of the
@@ -105,6 +110,8 @@ pub async fn validate_outbound_url(raw_url: &str) -> Result<(), LiterLlmError> {
         }
     }
 
+    validate_literal_host(&url, raw_url)?;
+
     match policy {
         OutboundPolicy::Off => Ok(()),
         OutboundPolicy::DenyPrivate => check_deny_private(&url, raw_url).await,
@@ -114,7 +121,8 @@ pub async fn validate_outbound_url(raw_url: &str) -> Result<(), LiterLlmError> {
 
 #[cfg(target_arch = "wasm32")]
 async fn check_deny_private(_url: &Url, _raw: &str) -> Result<(), LiterLlmError> {
-    // ~keep WASM has no Rust DNS hook; only native GuardedResolver can block hostname SSRF.
+    // ~keep Literal private hosts are rejected before this function. WASM has no Rust DNS or
+    // ~keep redirect hook, so hostname resolution and redirect enforcement remain browser-owned.
     Ok(())
 }
 
@@ -147,29 +155,78 @@ pub fn validate_outbound_url_sync(raw_url: &str) -> Result<(), LiterLlmError> {
         }
     }
 
-    match url.host() {
-        Some(url::Host::Ipv4(v4)) if is_forbidden(IpAddr::V4(v4)) => {
-            return Err(LiterLlmError::OutboundForbidden {
-                url: raw_url.to_string(),
-                reason: format!("host is a forbidden address {v4}"),
-            });
-        }
-        Some(url::Host::Ipv6(v6)) if is_forbidden(IpAddr::V6(v6)) => {
-            return Err(LiterLlmError::OutboundForbidden {
-                url: raw_url.to_string(),
-                reason: format!("host is a forbidden address {v6}"),
-            });
-        }
-        _ => {
-            // ~keep No sync DNS here; GuardedResolver handles hostname SSRF at connect time.
-        }
-    }
+    validate_literal_host(&url, raw_url)?;
 
     if let OutboundPolicy::Allowlist(allowed) = policy {
         return check_allowlist(&url, raw_url, &allowed);
     }
 
     Ok(())
+}
+
+fn validate_literal_host(url: &Url, raw_url: &str) -> Result<(), LiterLlmError> {
+    match url.host() {
+        Some(url::Host::Ipv4(v4)) if is_forbidden(IpAddr::V4(v4)) => {
+            return Err(LiterLlmError::OutboundForbidden {
+                url: raw_url.to_owned(),
+                reason: format!("host is a forbidden address {v4}"),
+            });
+        }
+        Some(url::Host::Ipv6(v6)) if is_forbidden(IpAddr::V6(v6)) => {
+            return Err(LiterLlmError::OutboundForbidden {
+                url: raw_url.to_owned(),
+                reason: format!("host is a forbidden address {v6}"),
+            });
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+#[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+fn outbound_redirect_policy(allow_cross_origin: bool) -> reqwest::redirect::Policy {
+    let default_policy = reqwest::redirect::Policy::default();
+    reqwest::redirect::Policy::custom(move |attempt| {
+        match validate_redirect(attempt.previous().last(), attempt.url(), allow_cross_origin) {
+            Ok(()) => default_policy.redirect(attempt),
+            Err(error) => attempt.error(error),
+        }
+    })
+}
+
+#[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+fn validate_redirect(previous: Option<&Url>, next: &Url, allow_cross_origin: bool) -> Result<(), LiterLlmError> {
+    if let Some(previous) = previous
+        && previous.scheme() == "https"
+        && next.scheme() == "http"
+    {
+        return Err(LiterLlmError::OutboundForbidden {
+            url: next.as_str().to_owned(),
+            reason: "HTTPS-to-HTTP redirects are forbidden".into(),
+        });
+    }
+
+    if matches!(current_policy(), OutboundPolicy::Off) {
+        return Ok(());
+    }
+
+    if let Some(previous) = previous
+        && !allow_cross_origin
+        && !same_origin(previous, next)
+    {
+        return Err(LiterLlmError::OutboundForbidden {
+            url: next.as_str().to_owned(),
+            reason: "cross-origin redirects are forbidden while an outbound policy is active".into(),
+        });
+    }
+
+    validate_outbound_url_sync(next.as_str())
+}
+
+fn same_origin(left: &Url, right: &Url) -> bool {
+    left.scheme() == right.scheme()
+        && left.host_str() == right.host_str()
+        && left.port_or_known_default() == right.port_or_known_default()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -201,11 +258,7 @@ async fn check_deny_private(url: &Url, raw: &str) -> Result<(), LiterLlmError> {
 }
 
 fn check_allowlist(url: &Url, raw: &str, allowed: &[Url]) -> Result<(), LiterLlmError> {
-    let origin_match = allowed.iter().any(|a| {
-        a.scheme() == url.scheme()
-            && a.host_str() == url.host_str()
-            && a.port_or_known_default() == url.port_or_known_default()
-    });
+    let origin_match = allowed.iter().any(|allowed_url| same_origin(allowed_url, url));
     if origin_match {
         Ok(())
     } else {
@@ -281,7 +334,7 @@ mod resolver_impl {
 
     use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 
-    use super::{GuardedResolver, OutboundPolicy, current_policy, is_forbidden};
+    use super::{GuardedResolver, LiterLlmError, OutboundPolicy, current_policy, is_forbidden};
 
     #[derive(Clone)]
     struct DnsCacheEntry {
@@ -349,7 +402,7 @@ mod resolver_impl {
         Ok(addrs)
     }
 
-    fn validate_addrs(
+    pub(super) fn validate_addrs(
         policy: OutboundPolicy,
         host: &str,
         addrs: &[SocketAddr],
@@ -360,11 +413,10 @@ mod resolver_impl {
 
         for sa in addrs {
             if is_forbidden(sa.ip()) {
-                let err: Box<dyn std::error::Error + Send + Sync> = format!(
-                    "outbound DNS resolution for '{host}' produced forbidden address {}",
-                    sa.ip()
-                )
-                .into();
+                let err: Box<dyn std::error::Error + Send + Sync> = Box::new(LiterLlmError::OutboundForbidden {
+                    url: format!("dns://{host}"),
+                    reason: format!("DNS resolution produced forbidden address {}", sa.ip()),
+                });
                 return Err(err);
             }
         }
@@ -429,11 +481,133 @@ mod resolver_impl {
 #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
 pub use resolver_impl::{cached_guarded_resolver, guarded_resolver};
 
+#[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+/// Apply authenticated outbound-request protections to a native HTTP client.
+///
+/// The returned builder validates every resolved address and redirect target.
+/// Cross-origin redirects are rejected so credentials in custom headers cannot
+/// be forwarded to a different origin. Active policies also disable proxies;
+/// otherwise the proxy could resolve the target outside the guarded resolver.
+#[cfg_attr(alef, alef(skip))]
+pub fn configure_outbound_client_builder(
+    mut builder: reqwest::ClientBuilder,
+    dns_cache_ttl: Option<std::time::Duration>,
+) -> reqwest::ClientBuilder {
+    builder = builder.redirect(outbound_redirect_policy(false));
+    if !matches!(current_policy(), OutboundPolicy::Off) {
+        builder = builder.no_proxy();
+        builder = builder.dns_resolver(cached_guarded_resolver(dns_cache_ttl));
+    } else if dns_cache_ttl.is_some() {
+        builder = builder.dns_resolver(cached_guarded_resolver(dns_cache_ttl));
+    }
+    builder
+}
+
+#[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+pub(crate) fn configure_credential_free_outbound_client_builder(
+    mut builder: reqwest::ClientBuilder,
+) -> reqwest::ClientBuilder {
+    builder = builder.redirect(outbound_redirect_policy(true));
+    if !matches!(current_policy(), OutboundPolicy::Off) {
+        builder = builder.no_proxy();
+        builder = builder.dns_resolver(cached_guarded_resolver(None));
+    }
+    builder
+}
+
+#[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+pub(crate) fn authenticated_outbound_client() -> Result<reqwest::Client, LiterLlmError> {
+    crate::ensure_crypto_provider();
+    configure_outbound_client_builder(reqwest::Client::builder(), None)
+        .build()
+        .map_err(LiterLlmError::from)
+}
+
+#[cfg(all(any(feature = "native-http", feature = "wasm-http"), not(target_arch = "wasm32")))]
+pub(crate) fn outbound_forbidden_from_reqwest(error: &reqwest::Error) -> Option<LiterLlmError> {
+    let mut source = error.source();
+    while let Some(current) = source {
+        if let Some(LiterLlmError::OutboundForbidden { url, reason }) = current.downcast_ref::<LiterLlmError>() {
+            return Some(LiterLlmError::OutboundForbidden {
+                url: url.clone(),
+                reason: reason.clone(),
+            });
+        }
+        source = current.source();
+    }
+    None
+}
+
+#[cfg(all(feature = "wasm-http", target_arch = "wasm32"))]
+pub(crate) fn outbound_forbidden_from_reqwest(_error: &reqwest::Error) -> Option<LiterLlmError> {
+    // ~keep Browser fetch owns DNS and redirect handling, so reqwest cannot carry a native
+    // ~keep guarded-resolver or redirect-policy error on WASM.
+    None
+}
+
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+    use std::net::{SocketAddr, TcpListener};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+
     use serial_test::serial;
 
     use super::*;
+
+    struct OneShotServer {
+        address: SocketAddr,
+        hit: Arc<AtomicBool>,
+        handle: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl OneShotServer {
+        fn start(response: String) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("bind redirect test server");
+            listener.set_nonblocking(true).expect("set redirect server nonblocking");
+            let address = listener.local_addr().expect("redirect server address");
+            let hit = Arc::new(AtomicBool::new(false));
+            let hit_writer = Arc::clone(&hit);
+            let handle = std::thread::spawn(move || {
+                let deadline = Instant::now() + Duration::from_secs(2);
+                loop {
+                    match listener.accept() {
+                        Ok((mut stream, _)) => {
+                            hit_writer.store(true, Ordering::SeqCst);
+                            stream.set_nonblocking(false).expect("set redirect stream blocking");
+                            let mut request = [0_u8; 4096];
+                            let _ = stream.read(&mut request).expect("read redirect request");
+                            stream.write_all(response.as_bytes()).expect("write redirect response");
+                            break;
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            if Instant::now() >= deadline {
+                                break;
+                            }
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("accept redirect request: {error}"),
+                    }
+                }
+            });
+            Self {
+                address,
+                hit,
+                handle: Some(handle),
+            }
+        }
+
+        fn finish(mut self) -> bool {
+            self.handle
+                .take()
+                .expect("redirect server handle")
+                .join()
+                .expect("redirect server thread");
+            self.hit.load(Ordering::SeqCst)
+        }
+    }
 
     /// Helper for sync tests — `#[serial(outbound_policy)]` on the test fn
     /// guarantees no other policy-mutating test is running concurrently.
@@ -569,6 +743,246 @@ mod tests {
             let result = validate_outbound_url_sync("https://api.anthropic.com/");
             assert!(result.is_err(), "different host should be rejected");
         });
+    }
+
+    #[test]
+    #[serial(outbound_policy)]
+    fn validate_sync_allowlist_requires_exact_scheme_host_and_effective_port() {
+        let allowed = vec![Url::parse("https://api.example.com").expect("allowlist URL")];
+        with_policy(OutboundPolicy::Allowlist(allowed), || {
+            assert!(validate_outbound_url_sync("https://api.example.com:443/v1").is_ok());
+            for rejected in [
+                "http://api.example.com/v1",
+                "https://other.example.com/v1",
+                "https://api.example.com:8443/v1",
+            ] {
+                assert!(
+                    validate_outbound_url_sync(rejected).is_err(),
+                    "allowlist must reject a different origin: {rejected}"
+                );
+            }
+        });
+    }
+
+    #[test]
+    #[serial(outbound_policy)]
+    fn redirect_validation_rejects_cross_origin_under_deny_private() {
+        with_policy(OutboundPolicy::DenyPrivate, || {
+            let previous = Url::parse("https://api.example.com/v1/chat").expect("previous URL");
+            let next = Url::parse("https://cdn.example.net/v1/chat").expect("next URL");
+            let result = validate_redirect(Some(&previous), &next, false);
+            assert!(
+                matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+                "active policies must reject cross-origin redirects that could leak custom auth headers"
+            );
+        });
+    }
+
+    #[test]
+    #[serial(outbound_policy)]
+    fn redirect_validation_allows_same_origin_under_deny_private() {
+        with_policy(OutboundPolicy::DenyPrivate, || {
+            let previous = Url::parse("https://api.example.com/v1/chat").expect("previous URL");
+            let next = Url::parse("https://api.example.com/v2/chat").expect("next URL");
+            assert!(validate_redirect(Some(&previous), &next, false).is_ok());
+        });
+    }
+
+    #[test]
+    #[serial(outbound_policy)]
+    fn credential_free_redirect_still_rejects_private_target() {
+        with_policy(OutboundPolicy::DenyPrivate, || {
+            let previous = Url::parse("https://github.com/example/catalog.json").expect("previous URL");
+            let next = Url::parse("http://169.254.169.254/catalog.json").expect("next URL");
+            let result = validate_redirect(Some(&previous), &next, true);
+            assert!(
+                matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+                "credential-free redirects must still validate the target policy"
+            );
+        });
+    }
+
+    #[test]
+    #[serial(outbound_policy)]
+    fn credential_free_redirect_rejects_https_to_http_downgrade_when_policy_is_off() {
+        with_policy(OutboundPolicy::Off, || {
+            let previous = Url::parse("https://github.com/example/catalog.json").expect("previous URL");
+            let next = Url::parse("http://release-assets.example.com/catalog.json").expect("next URL");
+            let result = validate_redirect(Some(&previous), &next, true);
+            assert!(
+                matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+                "catalog redirects must never downgrade transport security"
+            );
+        });
+    }
+
+    #[test]
+    fn guarded_resolver_rejects_private_connection_address() {
+        let addresses = [SocketAddr::from(([127, 0, 0, 1], 443))];
+        let result = resolver_impl::validate_addrs(OutboundPolicy::DenyPrivate, "api.example.com", &addresses);
+        assert!(
+            result.is_err(),
+            "connection-time DNS results must reject private addresses"
+        );
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn configured_builder_rejects_private_hostname_resolution() {
+        let target = OneShotServer::start(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}".to_string(),
+        );
+        let target_url = format!("http://localhost:{}/", target.address.port());
+        set_outbound_policy(OutboundPolicy::DenyPrivate);
+        let client = configure_outbound_client_builder(reqwest::Client::builder(), None)
+            .build()
+            .expect("guarded client");
+
+        let result = client.get(&target_url).send().await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        let error = LiterLlmError::from(result.expect_err("guarded builder must reject localhost DNS"));
+        assert!(
+            matches!(error, LiterLlmError::OutboundForbidden { .. }),
+            "resolver policy failures must preserve OutboundForbidden: {error:?}"
+        );
+        assert!(!target.finish(), "a DNS-blocked target must not receive a request");
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn credential_free_client_allows_policy_checked_cross_origin_redirect() {
+        let target = OneShotServer::start(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}".to_string(),
+        );
+        let target_url = format!("http://catalog-assets.test:{}/catalog.json", target.address.port());
+        let source = OneShotServer::start(format!(
+            "HTTP/1.1 302 Found\r\nLocation: {target_url}\r\nContent-Length: 0\r\n\r\n"
+        ));
+        let source_url = format!("http://catalog-origin.test:{}/catalog.json", source.address.port());
+        set_outbound_policy(OutboundPolicy::Allowlist(vec![
+            Url::parse(&source_url).expect("source allowlist URL"),
+            Url::parse(&target_url).expect("target allowlist URL"),
+        ]));
+        let client = reqwest::Client::builder()
+            .resolve("catalog-origin.test", source.address)
+            .resolve("catalog-assets.test", target.address)
+            .redirect(outbound_redirect_policy(true))
+            .build()
+            .expect("credential-free redirect client");
+
+        let result = crate::http::request::get_json_raw(&client, &source_url, None, &[], 0).await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        assert_eq!(result.expect("allowlisted catalog redirect"), serde_json::json!({}));
+        assert!(source.finish(), "catalog origin must receive the initial request");
+        assert!(
+            target.finish(),
+            "catalog asset origin must receive the redirected request"
+        );
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn redirect_policy_failure_is_outbound_forbidden_and_not_retried() {
+        let target = OneShotServer::start(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}".to_string(),
+        );
+        let target_url = format!("http://blocked.test:{}/done", target.address.port());
+        let source = OneShotServer::start(format!(
+            "HTTP/1.1 307 Temporary Redirect\r\nLocation: {target_url}\r\nContent-Length: 0\r\n\r\n"
+        ));
+        let source_url = format!("http://allowed.test:{}/start", source.address.port());
+        set_outbound_policy(OutboundPolicy::Allowlist(vec![
+            Url::parse(&source_url).expect("source allowlist URL"),
+        ]));
+        let client = reqwest::Client::builder()
+            .resolve("allowed.test", source.address)
+            .resolve("blocked.test", target.address)
+            .redirect(outbound_redirect_policy(false))
+            .build()
+            .expect("redirect test client");
+        let mut attempts = 0_u32;
+
+        let result = crate::http::request::with_retry(&source_url, 3, || {
+            attempts += 1;
+            client
+                .post(&source_url)
+                .header("authorization", "Bearer secret-token")
+                .header("x-api-key", "secret-api-key")
+                .body("secret request body")
+                .send()
+        })
+        .await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        assert!(
+            matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+            "redirect policy errors must preserve their classification: {result:?}"
+        );
+        assert_eq!(attempts, 1, "policy failures are deterministic and must not be retried");
+        assert!(
+            source.finish(),
+            "allowed source must receive exactly the initial request"
+        );
+        assert!(!target.finish(), "blocked redirect target must not receive a request");
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn redirect_policy_rejects_allowed_to_unallowed_public_origin() {
+        let target = OneShotServer::start(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}".to_string(),
+        );
+        let target_url = format!("http://unallowed.test:{}/done", target.address.port());
+        let source = OneShotServer::start(format!(
+            "HTTP/1.1 302 Found\r\nLocation: {target_url}\r\nContent-Length: 0\r\n\r\n"
+        ));
+        let source_url = format!("http://allowed.test:{}/start", source.address.port());
+        set_outbound_policy(OutboundPolicy::Allowlist(vec![
+            Url::parse(&source_url).expect("source allowlist URL"),
+        ]));
+        let client = reqwest::Client::builder()
+            .resolve("allowed.test", source.address)
+            .resolve("unallowed.test", target.address)
+            .redirect(outbound_redirect_policy(false))
+            .build()
+            .expect("redirect test client");
+
+        let result = crate::http::request::get_json_raw(&client, &source_url, None, &[], 0).await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        assert!(result.is_err(), "redirect outside the allowlist must fail");
+        assert!(source.finish(), "allowed source must receive the initial request");
+        assert!(!target.finish(), "unallowed redirect target must not receive a request");
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn redirect_policy_rejects_allowed_to_private_origin() {
+        let target = OneShotServer::start(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}".to_string(),
+        );
+        let target_url = format!("http://127.0.0.1:{}/done", target.address.port());
+        let source = OneShotServer::start(format!(
+            "HTTP/1.1 302 Found\r\nLocation: {target_url}\r\nContent-Length: 0\r\n\r\n"
+        ));
+        let source_url = format!("http://allowed.test:{}/start", source.address.port());
+        set_outbound_policy(OutboundPolicy::Allowlist(vec![
+            Url::parse(&source_url).expect("source allowlist URL"),
+        ]));
+        let client = reqwest::Client::builder()
+            .resolve("allowed.test", source.address)
+            .redirect(outbound_redirect_policy(false))
+            .build()
+            .expect("redirect test client");
+
+        let result = crate::http::request::get_json_raw(&client, &source_url, None, &[], 0).await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        assert!(result.is_err(), "redirect into private address space must fail");
+        assert!(source.finish(), "allowed source must receive the initial request");
+        assert!(!target.finish(), "private redirect target must not receive a request");
     }
 
     #[tokio::test]

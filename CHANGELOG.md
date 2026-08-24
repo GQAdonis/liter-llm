@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Outbound policies now cover every provider request URL, including streaming, multipart uploads,
+  health probes, catalog refreshes, Vault, credential acquisition, and native DNS connection attempts
+  and redirect targets. Authenticated clients reject cross-origin redirects so provider credentials
+  cannot leak to a redirected host, while credential-free catalog downloads may follow a cross-origin
+  redirect only after validating its target and never across an HTTPS-to-HTTP downgrade. Policy
+  failures retain their non-retryable
+  `OutboundForbidden` classification, and active policies disable HTTP proxies so connection-time DNS
+  checks cannot be delegated around the guarded resolver. Vertex ADC limits its private-network
+  exception to the fixed, redirect-free metadata endpoint and disables the opaque `gcp_auth` fallback
+  under active policies; the embedded-library default remains `Off`, preserving local mock endpoints.
+
 - **A skipped `publish-crates` no longer reads as a passing gate, and a release that published
   nothing can no longer report success.** Five places in `.github/workflows/publish.yaml` gated
   downstream build, publish and release-promotion jobs on

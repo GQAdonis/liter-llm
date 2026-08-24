@@ -25,6 +25,7 @@ async fn sleep_for_retry(delay: std::time::Duration) {
 /// a raw `reqwest::Response` (or a transport-level error).  The helper handles:
 ///
 /// - Attempt counting and the `max_retries` budget.
+/// - Validating the effective request URL against the active outbound policy.
 /// - Parsing the `Retry-After` header before consuming the response body.
 /// - Exponential back-off via `retry::should_retry`, including for
 ///   transport-level failures (connection reset, DNS failure, timeout) that
@@ -33,17 +34,21 @@ async fn sleep_for_retry(delay: std::time::Duration) {
 ///
 /// On success the **successful** `Response` is returned so the caller can
 /// choose how to consume the body (JSON deserialisation, byte stream, …).
-pub(crate) async fn with_retry<F, Fut>(max_retries: u32, mut send: F) -> Result<reqwest::Response>
+pub(crate) async fn with_retry<F, Fut>(url: &str, max_retries: u32, mut send: F) -> Result<reqwest::Response>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = std::result::Result<reqwest::Response, reqwest::Error>>,
 {
+    crate::provider::validate_outbound_url(url).await?;
     let mut attempt = 0u32;
 
     loop {
         let resp = match send().await {
             Ok(resp) => resp,
             Err(transport_error) => {
+                if let Some(policy_error) = crate::provider::outbound_forbidden_from_reqwest(&transport_error) {
+                    return Err(policy_error);
+                }
                 // ~keep A transport-level error means no response was ever received, so it
                 // must go through the same retry budget as a 5xx — otherwise a single
                 // connection reset fails the whole request even though `max_retries > 0`.
@@ -110,7 +115,7 @@ pub async fn post_json_raw(
 ) -> Result<serde_json::Value> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(max_retries, || {
+    let resp = with_retry(url, max_retries, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -162,7 +167,7 @@ pub async fn post_binary(
 ) -> Result<Bytes> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(max_retries, || {
+    let resp = with_retry(url, max_retries, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -211,6 +216,7 @@ pub async fn post_multipart(
     extra_headers: &[(&str, &str)],
     form: reqwest::multipart::Form,
 ) -> Result<serde_json::Value> {
+    crate::provider::validate_outbound_url(url).await?;
     let mut builder = client.post(url).multipart(form);
     if let Some((name, value)) = auth_header {
         builder = builder.header(name, value);
@@ -265,7 +271,7 @@ pub async fn get_json_raw(
 ) -> Result<serde_json::Value> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(max_retries, || {
+    let resp = with_retry(url, max_retries, || {
         let mut builder = client.get(url);
         if let Some((name, value)) = auth_header {
             builder = builder.header(name, value);
@@ -312,7 +318,7 @@ pub async fn delete_json(
 ) -> Result<serde_json::Value> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(max_retries, || {
+    let resp = with_retry(url, max_retries, || {
         let mut builder = client.delete(url);
         if let Some((name, value)) = auth_header {
             builder = builder.header(name, value);
@@ -359,7 +365,7 @@ pub async fn get_binary(
 ) -> Result<Bytes> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(max_retries, || {
+    let resp = with_retry(url, max_retries, || {
         let mut builder = client.get(url);
         if let Some((name, value)) = auth_header {
             builder = builder.header(name, value);
@@ -383,7 +389,13 @@ pub async fn get_binary(
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+    use std::net::{SocketAddr, TcpListener};
+
+    use serial_test::serial;
+
     use super::*;
+    use crate::provider::{OutboundPolicy, set_outbound_policy};
 
     /// Bind an ephemeral loopback port, then immediately release it. Connections to
     /// the now-closed port are refused instantly (no live network, no timeout wait),
@@ -395,7 +407,34 @@ mod tests {
         format!("http://127.0.0.1:{port}/")
     }
 
+    fn one_shot_json_server() -> (String, std::thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind JSON server");
+        let address = listener.local_addr().expect("JSON server address");
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept JSON request");
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request).expect("read JSON request");
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}")
+                .expect("write JSON response");
+        });
+        (format!("http://{address}/v1/chat/completions"), handle)
+    }
+
+    fn one_shot_server(response: String) -> (SocketAddr, std::thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind HTTP server");
+        let address = listener.local_addr().expect("HTTP server address");
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept HTTP request");
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request).expect("read HTTP request");
+            stream.write_all(response.as_bytes()).expect("write HTTP response");
+        });
+        (address, handle)
+    }
+
     #[tokio::test]
+    #[serial(outbound_policy)]
     async fn with_retry_retries_transport_errors_before_giving_up() {
         // ~keep Regression test for #44: before the fix, `send().await?` propagated a
         // transport-level error (e.g. connection refused) immediately via `?`,
@@ -404,7 +443,7 @@ mod tests {
         let url = closed_port_url();
         let mut attempts = 0u32;
 
-        let result = with_retry(2, || {
+        let result = with_retry(&url, 2, || {
             attempts += 1;
             client.get(url.as_str()).send()
         })
@@ -421,12 +460,13 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial(outbound_policy)]
     async fn with_retry_does_not_retry_transport_errors_when_max_retries_is_zero() {
         let client = reqwest::Client::new();
         let url = closed_port_url();
         let mut attempts = 0u32;
 
-        let result = with_retry(0, || {
+        let result = with_retry(&url, 0, || {
             attempts += 1;
             client.get(url.as_str()).send()
         })
@@ -436,6 +476,90 @@ mod tests {
         assert_eq!(
             attempts, 1,
             "max_retries = 0 must still make exactly one attempt and no retries"
+        );
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn post_json_raw_rejects_direct_private_url_under_deny_private() {
+        set_outbound_policy(OutboundPolicy::DenyPrivate);
+        let result = post_json_raw(
+            &reqwest::Client::new(),
+            &closed_port_url(),
+            None,
+            &[],
+            Bytes::from_static(b"{}"),
+            0,
+        )
+        .await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        assert!(
+            matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+            "private request URL must be rejected by the policy before reqwest connects: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn post_json_raw_allows_local_mock_when_policy_is_off() {
+        set_outbound_policy(OutboundPolicy::Off);
+        let (url, server) = one_shot_json_server();
+
+        let result = post_json_raw(&reqwest::Client::new(), &url, None, &[], Bytes::from_static(b"{}"), 0).await;
+
+        server.join().expect("JSON server thread");
+        assert_eq!(
+            result.expect("Off policy must preserve local mock access"),
+            serde_json::json!({})
+        );
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn post_multipart_rejects_direct_private_url_under_deny_private() {
+        set_outbound_policy(OutboundPolicy::DenyPrivate);
+        let result = post_multipart(
+            &reqwest::Client::new(),
+            &closed_port_url(),
+            None,
+            &[],
+            reqwest::multipart::Form::new(),
+        )
+        .await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        assert!(
+            matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+            "private multipart URL must be rejected before reqwest connects: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    async fn post_multipart_preserves_redirect_policy_error_classification() {
+        set_outbound_policy(OutboundPolicy::Off);
+        let (source_address, source) = one_shot_server(
+            "HTTP/1.1 302 Found\r\nLocation: http://169.254.169.254/token\r\nContent-Length: 0\r\n\r\n".to_owned(),
+        );
+        let source_url = format!("http://multipart.test:{}/upload", source_address.port());
+        let client = crate::provider::configure_outbound_client_builder(
+            reqwest::Client::builder().resolve("multipart.test", source_address),
+            None,
+        )
+        .build()
+        .expect("multipart redirect client");
+        set_outbound_policy(OutboundPolicy::Allowlist(vec![
+            url::Url::parse(&source_url).expect("source allowlist URL"),
+        ]));
+
+        let result = post_multipart(&client, &source_url, None, &[], reqwest::multipart::Form::new()).await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        source.join().expect("multipart source server");
+        assert!(
+            matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+            "multipart redirect policy errors must remain non-transient: {result:?}"
         );
     }
 }

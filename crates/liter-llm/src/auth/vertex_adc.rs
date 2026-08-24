@@ -11,11 +11,12 @@
 //!    with `Metadata-Flavor: Google`.  This is the fastest path for pods running
 //!    under Workload Identity.
 //!
-//! 2. **`gcp_auth` ADC discovery** — falls back to the `gcp_auth::provider()`
-//!    function which tries, in order: `GOOGLE_APPLICATION_CREDENTIALS` file,
-//!    `~/.config/gcloud/application_default_credentials.json`, the metadata
-//!    server again, and finally `gcloud auth print-access-token`.  This covers
-//!    local development and Cloud Run environments.
+//! 2. **`gcp_auth` ADC discovery** — when the outbound policy is
+//!    [`crate::provider::OutboundPolicy::Off`], falls back to
+//!    `gcp_auth::provider()`. That transport may use a service-account
+//!    `token_uri` that Liter cannot inspect, so the fallback is disabled while
+//!    an outbound policy is active. The fixed metadata endpoint remains an
+//!    explicit, narrowly scoped exception for GCP runtimes.
 //!
 //! Tokens are cached using the same `RwLock<Option<CachedToken>>` + 5-minute
 //! pre-expiry buffer as [`super::vertex_oauth`].
@@ -25,7 +26,7 @@
 //! | Variable | Description |
 //! |----------|-------------|
 //! | `VERTEX_AI_SCOPE` | OAuth scope (defaults to `https://www.googleapis.com/auth/cloud-platform`) |
-//! | `GOOGLE_APPLICATION_CREDENTIALS` | Path to a SA JSON key (used by the `gcp_auth` fallback path) |
+//! | `GOOGLE_APPLICATION_CREDENTIALS` | Path to a SA JSON key (used by `gcp_auth` only when the outbound policy is `Off`) |
 //!
 //! # Usage
 //!
@@ -59,6 +60,9 @@ const METADATA_TOKEN_URL: &str = "http://169.254.169.254/computeMetadata/v1/inst
 const METADATA_FLAVOR_HEADER: &str = "Metadata-Flavor";
 const METADATA_FLAVOR_VALUE: &str = "Google";
 
+/// Metadata service requests are local and should either complete quickly or fall back.
+const METADATA_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+
 /// Minimum remaining lifetime before a cached token is considered expired.
 const EXPIRY_BUFFER_SECS: u64 = 300;
 
@@ -86,19 +90,20 @@ impl CachedToken {
 
 /// Google Vertex AI ADC credential provider.
 ///
-/// Prefers the Compute Engine / GKE metadata server and falls back to
-/// `gcp_auth`'s full ADC discovery chain so the same type works in
-/// development, Cloud Run, and GKE without per-environment configuration.
+/// Prefers the Compute Engine / GKE metadata server. When the outbound policy
+/// is [`crate::provider::OutboundPolicy::Off`], it falls back to `gcp_auth`'s
+/// full ADC discovery chain. Active policies disable that opaque fallback.
 pub struct VertexAdcCredentialProvider {
     scope: String,
     /// Overridable metadata server base URL (set to the real 169.254.169.254
     /// address in production; injected during tests to point at a mock server).
     metadata_token_url: String,
+    trusted_metadata_url: bool,
     /// When `false`, skip the `gcp_auth` fallback path.  Used in tests to
     /// exercise the error path without triggering real ADC discovery.
     use_gcp_auth_fallback: bool,
     cached: RwLock<Option<CachedToken>>,
-    http_client: reqwest::Client,
+    http_client: Option<reqwest::Client>,
 }
 
 impl std::fmt::Debug for VertexAdcCredentialProvider {
@@ -121,9 +126,12 @@ impl VertexAdcCredentialProvider {
         Self {
             scope,
             metadata_token_url: METADATA_TOKEN_URL.to_owned(),
+            trusted_metadata_url: true,
             use_gcp_auth_fallback: true,
             cached: RwLock::new(None),
-            http_client: reqwest::Client::new(),
+            // ~keep Vertex ADC must reach the link-local GCP metadata service. It is the explicit
+            // ~keep trusted exception to the provider outbound policy, not a caller-controlled URL.
+            http_client: None,
         }
     }
 
@@ -135,9 +143,12 @@ impl VertexAdcCredentialProvider {
     }
 
     /// Override the HTTP client used for metadata server requests.
+    ///
+    /// This is a trusted transport override. The default client deliberately
+    /// disables redirects for the fixed metadata-service exception.
     #[must_use]
     pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
-        self.http_client = client;
+        self.http_client = Some(client);
         self
     }
 
@@ -156,9 +167,12 @@ impl VertexAdcCredentialProvider {
         Self {
             scope,
             metadata_token_url,
+            trusted_metadata_url: false,
             use_gcp_auth_fallback: true,
             cached: RwLock::new(None),
-            http_client: reqwest::Client::new(),
+            // ~keep Build the normal guarded client lazily so this infallible constructor does
+            // ~keep not hide TLS/client configuration errors.
+            http_client: None,
         }
     }
 
@@ -177,33 +191,58 @@ impl VertexAdcCredentialProvider {
     ///
     /// Returns `None` when the metadata server is not reachable (i.e. we are
     /// not running on GCP) so the caller can fall back to ADC discovery.
-    async fn fetch_from_metadata_server(&self) -> Option<CachedToken> {
-        let response = self
-            .http_client
+    async fn fetch_from_metadata_server(&self) -> Result<Option<CachedToken>, LiterLlmError> {
+        if !self.trusted_metadata_url {
+            crate::provider::validate_outbound_url(&self.metadata_token_url).await?;
+        }
+        let http_client = match &self.http_client {
+            Some(client) => client.clone(),
+            None if self.trusted_metadata_url => metadata_http_client()?,
+            None => crate::provider::authenticated_outbound_client()?,
+        };
+        let response = http_client
             .get(&self.metadata_token_url)
             .header(METADATA_FLAVOR_HEADER, METADATA_FLAVOR_VALUE)
             .send()
             .await
-            .ok()?;
+            .map_err(|error| {
+                crate::provider::outbound_forbidden_from_reqwest(&error).unwrap_or_else(|| {
+                    LiterLlmError::Authentication {
+                        message: format!("Vertex ADC metadata request failed: {error}"),
+                        status: 401,
+                    }
+                })
+            });
+        let response = match response {
+            Ok(response) => response,
+            Err(LiterLlmError::OutboundForbidden { url, reason }) => {
+                return Err(LiterLlmError::OutboundForbidden { url, reason });
+            }
+            Err(_) => return Ok(None),
+        };
 
         if !response.status().is_success() {
             tracing::warn!(
                 status = response.status().as_u16(),
                 "metadata server returned non-success status; will try gcp_auth ADC fallback"
             );
-            return None;
+            return Ok(None);
         }
 
-        let body = response.text().await.ok()?;
-        let parsed: MetadataTokenResponse = serde_json::from_str(&body).ok()?;
+        let Ok(body) = response.text().await else {
+            return Ok(None);
+        };
+        let Ok(parsed) = serde_json::from_str::<MetadataTokenResponse>(&body) else {
+            return Ok(None);
+        };
 
         tracing::info!("obtained access token from metadata server");
 
-        Some(CachedToken {
+        Ok(Some(CachedToken {
             token: SecretString::from(parsed.access_token),
             acquired_at: Instant::now(),
             expires_in_secs: parsed.expires_in,
-        })
+        }))
     }
 
     /// Fetch a token via the `gcp_auth` ADC discovery chain.
@@ -212,6 +251,12 @@ impl VertexAdcCredentialProvider {
     /// `~/.config/gcloud/application_default_credentials.json`, metadata server
     /// (second attempt), and `gcloud auth print-access-token`.
     async fn fetch_from_gcp_auth(&self) -> Result<CachedToken, LiterLlmError> {
+        if !matches!(crate::provider::current_policy(), crate::provider::OutboundPolicy::Off) {
+            return Err(LiterLlmError::OutboundForbidden {
+                url: "gcp-auth://adc-fallback".into(),
+                reason: "gcp_auth fallback transport cannot enforce the active outbound policy".into(),
+            });
+        }
         let provider = gcp_auth::provider().await.map_err(|e| LiterLlmError::Authentication {
             message: format!("gcp_auth ADC discovery failed: {e}"),
             status: 401,
@@ -237,7 +282,7 @@ impl VertexAdcCredentialProvider {
 
     /// Fetch a fresh token, preferring the metadata server over gcp_auth ADC.
     async fn fetch_token(&self) -> Result<CachedToken, LiterLlmError> {
-        if let Some(cached) = self.fetch_from_metadata_server().await {
+        if let Some(cached) = self.fetch_from_metadata_server().await? {
             return Ok(cached);
         }
 
@@ -251,6 +296,18 @@ impl VertexAdcCredentialProvider {
             })
         }
     }
+}
+
+fn metadata_http_client() -> Result<reqwest::Client, LiterLlmError> {
+    crate::ensure_crypto_provider();
+    reqwest::Client::builder()
+        // ~keep The metadata endpoint is an explicit link-local capability and must never
+        // ~keep be routed through caller or environment-configured proxies.
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(METADATA_REQUEST_TIMEOUT)
+        .build()
+        .map_err(LiterLlmError::from)
 }
 
 impl Default for VertexAdcCredentialProvider {
@@ -377,6 +434,42 @@ mod tests {
             provider.metadata_token_url,
             "http://127.0.0.1:12345/computeMetadata/v1/instance/service-accounts/default/token"
         );
+        assert!(
+            !provider.trusted_metadata_url,
+            "caller-controlled overrides are never trusted"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial(vertex_adc_env)]
+    fn default_metadata_exception_is_exact_and_capability_scoped() {
+        let _guard = EnvGuard::new("VERTEX_AI_SCOPE", None);
+        let provider = VertexAdcCredentialProvider::new();
+        assert!(provider.trusted_metadata_url);
+        assert_eq!(provider.metadata_token_url, METADATA_TOKEN_URL);
+    }
+
+    #[tokio::test]
+    #[serial_test::serial(vertex_adc_env)]
+    async fn fixed_metadata_client_ignores_environment_proxies() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind proxy listener");
+        listener.set_nonblocking(true).expect("set proxy listener nonblocking");
+        let proxy_url = format!("http://{}", listener.local_addr().expect("proxy listener address"));
+        let _http_proxy = EnvGuard::new("HTTP_PROXY", Some(&proxy_url));
+        let _http_proxy_lower = EnvGuard::new("http_proxy", Some(&proxy_url));
+        let _all_proxy = EnvGuard::new("ALL_PROXY", Some(&proxy_url));
+        let _all_proxy_lower = EnvGuard::new("all_proxy", Some(&proxy_url));
+        let _no_proxy = EnvGuard::new("NO_PROXY", None);
+        let _no_proxy_lower = EnvGuard::new("no_proxy", None);
+
+        let client = metadata_http_client().expect("build metadata client");
+        let _ = client.get(METADATA_TOKEN_URL).send().await;
+
+        let accepted = listener.accept();
+        assert!(
+            matches!(accepted, Err(ref error) if error.kind() == std::io::ErrorKind::WouldBlock),
+            "the fixed link-local metadata capability must bypass environment proxies"
+        );
     }
 
     #[test]
@@ -387,6 +480,38 @@ mod tests {
         assert_eq!(
             provider.metadata_token_url,
             "http://127.0.0.1:12345/computeMetadata/v1/instance/service-accounts/default/token"
+        );
+    }
+
+    #[tokio::test]
+    #[serial_test::serial(outbound_policy)]
+    async fn caller_controlled_metadata_url_does_not_receive_trusted_exception() {
+        use crate::provider::{OutboundPolicy, set_outbound_policy};
+
+        set_outbound_policy(OutboundPolicy::DenyPrivate);
+        let provider = VertexAdcCredentialProvider::with_metadata_url("http://127.0.0.1:9").without_gcp_auth_fallback();
+        let result = provider.resolve().await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        assert!(
+            matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+            "only the fixed metadata endpoint may bypass DenyPrivate: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    #[serial_test::serial(outbound_policy)]
+    async fn gcp_auth_fallback_is_disabled_under_active_policy() {
+        use crate::provider::{OutboundPolicy, set_outbound_policy};
+
+        set_outbound_policy(OutboundPolicy::DenyPrivate);
+        let provider = VertexAdcCredentialProvider::new();
+        let result = provider.fetch_from_gcp_auth().await;
+        set_outbound_policy(OutboundPolicy::Off);
+
+        assert!(
+            matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+            "uncontrolled gcp_auth token_uri transport must not bypass the policy"
         );
     }
 

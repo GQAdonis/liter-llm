@@ -542,9 +542,15 @@ pub(crate) mod mistral;
 pub mod outbound_policy;
 pub(crate) mod vertex;
 
+#[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+pub use outbound_policy::configure_outbound_client_builder;
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+pub(crate) use outbound_policy::outbound_forbidden_from_reqwest;
 pub use outbound_policy::{
     OutboundPolicy, current_policy, set_outbound_policy, validate_outbound_url, validate_outbound_url_sync,
 };
+#[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+pub(crate) use outbound_policy::{authenticated_outbound_client, configure_credential_free_outbound_client_builder};
 
 /// Built-in OpenAI provider.
 pub(crate) struct OpenAiProvider;

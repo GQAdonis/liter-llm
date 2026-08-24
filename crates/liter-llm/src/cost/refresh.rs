@@ -305,8 +305,11 @@ async fn refresh_from_network(
         message,
     };
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(FETCH_TIMEOUT_SECS))
+    crate::provider::validate_outbound_url(url.as_str())
+        .await
+        .map_err(|error| fetch_err(error.to_string()))?;
+    let builder = reqwest::Client::builder().timeout(std::time::Duration::from_secs(FETCH_TIMEOUT_SECS));
+    let client = crate::provider::configure_credential_free_outbound_client_builder(builder)
         .build()
         .map_err(|e| fetch_err(e.to_string()))?;
 

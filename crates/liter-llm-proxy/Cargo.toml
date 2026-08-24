@@ -66,6 +66,7 @@ opendal = { workspace = true }
 
 opentelemetry = { workspace = true, optional = true }
 regex = { workspace = true }
+reqwest = { workspace = true }
 rmcp = { workspace = true }
 rust_decimal = { workspace = true }
 schemars = { workspace = true }
@@ -90,7 +91,7 @@ vaultrs = { workspace = true, optional = true }
 [dev-dependencies]
 ctor = "1.0"
 http-body-util = "0.1"
-reqwest = { workspace = true }
+serial_test = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
 tracing-test = "0.2"
