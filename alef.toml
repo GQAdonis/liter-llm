@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.67.2"
+alef_version = "0.67.5"
 languages = [
   "python",
   "node",
@@ -659,6 +659,9 @@ functions = [
   "record_realtime_event",
   "record_realtime_bytes",
   "init_meter",
+  # ~keep Rust-only escape hatch: takes and returns `reqwest::ClientBuilder`, which has no
+  # binding representation, so alef sanitizes both to `String`.
+  "configure_outbound_client_builder",
 ]
 
 [crates.lint.python]

@@ -61,6 +61,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Repinned `alef.toml` `alef_version` from `0.67.2` to `0.67.5` and regenerated. Behaviour picked up
+  from the three upstream releases:
+  - Swift e2e assertions now decide a leaf's shape from the bridged getter rather than the accessor
+    text, so `tool_calls` assertions that swift-bridge JSON-bridges to `RustString` are emitted as an
+    explicit skip instead of an assertion that could not compile against the real binding.
+  - Zig e2e assertions no longer wrap expected strings in `std.mem.trim`, which silently masked
+    leading and trailing whitespace differences.
+  - Java FFI wrappers rethrow `LiterLlmRsException` instead of re-wrapping it in a second
+    `LiterLlmRsException("FFI call failed")`, so the original typed error survives the call boundary.
+  - `poly.toml` adds `MD025` to the markdown formatter's disable list.
+- `alef.toml` `[crates.exclude].functions` now excludes `configure_outbound_client_builder`. It takes
+  and returns a `reqwest::ClientBuilder`, which has no binding representation, so alef sanitized both
+  to `String` and failed extraction. It is a Rust-only escape hatch and is excluded the same way its
+  outbound-policy siblings (`set_outbound_policy`, `current_policy`, `validate_outbound_url`) already
+  were.
+
 - Repinned `alef.toml` `alef_version` from `0.66.0` to `0.67.2` and regenerated. Behaviour picked up
   from the two upstream releases:
   - `crates/liter-llm-ffi/build.rs`: C header generation is now opt-in behind
