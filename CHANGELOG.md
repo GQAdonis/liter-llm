@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A skipped `publish-crates` no longer reads as a passing gate, and a release that published
+  nothing can no longer report success.** Five places in `.github/workflows/publish.yaml` gated
+  downstream build, publish and release-promotion jobs on
+  `needs.publish-crates.result != 'failure'`. That expression is TRUE when the dependency was
+  *skipped*, and `publish-crates` skips for two opposite reasons: the version is already on
+  crates.io (a re-run or a resumed release, where downstream must proceed) or an upstream gate
+  such as version validation or crate packaging failed (where downstream must not). `result`
+  alone cannot separate them, so every one of those conditions was gating on nothing --
+  tree-sitter-language-pack v1.15.5 promoted a GitHub release to `Latest` with 40+ failed jobs and
+  every registry publish skipped, and still reported success.
+
+  A new always-running `crates-gate` job resolves the ambiguity once, into an explicit
+  `outcome` (`published` / `already-present` / `not-required` / `dry-run` / `blocked`) and an
+  `ok` flag that every consumer now tests instead of `result`. Because the job always runs, its
+  outputs always exist; because it never fails, depending on it cannot skip a consumer. The
+  legitimate already-published path stays exactly as permissive as before, and only the
+  gate-failed path is newly blocked.
+
+  `release-finalize` gated finalization on `!contains(needs.*.result, 'failure')`, which cannot
+  see a skipped job -- so a release whose targets all silently shipped nothing was finalized out
+  of draft and reported green. It now verifies every enabled target individually before flipping
+  the draft, and holds the release as a draft and fails when an enabled, not-yet-published target
+  did not succeed.
+
+  One of the five sites, `publish-homebrew-formula`, had the mirror-image defect: the job carries
+  no `always()` or `!cancelled()`, so GitHub skipped it outright whenever `publish-crates` was
+  skipped and its `if:` never ran at all. The formula therefore went unupdated on exactly the
+  re-runs it was meant to cover. Depending on `crates-gate` -- which always succeeds -- lets the
+  condition be evaluated, so the formula now updates on a resumed release and is still held back
+  when the crates.io prerequisite was never met.
+
 - **A drifted coding-agent plugin now fails the release instead of shipping.** `CI Plugin` already
   re-ran on `Cargo.toml`, so `--check` caught drift on `main` — but nothing asserted the plugin
   version against the tag actually being published. `scripts/sync_plugin_version.py` gains
