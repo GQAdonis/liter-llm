@@ -880,6 +880,20 @@ fields_method_calls = ["status_code"]
 
 [crates.e2e.snippets]
 output = "docs-site/src/snippets"
+# ~keep alef 0.67.6 resolves these globs against the project root, not against
+# ~keep `output`; a path relative to `output` is rejected with a naming error.
+# ~keep Every entry is a tutorial/README source that no fixture can produce: they
+# ~keep call real providers with real model ids and `side_effect: network`, and
+# ~keep `[crates.readme.languages.*.snippets]` reads them by name.
+curated_snippets = [
+  "docs-site/src/snippets/*/getting-started/basic_chat.md",
+  "docs-site/src/snippets/*/getting-started/streaming.md",
+  "docs-site/src/snippets/*/getting-started/tool_calling.md",
+  "docs-site/src/snippets/*/guides/error_handling.md",
+  "docs-site/src/snippets/*/usage/multimodal.md",
+  "docs-site/src/snippets/python/multimodal.md",
+  "docs-site/src/handwritten-snippets/**/*.md",
+]
 languages = [
   "rust",
   "python",
