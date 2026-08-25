@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.2] - 2026-08-25
+
+### Changed
+
+- Regenerated all language bindings on alef 0.68.0.
+
 ### Fixed
 
 - Outbound policies now cover every provider request URL, including streaming, multipart uploads,
