@@ -964,7 +964,7 @@ options_via = "from_json"
 
 [crates.e2e.call.overrides.ruby]
 client_factory = "create_client"
-options_type = "LiterLlm::ChatCompletionRequest"
+options_type = "ChatCompletionRequest"
 
 [crates.e2e.call.overrides.elixir]
 client_factory = "create_client"
@@ -1016,7 +1016,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.chat.overrides.ruby]
-options_type = "LiterLlm::ChatCompletionRequest"
+options_type = "ChatCompletionRequest"
 
 [crates.e2e.calls.chat.overrides.java]
 client_factory = "createClient"
@@ -1071,7 +1071,7 @@ from_json_module = "liter_llm._internal_bindings"
 async = false
 
 [crates.e2e.calls.chat_stream.overrides.ruby]
-options_type = "LiterLlm::ChatCompletionRequest"
+options_type = "ChatCompletionRequest"
 
 [crates.e2e.calls.chat_stream.overrides.java]
 client_factory = "createClient"
@@ -1125,7 +1125,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.embed.overrides.ruby]
-options_type = "LiterLlm::EmbeddingRequest"
+options_type = "EmbeddingRequest"
 
 [crates.e2e.calls.embed.overrides.java]
 client_factory = "createClient"
@@ -1191,7 +1191,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.image_generate.overrides.ruby]
-options_type = "LiterLlm::CreateImageRequest"
+options_type = "CreateImageRequest"
 
 [crates.e2e.calls.image_generate.overrides.java]
 client_factory = "createClient"
@@ -1257,7 +1257,7 @@ from_json_module = "liter_llm._internal_bindings"
 result_is_simple = true
 
 [crates.e2e.calls.speech.overrides.ruby]
-options_type = "LiterLlm::CreateSpeechRequest"
+options_type = "CreateSpeechRequest"
 result_is_simple = true
 
 [crates.e2e.calls.speech.overrides.java]
@@ -1315,7 +1315,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.transcribe.overrides.ruby]
-options_type = "LiterLlm::CreateTranscriptionRequest"
+options_type = "CreateTranscriptionRequest"
 
 [crates.e2e.calls.transcribe.overrides.java]
 client_factory = "createClient"
@@ -1368,7 +1368,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.moderate.overrides.ruby]
-options_type = "LiterLlm::ModerationRequest"
+options_type = "ModerationRequest"
 
 [crates.e2e.calls.moderate.overrides.wasm]
 options_type = "WasmModerationRequest"
@@ -1416,7 +1416,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.rerank.overrides.ruby]
-options_type = "LiterLlm::RerankRequest"
+options_type = "RerankRequest"
 
 [crates.e2e.calls.rerank.overrides.wasm]
 options_type = "WasmRerankRequest"
@@ -1464,7 +1464,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.search.overrides.ruby]
-options_type = "LiterLlm::SearchRequest"
+options_type = "SearchRequest"
 
 [crates.e2e.calls.search.overrides.wasm]
 options_type = "WasmSearchRequest"
@@ -1512,7 +1512,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.ocr.overrides.ruby]
-options_type = "LiterLlm::OcrRequest"
+options_type = "OcrRequest"
 
 [crates.e2e.calls.ocr.overrides.wasm]
 options_type = "WasmOcrRequest"
@@ -1560,7 +1560,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.create_file.overrides.ruby]
-options_type = "LiterLlm::CreateFileRequest"
+options_type = "CreateFileRequest"
 
 [crates.e2e.calls.create_file.overrides.wasm]
 options_type = "WasmCreateFileRequest"
@@ -1740,7 +1740,7 @@ enum_fields = { "status" = "BatchStatus" }
 assert_enum_fields = { "status" = "BatchStatus" }
 
 [crates.e2e.calls.create_batch.overrides.ruby]
-options_type = "LiterLlm::CreateBatchRequest"
+options_type = "CreateBatchRequest"
 enum_fields = { "status" = "BatchStatus" }
 
 [crates.e2e.calls.create_batch.overrides.java]
@@ -1925,7 +1925,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.create_response.overrides.ruby]
-options_type = "LiterLlm::CreateResponseRequest"
+options_type = "CreateResponseRequest"
 
 [crates.e2e.calls.create_response.overrides.wasm]
 options_type = "WasmCreateResponseRequest"
