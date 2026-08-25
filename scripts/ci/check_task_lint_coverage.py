@@ -39,6 +39,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 TEMPLATE_MARKER = "{{"
 
+# ~keep `poly fmt --check` exits 1 for "these files would reformat", which is a
+# real report this check deliberately ignores — it reads skip counts, not
+# formatting verdicts. Anything above that (2 = unreadable path argument, and
+# every crash/abort path) means poly did NOT survey the scan set, so any count
+# scraped from such a run describes nothing. Measured against poly directly;
+# do not widen this set without re-measuring.
+POLY_ALL_FORMATTED = 0
+POLY_WOULD_REFORMAT = 1
+POLY_SURVEYED_EXIT_CODES = frozenset({POLY_ALL_FORMATTED, POLY_WOULD_REFORMAT})
+
 
 def scan_set() -> list[Path]:
     """The files handed to poly: the root Taskfile plus every included task file."""
@@ -61,6 +71,11 @@ def poly_counts(paths: list[Path]) -> tuple[int, int]:
 
     ``--no-cache`` because a cache hit changes what the summary reports, which is
     the exact trap that made an earlier version of this check give a false pass.
+
+    The exit code is asserted *before* the summary line is parsed. A run that
+    aborted can still have emitted a summary for the prefix of the scan set it
+    reached, and scraping that would report a skip count for a survey that never
+    finished — a pass earned by examining nothing.
     """
     poly = shutil.which("poly")
     if poly is None:
@@ -69,6 +84,14 @@ def poly_counts(paths: list[Path]) -> tuple[int, int]:
     argv = [poly, "fmt", "--check", "--no-cache", *[str(p) for p in paths]]
     result = subprocess.run(argv, capture_output=True, text=True, check=False)
     output = result.stdout + result.stderr
+
+    if result.returncode not in POLY_SURVEYED_EXIT_CODES:
+        raise SystemExit(
+            f"poly exited {result.returncode}, so it did not survey the scan set and any\n"
+            "count scraped from this run would be meaningless. Refusing to report a skip\n"
+            f"count for a failed run.\ncommand: {' '.join(argv)}\n"
+            f"poly stdout:\n{result.stdout}\npoly stderr:\n{result.stderr}"
+        )
 
     match = re.search(r"(\d+) file\(s\) checked(?:, (\d+) skipped)?", output)
     if not match:
