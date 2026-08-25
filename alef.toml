@@ -927,7 +927,7 @@ result_var = "result"
 async = true
 
 [[crates.e2e.call.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -988,7 +988,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.chat.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1045,7 +1045,7 @@ streaming = true
 assertion_recipes = ["streaming", "chunks"]
 
 [[crates.e2e.calls.chat_stream.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1097,7 +1097,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.embed.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1163,7 +1163,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.image_generate.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1216,7 +1216,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.speech.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1287,7 +1287,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.transcribe.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1340,7 +1340,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.moderate.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1388,7 +1388,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.rerank.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1436,7 +1436,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.search.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1484,7 +1484,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.ocr.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1532,7 +1532,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.create_file.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1707,7 +1707,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.create_batch.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1897,7 +1897,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.create_response.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
