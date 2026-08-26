@@ -7,6 +7,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.2] - 2026-08-25
+
+### Changed
+
+- Regenerated all language bindings on alef 0.68.0.
+
+### Fixed
+
+- Outbound policies now cover every provider request URL, including streaming, multipart uploads,
+  health probes, catalog refreshes, Vault, credential acquisition, and native DNS connection attempts
+  and redirect targets. Authenticated clients reject cross-origin redirects so provider credentials
+  cannot leak to a redirected host, while credential-free catalog downloads may follow a cross-origin
+  redirect only after validating its target and never across an HTTPS-to-HTTP downgrade. Policy
+  failures retain their non-retryable
+  `OutboundForbidden` classification, and active policies disable HTTP proxies so connection-time DNS
+  checks cannot be delegated around the guarded resolver. Vertex ADC limits its private-network
+  exception to the fixed, redirect-free metadata endpoint and disables the opaque `gcp_auth` fallback
+  under active policies; the embedded-library default remains `Off`, preserving local mock endpoints.
+
+- **A skipped `publish-crates` no longer reads as a passing gate, and a release that published
+  nothing can no longer report success.** Five places in `.github/workflows/publish.yaml` gated
+  downstream build, publish and release-promotion jobs on
+  `needs.publish-crates.result != 'failure'`. That expression is TRUE when the dependency was
+  *skipped*, and `publish-crates` skips for two opposite reasons: the version is already on
+  crates.io (a re-run or a resumed release, where downstream must proceed) or an upstream gate
+  such as version validation or crate packaging failed (where downstream must not). `result`
+  alone cannot separate them, so every one of those conditions was gating on nothing --
+  tree-sitter-language-pack v1.15.5 promoted a GitHub release to `Latest` with 40+ failed jobs and
+  every registry publish skipped, and still reported success.
+
+  A new always-running `crates-gate` job resolves the ambiguity once, into an explicit
+  `outcome` (`published` / `already-present` / `not-required` / `dry-run` / `blocked`) and an
+  `ok` flag that every consumer now tests instead of `result`. Because the job always runs, its
+  outputs always exist; because it never fails, depending on it cannot skip a consumer. The
+  legitimate already-published path stays exactly as permissive as before, and only the
+  gate-failed path is newly blocked.
+
+  `release-finalize` gated finalization on `!contains(needs.*.result, 'failure')`, which cannot
+  see a skipped job -- so a release whose targets all silently shipped nothing was finalized out
+  of draft and reported green. It now verifies every enabled target individually before flipping
+  the draft, and holds the release as a draft and fails when an enabled, not-yet-published target
+  did not succeed.
+
+  One of the five sites, `publish-homebrew-formula`, had the mirror-image defect: the job carries
+  no `always()` or `!cancelled()`, so GitHub skipped it outright whenever `publish-crates` was
+  skipped and its `if:` never ran at all. The formula therefore went unupdated on exactly the
+  re-runs it was meant to cover. Depending on `crates-gate` -- which always succeeds -- lets the
+  condition be evaluated, so the formula now updates on a resumed release and is still held back
+  when the crates.io prerequisite was never met.
+
+- **A drifted coding-agent plugin now fails the release instead of shipping.** `CI Plugin` already
+  re-ran on `Cargo.toml`, so `--check` caught drift on `main` — but nothing asserted the plugin
+  version against the tag actually being published. `scripts/sync_plugin_version.py` gains
+  `--expect <version>`, which requires core and `plugin/.ai-rulez/config.toml` `[plugin].version` to
+  both equal the version being released, and `publish.yaml`'s `validate-versions` job runs it against
+  `needs.prepare.outputs.version`. `.task/tools/version-sync.yml` joins the `ci-plugin.yaml` path
+  filter so edits to the sync task re-run the gate as well.
+
+### Changed
+
+- Repinned `alef.toml` `alef_version` from `0.67.2` to `0.67.5` and regenerated. Behaviour picked up
+  from the three upstream releases:
+  - Swift e2e assertions now decide a leaf's shape from the bridged getter rather than the accessor
+    text, so `tool_calls` assertions that swift-bridge JSON-bridges to `RustString` are emitted as an
+    explicit skip instead of an assertion that could not compile against the real binding.
+  - Zig e2e assertions no longer wrap expected strings in `std.mem.trim`, which silently masked
+    leading and trailing whitespace differences.
+  - Java FFI wrappers rethrow `LiterLlmRsException` instead of re-wrapping it in a second
+    `LiterLlmRsException("FFI call failed")`, so the original typed error survives the call boundary.
+  - `poly.toml` adds `MD025` to the markdown formatter's disable list.
+- `alef.toml` `[crates.exclude].functions` now excludes `configure_outbound_client_builder`. It takes
+  and returns a `reqwest::ClientBuilder`, which has no binding representation, so alef sanitized both
+  to `String` and failed extraction. It is a Rust-only escape hatch and is excluded the same way its
+  outbound-policy siblings (`set_outbound_policy`, `current_policy`, `validate_outbound_url`) already
+  were.
+
+- Repinned `alef.toml` `alef_version` from `0.66.0` to `0.67.2` and regenerated. Behaviour picked up
+  from the two upstream releases:
+  - `crates/liter-llm-ffi/build.rs`: C header generation is now opt-in behind
+    `ALEF_EXPORT_GENERATED_HEADERS=1` and writes both `crates/liter-llm-ffi/include/liter_llm.h` and
+    `packages/go/include/liter_llm.h` atomically with rollback. A plain `cargo build -p liter-llm-ffi`
+    no longer rewrites either header, so ordinary builds stop mutating committed source; regenerating
+    with the flag set reproduces the committed headers byte for byte. `alef verify` is the freshness
+    gate now.
+  - `packages/dart`: flutter_rust_bridge moved from 2.12.0 to 2.13.0 (`pubspec.yaml`,
+    `packages/dart/rust/Cargo.toml`, `Cargo.lock`, regenerated bridge). The generated bridge now
+    allows `mismatched_lifetime_syntaxes` and fully qualifies `std::result::Result::Ok`.
+    `packages/dart/rust/build.rs` passes `--no-deps-check` to `flutter_rust_bridge_codegen` and only
+    re-applies the FRB cfg gates after a regeneration — the committed bridge already carries them, so
+    the previous unconditional repair on every build was redundant.
+  - `docs-site/src/snippets`: 1,691 snippets regenerated. The generator now prints a field of the
+    result instead of the whole value (`System.out.println(result.data())` rather than
+    `System.out.println(result)`). Where the fixture's assertion path is not a field of the returned
+    type — `is_true` on `cost_tracked`, `equals` on `error.status_code`, or `audio` on a response the
+    binding flattens to a byte array — the emitted accessor does not exist and the snippet no longer
+    typechecks. Verified against built packages: 17 C# and 78 Java snippets regress this way. Tracked
+    upstream against alef; these snippets are generated and cannot be fixed in this repo.
+
 ## [1.18.1] - 2026-08-22
 
 ### Fixed

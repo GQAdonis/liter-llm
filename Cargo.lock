@@ -1331,9 +1331,9 @@ checksum = "338089f42c427b86394a5ee60ff321da23a5c89c9d89514c829687b26359fcff"
 
 [[package]]
 name = "crc32fast"
-version = "1.5.0"
+version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9481c1c90cbf2ac953f07c8d4a58aa3945c425b7185c9154d67a65e4230da511"
+checksum = "8498c871161e1742aaa9d52551b2d6ebdd4c3d45a3be423e3728f33b955be550"
 dependencies = [
  "cfg-if",
 ]
@@ -1945,11 +1945,11 @@ dependencies = [
 
 [[package]]
 name = "fastpool"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "505402589aaeb2f89357bf8dfb259046c693a3c9a68b874a0ca8c0fb99e0fb4c"
+checksum = "241c00dfa5ac25f03b8e57bf846e3ddb2c0bb7e3f63befe00940918d0ff26ae2"
 dependencies = [
- "mea",
+ "asyncband",
  "scopeguard",
 ]
 
@@ -1995,9 +1995,9 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge"
-version = "2.12.0"
+version = "2.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0884853aae8a6517b5b58cf36f55da487f2fe110e1686938eb29b6640aae4a5"
+checksum = "24a973d15b8fc7de9fb29cdfbec58a2ac41f6252492d3b882abfdc603e32b34f"
 dependencies = [
  "allo-isolate",
  "android_logger",
@@ -2024,9 +2024,9 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge_macros"
-version = "2.12.0"
+version = "2.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b5ce32f35f710ced8c5aa557f023f1a624e737b5460cee2b70fcd3a8df09e1b"
+checksum = "901eec2d226107dad1c55b30f7421c4687bebcf70ed43ca44d1b447ca087b238"
 dependencies = [
  "hex",
  "md-5 0.10.6",
@@ -2973,9 +2973,9 @@ dependencies = [
 
 [[package]]
 name = "jsonschema"
-version = "0.50.0"
+version = "0.50.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bd2225bc56c338f18465ce618e5e56fff1295fcb0a0cb338b28010193f26949"
+checksum = "29b6bb4e22283b09119c671e57ac6a185e9a0c70c31585e56b729b626d877753"
 dependencies = [
  "ahash 0.8.12",
  "bytecount",
@@ -3004,18 +3004,18 @@ dependencies = [
 
 [[package]]
 name = "jsonschema-regex"
-version = "0.50.0"
+version = "0.50.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b11520e5257651f31068fa2c959ce28b09d8a217ffe42338bc27d690f06c0f8c"
+checksum = "497fbf3b1ca53b1e23a253f636e88e7a2031387388b8140199a0f240fcadf647"
 dependencies = [
  "regex-syntax",
 ]
 
 [[package]]
 name = "jsonschema-value"
-version = "0.50.0"
+version = "0.50.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccefde026ba6e6e23002c4e1e087b5f411ef5bc90f3e7febb7cf3c498ca8b169"
+checksum = "b84ca3f39446973a810fc90fc2645ada8c24284f6deb009c78b776813973887d"
 dependencies = [
  "ahash 0.8.12",
  "bytecount",
@@ -3144,7 +3144,7 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "liter-llm"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "ahash 0.8.12",
  "arc-swap",
@@ -3195,7 +3195,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-catalog-gen"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "chrono",
  "clap",
@@ -3212,7 +3212,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-cli"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "arc-swap",
  "axum",
@@ -3235,7 +3235,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-dart"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "flutter_rust_bridge",
  "futures-util",
@@ -3246,7 +3246,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-ffi"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "ahash 0.8.12",
  "cbindgen",
@@ -3260,7 +3260,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-jni"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -3274,7 +3274,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-node"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "futures-util",
  "liter-llm",
@@ -3287,7 +3287,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-php"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "ext-php-rs",
  "futures-util",
@@ -3299,7 +3299,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-proxy"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "ahash 0.8.12",
  "arc-swap",
@@ -3327,6 +3327,7 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
+ "serial_test",
  "subtle",
  "tempfile",
  "thiserror 2.0.20",
@@ -3347,7 +3348,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-py"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "futures",
  "liter-llm",
@@ -3360,7 +3361,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-swift"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "ahash 0.8.12",
  "async-trait",
@@ -3377,7 +3378,7 @@ dependencies = [
 
 [[package]]
 name = "liter-llm-wasm"
-version = "1.18.1"
+version = "1.18.2"
 dependencies = [
  "futures",
  "futures-util",
@@ -3404,9 +3405,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.33"
+version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
+checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "lru-slab"
@@ -3472,16 +3473,6 @@ checksum = "69b6441f590336821bb897fb28fc622898ccceb1d6cea3fde5ea86b090c4de98"
 dependencies = [
  "cfg-if",
  "digest 0.11.3",
-]
-
-[[package]]
-name = "mea"
-version = "0.6.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c709842c4ce65cb91e2666ad5319dfc1efc3af0d34f02075eddca9000d9f8afb"
-dependencies = [
- "hashbrown 0.17.1",
- "slab",
 ]
 
 [[package]]
@@ -3588,9 +3579,9 @@ dependencies = [
 
 [[package]]
 name = "napi"
-version = "3.12.1"
+version = "3.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "459197f1592f4c3dbbf9c1b13f5a4599a343e4ef66b96bc340e2a518b36a6662"
+checksum = "58c5f4d5375213fdb7be2655e152386e82f026f9a5ba36a75556e11359aafe09"
 dependencies = [
  "bitflags 2.13.1",
  "ctor",
@@ -4747,9 +4738,9 @@ dependencies = [
 
 [[package]]
 name = "referencing"
-version = "0.50.0"
+version = "0.50.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b228fc6035ae00a9008ba156c0dfc98f0b6ebc5f3c8db7ac7006dcf8e56f15a"
+checksum = "7a0a32a2a2c2d7dd0ee54705b5fd641be73037271928f68e9b0e7205b71c9d30"
 dependencies = [
  "ahash 0.8.12",
  "fluent-uri",
@@ -5127,7 +5118,7 @@ dependencies = [
  "once_cell",
  "ring",
  "rustls-pki-types",
- "rustls-webpki 0.103.14",
+ "rustls-webpki 0.103.15",
  "subtle",
  "zeroize",
 ]
@@ -5168,7 +5159,7 @@ dependencies = [
  "rustls 0.23.43",
  "rustls-native-certs",
  "rustls-platform-verifier-android",
- "rustls-webpki 0.103.14",
+ "rustls-webpki 0.103.15",
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
@@ -5193,9 +5184,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.14"
+version = "0.103.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0527518605e68109d875e248ea259b6758801cf165e4b2c2733ae3b51f12535a"
+checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
 dependencies = [
  "aws-lc-rs",
  "ring",
@@ -6694,9 +6685,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.24.1"
+version = "1.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cefc03fd367c0c6d4305de1b312cf00248c4114f4a0418ce6a6af769e3b0bd9"
+checksum = "f053576934f05a761a402421fbbe3d425d9366f75f978806a037b3ca481abecc"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",

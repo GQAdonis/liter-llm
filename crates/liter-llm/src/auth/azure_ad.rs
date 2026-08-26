@@ -55,7 +55,7 @@ pub struct AzureAdCredentialProvider {
     client_secret: SecretString,
     scope: String,
     cached: RwLock<Option<CachedToken>>,
-    http_client: reqwest::Client,
+    http_client: Option<reqwest::Client>,
 }
 
 impl AzureAdCredentialProvider {
@@ -64,14 +64,13 @@ impl AzureAdCredentialProvider {
     /// Uses the default scope `https://cognitiveservices.azure.com/.default`.
     #[must_use]
     pub fn new(tenant_id: impl Into<String>, client_id: impl Into<String>, client_secret: SecretString) -> Self {
-        crate::ensure_crypto_provider();
         Self {
             tenant_id: tenant_id.into(),
             client_id: client_id.into(),
             client_secret,
             scope: DEFAULT_SCOPE.to_owned(),
             cached: RwLock::new(None),
-            http_client: reqwest::Client::new(),
+            http_client: None,
         }
     }
 
@@ -83,9 +82,12 @@ impl AzureAdCredentialProvider {
     }
 
     /// Override the HTTP client used for token requests.
+    ///
+    /// This is a trusted transport override; policy-aware callers should use
+    /// [`crate::provider::configure_outbound_client_builder`].
     #[must_use]
     pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
-        self.http_client = client;
+        self.http_client = Some(client);
         self
     }
 
@@ -119,9 +121,13 @@ impl AzureAdCredentialProvider {
     /// Exchange client credentials for an access token.
     async fn fetch_token(&self) -> Result<CachedToken, LiterLlmError> {
         let url = format!("https://login.microsoftonline.com/{}/oauth2/v2.0/token", self.tenant_id);
+        crate::provider::validate_outbound_url(&url).await?;
+        let http_client = match &self.http_client {
+            Some(client) => client.clone(),
+            None => crate::provider::authenticated_outbound_client()?,
+        };
 
-        let resp = self
-            .http_client
+        let resp = http_client
             .post(&url)
             .form(&[
                 ("grant_type", "client_credentials"),
@@ -131,9 +137,11 @@ impl AzureAdCredentialProvider {
             ])
             .send()
             .await
-            .map_err(|e| LiterLlmError::Authentication {
-                message: format!("Azure AD token request failed: {e}"),
-                status: 401,
+            .map_err(|e| {
+                crate::provider::outbound_forbidden_from_reqwest(&e).unwrap_or_else(|| LiterLlmError::Authentication {
+                    message: format!("Azure AD token request failed: {e}"),
+                    status: 401,
+                })
             })?;
 
         let status = resp.status();

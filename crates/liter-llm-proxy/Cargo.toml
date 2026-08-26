@@ -60,12 +60,13 @@ dashmap = { workspace = true }
 etcd-client = { workspace = true, optional = true }
 futures-util = { workspace = true }
 http = { workspace = true }
-liter-llm = { path = "../liter-llm", version = "1.18.1", features = ["native-http", "tower"] }
+liter-llm = { path = "../liter-llm", version = "1.18.2", features = ["native-http", "tower"] }
 notify = { workspace = true }
 opendal = { workspace = true }
 
 opentelemetry = { workspace = true, optional = true }
 regex = { workspace = true }
+reqwest = { workspace = true }
 rmcp = { workspace = true }
 rust_decimal = { workspace = true }
 schemars = { workspace = true }
@@ -90,7 +91,7 @@ vaultrs = { workspace = true, optional = true }
 [dev-dependencies]
 ctor = "1.0"
 http-body-util = "0.1"
-reqwest = { workspace = true }
+serial_test = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
 tracing-test = "0.2"

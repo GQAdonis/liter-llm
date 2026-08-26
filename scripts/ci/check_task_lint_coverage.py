@@ -7,18 +7,20 @@ parseable as plain YAML — but it means most of our task automation is linted b
 nothing. The danger is not the skip, it is that a *new* file can silently join
 the skipped set and look identical to a file that was checked and found clean.
 
-poly reports only a count, not the names, so this check reconstructs the
-expected set from the property that causes the skip:
+This check reads poly's ``--format json`` report, which names every file it
+surveyed and, for each skip, the reason. So the assertion is made per file:
 
-    expected skipped = files in the scan set containing ``{{``
+    every skipped file must carry the Go/Helm template skip reason,
+    and every file in the scan set must appear in the report
 
-and asserts poly's reported counts match. A file skipped for any *other* reason
-— a parse failure, a guard change, a new engine restriction — moves the actual
-count away from the expected one and fails here with the delta named.
-
-Deliberately not a hardcoded ``17``: that would go stale the first time someone
-adds or removes a task file, and a check that has to be edited whenever the tree
-changes gets edited to whatever makes it pass. This version self-updates.
+Neither a count nor a list of expected filenames appears here. An earlier
+version reconstructed the expected skip set from "the file contains ``{{``" and
+compared counts; that broke the moment poly's YAML parser improved enough to
+format the root ``Taskfile.yml`` in place — 17 expected, 16 reported — even
+though coverage had strictly *increased*. Deriving the verdict from poly's own
+per-file reason means the check tracks poly instead of predicting it: more
+files getting linted is a pass, and a skip for any new reason is a failure that
+names the file.
 
 Retire this in favour of a poly flag (``--deny-skips`` / ``--max-skips=N``) if
 one ships; it was requested upstream. This is a workaround for a missing
@@ -30,14 +32,29 @@ Usage:
 
 from __future__ import annotations
 
-import re
+import json
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-TEMPLATE_MARKER = "{{"
+
+# ~keep The exact `skipped` string poly reports for a file it declined to parse
+# because of Go template syntax. Matched case-insensitively on a substring so a
+# reworded suffix does not fail the build, but a genuinely different reason
+# (parse error, guard change, new engine restriction) still does.
+TEMPLATE_SKIP_REASON = "template syntax"
+
+# ~keep `poly fmt --check` exits 1 for "these files would reformat", which is a
+# real report this check deliberately ignores — it reads skip reasons, not
+# formatting verdicts. Anything above that (2 = unreadable path argument, and
+# every crash/abort path) means poly did NOT survey the scan set, so any report
+# scraped from such a run describes nothing. Measured against poly directly;
+# do not widen this set without re-measuring.
+POLY_ALL_FORMATTED = 0
+POLY_WOULD_REFORMAT = 1
+POLY_SURVEYED_EXIT_CODES = frozenset({POLY_ALL_FORMATTED, POLY_WOULD_REFORMAT})
 
 
 def scan_set() -> list[Path]:
@@ -51,73 +68,100 @@ def scan_set() -> list[Path]:
     return paths
 
 
-def expected_skipped(paths: list[Path]) -> list[Path]:
-    """Files poly is expected to skip, i.e. those carrying Go template syntax."""
-    return [p for p in paths if TEMPLATE_MARKER in p.read_text(encoding="utf-8")]
+def poly_report(paths: list[Path]) -> list[dict]:
+    """Run poly and return its per-file JSON report.
 
+    ``--no-cache`` because a cache hit changes what poly reports, which is the
+    exact trap that made an earlier version of this check give a false pass.
 
-def poly_counts(paths: list[Path]) -> tuple[int, int]:
-    """Run poly and return its (checked, skipped) counts.
-
-    ``--no-cache`` because a cache hit changes what the summary reports, which is
-    the exact trap that made an earlier version of this check give a false pass.
+    The exit code is asserted *before* the report is parsed. A run that aborted
+    can still have emitted a report for the prefix of the scan set it reached,
+    and reading that would describe a survey that never finished — a pass
+    earned by examining nothing.
     """
     poly = shutil.which("poly")
     if poly is None:
         raise SystemExit("poly is not on PATH; run `task setup` first")
 
-    argv = [poly, "fmt", "--check", "--no-cache", *[str(p) for p in paths]]
+    argv = [poly, "fmt", "--check", "--no-cache", "--format", "json", *[str(p) for p in paths]]
     result = subprocess.run(argv, capture_output=True, text=True, check=False)
-    output = result.stdout + result.stderr
 
-    match = re.search(r"(\d+) file\(s\) checked(?:, (\d+) skipped)?", output)
-    if not match:
+    if result.returncode not in POLY_SURVEYED_EXIT_CODES:
         raise SystemExit(
-            "could not parse poly's summary line; its output format changed.\n"
-            "This check must fail loudly rather than assume zero skips.\n"
-            f"poly said:\n{output}"
+            f"poly exited {result.returncode}, so it did not survey the scan set and any\n"
+            "report scraped from this run would be meaningless. Refusing to report a skip\n"
+            f"verdict for a failed run.\ncommand: {' '.join(argv)}\n"
+            f"poly stdout:\n{result.stdout}\npoly stderr:\n{result.stderr}"
         )
-    return int(match.group(1)), int(match.group(2) or 0)
+
+    # ~keep poly prints its human skip lines after the JSON document, so decode
+    # the leading value rather than handing the whole stream to json.loads.
+    try:
+        report, _ = json.JSONDecoder().raw_decode(result.stdout.lstrip())
+    except ValueError as exc:
+        raise SystemExit(
+            "could not parse poly's JSON report; its output format changed.\n"
+            "This check must fail loudly rather than assume zero skips.\n"
+            f"parse error: {exc}\npoly said:\n{result.stdout}\n{result.stderr}"
+        ) from exc
+    if not isinstance(report, list):
+        raise SystemExit(f"poly's JSON report is {type(report).__name__}, expected a list:\n{report}")
+    return report
+
+
+def _display(path: str) -> str:
+    """Path as written in the repo, whatever form poly echoed back."""
+    resolved = Path(path).resolve()
+    return str(resolved.relative_to(ROOT)) if resolved.is_relative_to(ROOT) else str(resolved)
 
 
 def main() -> int:
-    """Compare poly's skip count against the templated-file count.
+    """Assert every skip poly reports is a Go-template skip, and nothing went unsurveyed.
 
     The printed lines are this check's machine-readable result, not incidental
     logging, so `print` is the correct surface here (ruff T201 suppressed per
     call for that reason).
     """
     paths = scan_set()
-    expected = expected_skipped(paths)
-    checked, skipped = poly_counts(paths)
+    report = poly_report(paths)
 
-    if skipped == len(expected) and checked == len(paths) - len(expected):
+    # ~keep poly echoes back whatever path form it was handed, so both sides are
+    # resolved before comparison rather than assumed to be repo-relative.
+    reported = {Path(entry["path"]).resolve() for entry in report if entry.get("path")}
+    unsurveyed = sorted(str(p.relative_to(ROOT)) for p in paths if p.resolve() not in reported)
+
+    unexplained = sorted(
+        (_display(entry["path"]), entry["skipped"])
+        for entry in report
+        if entry.get("skipped") and TEMPLATE_SKIP_REASON not in str(entry["skipped"]).lower()
+    )
+
+    skipped = [entry for entry in report if entry.get("skipped")]
+
+    if not unsurveyed and not unexplained:
         print(  # noqa: T201
-            f"OK: {checked} task file(s) linted, {skipped} skipped, "
-            f"and all {skipped} skips are explained by Go template syntax."
+            f"OK: {len(paths) - len(skipped)} task file(s) linted, {len(skipped)} skipped, "
+            f"and every skip is explained by Go template syntax."
         )
         return 0
 
     print("Task lint coverage changed unexpectedly:", file=sys.stderr)  # noqa: T201
-    print(  # noqa: T201
-        f"  poly reports   {checked} checked, {skipped} skipped (of {len(paths)} file(s))",
-        file=sys.stderr,
-    )
-    print(  # noqa: T201
-        f"  expected       {len(paths) - len(expected)} checked, {len(expected)} skipped",
-        file=sys.stderr,
-    )
-    print(  # noqa: T201
-        "  Files carrying Go template syntax, which are the ones poly is expected to skip:",
-        file=sys.stderr,
-    )
-    for path in expected:
-        print(f"    {path.relative_to(ROOT)}", file=sys.stderr)  # noqa: T201
-    print(  # noqa: T201
-        "\nIf poly skipped MORE than that, a file is being skipped for a reason other than\n"
-        "templating and is silently unlinted — find it before assuming this is benign.",
-        file=sys.stderr,
-    )
+    if unsurveyed:
+        print(  # noqa: T201
+            f"  {len(unsurveyed)} file(s) in the scan set are absent from poly's report, so they\n"
+            "  were never surveyed and this run proves nothing about them:",
+            file=sys.stderr,
+        )
+        for path in unsurveyed:
+            print(f"    {path}", file=sys.stderr)  # noqa: T201
+    if unexplained:
+        print(  # noqa: T201
+            f"  {len(unexplained)} file(s) were skipped for a reason other than Go template syntax\n"
+            "  and are therefore silently unlinted — find out why before assuming this is benign:",
+            file=sys.stderr,
+        )
+        for path, reason in unexplained:
+            print(f"    {path}: {reason}", file=sys.stderr)  # noqa: T201
     return 1
 
 

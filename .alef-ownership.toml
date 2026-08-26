@@ -23,6 +23,7 @@ owned_paths = [
   ".codex/skills/cli/SKILL.md",
   ".codex/skills/mcp/SKILL.md",
   "crates/liter-llm-ffi/README.md",
+  "crates/liter-llm-ffi/cmake/liter-llm-ffi-config.cmake",
   "crates/liter-llm-node/.gitignore",
   "crates/liter-llm-php/README.md",
   "crates/liter-llm/README.md",

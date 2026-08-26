@@ -61,7 +61,7 @@ pub enum LiterLlmError {
 
     #[cfg(any(feature = "native-http", feature = "wasm-http"))]
     #[error(transparent)]
-    Network(#[from] reqwest::Error),
+    Network(reqwest::Error),
 
     /// A catch-all for errors that occur during streaming response processing.
     ///
@@ -126,6 +126,17 @@ pub enum LiterLlmError {
     /// HTTP equivalent: 409 Conflict (retryable after a brief delay).
     #[error("idempotency key '{key}' is currently in-flight; retry after the first request completes")]
     IdempotencyInFlight { key: String },
+}
+
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+impl From<reqwest::Error> for LiterLlmError {
+    fn from(error: reqwest::Error) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(policy_error) = crate::provider::outbound_forbidden_from_reqwest(&error) {
+            return policy_error;
+        }
+        Self::Network(error)
+    }
 }
 
 impl LiterLlmError {

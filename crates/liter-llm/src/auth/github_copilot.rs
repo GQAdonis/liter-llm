@@ -137,6 +137,9 @@ pub struct GithubCopilotCredentialProvider {
 
 impl GithubCopilotCredentialProvider {
     /// Create a new provider with all defaults and the given HTTP client.
+    ///
+    /// The injected client is a trusted transport override. Callers using an
+    /// active outbound policy must configure its DNS and redirect behavior.
     #[must_use]
     pub fn new(http_client: reqwest::Client) -> Self {
         let token_dir = default_token_dir();
@@ -161,9 +164,6 @@ impl GithubCopilotCredentialProvider {
     ///
     /// Returns [`LiterLlmError::Authentication`] if a path cannot be resolved.
     pub fn from_env() -> Result<Arc<dyn CredentialProvider>, LiterLlmError> {
-        crate::ensure_crypto_provider();
-        let http_client = reqwest::Client::new();
-
         if let Ok(token) = std::env::var("GITHUB_COPILOT_TOKEN") {
             return Ok(Arc::new(StaticTokenProvider::new(SecretString::from(token))));
         }
@@ -178,6 +178,9 @@ impl GithubCopilotCredentialProvider {
 
         let api_key_url =
             std::env::var("GITHUB_COPILOT_API_KEY_URL").unwrap_or_else(|_| DEFAULT_API_KEY_URL.to_owned());
+
+        validate_copilot_urls(&device_code_url, &access_token_url, &api_key_url)?;
+        let http_client = crate::provider::authenticated_outbound_client()?;
 
         let token_dir = std::env::var("GITHUB_COPILOT_TOKEN_DIR")
             .map(PathBuf::from)
@@ -249,6 +252,7 @@ impl GithubCopilotCredentialProvider {
 
     /// Run the GitHub OAuth Device Flow to obtain a new access token.
     async fn run_device_flow(&self) -> Result<SecretString, LiterLlmError> {
+        crate::provider::validate_outbound_url(&self.device_code_url).await?;
         let device_resp = self
             .http_client
             .post(&self.device_code_url)
@@ -264,9 +268,11 @@ impl GithubCopilotCredentialProvider {
             }))
             .send()
             .await
-            .map_err(|e| LiterLlmError::Authentication {
-                message: format!("GitHub device code request failed: {e}"),
-                status: 401,
+            .map_err(|e| {
+                crate::provider::outbound_forbidden_from_reqwest(&e).unwrap_or_else(|| LiterLlmError::Authentication {
+                    message: format!("GitHub device code request failed: {e}"),
+                    status: 401,
+                })
             })?;
 
         let device_status = device_resp.status();
@@ -303,6 +309,7 @@ impl GithubCopilotCredentialProvider {
 
         for attempt in 0..DEVICE_FLOW_POLL_ATTEMPTS {
             tokio::time::sleep(DEVICE_FLOW_POLL_INTERVAL).await;
+            crate::provider::validate_outbound_url(&self.access_token_url).await?;
 
             let poll_resp = self
                 .http_client
@@ -320,9 +327,13 @@ impl GithubCopilotCredentialProvider {
                 }))
                 .send()
                 .await
-                .map_err(|e| LiterLlmError::Authentication {
-                    message: format!("GitHub access token poll request failed: {e}"),
-                    status: 401,
+                .map_err(|e| {
+                    crate::provider::outbound_forbidden_from_reqwest(&e).unwrap_or_else(|| {
+                        LiterLlmError::Authentication {
+                            message: format!("GitHub access token poll request failed: {e}"),
+                            status: 401,
+                        }
+                    })
                 })?;
 
             let poll_body = poll_resp.text().await.map_err(|e| LiterLlmError::Authentication {
@@ -378,6 +389,7 @@ impl GithubCopilotCredentialProvider {
 
     /// Exchange a GitHub OAuth access token for a short-lived Copilot API key.
     async fn fetch_api_key(&self, access_token: &SecretString) -> Result<CachedToken, LiterLlmError> {
+        crate::provider::validate_outbound_url(&self.api_key_url).await?;
         let resp = self
             .http_client
             .get(&self.api_key_url)
@@ -389,9 +401,11 @@ impl GithubCopilotCredentialProvider {
             .header("authorization", format!("token {}", access_token.expose_secret()))
             .send()
             .await
-            .map_err(|e| LiterLlmError::Authentication {
-                message: format!("Copilot API key request failed: {e}"),
-                status: 401,
+            .map_err(|e| {
+                crate::provider::outbound_forbidden_from_reqwest(&e).unwrap_or_else(|| LiterLlmError::Authentication {
+                    message: format!("Copilot API key request failed: {e}"),
+                    status: 401,
+                })
             })?;
 
         let status = resp.status();
@@ -432,6 +446,17 @@ impl GithubCopilotCredentialProvider {
             expires_at: parsed.expires_at,
         })
     }
+}
+
+fn validate_copilot_urls(
+    device_code_url: &str,
+    access_token_url: &str,
+    api_key_url: &str,
+) -> Result<(), LiterLlmError> {
+    for url in [device_code_url, access_token_url, api_key_url] {
+        crate::provider::validate_outbound_url_sync(url)?;
+    }
+    Ok(())
 }
 
 impl CredentialProvider for GithubCopilotCredentialProvider {
@@ -491,6 +516,8 @@ fn platform_config_dir() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
+
     use super::*;
 
     fn make_cached_token(expires_at: u64) -> CachedToken {
@@ -584,6 +611,28 @@ mod tests {
         }
         let provider = GithubCopilotCredentialProvider::new(reqwest::Client::new());
         assert_eq!(provider.client_id, DEFAULT_CLIENT_ID);
+    }
+
+    #[test]
+    #[serial(outbound_policy)]
+    fn env_configurable_credential_urls_reject_private_targets() {
+        use crate::provider::{OutboundPolicy, set_outbound_policy};
+
+        set_outbound_policy(OutboundPolicy::DenyPrivate);
+        let private = "http://169.254.169.254/copilot-token";
+        let results = [
+            validate_copilot_urls(private, DEFAULT_ACCESS_TOKEN_URL, DEFAULT_API_KEY_URL),
+            validate_copilot_urls(DEFAULT_DEVICE_CODE_URL, private, DEFAULT_API_KEY_URL),
+            validate_copilot_urls(DEFAULT_DEVICE_CODE_URL, DEFAULT_ACCESS_TOKEN_URL, private),
+        ];
+        set_outbound_policy(OutboundPolicy::Off);
+
+        for result in results {
+            assert!(
+                matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
+                "every environment-configurable credential endpoint must reject private targets"
+            );
+        }
     }
 
     #[tokio::test]

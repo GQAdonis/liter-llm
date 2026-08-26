@@ -756,20 +756,8 @@ impl DefaultClient {
             #[cfg(feature = "native-http")]
             crate::ensure_crypto_provider();
             let builder = reqwest::Client::builder().default_headers(header_map);
-            // ~keep GuardedResolver re-validates resolved addresses to defend against DNS rebinding.
-            // ~keep WASM DNS happens in browser fetch, so Rust can only enforce native resolver guards.
             #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
-            let builder = {
-                if !matches!(crate::provider::current_policy(), crate::provider::OutboundPolicy::Off)
-                    || config.transport.dns_cache_ttl.is_some()
-                {
-                    builder.dns_resolver(crate::provider::outbound_policy::cached_guarded_resolver(
-                        config.transport.dns_cache_ttl,
-                    ))
-                } else {
-                    builder
-                }
-            };
+            let builder = crate::provider::configure_outbound_client_builder(builder, config.transport.dns_cache_ttl);
             #[cfg(not(target_arch = "wasm32"))]
             let builder = builder.timeout(config.timeout);
             #[cfg(not(target_arch = "wasm32"))]

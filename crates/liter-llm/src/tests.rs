@@ -1295,6 +1295,18 @@ mod error_tests {
     }
 
     #[test]
+    fn outbound_forbidden_is_not_transient() {
+        let error = LiterLlmError::OutboundForbidden {
+            url: "http://169.254.169.254/".into(),
+            reason: "private address".into(),
+        };
+        assert!(
+            !error.is_transient(),
+            "policy failures must not trigger retry or fallback"
+        );
+    }
+
+    #[test]
     fn error_from_504_gateway_timeout() {
         let err = LiterLlmError::from_status(504, "Gateway Timeout", None);
         assert!(matches!(err, LiterLlmError::ServiceUnavailable { .. }));

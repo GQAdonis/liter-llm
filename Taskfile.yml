@@ -190,8 +190,9 @@ tasks:
     # poly cannot parse Taskfile YAML containing `{{ }}` and skips those files.
     # That is correct, but it means most of our task automation is linted by
     # nothing, and a NEW silently-skipped file is indistinguishable from one that
-    # was checked and found clean. poly reports a count but not names, so this
-    # reconstructs the expected set from the property causing the skip. ~keep
+    # was checked and found clean. The script reads poly's `--format json` report
+    # and asserts each skip's reason per file, so poly parsing more of the tree is
+    # a pass and only a new kind of skip fails. ~keep
     cmds:
       - python3 scripts/ci/check_task_lint_coverage.py
 

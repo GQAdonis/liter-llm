@@ -104,13 +104,12 @@ impl VertexOAuthCredentialProvider {
             })?
             .to_owned();
 
-        crate::ensure_crypto_provider();
         Ok(Self {
             service_account_email: email,
             private_key_pem: SecretString::from(key),
             scope: DEFAULT_SCOPE.to_owned(),
             cached: RwLock::new(None),
-            http_client: reqwest::Client::new(),
+            http_client: crate::provider::authenticated_outbound_client()?,
         })
     }
 
@@ -164,6 +163,9 @@ impl VertexOAuthCredentialProvider {
     }
 
     /// Override the HTTP client used for token requests.
+    ///
+    /// This is a trusted transport override; policy-aware callers should use
+    /// [`crate::provider::configure_outbound_client_builder`].
     #[must_use]
     pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
         self.http_client = client;
@@ -172,6 +174,7 @@ impl VertexOAuthCredentialProvider {
 
     /// Build a signed JWT assertion and exchange it for an access token.
     async fn fetch_token(&self) -> Result<CachedToken, LiterLlmError> {
+        crate::provider::validate_outbound_url(TOKEN_ENDPOINT).await?;
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|e| LiterLlmError::Authentication {
@@ -208,9 +211,11 @@ impl VertexOAuthCredentialProvider {
             .form(&[("grant_type", GRANT_TYPE), ("assertion", &assertion)])
             .send()
             .await
-            .map_err(|e| LiterLlmError::Authentication {
-                message: format!("Vertex OAuth token request failed: {e}"),
-                status: 401,
+            .map_err(|e| {
+                crate::provider::outbound_forbidden_from_reqwest(&e).unwrap_or_else(|| LiterLlmError::Authentication {
+                    message: format!("Vertex OAuth token request failed: {e}"),
+                    status: 401,
+                })
             })?;
 
         let status = resp.status();

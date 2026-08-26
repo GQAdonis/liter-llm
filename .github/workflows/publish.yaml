@@ -88,7 +88,7 @@ jobs:
       release_zig: ${{ steps.meta.outputs.release_zig }}
       release_swift: ${{ steps.meta.outputs.release_swift }}
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
@@ -96,7 +96,7 @@ jobs:
           owner: xberg-io
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ (inputs.republish == true && (inputs.ref || github.event.repository.default_branch)) || inputs.ref || github.ref }}
@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
@@ -169,6 +169,14 @@ jobs:
             mix=packages/elixir/mix.exs
             csproj=packages/csharp/LiterLlm/LiterLlm.csproj
             composer=composer.json
+
+      # The coding-agent plugin under plugin/ carries its own version source
+      # (plugin/.ai-rulez/config.toml [plugin].version) that the shared
+      # validate-versions action does not know about. Assert it against the tag
+      # actually being released, so a drifted plugin fails the release instead of
+      # shipping a bundle that lags the version it claims to be. ~keep
+      - name: Validate plugin version matches the release
+        run: python3 scripts/sync_plugin_version.py --expect "${{ needs.prepare.outputs.version }}"
 
   check-registries:
     name: Check registries
@@ -269,7 +277,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
@@ -301,24 +309,24 @@ jobs:
     if: ${{ needs.prepare.outputs.release_dart == 'true' && (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true') && (needs.check-pub.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
       - name: Download macOS arm64 native lib
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dart-native-macos-arm64
           path: dart-natives
 
       - name: Download Linux x86_64 native lib
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dart-native-linux-x86_64
           path: dart-natives
 
       - name: Download Linux arm64 native lib
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dart-native-linux-arm64
           path: dart-natives
@@ -378,7 +386,7 @@ jobs:
           - label: windows-x86_64
             runner: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - uses: xberg-io/actions/build-python-wheels@v1
@@ -391,21 +399,21 @@ jobs:
 
   build-python-sdist:
     name: Build Python sdist
-    needs: [prepare, registry-results, publish-crates]
+    needs: [prepare, registry-results, crates-gate]
     if: |
-      !cancelled() && needs.publish-crates.result != 'failure' &&
+      !cancelled() && needs.crates-gate.outputs.ok == 'true' &&
       needs.prepare.outputs.release_python == 'true' &&
       (needs.registry-results.outputs.pypi != 'true' || needs.prepare.outputs.force_republish == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - uses: xberg-io/actions/setup-rust@v1
         with:
           use-sccache: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - uses: xberg-io/actions/build-python-sdist@v1
@@ -455,14 +463,14 @@ jobs:
             runner: windows-latest
             napi_target: aarch64-pc-windows-msvc
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - uses: xberg-io/actions/setup-rust@v1
         with:
           target: ${{ matrix.napi_target }}
           use-sccache: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - run: npm install -g @napi-rs/cli
@@ -487,7 +495,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - uses: xberg-io/actions/setup-rust@v1
@@ -528,9 +536,9 @@ jobs:
 
   build-ruby-gem:
     name: Build Ruby gem (${{ matrix.label }})
-    needs: [prepare, registry-results, publish-crates]
+    needs: [prepare, registry-results, crates-gate]
     if: |
-      !cancelled() && needs.publish-crates.result != 'failure' &&
+      !cancelled() && needs.crates-gate.outputs.ok == 'true' &&
       needs.prepare.outputs.release_ruby == 'true' &&
       (needs.registry-results.outputs.rubygems != 'true' || needs.prepare.outputs.force_republish == 'true')
     runs-on: ${{ matrix.runner }}
@@ -551,7 +559,7 @@ jobs:
     env:
       RB_SYS_CARGO_PROFILE: release
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
@@ -638,9 +646,9 @@ jobs:
 
   build-elixir-nifs:
     name: Build Elixir NIFs (${{ matrix.label }})
-    needs: [prepare, registry-results, publish-crates]
+    needs: [prepare, registry-results, crates-gate]
     if: |
-      !cancelled() && needs.publish-crates.result != 'failure' &&
+      !cancelled() && needs.crates-gate.outputs.ok == 'true' &&
       needs.prepare.outputs.release_elixir == 'true' &&
       (needs.registry-results.outputs.hex != 'true' || needs.prepare.outputs.force_republish == 'true')
     runs-on: ${{ matrix.runner }}
@@ -666,7 +674,7 @@ jobs:
             target: x86_64-pc-windows-gnu
             lib_ext: dll
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - uses: xberg-io/actions/setup-rust@v1
@@ -725,9 +733,9 @@ jobs:
 
   build-php:
     name: Build PHP PIE binary (php${{ matrix.php }} ${{ matrix.platform.label }})
-    needs: [prepare, publish-crates]
+    needs: [prepare, crates-gate]
     if: |
-      !cancelled() && needs.publish-crates.result != 'failure' &&
+      !cancelled() && needs.crates-gate.outputs.ok == 'true' &&
       needs.prepare.outputs.release_php == 'true'
     runs-on: ${{ matrix.platform.os }}
     timeout-minutes: 60
@@ -758,7 +766,7 @@ jobs:
               target: aarch64-apple-darwin
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
@@ -891,7 +899,7 @@ jobs:
             target: aarch64-pc-windows-msvc
             rid: win-arm64
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Setup Rust
@@ -984,10 +992,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: ffi-*
           path: ffi-artifacts
@@ -1043,10 +1051,10 @@ jobs:
     env:
       CSHARP_RIDS: linux-x64 linux-arm64 osx-arm64 osx-x64 win-x64 win-arm64
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: ffi-*
           path: ffi-artifacts
@@ -1059,7 +1067,7 @@ jobs:
             find "ffi-artifacts/${rid}" -type f -print0 | xargs -0 -I{} cp {} "$dest/"
           done
         shell: bash
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
       - name: Render runtime.json from template
@@ -1100,7 +1108,7 @@ jobs:
       matrix:
         abi: [arm64-v8a, x86_64]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - uses: xberg-io/actions/setup-rust@v1
@@ -1167,13 +1175,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Ensure GitHub release exists
@@ -1183,7 +1191,7 @@ jobs:
           draft: "true"
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           token: ${{ steps.app-token.outputs.token }}
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: c-ffi-*
           path: c-ffi-release
@@ -1208,13 +1216,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Ensure GitHub release exists
@@ -1224,7 +1232,7 @@ jobs:
           draft: "true"
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           token: ${{ steps.app-token.outputs.token }}
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: go-ffi-*
           path: go-ffi-release
@@ -1249,14 +1257,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
@@ -1269,7 +1277,7 @@ jobs:
           git config user.email "291994444+xberg-dev-publisher[bot]@users.noreply.github.com"
         shell: bash
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: go-ffi-*
           path: go-ffi-artifacts
@@ -1384,13 +1392,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Ensure GitHub release exists
@@ -1400,7 +1408,7 @@ jobs:
           draft: "true"
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           token: ${{ steps.app-token.outputs.token }}
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: elixir-nifs-*
           path: elixir-nifs
@@ -1420,13 +1428,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Ensure GitHub release exists
@@ -1436,7 +1444,7 @@ jobs:
           draft: "true"
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           token: ${{ steps.app-token.outputs.token }}
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: php-package-*
           path: dist/php-package
@@ -1461,13 +1469,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Ensure GitHub release exists
@@ -1477,7 +1485,7 @@ jobs:
           draft: "true"
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           token: ${{ steps.app-token.outputs.token }}
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: kotlin-android-*
           path: kotlin-android-aars
@@ -1505,7 +1513,7 @@ jobs:
       id-token: write
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - uses: xberg-io/actions/setup-rust@v1
@@ -1516,6 +1524,61 @@ jobs:
           crates: liter-llm liter-llm-ffi liter-llm-proxy liter-llm-cli
           version: ${{ needs.prepare.outputs.version }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
+
+  # ~keep `needs.publish-crates.result != 'failure'` is TRUE when publish-crates was SKIPPED,
+  # and publish-crates skips for two opposite reasons: the version is already on crates.io
+  # (a re-run or a resumed release — downstream must proceed), or an upstream gate such as
+  # cargo-packages failed (downstream must NOT proceed). `result` alone cannot tell them
+  # apart, so every downstream job that read it was gating on nothing: tree-sitter-language-pack
+  # v1.15.5 published a GitHub release to zero registries that way and still reported success.
+  # This job always runs, so its outputs always exist, and it resolves the ambiguity once into
+  # an explicit outcome the whole workflow tests instead of re-deriving it at each call site.
+  crates-gate:
+    name: Crates.io publish gate
+    needs: [prepare, registry-results, publish-crates]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ok: ${{ steps.decide.outputs.ok }}
+      outcome: ${{ steps.decide.outputs.outcome }}
+    steps:
+      - id: decide
+        name: Decide whether the crates.io prerequisite is satisfied
+        shell: bash
+        env:
+          RESULT_PUBLISH_CRATES: ${{ needs.publish-crates.result }}
+          RELEASE_CRATES: ${{ needs.prepare.outputs.release_crates }}
+          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+          FORCE_REPUBLISH: ${{ needs.prepare.outputs.force_republish }}
+          ALREADY_ON_CRATESIO: ${{ needs.registry-results.outputs.cratesio }}
+        run: |
+          set -uo pipefail
+
+          if [[ "${RESULT_PUBLISH_CRATES}" == "failure" ]]; then
+            outcome="blocked"
+          elif [[ "${RESULT_PUBLISH_CRATES}" == "success" ]]; then
+            outcome="published"
+          elif [[ "${RELEASE_CRATES}" != "true" ]]; then
+            outcome="not-required"
+          elif [[ "${DRY_RUN}" == "true" ]]; then
+            outcome="dry-run"
+          elif [[ "${ALREADY_ON_CRATESIO}" == "true" && "${FORCE_REPUBLISH}" != "true" ]]; then
+            outcome="already-present"
+          else
+            outcome="blocked"
+          fi
+
+          if [[ "${outcome}" == "blocked" ]]; then
+            ok="false"
+            echo "::error title=crates.io prerequisite not met::publish-crates finished with '${RESULT_PUBLISH_CRATES}' and this version is not on crates.io — every job that builds or publishes against the released crate will be held back."
+          else
+            ok="true"
+          fi
+
+          echo "outcome=${outcome}" >>"$GITHUB_OUTPUT"
+          echo "ok=${ok}" >>"$GITHUB_OUTPUT"
+          echo "crates-gate: outcome=${outcome} ok=${ok} (publish-crates=${RESULT_PUBLISH_CRATES})"
 
   publish-pypi:
     name: Publish PyPI
@@ -1545,7 +1608,7 @@ jobs:
           version: ${{ needs.prepare.outputs.version }}
       - name: Download all wheel + sdist artifacts
         if: steps.recheck.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true'
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: python-*
           path: dist
@@ -1579,7 +1642,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
@@ -1589,14 +1652,14 @@ jobs:
           package_json_file: package.json
 
       - name: Download Node artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: node-native-*
           path: crates/liter-llm-node/artifacts
           merge-multiple: true
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org/
@@ -1728,18 +1791,18 @@ jobs:
       # Needed only so `./.github/actions/resolve-npm-dist-tag` resolves; the package
       # itself is published from the downloaded `dist` artifact. ~keep
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
       - name: Download WASM artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: wasm-pkg
           path: dist
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org/
@@ -1807,13 +1870,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
 
       - name: Download Ruby gem artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: rubygems-*
           path: dist
@@ -1913,14 +1976,14 @@ jobs:
       contents: read
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: maven-packages
           path: packages/java/target
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: ffi-*
           path: ffi-artifacts
@@ -1986,11 +2049,11 @@ jobs:
       contents: read
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Download pre-built AARs from build matrix
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: kotlin-android-*
           path: kotlin-android-aars-prebuilt
@@ -2068,14 +2131,14 @@ jobs:
       id-token: write
     timeout-minutes: 30
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
@@ -2162,7 +2225,7 @@ jobs:
       id-token: write
     timeout-minutes: 15
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: nuget-packages
           path: nuget-output
@@ -2203,7 +2266,7 @@ jobs:
     if: ${{ needs.prepare.outputs.release_dart == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && (needs.check-pub.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
@@ -2224,16 +2287,16 @@ jobs:
     if: ${{ needs.prepare.outputs.release_zig == 'true' && needs.prepare.outputs.is_tag == 'true' && (needs.check-zig.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') && needs.build-ffi.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: ffi-*
           path: ffi-artifacts
@@ -2262,14 +2325,14 @@ jobs:
       checksum: ${{ steps.checksum.outputs.checksum }}
       reused: ${{ steps.check-existing.outputs.reused }}
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
@@ -2350,21 +2413,21 @@ jobs:
     if: ${{ (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true') && needs.swift-artifactbundle.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: swift-*
           path: dist/swift
@@ -2523,7 +2586,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             archive: zip
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - uses: xberg-io/actions/setup-rust@v1
@@ -2593,14 +2656,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: cli-binary-*
           path: dist/cli
@@ -2661,22 +2724,22 @@ jobs:
 
   publish-homebrew-formula:
     name: Update Homebrew formula
-    needs: [prepare, check-homebrew, publish-crates]
+    needs: [prepare, check-homebrew, crates-gate]
     if: |
       needs.prepare.outputs.release_homebrew == 'true' &&
       needs.prepare.outputs.dry_run != 'true' &&
       needs.check-homebrew.outputs.exists != 'true' &&
-      needs.publish-crates.result != 'failure'
+      needs.crates-gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
 
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: tap-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
@@ -2685,12 +2748,12 @@ jobs:
           repositories: homebrew-tap
 
       - name: Checkout source repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
       - name: Checkout homebrew-tap
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: xberg-io/homebrew-tap
           token: ${{ steps.tap-token.outputs.token }}
@@ -2738,14 +2801,14 @@ jobs:
           - { os: ubuntu-latest, bottle_tag: x86_64_linux, install_brew: true }
           - { os: ubuntu-24.04-arm, bottle_tag: arm64_linux, install_brew: true }
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
@@ -2782,7 +2845,7 @@ jobs:
       needs.homebrew-bottles.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: tap-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
@@ -2790,18 +2853,18 @@ jobs:
           owner: xberg-io
           repositories: homebrew-tap
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: xberg-io/homebrew-tap
           token: ${{ steps.tap-token.outputs.token }}
           path: homebrew-tap
           persist-credentials: true
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           path: ${{ github.workspace }}/bottle-json
           pattern: homebrew-bottle-json-*
@@ -2838,6 +2901,15 @@ jobs:
     name: Finalize release
     needs:
       - prepare
+      - validate-versions
+      - registry-results
+      - crates-gate
+      - check-pub
+      - check-zig
+      - check-homebrew
+      - upload-elixir-nifs
+      - upload-cli-binaries
+      - publish-homebrew-formula
       - upload-c-ffi
       - upload-go-ffi
       - publish-go-module
@@ -2861,22 +2933,168 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           owner: xberg-io
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
       # Only ever un-draft a release that actually shipped. v1.17.1 finalized green with
       # zero assets and not one registry published, because this step ran unconditionally
       # under the job's `always()`. Skipped targets are fine here; failures are not. ~keep
+      # ~keep `contains(needs.*.result, 'failure')` cannot see a SKIPPED job, and `skipped` is
+      # exactly what a publish job becomes when an upstream gate fails — a failed `needs:` edge
+      # makes GitHub skip the dependent job without evaluating its `if:` at all. So a release
+      # where every registry silently shipped nothing finalized green (v1.17.1 here;
+      # tree-sitter-language-pack v1.15.5 upstream). Judge every target on its own result and
+      # treat `skipped` as a failure unless one of two legitimate reasons applies: the target is
+      # not enabled for this release, or its registry probe already found this exact version.
+      # This step never exits non-zero itself — it publishes a verdict the finalize step gates on
+      # and the hold step fails on, so the summary table below still renders either way.
+      - name: Verify every enabled publish target succeeded
+        id: verify
+        shell: bash
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          IS_TAG: ${{ needs.prepare.outputs.is_tag }}
+          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+          FORCE_REPUBLISH: ${{ needs.prepare.outputs.force_republish }}
+          RESULT_PREPARE: ${{ needs.prepare.result }}
+          RESULT_VALIDATE: ${{ needs.validate-versions.result }}
+          CRATES_GATE_OK: ${{ needs.crates-gate.outputs.ok }}
+          CRATES_GATE_OUTCOME: ${{ needs.crates-gate.outputs.outcome }}
+          RESULT_PUBLISH_CRATES: ${{ needs.publish-crates.result }}
+          RESULT_PUBLISH_PYPI: ${{ needs.publish-pypi.result }}
+          RESULT_PUBLISH_NODE: ${{ needs.publish-node.result }}
+          RESULT_PUBLISH_WASM: ${{ needs.publish-wasm.result }}
+          RESULT_PUBLISH_RUBYGEMS: ${{ needs.publish-rubygems.result }}
+          RESULT_PUBLISH_MAVEN: ${{ needs.publish-maven.result }}
+          RESULT_PUBLISH_HEX: ${{ needs.publish-hex.result }}
+          RESULT_PUBLISH_PACKAGIST: ${{ needs.publish-packagist.result }}
+          RESULT_PUBLISH_NUGET: ${{ needs.publish-nuget.result }}
+          RESULT_PUBLISH_GO_MODULE: ${{ needs.publish-go-module.result }}
+          RESULT_TRIGGER_PUBDEV: ${{ needs.trigger-pubdev.result }}
+          RESULT_PUBLISH_ZIG: ${{ needs.publish-zig.result }}
+          RESULT_PUBLISH_HOMEBREW: ${{ needs.publish-homebrew-bottles.result }}
+          RESULT_UPLOAD_CLI: ${{ needs.upload-cli-binaries.result }}
+          RESULT_VERIFY_BINSTALL: ${{ needs.verify-binstall.result }}
+          RESULT_UPLOAD_C_FFI: ${{ needs.upload-c-ffi.result }}
+          RESULT_UPLOAD_GO_FFI: ${{ needs.upload-go-ffi.result }}
+          RESULT_UPLOAD_ELIXIR: ${{ needs.upload-elixir-nifs.result }}
+          RESULT_UPLOAD_PHP: ${{ needs.upload-php-extensions.result }}
+          RESULT_UPLOAD_SWIFT: ${{ needs.upload-swift-release.result }}
+          RELEASE_CRATES: ${{ needs.prepare.outputs.release_crates }}
+          RELEASE_PYTHON: ${{ needs.prepare.outputs.release_python }}
+          RELEASE_NODE: ${{ needs.prepare.outputs.release_node }}
+          RELEASE_WASM: ${{ needs.prepare.outputs.release_wasm }}
+          RELEASE_RUBY: ${{ needs.prepare.outputs.release_ruby }}
+          RELEASE_JAVA: ${{ needs.prepare.outputs.release_java }}
+          RELEASE_ELIXIR: ${{ needs.prepare.outputs.release_elixir }}
+          RELEASE_PHP: ${{ needs.prepare.outputs.release_php }}
+          RELEASE_CSHARP: ${{ needs.prepare.outputs.release_csharp }}
+          RELEASE_GO: ${{ needs.prepare.outputs.release_go }}
+          RELEASE_DART: ${{ needs.prepare.outputs.release_dart }}
+          RELEASE_ZIG: ${{ needs.prepare.outputs.release_zig }}
+          RELEASE_SWIFT: ${{ needs.prepare.outputs.release_swift }}
+          RELEASE_HOMEBREW: ${{ needs.prepare.outputs.release_homebrew }}
+          EXISTS_CRATES: ${{ needs.registry-results.outputs.cratesio }}
+          EXISTS_PYPI: ${{ needs.registry-results.outputs.pypi }}
+          EXISTS_NPM: ${{ needs.registry-results.outputs.npm }}
+          EXISTS_NPM_WASM: ${{ needs.registry-results.outputs.npm_wasm }}
+          EXISTS_RUBYGEMS: ${{ needs.registry-results.outputs.rubygems }}
+          EXISTS_MAVEN: ${{ needs.registry-results.outputs.maven }}
+          EXISTS_HEX: ${{ needs.registry-results.outputs.hex }}
+          EXISTS_PACKAGIST: ${{ needs.registry-results.outputs.packagist }}
+          EXISTS_NUGET: ${{ needs.registry-results.outputs.nuget }}
+          EXISTS_GO: ${{ needs.registry-results.outputs.go }}
+          EXISTS_PUB: ${{ needs.check-pub.outputs.exists }}
+          EXISTS_ZIG: ${{ needs.check-zig.outputs.exists }}
+          EXISTS_HOMEBREW: ${{ needs.check-homebrew.outputs.exists }}
+        run: |
+          set -uo pipefail
+          failed=0
+
+          if [[ "${IS_TAG}" != "true" || "${DRY_RUN}" == "true" ]]; then
+            echo "Not a real tag release — nothing to verify."
+            echo "ok=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          require_success() {
+            local name="$1" result="$2"
+            if [[ "${result}" != "success" ]]; then
+              echo "::error title=Incomplete release::Required release job '${name}' finished with '${result}' — ${TAG} did not ship."
+              failed=1
+              return
+            fi
+            echo "  - ${name}: ok"
+          }
+
+          require_publish() {
+            local name="$1" result="$2" enabled="$3" already="${4:-}"
+
+            if [[ "${enabled}" != "true" ]]; then
+              echo "  - ${name}: not enabled for this release"
+              return
+            fi
+            if [[ "${already}" == "true" && "${FORCE_REPUBLISH}" != "true" ]]; then
+              echo "  - ${name}: already published at this version (correctly skipped)"
+              return
+            fi
+            if [[ "${result}" != "success" ]]; then
+              echo "::error title=Incomplete release::Publish target '${name}' is enabled and not yet published, but its job finished with '${result}' — refusing to finalize ${TAG}."
+              failed=1
+              return
+            fi
+            echo "  - ${name}: published"
+          }
+
+          require_success "prepare" "${RESULT_PREPARE}"
+          require_success "validate-versions" "${RESULT_VALIDATE}"
+
+          if [[ "${CRATES_GATE_OK}" != "true" ]]; then
+            echo "::error title=Incomplete release::crates-gate reported '${CRATES_GATE_OUTCOME}' — the crates.io prerequisite for ${TAG} was never satisfied."
+            failed=1
+          fi
+
+          require_publish "crates.io" "${RESULT_PUBLISH_CRATES}" "${RELEASE_CRATES}" "${EXISTS_CRATES}"
+          require_publish "pypi" "${RESULT_PUBLISH_PYPI}" "${RELEASE_PYTHON}" "${EXISTS_PYPI}"
+          require_publish "npm" "${RESULT_PUBLISH_NODE}" "${RELEASE_NODE}" "${EXISTS_NPM}"
+          require_publish "npm-wasm" "${RESULT_PUBLISH_WASM}" "${RELEASE_WASM}" "${EXISTS_NPM_WASM}"
+          require_publish "rubygems" "${RESULT_PUBLISH_RUBYGEMS}" "${RELEASE_RUBY}" "${EXISTS_RUBYGEMS}"
+          require_publish "maven" "${RESULT_PUBLISH_MAVEN}" "${RELEASE_JAVA}" "${EXISTS_MAVEN}"
+          require_publish "hex" "${RESULT_PUBLISH_HEX}" "${RELEASE_ELIXIR}" "${EXISTS_HEX}"
+          require_publish "packagist" "${RESULT_PUBLISH_PACKAGIST}" "${RELEASE_PHP}" "${EXISTS_PACKAGIST}"
+          require_publish "nuget" "${RESULT_PUBLISH_NUGET}" "${RELEASE_CSHARP}" "${EXISTS_NUGET}"
+          require_publish "go-module" "${RESULT_PUBLISH_GO_MODULE}" "${RELEASE_GO}" "${EXISTS_GO}"
+          require_publish "pub.dev" "${RESULT_TRIGGER_PUBDEV}" "${RELEASE_DART}" "${EXISTS_PUB}"
+          require_publish "zig" "${RESULT_PUBLISH_ZIG}" "${RELEASE_ZIG}" "${EXISTS_ZIG}"
+          require_publish "homebrew" "${RESULT_PUBLISH_HOMEBREW}" "${RELEASE_HOMEBREW}" "${EXISTS_HOMEBREW}"
+
+          # Release assets consumers resolve at install time.
+          require_publish "cli-binaries" "${RESULT_UPLOAD_CLI}" "${RELEASE_HOMEBREW}" "${EXISTS_HOMEBREW}"
+          require_publish "binstall-verify" "${RESULT_VERIFY_BINSTALL}" "${RELEASE_HOMEBREW}" "${EXISTS_HOMEBREW}"
+          require_publish "c-ffi-assets" "${RESULT_UPLOAD_C_FFI}" "true"
+          require_publish "go-ffi-assets" "${RESULT_UPLOAD_GO_FFI}" "${RELEASE_GO}" "${EXISTS_GO}"
+          require_publish "elixir-nif-assets" "${RESULT_UPLOAD_ELIXIR}" "${RELEASE_ELIXIR}" "${EXISTS_HEX}"
+          require_publish "php-extension-assets" "${RESULT_UPLOAD_PHP}" "${RELEASE_PHP}" "${EXISTS_PACKAGIST}"
+          require_publish "swift-assets" "${RESULT_UPLOAD_SWIFT}" "${RELEASE_SWIFT}"
+
+          if [[ "${failed}" -eq 1 ]]; then
+            echo "ok=false" >>"$GITHUB_OUTPUT"
+            echo "::error title=Incomplete release::Release ${TAG} did not reach every enabled target — it will not be finalized."
+            exit 0
+          fi
+          echo "ok=true" >>"$GITHUB_OUTPUT"
+          echo "Every enabled publish target for ${TAG} succeeded."
+
       - name: Finalize release
-        if: ${{ needs.prepare.outputs.dry_run != 'true' && !contains(needs.*.result, 'failure') }}
+        if: ${{ needs.prepare.outputs.dry_run != 'true' && !contains(needs.*.result, 'failure') && steps.verify.outputs.ok == 'true' }}
         uses: xberg-io/actions/finalize-release@v1
         with:
           tag: ${{ needs.prepare.outputs.tag }}
@@ -2921,13 +3139,16 @@ jobs:
         shell: bash
 
       # Runs after the summary table so a failed release still reports which targets
-      # shipped, then fails the job so the run cannot be mistaken for a good release. ~keep
+      # shipped, then fails the job so the run cannot be mistaken for a good release.
+      # `contains(needs.*.result, 'failure')` alone was not enough: a target that shipped
+      # nothing because an upstream gate failed reads as `skipped`, not `failure`, so the
+      # verdict from the verify step above is what catches a release that published nothing. ~keep
       - name: Hold release as draft
-        if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.*.result, 'failure') }}
+        if: ${{ needs.prepare.outputs.dry_run != 'true' && (contains(needs.*.result, 'failure') || steps.verify.outputs.ok != 'true') }}
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          echo "::error::One or more publish jobs failed; leaving ${TAG} as a draft release."
+          echo "::error::${TAG} did not reach every enabled publish target; leaving it as a draft release."
           exit 1
         shell: bash
 
@@ -2958,7 +3179,7 @@ jobs:
       !contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
@@ -2985,11 +3206,11 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org/
@@ -3040,10 +3261,10 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org/"
@@ -3090,7 +3311,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Install uv

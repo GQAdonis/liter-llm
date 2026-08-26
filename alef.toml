@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.66.0"
+alef_version = "0.68.0"
 languages = [
   "python",
   "node",
@@ -443,9 +443,6 @@ types = [
   "LlmRequest",
   "LlmResponse",
   "CachedResponse",
-  "TowerLlmRequest",
-  "TowerLlmResponse",
-  "TowerCachedResponse",
   "BudgetState",
   "BudgetLayer",
   "BudgetLedger",
@@ -646,8 +643,6 @@ functions = [
   "should_hedge",
   "wait_for_batch_impl",
   "record_cache_state",
-  "record_cache_hit",
-  "record_cache_miss",
   "record_cache_stale",
   "record_circuit_trip",
   "record_retry_attempt",
@@ -659,6 +654,9 @@ functions = [
   "record_realtime_event",
   "record_realtime_bytes",
   "init_meter",
+  # ~keep Rust-only escape hatch: takes and returns `reqwest::ClientBuilder`, which has no
+  # binding representation, so alef sanitizes both to `String`.
+  "configure_outbound_client_builder",
 ]
 
 [crates.lint.python]
@@ -877,6 +875,20 @@ fields_method_calls = ["status_code"]
 
 [crates.e2e.snippets]
 output = "docs-site/src/snippets"
+# ~keep alef 0.67.6 resolves these globs against the project root, not against
+# ~keep `output`; a path relative to `output` is rejected with a naming error.
+# ~keep Every entry is a tutorial/README source that no fixture can produce: they
+# ~keep call real providers with real model ids and `side_effect: network`, and
+# ~keep `[crates.readme.languages.*.snippets]` reads them by name.
+curated_snippets = [
+  "docs-site/src/snippets/*/getting-started/basic_chat.md",
+  "docs-site/src/snippets/*/getting-started/streaming.md",
+  "docs-site/src/snippets/*/getting-started/tool_calling.md",
+  "docs-site/src/snippets/*/guides/error_handling.md",
+  "docs-site/src/snippets/*/usage/multimodal.md",
+  "docs-site/src/snippets/python/multimodal.md",
+  "docs-site/src/handwritten-snippets/**/*.md",
+]
 languages = [
   "rust",
   "python",
@@ -924,7 +936,7 @@ result_var = "result"
 async = true
 
 [[crates.e2e.call.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -961,7 +973,7 @@ options_via = "from_json"
 
 [crates.e2e.call.overrides.ruby]
 client_factory = "create_client"
-options_type = "LiterLlm::ChatCompletionRequest"
+options_type = "ChatCompletionRequest"
 
 [crates.e2e.call.overrides.elixir]
 client_factory = "create_client"
@@ -985,7 +997,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.chat.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1013,7 +1025,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.chat.overrides.ruby]
-options_type = "LiterLlm::ChatCompletionRequest"
+options_type = "ChatCompletionRequest"
 
 [crates.e2e.calls.chat.overrides.java]
 client_factory = "createClient"
@@ -1042,7 +1054,7 @@ streaming = true
 assertion_recipes = ["streaming", "chunks"]
 
 [[crates.e2e.calls.chat_stream.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1068,7 +1080,7 @@ from_json_module = "liter_llm._internal_bindings"
 async = false
 
 [crates.e2e.calls.chat_stream.overrides.ruby]
-options_type = "LiterLlm::ChatCompletionRequest"
+options_type = "ChatCompletionRequest"
 
 [crates.e2e.calls.chat_stream.overrides.java]
 client_factory = "createClient"
@@ -1094,7 +1106,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.embed.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1122,7 +1134,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.embed.overrides.ruby]
-options_type = "LiterLlm::EmbeddingRequest"
+options_type = "EmbeddingRequest"
 
 [crates.e2e.calls.embed.overrides.java]
 client_factory = "createClient"
@@ -1160,7 +1172,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.image_generate.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1188,7 +1200,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.image_generate.overrides.ruby]
-options_type = "LiterLlm::CreateImageRequest"
+options_type = "CreateImageRequest"
 
 [crates.e2e.calls.image_generate.overrides.java]
 client_factory = "createClient"
@@ -1213,7 +1225,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.speech.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1254,7 +1266,7 @@ from_json_module = "liter_llm._internal_bindings"
 result_is_simple = true
 
 [crates.e2e.calls.speech.overrides.ruby]
-options_type = "LiterLlm::CreateSpeechRequest"
+options_type = "CreateSpeechRequest"
 result_is_simple = true
 
 [crates.e2e.calls.speech.overrides.java]
@@ -1284,7 +1296,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.transcribe.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1312,7 +1324,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.transcribe.overrides.ruby]
-options_type = "LiterLlm::CreateTranscriptionRequest"
+options_type = "CreateTranscriptionRequest"
 
 [crates.e2e.calls.transcribe.overrides.java]
 client_factory = "createClient"
@@ -1337,7 +1349,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.moderate.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1365,7 +1377,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.moderate.overrides.ruby]
-options_type = "LiterLlm::ModerationRequest"
+options_type = "ModerationRequest"
 
 [crates.e2e.calls.moderate.overrides.wasm]
 options_type = "WasmModerationRequest"
@@ -1385,7 +1397,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.rerank.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1413,7 +1425,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.rerank.overrides.ruby]
-options_type = "LiterLlm::RerankRequest"
+options_type = "RerankRequest"
 
 [crates.e2e.calls.rerank.overrides.wasm]
 options_type = "WasmRerankRequest"
@@ -1433,7 +1445,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.search.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1461,7 +1473,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.search.overrides.ruby]
-options_type = "LiterLlm::SearchRequest"
+options_type = "SearchRequest"
 
 [crates.e2e.calls.search.overrides.wasm]
 options_type = "WasmSearchRequest"
@@ -1481,7 +1493,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.ocr.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1509,7 +1521,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.ocr.overrides.ruby]
-options_type = "LiterLlm::OcrRequest"
+options_type = "OcrRequest"
 
 [crates.e2e.calls.ocr.overrides.wasm]
 options_type = "WasmOcrRequest"
@@ -1529,7 +1541,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.create_file.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1557,7 +1569,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.create_file.overrides.ruby]
-options_type = "LiterLlm::CreateFileRequest"
+options_type = "CreateFileRequest"
 
 [crates.e2e.calls.create_file.overrides.wasm]
 options_type = "WasmCreateFileRequest"
@@ -1704,7 +1716,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.create_batch.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1737,7 +1749,7 @@ enum_fields = { "status" = "BatchStatus" }
 assert_enum_fields = { "status" = "BatchStatus" }
 
 [crates.e2e.calls.create_batch.overrides.ruby]
-options_type = "LiterLlm::CreateBatchRequest"
+options_type = "CreateBatchRequest"
 enum_fields = { "status" = "BatchStatus" }
 
 [crates.e2e.calls.create_batch.overrides.java]
@@ -1894,7 +1906,7 @@ module = "liter_llm"
 async = true
 
 [[crates.e2e.calls.create_response.args]]
-name = "request"
+name = "req"
 field = "input"
 type = "json_object"
 owned = true
@@ -1922,7 +1934,7 @@ options_via = "from_json"
 from_json_module = "liter_llm._internal_bindings"
 
 [crates.e2e.calls.create_response.overrides.ruby]
-options_type = "LiterLlm::CreateResponseRequest"
+options_type = "CreateResponseRequest"
 
 [crates.e2e.calls.create_response.overrides.wasm]
 options_type = "WasmCreateResponseRequest"
@@ -2032,7 +2044,7 @@ name = "liter_llm_ffi"
 name = "LiterLlm"
 
 [crates.e2e.registry.packages.zig]
-hash = "liter_llm-1.18.1-ITuy7j8Hy2Yavk0BjGZ43I0Ix2GL"
+hash = "liter_llm-1.18.2-ITuy7j8Hy2Yavk0BjGZ43I0Ix2GL"
 
 [crates.e2e.registry.packages.homebrew]
 tap = "xberg-io/homebrew-tap"

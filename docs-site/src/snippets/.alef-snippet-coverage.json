@@ -25627,7 +25627,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -26906,7 +26907,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -26981,7 +26983,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27026,7 +27029,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27116,7 +27120,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27176,7 +27181,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27798,7 +27804,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27903,7 +27910,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27918,7 +27926,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27933,7 +27942,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27948,7 +27958,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27963,7 +27974,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27978,7 +27990,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -27993,7 +28006,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -28008,7 +28022,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -28023,7 +28038,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },
@@ -28038,7 +28054,8 @@
       "session": "rust",
       "requires": [
         "crate:serde_json",
-        "crate:tokio"
+        "crate:tokio",
+        "crate:tokio-stream"
       ],
       "side_effect": "safe"
     },

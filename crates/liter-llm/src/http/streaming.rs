@@ -120,7 +120,7 @@ where
 {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(max_retries, || {
+    let resp = with_retry(url, max_retries, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -181,7 +181,7 @@ where
 {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(max_retries, || {
+    let resp = with_retry(url, max_retries, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
