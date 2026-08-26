@@ -12,7 +12,7 @@ name = "liter-llm"
 # same fix already applied to the other vendored crates in vendor/git/
 # (surreal-memory, sycophancy-core). Values must stay in sync with
 # ../../Cargo.toml's `[workspace.package]` table when bumping upstream.
-version = "1.18.1"
+version = "1.18.2"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
