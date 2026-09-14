@@ -34,6 +34,7 @@ pub(crate) struct ResponseReadOptions {
     pub max_response_bytes: Option<usize>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn response_limit_error(limit: usize) -> LiterLlmError {
     LiterLlmError::Streaming {
         message: format!("HTTP response body exceeds configured limit of {limit} bytes"),
