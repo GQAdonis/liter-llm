@@ -562,6 +562,7 @@ pub(crate) mod anthropic;
 pub(crate) mod azure;
 pub(crate) mod bedrock;
 pub(crate) mod cohere;
+pub(crate) mod dashscope_multimodal;
 pub mod custom;
 pub(crate) mod github_copilot;
 pub(crate) mod google_ai;
@@ -819,6 +820,11 @@ impl Provider for ConfigDrivenProvider {
 pub(crate) fn detect_provider(model: &str) -> Option<Box<dyn Provider>> {
     if let Some(provider) = custom::detect_custom_provider(model) {
         return Some(provider);
+    }
+
+    let dashscope = dashscope_multimodal::DashScopeMultimodalProvider;
+    if dashscope.matches_model(model) {
+        return Some(Box::new(dashscope));
     }
 
     let openai = OpenAiProvider;

@@ -1142,7 +1142,19 @@ impl LlmClient for DefaultClient {
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
-            serde_json::from_value::<EmbeddingResponse>(raw).map_err(LiterLlmError::from)
+            let response = serde_json::from_value::<EmbeddingResponse>(raw)?;
+            if prepared.provider.name() == "dashscope" {
+                let expected = match &req.input {
+                    crate::types::EmbeddingInput::Multiple(texts) => texts.len(),
+                    _ => 1,
+                };
+                if response.data.len() != expected {
+                    return Err(LiterLlmError::ServerError {
+                        message: "DashScope returned an incomplete embedding batch".into(), status: 502,
+                    });
+                }
+            }
+            Ok(response)
         })
     }
 
