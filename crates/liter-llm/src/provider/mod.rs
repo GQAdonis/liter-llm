@@ -493,19 +493,19 @@ pub(crate) trait Provider: Send + Sync {
         // silently deserialize into an empty, content-free "successful"
         // chunk — hiding the failure and leaving callers waiting forever for
         // content that will never arrive.
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(event_data) {
-            if let Some(error) = value.get("error") {
-                let message = error
-                    .get("message")
-                    .and_then(|m| m.as_str())
-                    .unwrap_or("provider returned an error mid-stream")
-                    .to_string();
-                let status = error
-                    .get("status_code")
-                    .and_then(serde_json::Value::as_u64)
-                    .map_or(400, |s| s as u16);
-                return Err(LiterLlmError::BadRequest { message, status });
-            }
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(event_data)
+            && let Some(error) = value.get("error")
+        {
+            let message = error
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("provider returned an error mid-stream")
+                .to_string();
+            let status = error
+                .get("status_code")
+                .and_then(serde_json::Value::as_u64)
+                .map_or(400, |s| s as u16);
+            return Err(LiterLlmError::BadRequest { message, status });
         }
 
         serde_json::from_str::<crate::types::ChatCompletionChunk>(event_data)
