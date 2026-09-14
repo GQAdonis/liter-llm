@@ -162,5 +162,8 @@ tokio = { workspace = true, features = ["test-util", "macros"] }
 # does not re-export.
 tracing-core = "0.1"
 
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+reqwest = { workspace = true, features = ["gzip"] }
+
 [lints]
 workspace = true

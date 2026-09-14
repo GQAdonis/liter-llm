@@ -19,6 +19,82 @@ async fn sleep_for_retry(delay: std::time::Duration) {
     gloo_timers::future::sleep(std::time::Duration::from_millis(delay.as_millis() as u64)).await;
 }
 
+#[allow(dead_code, reason = "retain the unconfigured raw request entry point")]
+pub(crate) async fn with_retry<F, Fut>(url: &str, max_retries: u32, send: F) -> Result<reqwest::Response>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = std::result::Result<reqwest::Response, reqwest::Error>>,
+{
+    with_retry_bounded(url, max_retries, None, send).await
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct ResponseReadOptions {
+    pub max_retries: u32,
+    pub max_response_bytes: Option<usize>,
+}
+
+fn response_limit_error(limit: usize) -> LiterLlmError {
+    LiterLlmError::Streaming {
+        message: format!("HTTP response body exceeds configured limit of {limit} bytes"),
+    }
+}
+
+pub(crate) async fn read_response_body(response: reqwest::Response, limit: Option<usize>) -> Result<Bytes> {
+    let Some(limit) = limit else {
+        return response.bytes().await.map_err(LiterLlmError::from);
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        read_limited_response_body(response, limit).await
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (response, limit);
+        Err(LiterLlmError::InternalError {
+            message: "HTTP response byte limits require native HTTP".into(),
+        })
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn read_limited_response_body(mut response: reqwest::Response, limit: usize) -> Result<Bytes> {
+    if response.content_length().is_some_and(|length| length > limit as u64) {
+        return Err(response_limit_error(limit));
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        let length = body
+            .len()
+            .checked_add(chunk.len())
+            .ok_or_else(|| response_limit_error(limit))?;
+        if length > limit {
+            return Err(response_limit_error(limit));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(Bytes::from(body))
+}
+
+async fn read_response_json(response: reqwest::Response, limit: Option<usize>) -> Result<serde_json::Value> {
+    if limit.is_none() {
+        return response.json().await.map_err(LiterLlmError::from);
+    }
+    let body = read_response_body(response, limit).await?;
+    serde_json::from_slice(&body).map_err(LiterLlmError::from)
+}
+
+async fn read_error_text(response: reqwest::Response, limit: Option<usize>) -> Result<String> {
+    if limit.is_none() {
+        return Ok(response
+            .text()
+            .await
+            .unwrap_or_else(|error| format!("(failed to read body: {error})")));
+    }
+    let body = read_response_body(response, limit).await?;
+    Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
 /// Drive a single-request closure through the retry / back-off loop.
 ///
 /// `send` is called once per attempt and must return a future that resolves to
@@ -34,7 +110,12 @@ async fn sleep_for_retry(delay: std::time::Duration) {
 ///
 /// On success the **successful** `Response` is returned so the caller can
 /// choose how to consume the body (JSON deserialisation, byte stream, …).
-pub(crate) async fn with_retry<F, Fut>(url: &str, max_retries: u32, mut send: F) -> Result<reqwest::Response>
+pub(crate) async fn with_retry_bounded<F, Fut>(
+    url: &str,
+    max_retries: u32,
+    max_response_bytes: Option<usize>,
+    mut send: F,
+) -> Result<reqwest::Response>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = std::result::Result<reqwest::Response, reqwest::Error>>,
@@ -80,10 +161,7 @@ where
             continue;
         }
 
-        let text = resp
-            .text()
-            .await
-            .unwrap_or_else(|e| format!("(failed to read body: {e})"));
+        let text = read_error_text(resp, max_response_bytes).await?;
         return Err(LiterLlmError::from_status(status, &text, server_retry_after));
     }
 }
@@ -95,7 +173,31 @@ where
 /// provider `transform_response`) before deserializing into the canonical type.
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
+#[allow(dead_code, reason = "retain the unconfigured raw request entry point")]
+pub async fn post_json_raw(
+    client: &reqwest::Client,
+    url: &str,
+    auth_header: Option<(&str, &str)>,
+    extra_headers: &[(&str, &str)],
+    body: Bytes,
+    max_retries: u32,
+) -> Result<serde_json::Value> {
+    post_json_raw_bounded(
+        client,
+        url,
+        auth_header,
+        extra_headers,
+        body,
+        ResponseReadOptions {
+            max_retries,
+            max_response_bytes: None,
+        },
+    )
+    .await
+}
+
 #[tracing::instrument(
+    name = "post_json_raw",
     level = "debug",
     skip_all,
     fields(
@@ -105,17 +207,22 @@ where
         http.retry_count = tracing::field::Empty,
     )
 )]
-pub async fn post_json_raw(
+
+pub(crate) async fn post_json_raw_bounded(
     client: &reqwest::Client,
     url: &str,
     auth_header: Option<(&str, &str)>,
     extra_headers: &[(&str, &str)],
     body: Bytes,
-    max_retries: u32,
+    options: ResponseReadOptions,
 ) -> Result<serde_json::Value> {
+    let ResponseReadOptions {
+        max_retries,
+        max_response_bytes,
+    } = options;
     let mut retry_count = 0u32;
 
-    let resp = with_retry(url, max_retries, || {
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -137,7 +244,7 @@ pub async fn post_json_raw(
         span.record("http.retry_count", retry_count.saturating_sub(1));
     }
 
-    resp.json::<serde_json::Value>().await.map_err(LiterLlmError::from)
+    read_response_json(resp, max_response_bytes).await
 }
 
 /// Send a POST request with a JSON body and return the raw response bytes.
@@ -147,7 +254,31 @@ pub async fn post_json_raw(
 /// text-to-speech audio).
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
+#[allow(dead_code, reason = "retain the unconfigured raw request entry point")]
+pub async fn post_binary(
+    client: &reqwest::Client,
+    url: &str,
+    auth_header: Option<(&str, &str)>,
+    extra_headers: &[(&str, &str)],
+    body: Bytes,
+    max_retries: u32,
+) -> Result<Bytes> {
+    post_binary_bounded(
+        client,
+        url,
+        auth_header,
+        extra_headers,
+        body,
+        ResponseReadOptions {
+            max_retries,
+            max_response_bytes: None,
+        },
+    )
+    .await
+}
+
 #[tracing::instrument(
+    name = "post_binary",
     level = "debug",
     skip_all,
     fields(
@@ -157,17 +288,22 @@ pub async fn post_json_raw(
         http.retry_count = tracing::field::Empty,
     )
 )]
-pub async fn post_binary(
+
+pub(crate) async fn post_binary_bounded(
     client: &reqwest::Client,
     url: &str,
     auth_header: Option<(&str, &str)>,
     extra_headers: &[(&str, &str)],
     body: Bytes,
-    max_retries: u32,
+    options: ResponseReadOptions,
 ) -> Result<Bytes> {
+    let ResponseReadOptions {
+        max_retries,
+        max_response_bytes,
+    } = options;
     let mut retry_count = 0u32;
 
-    let resp = with_retry(url, max_retries, || {
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -189,7 +325,7 @@ pub async fn post_binary(
         span.record("http.retry_count", retry_count.saturating_sub(1));
     }
 
-    resp.bytes().await.map_err(LiterLlmError::from)
+    read_response_body(resp, max_response_bytes).await
 }
 
 /// Send a POST request with a multipart form body and return the raw response JSON.
@@ -200,7 +336,19 @@ pub async fn post_binary(
 ///
 /// `auth_header` is `Some((name, value))` when the provider requires
 /// authentication, or `None` when no auth header should be added.
+#[allow(dead_code, reason = "retain the unconfigured raw request entry point")]
+pub async fn post_multipart(
+    client: &reqwest::Client,
+    url: &str,
+    auth_header: Option<(&str, &str)>,
+    extra_headers: &[(&str, &str)],
+    form: reqwest::multipart::Form,
+) -> Result<serde_json::Value> {
+    post_multipart_bounded(client, url, auth_header, extra_headers, form, None).await
+}
+
 #[tracing::instrument(
+    name = "post_multipart",
     level = "debug",
     skip_all,
     fields(
@@ -209,12 +357,14 @@ pub async fn post_binary(
         http.status_code = tracing::field::Empty,
     )
 )]
-pub async fn post_multipart(
+
+pub(crate) async fn post_multipart_bounded(
     client: &reqwest::Client,
     url: &str,
     auth_header: Option<(&str, &str)>,
     extra_headers: &[(&str, &str)],
     form: reqwest::multipart::Form,
+    max_response_bytes: Option<usize>,
 ) -> Result<serde_json::Value> {
     crate::provider::validate_outbound_url(url).await?;
     let mut builder = client.post(url).multipart(form);
@@ -235,14 +385,11 @@ pub async fn post_multipart(
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
         let server_retry_after = retry_after_from_response(&resp);
-        let text = resp
-            .text()
-            .await
-            .unwrap_or_else(|e| format!("(failed to read body: {e})"));
+        let text = read_error_text(resp, max_response_bytes).await?;
         return Err(LiterLlmError::from_status(status, &text, server_retry_after));
     }
 
-    resp.json::<serde_json::Value>().await.map_err(LiterLlmError::from)
+    read_response_json(resp, max_response_bytes).await
 }
 
 /// Send a GET request and return the raw response JSON as `serde_json::Value`.
@@ -252,7 +399,19 @@ pub async fn post_multipart(
 /// response before deserialization (e.g. GET /files/{id}, GET /batches/{id}).
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
+#[allow(dead_code, reason = "retain the unconfigured raw request entry point")]
+pub async fn get_json_raw(
+    client: &reqwest::Client,
+    url: &str,
+    auth_header: Option<(&str, &str)>,
+    extra_headers: &[(&str, &str)],
+    max_retries: u32,
+) -> Result<serde_json::Value> {
+    get_json_raw_bounded(client, url, auth_header, extra_headers, max_retries, None).await
+}
+
 #[tracing::instrument(
+    name = "get_json_raw",
     level = "debug",
     skip_all,
     fields(
@@ -262,16 +421,18 @@ pub async fn post_multipart(
         http.retry_count = tracing::field::Empty,
     )
 )]
-pub async fn get_json_raw(
+
+pub(crate) async fn get_json_raw_bounded(
     client: &reqwest::Client,
     url: &str,
     auth_header: Option<(&str, &str)>,
     extra_headers: &[(&str, &str)],
     max_retries: u32,
+    max_response_bytes: Option<usize>,
 ) -> Result<serde_json::Value> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(url, max_retries, || {
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
         let mut builder = client.get(url);
         if let Some((name, value)) = auth_header {
             builder = builder.header(name, value);
@@ -290,7 +451,7 @@ pub async fn get_json_raw(
         span.record("http.retry_count", retry_count.saturating_sub(1));
     }
 
-    resp.json::<serde_json::Value>().await.map_err(LiterLlmError::from)
+    read_response_json(resp, max_response_bytes).await
 }
 
 /// Send a DELETE request and return the raw response JSON.
@@ -299,7 +460,19 @@ pub async fn get_json_raw(
 /// Used for resource deletion endpoints (e.g. DELETE /files/{id}).
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
+#[allow(dead_code, reason = "retain the unconfigured raw request entry point")]
+pub async fn delete_json(
+    client: &reqwest::Client,
+    url: &str,
+    auth_header: Option<(&str, &str)>,
+    extra_headers: &[(&str, &str)],
+    max_retries: u32,
+) -> Result<serde_json::Value> {
+    delete_json_bounded(client, url, auth_header, extra_headers, max_retries, None).await
+}
+
 #[tracing::instrument(
+    name = "delete_json",
     level = "debug",
     skip_all,
     fields(
@@ -309,16 +482,18 @@ pub async fn get_json_raw(
         http.retry_count = tracing::field::Empty,
     )
 )]
-pub async fn delete_json(
+
+pub(crate) async fn delete_json_bounded(
     client: &reqwest::Client,
     url: &str,
     auth_header: Option<(&str, &str)>,
     extra_headers: &[(&str, &str)],
     max_retries: u32,
+    max_response_bytes: Option<usize>,
 ) -> Result<serde_json::Value> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(url, max_retries, || {
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
         let mut builder = client.delete(url);
         if let Some((name, value)) = auth_header {
             builder = builder.header(name, value);
@@ -337,7 +512,7 @@ pub async fn delete_json(
         span.record("http.retry_count", retry_count.saturating_sub(1));
     }
 
-    resp.json::<serde_json::Value>().await.map_err(LiterLlmError::from)
+    read_response_json(resp, max_response_bytes).await
 }
 
 /// Send a GET request and return the raw response bytes.
@@ -346,7 +521,19 @@ pub async fn delete_json(
 /// for downloading file contents).
 ///
 /// Retries on 429 / 5xx according to `max_retries`.
+#[allow(dead_code, reason = "retain the unconfigured raw request entry point")]
+pub async fn get_binary(
+    client: &reqwest::Client,
+    url: &str,
+    auth_header: Option<(&str, &str)>,
+    extra_headers: &[(&str, &str)],
+    max_retries: u32,
+) -> Result<Bytes> {
+    get_binary_bounded(client, url, auth_header, extra_headers, max_retries, None).await
+}
+
 #[tracing::instrument(
+    name = "get_binary",
     level = "debug",
     skip_all,
     fields(
@@ -356,16 +543,18 @@ pub async fn delete_json(
         http.retry_count = tracing::field::Empty,
     )
 )]
-pub async fn get_binary(
+
+pub(crate) async fn get_binary_bounded(
     client: &reqwest::Client,
     url: &str,
     auth_header: Option<(&str, &str)>,
     extra_headers: &[(&str, &str)],
     max_retries: u32,
+    max_response_bytes: Option<usize>,
 ) -> Result<Bytes> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry(url, max_retries, || {
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
         let mut builder = client.get(url);
         if let Some((name, value)) = auth_header {
             builder = builder.header(name, value);
@@ -384,7 +573,7 @@ pub async fn get_binary(
         span.record("http.retry_count", retry_count.saturating_sub(1));
     }
 
-    resp.bytes().await.map_err(LiterLlmError::from)
+    read_response_body(resp, max_response_bytes).await
 }
 
 #[cfg(test)]
@@ -421,7 +610,7 @@ mod tests {
         (format!("http://{address}/v1/chat/completions"), handle)
     }
 
-    fn one_shot_server(response: String) -> (SocketAddr, std::thread::JoinHandle<()>) {
+    pub(super) fn one_shot_server(response: String) -> (SocketAddr, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind HTTP server");
         let address = listener.local_addr().expect("HTTP server address");
         let handle = std::thread::spawn(move || {
@@ -639,3 +828,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "request_body_tests.rs"]
+mod body_tests;
