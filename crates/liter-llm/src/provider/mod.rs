@@ -822,7 +822,7 @@ pub(crate) fn detect_provider(model: &str) -> Option<Box<dyn Provider>> {
         return Some(provider);
     }
 
-    let dashscope = dashscope_multimodal::DashScopeMultimodalProvider;
+    let dashscope = dashscope_multimodal::DashScopeMultimodalProvider::default();
     if dashscope.matches_model(model) {
         return Some(Box::new(dashscope));
     }

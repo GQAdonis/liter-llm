@@ -975,6 +975,9 @@ impl DefaultClient {
 /// 3. Default -> OpenAI.
 fn build_provider(config: &ClientConfig, model_hint: Option<&str>) -> Arc<dyn Provider> {
     if let Some(ref base_url) = config.base_url {
+        if model_hint.is_some_and(|model| provider::dashscope_multimodal::DashScopeMultimodalProvider::default().matches_model(model)) {
+            return Arc::new(provider::dashscope_multimodal::DashScopeMultimodalProvider::with_base_url(base_url.clone()));
+        }
         if let Some(model) = model_hint
             && model.starts_with("azure/")
         {

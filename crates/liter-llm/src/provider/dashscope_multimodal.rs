@@ -10,7 +10,21 @@ use crate::error::{LiterLlmError, Result};
 const MODEL: &str = "tongyi-embedding-vision-plus";
 const DIMENSIONS: usize = 1152;
 
-pub(crate) struct DashScopeMultimodalProvider;
+pub(crate) struct DashScopeMultimodalProvider {
+    base_url: String,
+}
+impl Default for DashScopeMultimodalProvider {
+    fn default() -> Self {
+        Self::with_base_url("https://dashscope-intl.aliyuncs.com/api/v1".into())
+    }
+}
+impl DashScopeMultimodalProvider {
+    pub(crate) fn with_base_url(base_url: String) -> Self {
+        Self {
+            base_url: base_url.trim_end_matches('/').into(),
+        }
+    }
+}
 
 fn invalid(message: &str) -> LiterLlmError {
     LiterLlmError::BadRequest {
@@ -30,7 +44,7 @@ impl Provider for DashScopeMultimodalProvider {
         "dashscope"
     }
     fn base_url(&self) -> &str {
-        "https://dashscope-intl.aliyuncs.com/api/v1"
+        &self.base_url
     }
     fn env_var(&self) -> Option<&str> {
         Some("DASHSCOPE_API_KEY")
