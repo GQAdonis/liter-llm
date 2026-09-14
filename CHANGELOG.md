@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-09-14
+
+### Fixed
+
+- Add optional native HTTP response limits to client builders. Enforce the limit before
+  retaining or parsing successful and final error bodies, including decoded gzip output,
+  while preserving unconfigured defaults and successful streaming behavior.
+
 ## [2.0.1] - 2026-09-12
 
 ### Changed
