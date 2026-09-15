@@ -106,7 +106,7 @@ pub async fn validate_outbound_url(raw_url: &str) -> Result<(), LiterLlmError> {
     }
 
     let url = Url::parse(raw_url).map_err(|e| LiterLlmError::OutboundForbidden {
-        url: raw_url.to_string(),
+        url: "<invalid URL>".to_owned(),
         reason: format!("invalid URL: {e}"),
     })?;
 
@@ -114,7 +114,7 @@ pub async fn validate_outbound_url(raw_url: &str) -> Result<(), LiterLlmError> {
         "http" | "https" => {}
         other => {
             return Err(LiterLlmError::OutboundForbidden {
-                url: raw_url.to_string(),
+                url: endpoint_label(&url),
                 reason: format!("scheme '{other}' is not allowed; only http/https"),
             });
         }
@@ -163,7 +163,7 @@ pub fn validate_outbound_url_sync(raw_url: &str) -> Result<(), LiterLlmError> {
     }
 
     let url = Url::parse(raw_url).map_err(|e| LiterLlmError::OutboundForbidden {
-        url: raw_url.to_string(),
+        url: "<invalid URL>".to_owned(),
         reason: format!("invalid URL: {e}"),
     })?;
 
@@ -171,7 +171,7 @@ pub fn validate_outbound_url_sync(raw_url: &str) -> Result<(), LiterLlmError> {
         "http" | "https" => {}
         other => {
             return Err(LiterLlmError::OutboundForbidden {
-                url: raw_url.to_string(),
+                url: endpoint_label(&url),
                 reason: format!("scheme '{other}' is not allowed; only http/https"),
             });
         }
@@ -200,17 +200,30 @@ fn host_matches(host: &str, entry: &str) -> bool {
             || (entry.starts_with('.') && host.strip_suffix(&bare).is_some_and(|prefix| prefix.ends_with('.'))))
 }
 
-fn validate_literal_host(url: &Url, raw_url: &str) -> Result<(), LiterLlmError> {
+fn endpoint_label(url: &Url) -> String {
+    let host = match url.host() {
+        Some(url::Host::Domain(host)) => host.to_owned(),
+        Some(url::Host::Ipv4(address)) => address.to_string(),
+        Some(url::Host::Ipv6(address)) => format!("[{address}]"),
+        None => return "<missing host>".to_owned(),
+    };
+    match url.port_or_known_default() {
+        Some(port) => format!("{host}:{port}"),
+        None => host,
+    }
+}
+
+fn validate_literal_host(url: &Url, _raw_url: &str) -> Result<(), LiterLlmError> {
     match url.host() {
         Some(url::Host::Ipv4(v4)) if is_forbidden(IpAddr::V4(v4)) => {
             return Err(LiterLlmError::OutboundForbidden {
-                url: raw_url.to_owned(),
+                url: endpoint_label(url),
                 reason: format!("host is a forbidden address {v4}"),
             });
         }
         Some(url::Host::Ipv6(v6)) if is_forbidden(IpAddr::V6(v6)) => {
             return Err(LiterLlmError::OutboundForbidden {
-                url: raw_url.to_owned(),
+                url: endpoint_label(url),
                 reason: format!("host is a forbidden address {v6}"),
             });
         }
@@ -237,7 +250,7 @@ fn validate_redirect(previous: Option<&Url>, next: &Url, allow_cross_origin: boo
         && next.scheme() == "http"
     {
         return Err(LiterLlmError::OutboundForbidden {
-            url: next.as_str().to_owned(),
+            url: endpoint_label(next),
             reason: "HTTPS-to-HTTP redirects are forbidden".into(),
         });
     }
@@ -251,7 +264,7 @@ fn validate_redirect(previous: Option<&Url>, next: &Url, allow_cross_origin: boo
         && !same_origin(previous, next)
     {
         return Err(LiterLlmError::OutboundForbidden {
-            url: next.as_str().to_owned(),
+            url: endpoint_label(next),
             reason: "cross-origin redirects are forbidden while an outbound policy is active".into(),
         });
     }
@@ -266,9 +279,9 @@ fn same_origin(left: &Url, right: &Url) -> bool {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn check_deny_private(url: &Url, raw: &str) -> Result<(), LiterLlmError> {
+async fn check_deny_private(url: &Url, _raw: &str) -> Result<(), LiterLlmError> {
     let host = url.host_str().ok_or_else(|| LiterLlmError::OutboundForbidden {
-        url: raw.to_string(),
+        url: endpoint_label(url),
         reason: "URL has no host".into(),
     })?;
 
@@ -278,14 +291,14 @@ async fn check_deny_private(url: &Url, raw: &str) -> Result<(), LiterLlmError> {
         tokio::net::lookup_host(format!("{host}:{port}"))
             .await
             .map_err(|e| LiterLlmError::OutboundForbidden {
-                url: raw.to_string(),
+                url: endpoint_label(url),
                 reason: format!("DNS resolution failed: {e}"),
             })?;
 
     for sa in addrs {
         if is_forbidden(sa.ip()) {
             return Err(LiterLlmError::OutboundForbidden {
-                url: raw.to_string(),
+                url: endpoint_label(url),
                 reason: format!("host resolves to forbidden address {}", sa.ip()),
             });
         }
@@ -293,13 +306,13 @@ async fn check_deny_private(url: &Url, raw: &str) -> Result<(), LiterLlmError> {
     Ok(())
 }
 
-fn check_allowlist(url: &Url, raw: &str, allowed: &[Url]) -> Result<(), LiterLlmError> {
+fn check_allowlist(url: &Url, _raw: &str, allowed: &[Url]) -> Result<(), LiterLlmError> {
     let origin_match = allowed.iter().any(|allowed_url| same_origin(allowed_url, url));
     if origin_match {
         Ok(())
     } else {
         Err(LiterLlmError::OutboundForbidden {
-            url: raw.to_string(),
+            url: endpoint_label(url),
             reason: "URL not in outbound allowlist".into(),
         })
     }
@@ -807,6 +820,20 @@ mod tests {
                 err.contains("forbidden"),
                 "error message should mention 'forbidden': {err}"
             );
+        });
+    }
+
+    #[test]
+    #[serial(outbound_policy)]
+    fn outbound_rejection_reports_only_host_and_port() {
+        with_policy(OutboundPolicy::DenyPrivate, || {
+            let error = validate_outbound_url_sync("http://user:password@127.0.0.1:11434/private/path?token=secret")
+                .expect_err("loopback should be rejected")
+                .to_string();
+            assert!(error.contains("127.0.0.1:11434"), "authority missing: {error}");
+            for secret in ["user", "password", "private/path", "token", "secret"] {
+                assert!(!error.contains(secret), "rejection leaked {secret}: {error}");
+            }
         });
     }
 
