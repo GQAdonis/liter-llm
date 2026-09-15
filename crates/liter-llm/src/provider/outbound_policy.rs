@@ -314,40 +314,44 @@ fn check_allowlist(url: &Url, raw: &str, allowed: &[Url]) -> Result<(), LiterLlm
 #[cfg_attr(alef, alef(skip))]
 pub fn is_forbidden(ip: IpAddr) -> bool {
     match ip {
-        IpAddr::V4(v4) => {
-            v4.is_loopback()
-                || v4.is_unspecified()
-                || v4.is_private()
-                || v4.is_link_local()
-                || v4.is_multicast()
-                || v4.is_broadcast()
-                || is_cgnat(v4)
-        }
-        IpAddr::V6(v6) => {
-            v6.is_loopback()
-                || v6.is_unspecified()
-                || v6.is_multicast()
-                || is_unique_local_v6(v6)
-                || is_link_local_v6(v6)
-                || v6
-                    .to_ipv4_mapped()
-                    .map(|m| is_forbidden(IpAddr::V4(m)))
-                    .unwrap_or(false)
-        }
+        IpAddr::V4(v4) => is_forbidden_v4(v4),
+        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or_else(|| is_forbidden_v6(v6), is_forbidden_v4),
     }
 }
 
-fn is_cgnat(ip: std::net::Ipv4Addr) -> bool {
-    let [a, b, _, _] = ip.octets();
-    a == 100 && (64..=127).contains(&b)
+fn is_forbidden_v4(ip: std::net::Ipv4Addr) -> bool {
+    let [a, b, c, _] = ip.octets();
+    a == 0
+        || a == 10
+        || (a == 100 && (64..=127).contains(&b))
+        || a == 127
+        || (a == 169 && b == 254)
+        || (a == 172 && (16..=31).contains(&b))
+        || (a == 192 && b == 0 && (c == 0 || c == 2))
+        || (a == 192 && b == 168)
+        || (a == 198 && (b == 18 || b == 19 || (b == 51 && c == 100)))
+        || (a == 203 && b == 0 && c == 113)
+        || a >= 224
 }
 
-fn is_unique_local_v6(ip: std::net::Ipv6Addr) -> bool {
-    (ip.segments()[0] & 0xfe00) == 0xfc00
-}
-
-fn is_link_local_v6(ip: std::net::Ipv6Addr) -> bool {
-    (ip.segments()[0] & 0xffc0) == 0xfe80
+fn is_forbidden_v6(ip: std::net::Ipv6Addr) -> bool {
+    let segments = ip.segments();
+    (segments[0] == 0
+        && segments[1] == 0
+        && segments[2] == 0
+        && segments[3] == 0
+        && segments[4] == 0
+        && segments[5] == 0)
+        || (segments[0] == 0x0064
+            && segments[1] == 0xff9b
+            && segments[2] == 0
+            && segments[3] == 0
+            && segments[4] == 0
+            && segments[5] == 0)
+        || segments[0] == 0x2002
+        || (segments[0] & 0xfe00) == 0xfc00
+        || (segments[0] & 0xffc0) == 0xfe80
+        || (segments[0] & 0xff00) == 0xff00
 }
 
 /// A `reqwest` DNS resolver that filters resolved addresses through the
@@ -539,6 +543,8 @@ mod resolver_impl {
             let addresses = vec![
                 "172.18.0.2:0".parse().expect("private IPv4"),
                 "[fd00::2]:0".parse().expect("private IPv6"),
+                "192.0.2.1:0".parse().expect("reserved IPv4"),
+                "[64:ff9b::a9fe:a9fe]:0".parse().expect("NAT64 metadata"),
             ];
             store_addrs(
                 &resolver.cache,
@@ -1016,7 +1022,11 @@ mod tests {
     #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
     fn resolver_host_allowlist_rechecks_suffix_before_private_address() {
         let policy = OutboundPolicy::DenyPrivateExceptHosts(vec![".models.internal".into()]);
-        let private = ["172.18.0.2:0".parse().expect("private address")];
+        let private = [
+            "172.18.0.2:0".parse().expect("private address"),
+            "192.0.2.1:0".parse().expect("reserved address"),
+            "[64:ff9b::a9fe:a9fe]:0".parse().expect("NAT64 metadata"),
+        ];
         assert!(resolver_impl::validate_addrs(policy.clone(), "gpu.models.internal", &private).is_ok());
         assert!(resolver_impl::validate_addrs(policy, "models.internal.attacker.invalid", &private).is_err());
     }
@@ -1029,6 +1039,10 @@ mod tests {
             "[fd00::2]:8000".parse().expect("private IPv6"),
             "[::1]:8000".parse().expect("loopback IPv6"),
             "[fe80::2]:8000".parse().expect("link-local IPv6"),
+            "0.1.2.3:8000".parse().expect("this-network IPv4"),
+            "192.0.2.1:8000".parse().expect("reserved IPv4"),
+            "[64:ff9b::a9fe:a9fe]:8000".parse().expect("NAT64 metadata"),
+            "[2002:a9fe:a9fe::1]:8000".parse().expect("6to4 metadata"),
         ];
         for address in addrs {
             let error = resolver_impl::validate_addrs(OutboundPolicy::DenyPrivate, "private-service", &[address])
