@@ -916,7 +916,7 @@ mod tests {
 
     #[test]
     #[serial(outbound_policy)]
-    fn validate_sync_host_allowlist_accepts_exact_suffix_and_any_port() {
+    fn validate_sync_private_host_exceptions_preserve_public_hosts() {
         let allowed = vec![
             "llm.internal".into(),
             ".models.internal".into(),
@@ -933,13 +933,14 @@ mod tests {
                     "allowlisted host rejected: {accepted}"
                 );
             }
-            for rejected in [
-                "https://other.internal/v1",
-                "https://models.internal.attacker.invalid/v1",
-            ] {
+            assert!(
+                validate_outbound_url_sync("https://public.example.com/v1").is_ok(),
+                "public hosts must remain available when private-host exceptions are configured"
+            );
+            for rejected in ["http://169.254.169.253/latest/meta-data/", "http://127.0.0.1:11434/v1"] {
                 assert!(
                     validate_outbound_url_sync(rejected).is_err(),
-                    "unlisted host accepted: {rejected}"
+                    "unlisted private host accepted: {rejected}"
                 );
             }
         });
