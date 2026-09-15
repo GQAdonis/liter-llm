@@ -38,6 +38,12 @@ pub enum OutboundPolicy {
     /// cannot be inspected by this policy.
     DenyPrivate,
 
+    /// Apply [`OutboundPolicy::DenyPrivate`] except to explicitly trusted
+    /// exact hosts or domain suffixes. A suffix starts with `.` and matches
+    /// both the bare domain and its subdomains. Trusted hosts may resolve to
+    /// private addresses; other public hosts remain available.
+    DenyPrivateExceptHosts(Vec<String>),
+
     /// Only allow URLs whose origin (scheme + host + port) matches one of the
     /// provided entries. Allowlisted hostnames may resolve to any address,
     /// including private, loopback, and link-local addresses. Only allowlist
@@ -114,12 +120,24 @@ pub async fn validate_outbound_url(raw_url: &str) -> Result<(), LiterLlmError> {
         }
     }
 
-    validate_literal_host(&url, raw_url)?;
-
     match policy {
         OutboundPolicy::Off => Ok(()),
-        OutboundPolicy::DenyPrivate => check_deny_private(&url, raw_url).await,
-        OutboundPolicy::Allowlist(allowed) => check_allowlist(&url, raw_url, &allowed),
+        OutboundPolicy::DenyPrivate => {
+            validate_literal_host(&url, raw_url)?;
+            check_deny_private(&url, raw_url).await
+        }
+        OutboundPolicy::DenyPrivateExceptHosts(allowed) => {
+            if host_is_allowed(&url, &allowed) {
+                Ok(())
+            } else {
+                validate_literal_host(&url, raw_url)?;
+                check_deny_private(&url, raw_url).await
+            }
+        }
+        OutboundPolicy::Allowlist(allowed) => {
+            validate_literal_host(&url, raw_url)?;
+            check_allowlist(&url, raw_url, &allowed)
+        }
     }
 }
 
@@ -159,13 +177,27 @@ pub fn validate_outbound_url_sync(raw_url: &str) -> Result<(), LiterLlmError> {
         }
     }
 
-    validate_literal_host(&url, raw_url)?;
-
-    if let OutboundPolicy::Allowlist(allowed) = policy {
-        return check_allowlist(&url, raw_url, &allowed);
+    match policy {
+        OutboundPolicy::DenyPrivateExceptHosts(allowed) if host_is_allowed(&url, &allowed) => Ok(()),
+        OutboundPolicy::Allowlist(allowed) => {
+            validate_literal_host(&url, raw_url)?;
+            check_allowlist(&url, raw_url, &allowed)
+        }
+        _ => validate_literal_host(&url, raw_url),
     }
+}
 
-    Ok(())
+fn host_is_allowed(url: &Url, allowed: &[String]) -> bool {
+    url.host_str()
+        .is_some_and(|host| allowed.iter().any(|entry| host_matches(host, entry)))
+}
+
+fn host_matches(host: &str, entry: &str) -> bool {
+    let host = host.trim_end_matches('.').to_ascii_lowercase();
+    let bare = entry.trim_start_matches('.').trim_end_matches('.').to_ascii_lowercase();
+    !bare.is_empty()
+        && (host == bare
+            || (entry.starts_with('.') && host.strip_suffix(&bare).is_some_and(|prefix| prefix.ends_with('.'))))
 }
 
 fn validate_literal_host(url: &Url, raw_url: &str) -> Result<(), LiterLlmError> {
@@ -416,6 +448,11 @@ mod resolver_impl {
         // explicitly listed hostname, including when rechecking cached answers.
         match policy {
             OutboundPolicy::Off => return Ok(()),
+            OutboundPolicy::DenyPrivateExceptHosts(allowed)
+                if allowed.iter().any(|entry| super::host_matches(host, entry)) =>
+            {
+                return Ok(());
+            }
             OutboundPolicy::Allowlist(allowed) if allowed.iter().any(|url| url.host_str() == Some(host)) => {
                 return Ok(());
             }
@@ -846,6 +883,37 @@ mod tests {
 
     #[test]
     #[serial(outbound_policy)]
+    fn validate_sync_host_allowlist_accepts_exact_suffix_and_any_port() {
+        let allowed = vec![
+            "llm.internal".into(),
+            ".models.internal".into(),
+            "169.254.169.254".into(),
+        ];
+        with_policy(OutboundPolicy::DenyPrivateExceptHosts(allowed), || {
+            for accepted in [
+                "http://llm.internal:11434/v1",
+                "https://gpu.models.internal:8443/v1",
+                "http://169.254.169.254/latest/meta-data/",
+            ] {
+                assert!(
+                    validate_outbound_url_sync(accepted).is_ok(),
+                    "allowlisted host rejected: {accepted}"
+                );
+            }
+            for rejected in [
+                "https://other.internal/v1",
+                "https://models.internal.attacker.invalid/v1",
+            ] {
+                assert!(
+                    validate_outbound_url_sync(rejected).is_err(),
+                    "unlisted host accepted: {rejected}"
+                );
+            }
+        });
+    }
+
+    #[test]
+    #[serial(outbound_policy)]
     #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
     fn redirect_validation_rejects_cross_origin_under_deny_private() {
         with_policy(OutboundPolicy::DenyPrivate, || {
@@ -942,6 +1010,15 @@ mod tests {
                 ));
             }
         }
+    }
+
+    #[test]
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    fn resolver_host_allowlist_rechecks_suffix_before_private_address() {
+        let policy = OutboundPolicy::DenyPrivateExceptHosts(vec![".models.internal".into()]);
+        let private = ["172.18.0.2:0".parse().expect("private address")];
+        assert!(resolver_impl::validate_addrs(policy.clone(), "gpu.models.internal", &private).is_ok());
+        assert!(resolver_impl::validate_addrs(policy, "models.internal.attacker.invalid", &private).is_err());
     }
 
     #[test]
