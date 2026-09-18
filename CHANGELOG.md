@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-09-18
+
+### Added
+
+- `OutboundPolicy::DenyPrivateExceptHosts`: keep `DenyPrivate` DNS filtering and redirect
+  restrictions for every public provider while letting explicitly trusted exact hosts or `.suffix`
+  domains resolve to private addresses. The same matcher applies during URL validation and during
+  fresh or cached connection-time DNS resolution
+  ([#217](https://github.com/xberg-io/liter-llm/pull/217)).
+
+### Fixed
+
+- Redact resolved addresses from `OutboundForbidden` errors and align the forbidden address ranges
+  between URL validation and connection-time resolution
+  ([#217](https://github.com/xberg-io/liter-llm/pull/217)).
+
+### Security
+
+- Bump rustls to 0.23.45 for RUSTSEC-2026-0285 (TLS 1.3 handshake messages accepted across
+  encryption level boundaries).
+
 ## [2.0.2] - 2026-09-14
 
 ### Fixed
