@@ -26,6 +26,18 @@ use std::time::Duration;
 /// behavior and do not require explicit configuration.
 #[derive(Clone, Debug)]
 pub struct TransportConfig {
+    /// Ignore ambient HTTP proxy configuration for this client.
+    ///
+    /// Default: false. Embedding hosts should enable this for request-owned
+    /// credentials so a machine-level proxy cannot observe them.
+    pub disable_proxies: bool,
+
+    /// Reject every redirect response for this client.
+    ///
+    /// Default: false. The library's authenticated-client policy otherwise
+    /// permits policy-checked same-origin redirects.
+    pub disable_redirects: bool,
+
     /// Maximum number of idle connections per host in the connection pool.
     ///
     /// Default: 32. Set to 0 to disable pooling.
@@ -72,6 +84,8 @@ pub struct TransportConfig {
 impl Default for TransportConfig {
     fn default() -> Self {
         Self {
+            disable_proxies: false,
+            disable_redirects: false,
             pool_max_idle_per_host: 32,
             pool_idle_timeout: Some(Duration::from_secs(90)),
             tcp_keepalive: Some(Duration::from_secs(60)),
@@ -87,6 +101,18 @@ impl TransportConfig {
     /// Create a new transport config with defaults.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Enable or disable use of ambient HTTP proxy configuration.
+    pub fn with_proxies_disabled(mut self, disabled: bool) -> Self {
+        self.disable_proxies = disabled;
+        self
+    }
+
+    /// Enable or disable redirect following.
+    pub fn with_redirects_disabled(mut self, disabled: bool) -> Self {
+        self.disable_redirects = disabled;
+        self
     }
 
     /// Set the maximum idle connections per host.
@@ -155,10 +181,17 @@ impl TransportConfig {
     /// are active.
     #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
     pub fn apply_to_builder(&self, builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
-        let builder = builder
+        let mut builder = builder
             .pool_max_idle_per_host(self.pool_max_idle_per_host)
             .pool_idle_timeout(self.pool_idle_timeout)
             .tcp_keepalive(self.tcp_keepalive);
+
+        if self.disable_proxies {
+            builder = builder.no_proxy();
+        }
+        if self.disable_redirects {
+            builder = builder.redirect(reqwest::redirect::Policy::none());
+        }
 
         let builder = if self.http2_prior_knowledge {
             builder.http2_prior_knowledge()
