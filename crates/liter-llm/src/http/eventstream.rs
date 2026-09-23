@@ -45,7 +45,6 @@ const HEADER_TYPE_STRING: u8 = 7;
     skip_all,
     fields(
         http.method = "POST",
-        http.url = %url,
         http.status_code = tracing::field::Empty,
         http.retry_count = tracing::field::Empty,
     )

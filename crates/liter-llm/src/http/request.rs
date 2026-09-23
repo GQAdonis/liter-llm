@@ -54,12 +54,7 @@ where
                 // connection reset fails the whole request even though `max_retries > 0`.
                 if let Some(delay) = retry::should_retry_transport_error(attempt, max_retries) {
                     attempt += 1;
-                    tracing::warn!(
-                        error = %transport_error,
-                        attempt,
-                        max_retries,
-                        "transport-level error sending request; retrying"
-                    );
+                    tracing::warn!(attempt, max_retries, "transport-level error sending request; retrying");
                     sleep_for_retry(delay).await;
                     continue;
                 }
@@ -100,7 +95,6 @@ where
     skip_all,
     fields(
         http.method = "POST",
-        http.url = %url,
         http.status_code = tracing::field::Empty,
         http.retry_count = tracing::field::Empty,
     )
@@ -152,7 +146,6 @@ pub async fn post_json_raw(
     skip_all,
     fields(
         http.method = "POST",
-        http.url = %url,
         http.status_code = tracing::field::Empty,
         http.retry_count = tracing::field::Empty,
     )
@@ -205,7 +198,6 @@ pub async fn post_binary(
     skip_all,
     fields(
         http.method = "POST",
-        http.url = %url,
         http.status_code = tracing::field::Empty,
     )
 )]
@@ -257,7 +249,6 @@ pub async fn post_multipart(
     skip_all,
     fields(
         http.method = "GET",
-        http.url = %url,
         http.status_code = tracing::field::Empty,
         http.retry_count = tracing::field::Empty,
     )
@@ -304,7 +295,6 @@ pub async fn get_json_raw(
     skip_all,
     fields(
         http.method = "DELETE",
-        http.url = %url,
         http.status_code = tracing::field::Empty,
         http.retry_count = tracing::field::Empty,
     )
@@ -351,7 +341,6 @@ pub async fn delete_json(
     skip_all,
     fields(
         http.method = "GET",
-        http.url = %url,
         http.status_code = tracing::field::Empty,
         http.retry_count = tracing::field::Empty,
     )

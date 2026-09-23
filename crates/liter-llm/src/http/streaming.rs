@@ -100,7 +100,6 @@ pub use tokio_util::sync::CancellationToken;
     skip_all,
     fields(
         http.method = "POST",
-        http.url = %url,
         http.status_code = tracing::field::Empty,
         http.retry_count = tracing::field::Empty,
     )
@@ -160,7 +159,6 @@ where
     skip_all,
     fields(
         http.method = "POST",
-        http.url = %url,
         http.status_code = tracing::field::Empty,
         http.retry_count = tracing::field::Empty,
     )
@@ -345,7 +343,6 @@ where
                         let preview: String = leftover.chars().take(TRUNCATION_PREVIEW_CHARS).collect();
                         tracing::error!(
                             leftover_bytes = remaining,
-                            preview = %preview,
                             "SSE stream ended with unterminated data in buffer; stream was truncated"
                         );
                         this.buffer.clear();
