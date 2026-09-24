@@ -1,15 +1,15 @@
 {
   "schema_version": "v1",
-  "source_hash": "blake3:588696c6845648f517e6da27556fa6ca74a8e87b2d5f9ee48162f885f785b99c",
+  "source_hash": "blake3:0a103ef374195d26024e03c23bf24c2dd6c7a4e85387b0bfbcca8b370ac9c7b9",
   "outputs": {
     ".claude-plugin/plugin.json": {
-      "content_hash": "blake3:6969faf88ceb063fc8f369d216c160d01899b32b9b5f7e2df8d8664141649cba"
+      "content_hash": "blake3:633f3994d4cceef28c59f83ec59d81fe3211f40b351c9d6158a5a2f0f6f71c14"
     },
     ".codex-plugin/plugin.json": {
-      "content_hash": "blake3:2318acf24bcfcaf12c1b70670e6b3c69060d12dec8a659a3ad779a4c37d84018"
+      "content_hash": "blake3:62f692b411b3fdb4b282949646a2360f59bcaed7b343b44725270a922148f324"
     },
     ".cursor-plugin/plugin.json": {
-      "content_hash": "blake3:7518e1afbce437ffe4f07331630a726ef5990cc2ea86f7d4f49e9f469fea9558"
+      "content_hash": "blake3:66f1c2d5b6c8d4f97a58e2b9b347cd15bd0dac320bd2f2f8d9e4c2e84b02d08e"
     },
     ".cursor-plugin/skills/calling-llms/SKILL.md": {
       "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
@@ -18,7 +18,7 @@
       "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
     },
     ".cursor-plugin/skills/liter-llm/SKILL.md": {
-      "content_hash": "blake3:a9ebf7409cdd2e0aa6c1374b018a5d8066efbecbb8a501f9e901e288221e6e3e"
+      "content_hash": "blake3:a098a59ef2959979e54ded16cddc10c778b5de657670a0830b0311a726c4ee61"
     },
     ".cursor-plugin/skills/running-the-proxy/SKILL.md": {
       "content_hash": "blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60"
@@ -33,19 +33,19 @@
       "content_hash": "blake3:4c8d31c57c57ec1db9bc8fa0064086f1ee33a81418bc129b4bf9fae2b5099bab"
     },
     ".factory-plugin/plugin.json": {
-      "content_hash": "blake3:ddc36112f313032ad8db3cac376842c6dac78a3abd4c8f25d80d5b837211d907"
+      "content_hash": "blake3:bfb709c918f8d9ceb91e27c1427aef92e1d07b39c609b1cf4069cc1d49b22946"
     },
     ".hermes/package/pyproject.toml": {
-      "content_hash": "blake3:b10f68010907ae1d33fa67a68aa1f7f846e704dd6886b3622dd80ff87a8a5f68"
+      "content_hash": "blake3:e085386057bead2506dbc194af41f5177a8de882583eb0aa896652617468866f"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/__init__.py": {
-      "content_hash": "blake3:18c07bac34df7c6f1e9030252555056d480a7c11402747c65ef458ca16e161c9"
+      "content_hash": "blake3:d815b9961c68f9a86b7ec38e8f2adb0736bf0b5087d00d712651fd8944923d39"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/hermes.py": {
       "content_hash": "blake3:ea67a2034fe7813e671d3946523d836f6a1d77bc2fa96f766f838d77aa9068a4"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/plugin.yaml": {
-      "content_hash": "blake3:3c6d763b568fc645731c4cd4fea8fbd1cd6c7683a68782f73747204b982680db"
+      "content_hash": "blake3:8ee59f39e8a142c14c74a4751cf6fb2a2dfc85e6feb590af4dfc227222fce516"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/skills/calling-llms/SKILL.md": {
       "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
@@ -54,7 +54,7 @@
       "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/skills/liter-llm/SKILL.md": {
-      "content_hash": "blake3:a9ebf7409cdd2e0aa6c1374b018a5d8066efbecbb8a501f9e901e288221e6e3e"
+      "content_hash": "blake3:a098a59ef2959979e54ded16cddc10c778b5de657670a0830b0311a726c4ee61"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/skills/running-the-proxy/SKILL.md": {
       "content_hash": "blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60"
@@ -69,13 +69,13 @@
       "content_hash": "blake3:4c8d31c57c57ec1db9bc8fa0064086f1ee33a81418bc129b4bf9fae2b5099bab"
     },
     ".hermes/plugins/liter-llm/__init__.py": {
-      "content_hash": "blake3:18c07bac34df7c6f1e9030252555056d480a7c11402747c65ef458ca16e161c9"
+      "content_hash": "blake3:d815b9961c68f9a86b7ec38e8f2adb0736bf0b5087d00d712651fd8944923d39"
     },
     ".hermes/plugins/liter-llm/hermes.py": {
       "content_hash": "blake3:ea67a2034fe7813e671d3946523d836f6a1d77bc2fa96f766f838d77aa9068a4"
     },
     ".hermes/plugins/liter-llm/plugin.yaml": {
-      "content_hash": "blake3:3c6d763b568fc645731c4cd4fea8fbd1cd6c7683a68782f73747204b982680db"
+      "content_hash": "blake3:8ee59f39e8a142c14c74a4751cf6fb2a2dfc85e6feb590af4dfc227222fce516"
     },
     ".hermes/plugins/liter-llm/skills/calling-llms/SKILL.md": {
       "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
@@ -84,7 +84,7 @@
       "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
     },
     ".hermes/plugins/liter-llm/skills/liter-llm/SKILL.md": {
-      "content_hash": "blake3:a9ebf7409cdd2e0aa6c1374b018a5d8066efbecbb8a501f9e901e288221e6e3e"
+      "content_hash": "blake3:a098a59ef2959979e54ded16cddc10c778b5de657670a0830b0311a726c4ee61"
     },
     ".hermes/plugins/liter-llm/skills/running-the-proxy/SKILL.md": {
       "content_hash": "blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60"
@@ -111,13 +111,13 @@
       "content_hash": "blake3:ef9ead7fa9fc0dbbe0b7a3d01f1277c1ecded4e7be7fa76a8e7ad04277a23f6b"
     },
     "gemini-extension.json": {
-      "content_hash": "blake3:7bb219d6e8f9ae0dbb3d811fb71f3d444547b9781ebd4c392bfe06a35dbe60a7"
+      "content_hash": "blake3:fb05e1c2e4aa867ae7fbf573b848fddf5ff16e394ffe92bea8e2a6f4c26ac56d"
     },
     "kimi.plugin.json": {
-      "content_hash": "blake3:d9f6bc64c98632f08b85f86ca237abe0fd77ec5809128a924ec4c99bff1a76ca"
+      "content_hash": "blake3:81a685502eb10547e358aed7b106486541fd66a9c716fc12beb33885bdc1e7ff"
     },
     "package.json": {
-      "content_hash": "blake3:434726124eb3c6609487a41a5a0ffedc9a02213f23c07c6d19602fda7ff1764d"
+      "content_hash": "blake3:ff983b0f6825c671759f0793364d9e7555c1537d0cf9dd85dd2ccf9b5da3d192"
     },
     "skills/calling-llms/SKILL.md": {
       "content_hash": "blake3:116e9240923b4f529f06471698b0e15ce1a14688a5beb1cae28e0b62e3a2837f"
@@ -126,7 +126,7 @@
       "content_hash": "blake3:2486d6f9ae493f698ce3c5349658dacd142fb7dd3cd27a707c4acf3aa8877a55"
     },
     "skills/liter-llm/SKILL.md": {
-      "content_hash": "blake3:a9ebf7409cdd2e0aa6c1374b018a5d8066efbecbb8a501f9e901e288221e6e3e"
+      "content_hash": "blake3:a098a59ef2959979e54ded16cddc10c778b5de657670a0830b0311a726c4ee61"
     },
     "skills/running-the-proxy/SKILL.md": {
       "content_hash": "blake3:3f5a5101eedafb1369ac00a325e19a411310e607700c789e0fbdb49e3694fb60"

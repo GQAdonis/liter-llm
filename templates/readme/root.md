@@ -85,7 +85,7 @@ See [Rust crate](crates/liter-llm) for full documentation.
 <summary><strong>Go</strong></summary>
 
 ```sh
-go get github.com/xberg-io/liter-llm/packages/go
+go get github.com/xberg-io/liter-llm/packages/go/v2
 ```
 
 See [Go README](packages/go/README.md) for full documentation.
@@ -200,6 +200,13 @@ cargo install liter-llm-cli                 # from crates.io
 cargo binstall liter-llm-cli               # prebuilt binary from GitHub Releases
 npx @xberg-io/liter-llm-cli --help         # npm (self-installs the binary)
 docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-your-key ghcr.io/xberg-io/liter-llm
+```
+
+Windows users can install the same binary through [Scoop](https://scoop.sh):
+
+```powershell
+scoop bucket add xberg https://github.com/xberg-io/scoop-bucket
+scoop install liter-llm
 ```
 
 Then run the proxy or the MCP server:

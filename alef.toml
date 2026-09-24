@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.68.0"
+alef_version = "0.85.19"
 languages = [
   "python",
   "node",
@@ -18,6 +18,37 @@ languages = [
   "jni",
 ]
 extra_clippy_allows = ["single_match", "collapsible_match"]
+
+# ~keep These are create-once seeds that alef re-renders on every run but refuses to
+# overwrite, so `alef verify` reported them as DRIFTED forever and `alef generate` could
+# not clear them. `alef adopt` refuses them by design: each has grown past alef's original
+# placeholder with real hand-written content, and stamping one would consent to alef
+# replacing it wholesale on the next overwriting regen (`alef version` sync,
+# `alef all --clobber-create-once-seeds`). Declaring them user_owned is the non-destructive
+# remedy alef's own DRIFTED message prescribes, and matches what xberg already does.
+[workspace.ownership]
+user_owned = [
+  "e2e/csharp/LiterLlm.E2eTests.csproj",
+  "e2e/dart/pubspec.yaml",
+  "e2e/go/go.mod",
+  "e2e/java/pom.xml",
+  "e2e/kotlin_android/build.gradle.kts",
+  "e2e/node/package.json",
+  "e2e/wasm/pnpm-workspace.yaml",
+  "e2e/zig/build.zig",
+  "test_apps/csharp/LiterLlm.E2eTests.csproj",
+  "test_apps/dart/pubspec.yaml",
+  "test_apps/elixir/mix.exs",
+  "test_apps/go/go.mod",
+  "test_apps/homebrew/README.md",
+  "test_apps/java/pom.xml",
+  "test_apps/kotlin_android/build.gradle.kts",
+  "test_apps/kotlin_android/gradle/wrapper/gradle-wrapper.properties",
+  "test_apps/node/package.json",
+  "test_apps/wasm/package.json",
+  "test_apps/zig/build.zig",
+  "test_apps/zig/build.zig.zon",
+]
 
 [workspace.docs]
 reference_output = "docs-site/src/content/docs/reference"
@@ -57,12 +88,16 @@ cwd = "."
 manifest = "crates/liter-llm/Cargo.toml"
 env = { CARGO_BUILD_JOBS = "4", CARGO_TARGET_DIR = "target/snippet-validation" }
 
+[workspace.docs.snippets.sessions.rust.rust_dependencies]
+futures = { version = "0.3" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
 [workspace.docs.snippets.sessions.python]
 cwd = "packages/python"
 manifest = "packages/python/pyproject.toml"
 env = { PYTHONPATH = "." }
 
-[workspace.docs.snippets.sessions.typescript]
+[workspace.docs.snippets.sessions.node]
 cwd = "e2e/node"
 manifest = "e2e/node/tsconfig.json"
 env = { NODE_PATH = "node_modules" }
@@ -92,7 +127,7 @@ env = { CGO_ENABLED = "1" }
 
 [workspace.docs.snippets.sessions.java]
 cwd = "packages/java"
-env = { CLASSPATH = "target/classes" }
+manifest = "packages/java/pom.xml"
 
 [workspace.docs.snippets.sessions.csharp]
 cwd = "packages/csharp"
@@ -248,11 +283,166 @@ revision = "v4.9.3"
 hooks = ["ai-rulez-validate"]
 
 [workspace.poly.typos.extend-words]
+# deliberately misspelled stage: a negative test asserts it is rejected ~keep
+inpt = "inpt"
+# token fragment in a fallback-chain test ~keep
+mis = "mis"
+# deliberately misspelled key: a negative test asserts it is rejected ~keep
+patern = "patern"
+# deliberately misspelled key: a negative test asserts it is rejected ~keep
+replacment = "replacment"
 Hashi = "Hashi"
 ein = "ein"
 ist = "ist"
 
 [workspace.poly.per-file-ignores]
+# Alef-generated config files. Both grow with the size of the surface alef manages and
+# with the quality-debt baseline below; a line count on generated config is not a
+# maintainability signal. ~keep
+"poly.toml" = ["file-too-long"]
+".alef-toml-merge-provenance.toml" = ["file-too-long"]
+# --- quality-debt baseline (generated) ---
+# 75 size/complexity findings across 49 files that predate these
+# metrics. Listed per file rather than switching the rules off, so the metrics still
+# fire on every file NOT listed here -- new code stays covered, and each path below is
+# one discrete unit of work.
+# TODO(xberg-io/liter-llm#201): pay this down file by file and delete each entry as it goes green.
+# Do not add new paths here without a very good reason. ~keep
+".github/workflows/publish.yaml" = ["file-too-long"]
+"CHANGELOG.md" = ["file-too-long"]
+"alef.toml" = ["file-too-long"]
+"crates/liter-llm-catalog-gen/src/schema.rs" = ["function-too-long", "too-many-parameters"]
+"crates/liter-llm-cli/src/commands/api.rs" = ["function-too-long"]
+"crates/liter-llm-cli/src/commands/mcp.rs" = ["function-too-long"]
+"crates/liter-llm-proxy/src/config/mod.rs" = ["function-too-long"]
+"crates/liter-llm-proxy/src/config/provider.rs" = ["function-too-long", "nesting-too-deep"]
+"crates/liter-llm-proxy/src/guardrail.rs" = ["function-too-long"]
+"crates/liter-llm-proxy/src/lib.rs" = ["function-too-long"]
+"crates/liter-llm-proxy/src/routes/mod.rs" = ["function-too-long"]
+"crates/liter-llm-proxy/src/routes/realtime.rs" = ["file-too-long", "function-too-long"]
+"crates/liter-llm-proxy/src/service_pool.rs" = ["file-too-long", "function-too-long"]
+"crates/liter-llm-proxy/src/shutdown.rs" = ["function-too-long"]
+"crates/liter-llm/schemas/providers.json" = ["file-too-long"]
+"crates/liter-llm/src/auth/github_copilot.rs" = ["function-too-long"]
+"crates/liter-llm/src/client/config_file.rs" = ["function-too-long"]
+"crates/liter-llm/src/client/llm_config.rs" = ["cyclomatic-complexity", "function-too-long"]
+"crates/liter-llm/src/client/managed.rs" = ["cyclomatic-complexity", "function-too-long"]
+"crates/liter-llm/src/client/mod.rs" = ["file-too-long"]
+"crates/liter-llm/src/http/eventstream.rs" = ["function-too-long", "nesting-too-deep", "too-many-parameters"]
+"crates/liter-llm/src/http/streaming.rs" = ["function-too-long", "too-many-parameters"]
+"crates/liter-llm/src/provider/anthropic.rs" = [
+  "cyclomatic-complexity",
+  "file-too-long",
+  "function-too-long",
+  "nesting-too-deep",
+]
+"crates/liter-llm/src/provider/bedrock.rs" = [
+  "cyclomatic-complexity",
+  "file-too-long",
+  "function-too-long",
+  "nesting-too-deep",
+  "too-many-parameters",
+]
+"crates/liter-llm/src/provider/cohere.rs" = ["function-too-long"]
+"crates/liter-llm/src/provider/mod.rs" = ["cyclomatic-complexity", "file-too-long"]
+"crates/liter-llm/src/provider/outbound_policy.rs" = ["file-too-long"]
+"crates/liter-llm/src/provider/vertex.rs" = [
+  "cyclomatic-complexity",
+  "file-too-long",
+  "function-too-long",
+  "nesting-too-deep",
+]
+"crates/liter-llm/src/realtime/openai.rs" = ["function-too-long"]
+"crates/liter-llm/src/streaming.rs" = ["function-too-long", "nesting-too-deep"]
+"crates/liter-llm/src/tests.rs" = ["file-too-long"]
+"crates/liter-llm/src/tokenizer.rs" = ["nesting-too-deep"]
+"crates/liter-llm/src/tower/budget.rs" = ["file-too-long", "function-too-long", "too-many-parameters"]
+"crates/liter-llm/src/tower/cache.rs" = ["file-too-long", "function-too-long"]
+"crates/liter-llm/src/tower/cache_singleflight.rs" = ["file-too-long"]
+"crates/liter-llm/src/tower/fallback_chain.rs" = ["function-too-long"]
+"crates/liter-llm/src/tower/guardrail.rs" = ["file-too-long", "function-too-long"]
+"crates/liter-llm/src/tower/health.rs" = ["file-too-long"]
+"crates/liter-llm/src/tower/hedge.rs" = ["function-too-long"]
+"crates/liter-llm/src/tower/hooks.rs" = ["function-too-long"]
+"crates/liter-llm/src/tower/idempotency.rs" = ["file-too-long", "function-too-long"]
+"crates/liter-llm/src/tower/metrics.rs" = ["file-too-long"]
+"crates/liter-llm/src/tower/rate_limit.rs" = ["function-too-long"]
+"crates/liter-llm/src/tower/route_classify.rs" = ["file-too-long"]
+"crates/liter-llm/src/tower/router.rs" = ["file-too-long"]
+"crates/liter-llm/src/types/common.rs" = ["file-too-long"]
+"docs-site/src/content/docs/changelog.md" = ["file-too-long"]
+"docs-site/src/content/docs/usage/multimodal.mdx" = ["file-too-long"]
+"scripts/generate_providers_doc.py" = ["function-too-long"]
+# --- end quality-debt baseline ---
+# Quality metrics do not apply to test code. A test function's length is its assertion
+# count and a table-driven test's arity mirrors its cases; splitting either to satisfy a
+# production-code maintainability metric makes the test harder to read, not easier. Only
+# `file-too-long` and `type-too-long` still apply here -- an oversized test FILE is a real
+# organisational problem, unlike an oversized test function. ~keep
+"**/tests/**/*" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/test/**/*" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/benches/**/*" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*_test.rs" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*_tests.rs" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/test_*.py" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*_test.py" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/conftest.py" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*.test.ts" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*.test.js" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*.test.mjs" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*.spec.ts" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*.spec.js" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*_test.go" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*Test.java" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*Tests.cs" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*_test.dart" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+"**/*_spec.rb" = ["cyclomatic-complexity", "function-too-long", "nesting-too-deep", "too-many-parameters"]
+# Stylistic rules disabled repo-wide. Each is a formatting or idiom preference with no
+# correctness or security consequence, and each fires in volumes no one can hand-maintain
+# (`require-unicode-regexp` alone was 724 across the polyrepo, `no-inline-comments` 200).
+# `eqeqeq` is here for a stronger reason: every occurrence audited was the deliberate
+# `== null` nullish idiom, so the rule had a 100% false-positive rate here.
+# Rules with a real correctness or security angle are deliberately NOT listed and stay on:
+# unicorn/require-post-message-target-origin, unicorn/no-array-callback-reference,
+# unicorn/no-immediate-mutation, unicorn/no-array-fill-with-reference-type. ~keep
+"**" = [
+  "CPY001",
+  "UnorderedKey",
+  "eqeqeq",
+  "no-inline-comments",
+  "no-negated-condition",
+  "require-unicode-regexp",
+  "unicorn/consistent-function-scoping",
+  "unicorn/escape-case",
+  "unicorn/explicit-length-check",
+  "unicorn/new-for-builtins",
+  "unicorn/no-array-sort",
+  "unicorn/no-hex-escape",
+  "unicorn/no-lonely-if",
+  "unicorn/no-negated-condition",
+  "unicorn/no-typeof-undefined",
+  "unicorn/no-useless-undefined",
+  "unicorn/prefer-add-event-listener",
+  "unicorn/prefer-at",
+  "unicorn/prefer-code-point",
+  "unicorn/prefer-dom-node-append",
+  "unicorn/prefer-dom-node-remove",
+  "unicorn/prefer-import-meta-properties",
+  "unicorn/prefer-native-coercion-functions",
+  "unicorn/prefer-number-coercion",
+  "unicorn/prefer-query-selector",
+  "unicorn/prefer-single-call",
+  "unicorn/prefer-string-replace-all",
+  "unicorn/prefer-string-slice",
+  "unicorn/prefer-top-level-await",
+  "unicorn/prefer-type-error",
+  "unicorn/require-module-specifiers",
+]
+# Alef-generated API reference pages: one page per language, each a full rendering of the
+# public surface, so `file-too-long` is a property of the surface's size rather than of
+# anything editable here. poly reports on generated files by design (only `--fix-generated`
+# gates rewriting), so regeneration would revert any edit made to silence this. ~keep
+"docs-site/src/content/docs/reference/**" = ["file-too-long"]
 "scripts/**/*.py" = [
   "B904",
   "BLE001",
@@ -273,6 +463,11 @@ ist = "ist"
 ]
 "cli-proxy/**/*.py" = ["ANN", "PLR0913", "PLR2004", "S", "T201"]
 "templates/readme/**/*.md" = ["MD057"]
+# `@opencode-ai/plugin` contract entrypoint. The exported `Plugin` factory is typed to return
+# a promise of the hooks object, and it is the documented place to add awaited setup when the
+# plugin grows tools. Dropping `async` to satisfy require-await would change the declared
+# return type from `Promise<Hooks>` to `Hooks` for an external runtime we cannot audit. ~keep
+"plugin/.ai-rulez/opencode/index.js" = ["require-await"]
 
 [[crates]]
 name = "liter-llm"
@@ -363,7 +558,7 @@ lib_name = "liter_llm_ffi"
 extra_features = ["wasm-http"]
 
 [crates.go]
-module = "github.com/xberg-io/liter-llm/packages/go"
+module = "github.com/xberg-io/liter-llm/packages/go/v2"
 package_name = "literllm"
 
 [crates.java]
@@ -659,37 +854,6 @@ functions = [
   "configure_outbound_client_builder",
 ]
 
-[crates.lint.python]
-before = "uv sync --no-install-project --no-install-workspace"
-
-[crates.lint.node]
-precondition = "command -v pnpm >/dev/null 2>&1"
-format = "pnpm dlx oxfmt crates/liter-llm-node"
-check = "pnpm dlx oxlint crates/liter-llm-node"
-
-[crates.lint.wasm]
-precondition = "command -v pnpm >/dev/null 2>&1"
-format = "pnpm dlx oxfmt crates/liter-llm-wasm"
-check = "pnpm dlx oxlint crates/liter-llm-wasm"
-
-[crates.lint.php]
-precondition = "command -v php >/dev/null 2>&1 && command -v composer >/dev/null 2>&1"
-before = "cd crates/liter-llm-php && composer install --no-interaction --quiet"
-format = "cd crates/liter-llm-php && PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix src"
-check = "cd crates/liter-llm-php && PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix --dry-run src"
-
-[crates.lint.go]
-precondition = "command -v golangci-lint >/dev/null 2>&1"
-before = "cargo build --release -p liter-llm-ffi"
-
-[crates.lint.ffi]
-precondition = "test -d crates/liter-llm-ffi/src"
-
-[crates.lint.kotlin_android]
-precondition = "command -v ktfmt >/dev/null 2>&1"
-format = "find packages/kotlin-android \\( -name build -o -name .gradle \\) -prune -o \\( -name '*.kt' -o -name '*.kts' \\) -type f -print0 | xargs -0 ktfmt --kotlinlang-style"
-check = "find packages/kotlin-android \\( -name build -o -name .gradle \\) -prune -o \\( -name '*.kt' -o -name '*.kts' \\) -type f -print0 | xargs -0 ktfmt --kotlinlang-style --dry-run --set-exit-if-changed"
-
 [crates.test.rust]
 precondition = "command -v cargo >/dev/null 2>&1"
 e2e = "cargo test --manifest-path e2e/rust/Cargo.toml"
@@ -705,7 +869,7 @@ e2e = [
 precondition = "command -v pnpm >/dev/null 2>&1"
 e2e = [
   "pnpm -r --filter=\"./crates/liter-llm-node\" run build",
-  "cd e2e/node && pnpm install --no-frozen-lockfile && pnpm dlx vitest run",
+  "cd e2e/node && pnpm install --no-frozen-lockfile && pnpm exec vitest run",
 ]
 
 [crates.test.go]
@@ -762,28 +926,24 @@ e2e = [
 
 [crates.test.swift]
 precondition = "command -v swift >/dev/null 2>&1"
-before = "cargo build --release -p liter-llm-swift && cargo build --release -p liter-llm-ffi && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
+before = "task swift:build && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
 e2e = "scripts/e2e/run-with-mock-server.sh 'cd e2e/swift_e2e && swift test'"
 
 [crates.test.zig]
 precondition = "command -v zig >/dev/null 2>&1"
 before = "cargo build -p liter-llm-ffi --release && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
-e2e = "scripts/e2e/run-with-mock-server.sh 'cd e2e/zig && zig build test'"
+e2e = [
+  "python3 scripts/ci/check_zig_test_targets.py",
+  "scripts/e2e/run-with-mock-server.sh 'cd e2e/zig && zig build test --summary all'",
+]
 
 [crates.test.kotlin_android]
 precondition = "command -v gradle >/dev/null 2>&1"
 before = "cargo build --release -p liter-llm-ffi -p liter-llm-jni && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
-e2e = "scripts/e2e/run-with-mock-server.sh 'cd e2e/kotlin_android && gradle test --no-daemon'"
-
-[crates.update.python]
-precondition = "command -v uv >/dev/null 2>&1"
-update = "uv sync --upgrade --no-install-project --no-install-workspace"
-upgrade = "uv sync --all-packages --all-extras --upgrade --no-install-project --no-install-workspace"
-
-[crates.update.kotlin_android]
-precondition = "command -v gradle >/dev/null 2>&1"
-update = "echo 'kotlin-android: dependencyUpdates skipped (plugin v0.52.0 incompatible with Gradle 9; report-only no-op)'"
-upgrade = "echo 'kotlin-android: dependencyUpdates skipped (plugin v0.52.0 incompatible with Gradle 9; report-only no-op)'"
+e2e = [
+  "python3 scripts/ci/check_kotlin_consumer_version.py",
+  "scripts/e2e/run-with-mock-server.sh 'cd e2e/kotlin_android && gradle test --no-daemon'",
+]
 
 [crates.publish]
 core_crate = "crates/liter-llm"
@@ -875,6 +1035,8 @@ fields_method_calls = ["status_code"]
 
 [crates.e2e.snippets]
 output = "docs-site/src/snippets"
+# ~keep Fixture URLs describe mocked provider responses; this corpus has no hosted sample documents.
+mock_only = true
 # ~keep alef 0.67.6 resolves these globs against the project root, not against
 # ~keep `output`; a path relative to `output` is rejected with a naming error.
 # ~keep Every entry is a tutorial/README source that no fixture can produce: they
@@ -1653,7 +1815,7 @@ extra_args = ["null"]
 
 [crates.e2e.calls.list_files.overrides.c]
 result_type = "FileListResponse"
-extra_args = ["NULL"]
+extra_args = ["0"]
 
 [crates.e2e.calls.list_files.overrides.swift]
 extra_args = ["nil"]
@@ -1849,7 +2011,7 @@ extra_args = ["null"]
 
 [crates.e2e.calls.list_batches.overrides.c]
 result_type = "BatchListResponse"
-extra_args = ["NULL"]
+extra_args = ["0"]
 
 [crates.e2e.calls.list_batches.overrides.swift]
 extra_args = ["nil"]
@@ -2017,7 +2179,7 @@ name = "@xberg-io/liter-llm-wasm"
 name = "liter_llm"
 
 [crates.e2e.registry.packages.go]
-module = "github.com/xberg-io/liter-llm/packages/go"
+module = "github.com/xberg-io/liter-llm/packages/go/v2"
 
 [crates.e2e.registry.packages.java]
 name = "io.xberg.literllm:liter-llm"
@@ -2044,7 +2206,8 @@ name = "liter_llm_ffi"
 name = "LiterLlm"
 
 [crates.e2e.registry.packages.zig]
-hash = "liter_llm-1.18.2-ITuy7j8Hy2Yavk0BjGZ43I0Ix2GL"
+version = "2.0.3"
+hash = "liter_llm-2.0.3-Jfgk_AR7FjNQG4Xrznb1QGb5Ok1RHe9S-qBaV1eYM_f4"
 
 [crates.e2e.registry.packages.homebrew]
 tap = "xberg-io/homebrew-tap"
@@ -2052,8 +2215,8 @@ cli_formula = "liter-llm"
 
 [[crates.e2e.registry.packages.homebrew.cli_tests]]
 name = "version"
-command = "$CLI_FORMULA --version"
-expect_contains = "$VERSION"
+command = '$CLI_FORMULA --version | grep -Fxq "$CLI_FORMULA $VERSION" && printf "%s" "version-match"'
+expect_contains = "version-match"
 
 [[crates.e2e.registry.packages.homebrew.cli_tests]]
 name = "help"
@@ -2087,18 +2250,34 @@ replace = "<artifactId>liter-llm</artifactId>\n            <version>{version}</v
 
 [[workspace.sync.text_replacements]]
 path = "test_apps/csharp/LiterLlm.E2eTests.csproj"
-search = 'Include="LiterLlm" Version="[^"]*"'
-replace = 'Include="LiterLlm" Version="{version}"'
-
-[[workspace.sync.text_replacements]]
-path = "test_apps/php/composer.json"
-search = '"xberg-io/liter-llm": "[^"]*"'
-replace = '"xberg-io/liter-llm": "{version}"'
+search = 'Include="XbergIo.LiterLlm" Version="[^"]*"'
+replace = 'Include="XbergIo.LiterLlm" Version="{version}"'
 
 [[workspace.sync.text_replacements]]
 path = "test_apps/go/go.mod"
-search = 'github\.com/xberg-io/liter-llm/packages/go v[0-9][^\s]*'
-replace = "github.com/xberg-io/liter-llm/packages/go v{version}"
+search = 'github\.com/xberg-io/liter-llm/packages/go(?:/v2)? v[0-9][^\s]*'
+replace = "github.com/xberg-io/liter-llm/packages/go/v2 v{version}"
+
+[[workspace.sync.text_replacements]]
+path = "e2e/go/go.mod"
+search = 'github\.com/xberg-io/liter-llm/packages/go(?:/v2)? v[0-9][^\s]*'
+replace = "github.com/xberg-io/liter-llm/packages/go/v2 v{version}"
+
+[[workspace.sync.text_replacements]]
+path = "packages/go/go.mod"
+search = '(?m)^module github\.com/xberg-io/liter-llm/packages/go(?:/v2)?$'
+replace = "module github.com/xberg-io/liter-llm/packages/go/v2"
+
+[[workspace.sync.text_replacements]]
+path = "test_apps/zig/build.zig.zon"
+search = 'https://github\.com/xberg-io/liter-llm/releases/download/v[^/]+/liter-llm-zig-v[^" ]+\.tar\.gz'
+replace = "https://github.com/xberg-io/liter-llm/releases/download/v{version}/liter-llm-zig-v{version}.tar.gz"
+
+# ~keep The published archive determines the hash; prepare:zig resolves it after publication.
+[[workspace.sync.text_replacements]]
+path = "test_apps/zig/build.zig.zon"
+search = '(?m)^\s*\.hash = "[^"\n]+",\n'
+replace = ""
 
 [[workspace.sync.text_replacements]]
 path = "test_apps/rust/Cargo.toml"
@@ -2106,9 +2285,21 @@ search = 'package = "liter-llm", version = "[^"]*"'
 replace = 'package = "liter-llm", version = "{version}"'
 
 [[workspace.sync.text_replacements]]
+# The swift e2e app consumes the release/swift/<version> branch the release workflow
+# publishes, not a `from:` semver bound. The previous `\.git` + `from:` regex matched
+# nothing on disk, so this pin silently stayed at 1.16.0 for three releases. ~keep
 path = "test_apps/swift_e2e/Package.swift"
-search = '\.package\(url: "https://github\.com/xberg-io/liter-llm\.git", from: "[^"]*"\)'
-replace = '.package(url: "https://github.com/xberg-io/liter-llm.git", from: "{version}")'
+search = 'release/swift/[^"]*'
+replace = 'release/swift/{version}'
+
+[[workspace.sync.text_replacements]]
+path = "plugin/package.json"
+search = '"version": "[^"]*"'
+replace = '"version": "{version}"'
+
+[crates.package_metadata]
+homepage = "https://github.com/xberg-io/liter-llm"
+issues = "https://github.com/xberg-io/liter-llm/issues"
 
 [crates.scaffold]
 description = "Universal LLM API client with Rust-powered polyglot bindings."
@@ -2237,7 +2428,7 @@ tool_calling = "getting-started/tool_calling.md"
 template = "go.md"
 output_path = "packages/go/README.md"
 name = "Go"
-package_name = "github.com/xberg-io/liter-llm/packages/go"
+package_name = "github.com/xberg-io/liter-llm/packages/go/v2"
 badge_url = "https://img.shields.io/github/v/tag/xberg-io/liter-llm?label=Go&color=007ec6"
 docs_url = "https://github.com/xberg-io/liter-llm"
 description = "Universal LLM API client for Go. Access 165 LLM providers through a single interface with idiomatic Go API, context-aware async support, and CGO-based native performance."

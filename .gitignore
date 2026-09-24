@@ -1,4 +1,5 @@
 # Build output
+/e2e/c/ffi/
 target/
 build/
 dist/
@@ -249,6 +250,9 @@ vendor/bundle/
 bin/
 # cli-proxy ships a hand-written launcher under bin/ — keep it tracked despite the broad bin/ rule.
 !cli-proxy/npm/bin/
+# alef generates packages/dart/bin/download_libs.dart; the broad bin/ rule above would
+# discard it after every regen, so the freshness gate can never go green without this.
+!packages/dart/bin/
 obj/
 *.nupkg
 pkg/
@@ -314,3 +318,17 @@ poly.local.toml
 # BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
 .ai-rulez/.generated-manifest.json
 # END ai-rulez
+
+# ~keep Alef verifies these generated wrapper artifacts in fresh checkouts.
+!packages/kotlin-android/gradle/wrapper/gradle-wrapper.jar
+!test_apps/kotlin_android/gradle/wrapper/gradle-wrapper.jar
+!e2e/java/.mvn/
+e2e/java/.mvn/*
+!e2e/java/.mvn/wrapper/
+e2e/java/.mvn/wrapper/*
+!e2e/java/.mvn/wrapper/maven-wrapper.properties
+!test_apps/java/.mvn/
+test_apps/java/.mvn/*
+!test_apps/java/.mvn/wrapper/
+test_apps/java/.mvn/wrapper/*
+!test_apps/java/.mvn/wrapper/maven-wrapper.properties

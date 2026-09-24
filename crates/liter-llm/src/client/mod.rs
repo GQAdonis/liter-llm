@@ -684,6 +684,13 @@ pub struct DefaultClient {
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 impl DefaultClient {
+    fn response_read_options(&self) -> http::request::ResponseReadOptions {
+        http::request::ResponseReadOptions {
+            max_retries: self.config.max_retries,
+            max_response_bytes: self.config.max_response_bytes,
+        }
+    }
+
     /// Build a client.
     ///
     /// Constructs an HTTP client with the given configuration and provider hint.
@@ -705,6 +712,7 @@ impl DefaultClient {
     /// become invalid during client construction (extremely rare; indicates a bug).
     /// Returns `LiterLlmError::Http` if the underlying HTTP client cannot be constructed.
     pub fn new(config: ClientConfig, model_hint: Option<&str>) -> Result<Self> {
+        config::validate_response_limit(config.max_response_bytes)?;
         let provider = build_provider(&config, model_hint);
         provider.validate()?;
 
@@ -1043,13 +1051,13 @@ impl LlmClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
@@ -1088,27 +1096,27 @@ impl LlmClient for DefaultClient {
                 provider::StreamFormat::Sse => {
                     let provider = Arc::clone(&prepared.provider);
                     let parse_event = move |data: &str| provider.parse_stream_event(data);
-                    let stream = http::streaming::post_stream(
+                    let stream = http::streaming::post_stream_bounded(
                         &self.http,
                         &url,
                         auth,
                         &extra,
                         prepared.body_bytes,
-                        self.config.max_retries,
                         parse_event,
+                        self.response_read_options(),
                     )
                     .await?;
                     Ok(stream)
                 }
                 provider::StreamFormat::AwsEventStream => {
-                    let stream = http::eventstream::post_eventstream(
+                    let stream = http::eventstream::post_eventstream_bounded(
                         &self.http,
                         &url,
                         auth,
                         &extra,
                         prepared.body_bytes,
-                        self.config.max_retries,
                         provider::bedrock::parse_bedrock_stream_event,
+                        self.response_read_options(),
                     )
                     .await?;
                     Ok(stream)
@@ -1135,13 +1143,13 @@ impl LlmClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
@@ -1170,7 +1178,15 @@ impl LlmClient for DefaultClient {
             let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
-            let mut raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
+            let mut raw = http::request::get_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                self.config.max_retries,
+                self.config.max_response_bytes,
+            )
+            .await?;
             self.provider.transform_response(&mut raw)?;
             serde_json::from_value::<ModelsListResponse>(raw).map_err(LiterLlmError::from)
         })
@@ -1194,13 +1210,13 @@ impl LlmClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
@@ -1225,13 +1241,13 @@ impl LlmClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            http::request::post_binary(
+            http::request::post_binary_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await
         })
@@ -1254,13 +1270,13 @@ impl LlmClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
@@ -1286,13 +1302,13 @@ impl LlmClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
@@ -1317,13 +1333,13 @@ impl LlmClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
@@ -1348,13 +1364,13 @@ impl LlmClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
@@ -1379,13 +1395,13 @@ impl LlmClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
@@ -1414,13 +1430,13 @@ impl LlmClientRaw for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
 
@@ -1466,26 +1482,26 @@ impl LlmClientRaw for DefaultClient {
                 provider::StreamFormat::Sse => {
                     let provider = Arc::clone(&prepared.provider);
                     let parse_event = move |data: &str| provider.parse_stream_event(data);
-                    http::streaming::post_stream(
+                    http::streaming::post_stream_bounded(
                         &self.http,
                         &url,
                         auth,
                         &extra,
                         prepared.body_bytes,
-                        self.config.max_retries,
                         parse_event,
+                        self.response_read_options(),
                     )
                     .await?
                 }
                 provider::StreamFormat::AwsEventStream => {
-                    http::eventstream::post_eventstream(
+                    http::eventstream::post_eventstream_bounded(
                         &self.http,
                         &url,
                         auth,
                         &extra,
                         prepared.body_bytes,
-                        self.config.max_retries,
                         provider::bedrock::parse_bedrock_stream_event,
+                        self.response_read_options(),
                     )
                     .await?
                 }
@@ -1513,13 +1529,13 @@ impl LlmClientRaw for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
 
@@ -1554,13 +1570,13 @@ impl LlmClientRaw for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
 
@@ -1597,13 +1613,13 @@ impl LlmClientRaw for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
 
@@ -1638,13 +1654,13 @@ impl LlmClientRaw for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
 
@@ -1678,13 +1694,13 @@ impl LlmClientRaw for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
 
@@ -1718,13 +1734,13 @@ impl LlmClientRaw for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
 
@@ -1758,13 +1774,13 @@ impl LlmClientRaw for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let auth = auth_header.as_ref().map(str_pair);
-            let mut raw = http::request::post_json_raw(
+            let mut raw = http::request::post_json_raw_bounded(
                 &self.http,
                 &prepared.url,
                 auth,
                 &extra,
                 prepared.body_bytes,
-                self.config.max_retries,
+                self.response_read_options(),
             )
             .await?;
 
@@ -1809,7 +1825,15 @@ impl FileClient for DefaultClient {
                 .part("file", file_part)
                 .text("purpose", purpose_str);
 
-            let raw = http::request::post_multipart(&self.http, &url, auth, &extra, form).await?;
+            let raw = http::request::post_multipart_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                form,
+                self.config.max_response_bytes,
+            )
+            .await?;
             serde_json::from_value::<FileObject>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -1827,7 +1851,15 @@ impl FileClient for DefaultClient {
             let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
-            let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
+            let raw = http::request::get_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                self.config.max_retries,
+                self.config.max_response_bytes,
+            )
+            .await?;
             serde_json::from_value::<FileObject>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -1845,7 +1877,15 @@ impl FileClient for DefaultClient {
             let all_headers = self.all_headers("DELETE", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
-            let raw = http::request::delete_json(&self.http, &url, auth, &extra, self.config.max_retries).await?;
+            let raw = http::request::delete_json_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                self.config.max_retries,
+                self.config.max_response_bytes,
+            )
+            .await?;
             serde_json::from_value::<DeleteResponse>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -1877,7 +1917,15 @@ impl FileClient for DefaultClient {
             let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
-            let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
+            let raw = http::request::get_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                self.config.max_retries,
+                self.config.max_response_bytes,
+            )
+            .await?;
             serde_json::from_value::<FileListResponse>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -1895,7 +1943,15 @@ impl FileClient for DefaultClient {
             let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
-            http::request::get_binary(&self.http, &url, auth, &extra, self.config.max_retries).await
+            http::request::get_binary_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                self.config.max_retries,
+                self.config.max_response_bytes,
+            )
+            .await
         })
     }
 }
@@ -1913,8 +1969,15 @@ impl BatchClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
-            let raw = http::request::post_json_raw(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries)
-                .await?;
+            let raw = http::request::post_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                body_bytes,
+                self.response_read_options(),
+            )
+            .await?;
             serde_json::from_value::<BatchObject>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -1932,7 +1995,15 @@ impl BatchClient for DefaultClient {
             let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
-            let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
+            let raw = http::request::get_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                self.config.max_retries,
+                self.config.max_response_bytes,
+            )
+            .await?;
             serde_json::from_value::<BatchObject>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -1961,7 +2032,15 @@ impl BatchClient for DefaultClient {
             let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
-            let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
+            let raw = http::request::get_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                self.config.max_retries,
+                self.config.max_response_bytes,
+            )
+            .await?;
             serde_json::from_value::<BatchListResponse>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -1981,8 +2060,15 @@ impl BatchClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
-            let raw = http::request::post_json_raw(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries)
-                .await?;
+            let raw = http::request::post_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                body_bytes,
+                self.response_read_options(),
+            )
+            .await?;
             serde_json::from_value::<BatchObject>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -2159,8 +2245,15 @@ impl ResponseClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
-            let raw = http::request::post_json_raw(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries)
-                .await?;
+            let raw = http::request::post_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                body_bytes,
+                self.response_read_options(),
+            )
+            .await?;
             serde_json::from_value::<ResponseObject>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -2181,14 +2274,14 @@ impl ResponseClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
-            http::streaming::post_stream(
+            http::streaming::post_stream_bounded(
                 &self.http,
                 &url,
                 auth,
                 &extra,
                 body_bytes,
-                self.config.max_retries,
                 parse_response_stream_event,
+                self.response_read_options(),
             )
             .await
         })
@@ -2205,7 +2298,15 @@ impl ResponseClient for DefaultClient {
             let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
-            let raw = http::request::get_json_raw(&self.http, &url, auth, &extra, self.config.max_retries).await?;
+            let raw = http::request::get_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                self.config.max_retries,
+                self.config.max_response_bytes,
+            )
+            .await?;
             serde_json::from_value::<ResponseObject>(raw).map_err(LiterLlmError::from)
         })
     }
@@ -2223,8 +2324,15 @@ impl ResponseClient for DefaultClient {
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
-            let raw = http::request::post_json_raw(&self.http, &url, auth, &extra, body_bytes, self.config.max_retries)
-                .await?;
+            let raw = http::request::post_json_raw_bounded(
+                &self.http,
+                &url,
+                auth,
+                &extra,
+                body_bytes,
+                self.response_read_options(),
+            )
+            .await?;
             serde_json::from_value::<ResponseObject>(raw).map_err(LiterLlmError::from)
         })
     }

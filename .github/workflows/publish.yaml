@@ -55,12 +55,26 @@ env:
 jobs:
   prepare:
     name: Prepare
+    # This workflow publishes the release object itself, which re-enters it through
+    # `on: release` and queues a full duplicate publish run behind the dispatch run that
+    # created it. Keyed on `actor`, not `release.author` and not `triggering_actor`:
+    # release.author is always the bot because the bot creates the release as a draft, so it
+    # would suppress a human publishing that draft. triggering_actor becomes the human on a
+    # re-run, so it would ADMIT a duplicate when someone re-runs the bot's own recursive run.
+    # `actor` is pinned to whoever initiated the original run and survives re-runs. ~keep
+    if: >-
+      github.event_name != 'release' ||
+      github.actor != 'xberg-dev-publisher[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
       checkout_ref: ${{ steps.meta.outputs.dry_run == 'true' && (inputs.ref || github.ref) || steps.meta.outputs.checkout_ref }}
       version: ${{ steps.meta.outputs.version }}
+      # ~keep PyPI and RubyGems respell a semver prerelease, so the release version cannot be
+      # handed to their publish guards verbatim. See the step that computes these below.
+      pypi_version: ${{ steps.version_forms.outputs.pypi_version }}
+      gem_version: ${{ steps.version_forms.outputs.gem_version }}
       is_tag: ${{ steps.meta.outputs.is_tag }}
       npm_tag: ${{ steps.meta.outputs.npm_tag }}
       dry_run: ${{ steps.meta.outputs.dry_run }}
@@ -77,13 +91,8 @@ jobs:
       release_csharp: ${{ steps.meta.outputs.release_csharp }}
       release_php: ${{ steps.meta.outputs.release_php }}
       release_homebrew: ${{ steps.meta.outputs.release_homebrew }}
-      # kotlin-android is deliberately OFF this pipeline, not merely absent from
-      # `available-targets` below: the generated SingleflightResult.kt calls
-      # LiterLlmBridge.nativeFreeSingleflightResult, which alef emits on neither the bridge
-      # nor the JNI side, so the AAR cannot build. The build/upload/publish jobs are kept
-      # intact and gated on this value. To re-enable, add `kotlin` back to
-      # `available-targets` and restore this to `steps.meta.outputs.release_kotlin`. ~keep
-      release_kotlin: "false"
+      release_scoop: ${{ steps.meta.outputs.release_scoop }}
+      release_kotlin: ${{ steps.meta.outputs.release_kotlin }}
       release_dart: ${{ steps.meta.outputs.release_dart }}
       release_zig: ${{ steps.meta.outputs.release_zig }}
       release_swift: ${{ steps.meta.outputs.release_swift }}
@@ -120,7 +129,33 @@ jobs:
         id: meta
         uses: xberg-io/actions/prepare-release-metadata@v1
         with:
-          available-targets: "crates,python,node,wasm,ruby,go,java,elixir,csharp,php,homebrew,dart,zig,swift"
+          # ~keep A name absent from this list makes its `release_*` flag false, so the matching
+          # publish job never runs; a name alef does not recognise hard-errors `prepare` and takes
+          # the whole pipeline down. `scoop` is safe on both counts as of alef 0.79.5, which
+          # carries it in the known-target list and treats it as implying `cli`.
+          available-targets: "crates,python,node,wasm,ruby,go,java,elixir,csharp,php,homebrew,scoop,kotlin,dart,zig,swift"
+
+      # ~keep The publish actions compare `expected-version` against the artifact's own version
+      # string, and two ecosystems respell a semver prerelease: PyPI dist filenames carry the
+      # PEP 440 form (1.9.0-rc.2 -> 1.9.0rc2) and gem filenames the RubyGems form
+      # (1.9.0-rc.2 -> 1.9.0.pre.rc.2). Those are the spellings alef writes into the manifests
+      # the artifacts are built from, so the guard has to be handed the same spelling or every
+      # prerelease would fail it on a version that is in fact correct. A final release has no
+      # suffix and passes through both expressions untouched.
+      - name: Respell the release version for PyPI and RubyGems
+        id: version_forms
+        shell: bash
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          pypi="$(printf '%s' "${VERSION}" \
+            | sed -E 's/-alpha\.?([0-9]+)$/a\1/; s/-beta\.?([0-9]+)$/b\1/; s/-([A-Za-z]+)\.?([0-9]+)$/\1\2/')"
+          gem="$(printf '%s' "${VERSION}" | sed -E 's/^([^-]+)-(.*)$/\1.pre.\2/' | tr '_-' '..')"
+          {
+            echo "pypi_version=${pypi}"
+            echo "gem_version=${gem}"
+          } >>"$GITHUB_OUTPUT"
 
       - name: Ensure GitHub Release exists for tag
         if: ${{ steps.meta.outputs.is_tag == 'true' && steps.meta.outputs.dry_run != 'true' }}
@@ -146,6 +181,15 @@ jobs:
           gh release upload "$TAG" /tmp/catalog.json --clobber
         shell: bash
 
+  # ~keep Every job that publishes to a registry or uploads a release asset must gate on
+  # this job. A `needs:` edge alone is NOT a gate for a job whose `if:` contains `always()`
+  # or `!cancelled()` -- those opt out of automatic failure propagation, so the explicit
+  # `needs.validate-versions.result == 'success'` term is what actually stops them. Gating
+  # transitively through an intermediate job that is itself declared `if: always()` does not
+  # work either, for the same reason. v1.19.0 is the worked example: validate-versions failed,
+  # the plugin publish jobs carried no edge to it, and npm permanently accepted
+  # `@xberg-io/opencode-liter-llm@1.19.0` carrying 1.18.4 manifests -- npm forbids
+  # republishing a version, so it is unrecoverable.
   validate-versions:
     name: Validate versions
     needs: prepare
@@ -175,8 +219,16 @@ jobs:
       # validate-versions action does not know about. Assert it against the tag
       # actually being released, so a drifted plugin fails the release instead of
       # shipping a bundle that lags the version it claims to be. ~keep
+      # ~keep A dry run synthesizes its tag as `<version>-dryrun-<sha>`, so the release
+      # version carries a suffix no manifest will ever hold and the assertion below fails
+      # on a plugin that is in fact correct. Strip the suffix rather than skipping the step
+      # on dry runs -- a dry run is exactly where a drifted plugin should surface, while
+      # there is still no tag and nothing has been published.
       - name: Validate plugin version matches the release
-        run: python3 scripts/sync_plugin_version.py --expect "${{ needs.prepare.outputs.version }}"
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: python3 scripts/sync_plugin_version.py --expect "${VERSION%%-dryrun-*}"
 
   check-registries:
     name: Check registries
@@ -476,7 +528,7 @@ jobs:
       - run: npm install -g @napi-rs/cli
         shell: bash
       - name: Build NAPI binding
-        run: napi build --release --platform --target ${{ matrix.napi_target }}
+        run: napi build --release --platform --no-js --dts index.native.d.ts --target ${{ matrix.napi_target }}
         working-directory: crates/liter-llm-node
         shell: bash
       - uses: actions/upload-artifact@v7
@@ -1018,7 +1070,7 @@ jobs:
             find "ffi-artifacts/${ffi_rid}" -type f -print0 | xargs -0 -I{} cp {} "$dest/"
           done
         shell: bash
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           java-version: "25"
           distribution: temurin
@@ -1135,7 +1187,7 @@ jobs:
           for abi_dir in packages/kotlin-android/src/main/jniLibs/*/; do
             [ "$(basename "$abi_dir")" = "${{ matrix.abi }}" ] || rm -rf "$abi_dir"
           done
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -1237,11 +1289,18 @@ jobs:
           pattern: go-ffi-*
           path: go-ffi-release
           merge-multiple: true
+      - name: Prepare Go installer archive aliases and checksums
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: python3 scripts/ci/prepare_go_release_assets.py go-ffi-release liter-llm "$RELEASE_VERSION"
+        shell: bash
       - name: Upload to GitHub Release
         uses: xberg-io/actions/upload-release-assets@v1
         with:
           tag: ${{ needs.prepare.outputs.tag }}
-          assets: go-ffi-release/*.tar.gz
+          assets: |
+            go-ffi-release/*.tar.gz
+            go-ffi-release/*.tar.gz.sha256
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           token: ${{ steps.app-token.outputs.token }}
 
@@ -1387,8 +1446,12 @@ jobs:
 
   upload-elixir-nifs:
     name: Upload Elixir NIF assets
-    needs: [prepare, build-elixir-nifs]
-    if: always() && needs.prepare.outputs.release_elixir == 'true' && needs.build-elixir-nifs.result == 'success'
+    needs: [prepare, validate-versions, build-elixir-nifs]
+    if: |
+      always() &&
+      needs.prepare.outputs.release_elixir == 'true' &&
+      needs.validate-versions.result == 'success' &&
+      needs.build-elixir-nifs.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -1423,8 +1486,12 @@ jobs:
 
   upload-php-extensions:
     name: Upload PHP extension assets
-    needs: [prepare, build-php]
-    if: always() && needs.prepare.outputs.release_php == 'true' && needs.build-php.result == 'success'
+    needs: [prepare, validate-versions, build-php]
+    if: |
+      always() &&
+      needs.prepare.outputs.release_php == 'true' &&
+      needs.validate-versions.result == 'success' &&
+      needs.build-php.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -1464,8 +1531,12 @@ jobs:
 
   upload-kotlin-android-aars:
     name: Upload Kotlin Android aars
-    needs: [prepare, build-kotlin-android-natives]
-    if: always() && needs.prepare.outputs.release_kotlin == 'true' && needs.build-kotlin-android-natives.result == 'success'
+    needs: [prepare, validate-versions, build-kotlin-android-natives]
+    if: |
+      always() &&
+      needs.prepare.outputs.release_kotlin == 'true' &&
+      needs.validate-versions.result == 'success' &&
+      needs.build-kotlin-android-natives.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -1625,6 +1696,7 @@ jobs:
         with:
           packages-dir: dist/
           dry-run: ${{ needs.prepare.outputs.dry_run }}
+          expected-version: ${{ needs.prepare.outputs.pypi_version }}
 
   publish-node:
     name: Publish Node packages
@@ -1732,6 +1804,7 @@ jobs:
           packages-dir: crates/liter-llm-node/npm
           npm-tag: ${{ steps.dist_tag.outputs.tag }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
+          expected-version: ${{ needs.prepare.outputs.version }}
 
       - name: Wait for npm indexing (x64)
         if: ${{ needs.prepare.outputs.dry_run != 'true' && steps.recheck.outputs.exists != 'true' }}
@@ -1759,6 +1832,7 @@ jobs:
           npm-tag: ${{ steps.dist_tag.outputs.tag }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           provenance: "true"
+          expected-version: ${{ needs.prepare.outputs.version }}
 
       - name: Wait for @xberg-io/liter-llm to be available
         if: ${{ needs.prepare.outputs.dry_run != 'true' && steps.recheck.outputs.exists != 'true' }}
@@ -1835,6 +1909,7 @@ jobs:
           npm-tag: ${{ steps.dist_tag.outputs.tag }}
           dry-run: ${{ needs.prepare.outputs.dry_run }}
           provenance: "true"
+          expected-version: ${{ needs.prepare.outputs.version }}
 
       - name: Wait for npm indexing
         if: ${{ needs.prepare.outputs.dry_run != 'true' && steps.npm_check.outputs.exists != 'true' }}
@@ -1957,6 +2032,7 @@ jobs:
         with:
           gems-dir: dist
           dry-run: ${{ needs.prepare.outputs.dry_run }}
+          expected-version: ${{ needs.prepare.outputs.gem_version }}
 
       - name: RubyGems already published summary
         if: ${{ steps.recheck.outputs.exists == 'true' }}
@@ -2009,7 +2085,7 @@ jobs:
           MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "25"
@@ -2032,6 +2108,7 @@ jobs:
           maven-profile: publish
           extra-args: -DskipTests
           dry-run: ${{ needs.prepare.outputs.dry_run }}
+          expected-version: ${{ needs.prepare.outputs.version }}
         env:
           MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
@@ -2039,10 +2116,11 @@ jobs:
 
   publish-kotlin-android-maven:
     name: Publish Kotlin Android AAR to Maven Central
-    needs: [prepare, build-kotlin-android-natives, upload-kotlin-android-aars]
+    needs: [prepare, validate-versions, build-kotlin-android-natives, upload-kotlin-android-aars]
     if: |
       always() &&
       needs.prepare.outputs.release_kotlin == 'true' &&
+      needs.validate-versions.result == 'success' &&
       (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true')
     runs-on: ubuntu-latest
     permissions:
@@ -2098,7 +2176,7 @@ jobs:
           fi
           echo "jniLibs staging complete:"
           find packages/kotlin-android/src/main/jniLibs -type f -exec ls -lh {} \;
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -2207,6 +2285,7 @@ jobs:
           package-dir: packages/elixir
           skip-docs: "true"
           dry-run: ${{ needs.prepare.outputs.dry_run }}
+          expected-version: ${{ needs.prepare.outputs.version }}
         env:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
 
@@ -2233,6 +2312,7 @@ jobs:
         with:
           packages-dir: nuget-output
           dry-run: ${{ needs.prepare.outputs.dry_run }}
+          expected-version: ${{ needs.prepare.outputs.version }}
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
@@ -2283,8 +2363,21 @@ jobs:
 
   publish-zig:
     name: Publish Zig package metadata
-    needs: [prepare, check-zig, build-ffi]
-    if: ${{ needs.prepare.outputs.release_zig == 'true' && needs.prepare.outputs.is_tag == 'true' && (needs.check-zig.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') && needs.build-ffi.result == 'success' }}
+    needs: [prepare, validate-versions, check-zig, build-ffi]
+    # ~keep `!cancelled()` is load-bearing. On a partial-target dispatch the crates-chain jobs
+    # skip, an upstream job survives only via its own `!cancelled()`, and GitHub's skipped-state
+    # propagation then resumes at the first dependent that declares no opt-out -- skipping it
+    # before this `if:` is ever evaluated, with every build leg green. Diagnosed on
+    # html-to-markdown runs 33491693123/33494806766/33495781759, fixed there in 98d4537c41.
+    # Every need that must have succeeded is already named explicitly below, which is what
+    # opting out of propagation requires.
+    if: |
+      !cancelled() &&
+      needs.prepare.outputs.release_zig == 'true' &&
+      needs.prepare.outputs.is_tag == 'true' &&
+      needs.validate-versions.result == 'success' &&
+      (needs.check-zig.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') &&
+      needs.build-ffi.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -2321,6 +2414,9 @@ jobs:
     if: ${{ (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true') && needs.prepare.outputs.release_swift == 'true' }}
     runs-on: macos-latest
     timeout-minutes: 180
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+      IPHONEOS_DEPLOYMENT_TARGET: "16.0"
     outputs:
       checksum: ${{ steps.checksum.outputs.checksum }}
       reused: ${{ steps.check-existing.outputs.reused }}
@@ -2409,8 +2505,11 @@ jobs:
 
   upload-swift-release:
     name: Upload Swift Artifact Bundle to GitHub Release
-    needs: [prepare, swift-artifactbundle]
-    if: ${{ (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true') && needs.swift-artifactbundle.result == 'success' }}
+    needs: [prepare, validate-versions, swift-artifactbundle]
+    if: |
+      (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true') &&
+      needs.validate-versions.result == 'success' &&
+      needs.swift-artifactbundle.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -2467,23 +2566,40 @@ jobs:
             exit 0
           fi
 
-          # Patch Package.swift with the real checksum
-          sed -i.bak "s/__ALEF_SWIFT_CHECKSUM__/${CHECKSUM}/g" Package.swift
-          rm -f Package.swift.bak
-
-          # Verify the substitution
-          if grep -q "__ALEF_SWIFT_CHECKSUM__" Package.swift; then
-            echo "ERROR: checksum placeholder not substituted" >&2
+          # ~keep Count the field's matches BEFORE substituting and fail on zero. The old
+          # check ran afterwards and asserted the placeholder was absent, which is satisfied
+          # both by a successful substitution and by the token being renamed or dropped by the
+          # generator -- precisely the case the check exists to catch. Both shapes are matched
+          # because alef 0.80.0 rewrites `checksum:` whether it holds the placeholder or a
+          # 64-hex literal left behind by an earlier release; matching only the placeholder
+          # makes the substitution destroy its own trigger the first time a literal reaches
+          # main, and every release afterwards silently no-ops. That is not hypothetical --
+          # it is what alef bd5ddc3de was fixing.
+          checksum_field='(checksum:[[:space:]]*")(__ALEF_SWIFT_CHECKSUM__|[0-9a-f]{64})(")'
+          matches="$(grep -cE "${checksum_field}" Package.swift || true)"
+          if [ "${matches:-0}" -eq 0 ]; then
+            echo "::error::Package.swift has no checksum: field holding __ALEF_SWIFT_CHECKSUM__" \
+              "or a 64-hex literal; the manifest's shape has drifted and the artifact bundle" \
+              "checksum cannot be pinned" >&2
             exit 1
           fi
+          sed -i.bak -E "s/${checksum_field}/\1${CHECKSUM}\3/g" Package.swift
+          rm -f Package.swift.bak
+          echo "Pinned ${CHECKSUM} into ${matches} checksum field(s)"
 
           # Configure git
           git config user.name "xberg-dev-publisher[bot]"
           git config user.email "291994444+xberg-dev-publisher[bot]@users.noreply.github.com"
 
-          # Commit the patched Package.swift to a temporary release branch
-          git add Package.swift
-          git commit -m "chore(swift): pin checksum for ${SWIFT_TAG}"
+          # Commit the patched Package.swift to a temporary release branch. Now that the
+          # substitution is idempotent it can legitimately be a no-op -- alef may already have
+          # baked this exact checksum in -- and `git commit` fails on an empty index. ~keep
+          if git diff --quiet -- Package.swift; then
+            echo "Package.swift already carries ${CHECKSUM}; tagging the checkout as-is."
+          else
+            git add Package.swift
+            git commit -m "chore(swift): pin checksum for ${SWIFT_TAG}"
+          fi
 
           # Create a new tag in the swift namespace (NOT --force, NOT modifying main tag)
           git tag "${SWIFT_TAG}"
@@ -2498,14 +2614,45 @@ jobs:
         shell: bash
 
       - name: Generate substituted Package.swift artifact
+        shell: bash
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
+          CHECKSUM: ${{ needs.swift-artifactbundle.outputs.checksum }}
         run: |
-          CHECKSUM=${{ needs.swift-artifactbundle.outputs.checksum }}
+          set -euo pipefail
           cp Package.swift /tmp/Package.swift
-          sed -i "s/__ALEF_SWIFT_VERSION__/${VERSION}/g" /tmp/Package.swift
-          sed -i "s/__ALEF_SWIFT_CHECKSUM__/${CHECKSUM}/g" /tmp/Package.swift
-          echo "Substituted Package.swift:"
+
+          # ~keep There is no `__ALEF_SWIFT_VERSION__` left to substitute: alef bakes the
+          # concrete release URL into `.binaryTarget` at generation time. The sed that used to
+          # run here was therefore a permanent no-op, and nothing noticed, because a
+          # substitution that changes nothing is indistinguishable from one with nothing to do.
+          # Assert what the artifact actually carries instead. Swift pins in this repo do go
+          # stale -- test_apps/swift_e2e/Package.swift still pins release/swift/1.16.0 at
+          # 1.19.1 -- and a manifest pairing an old bundle URL with this release's checksum
+          # fails verification for every consumer. A dry run's version carries a
+          # `-dryrun-<sha>` suffix no manifest will ever hold, so strip it, as the plugin
+          # assertion in validate-versions does.
+          expected_url="releases/download/v${VERSION%%-dryrun-*}/"
+          if [ "$(grep -cF "${expected_url}" /tmp/Package.swift || true)" -eq 0 ]; then
+            echo "::error::Package.swift does not reference ${expected_url}; its binaryTarget" \
+              "URL has drifted from the release being published" >&2
+            exit 1
+          fi
+
+          # Same both-shape field and same count-before-substituting rule as the tag step
+          # above. By this point the tag step may already have pinned the literal in the
+          # working tree, so a placeholder-only match would spuriously report zero. ~keep
+          checksum_field='(checksum:[[:space:]]*")(__ALEF_SWIFT_CHECKSUM__|[0-9a-f]{64})(")'
+          matches="$(grep -cE "${checksum_field}" /tmp/Package.swift || true)"
+          if [ "${matches:-0}" -eq 0 ]; then
+            echo "::error::Package.swift has no checksum: field holding __ALEF_SWIFT_CHECKSUM__" \
+              "or a 64-hex literal; refusing to publish a manifest with an unpinned checksum" >&2
+            exit 1
+          fi
+          sed -i.bak -E "s/${checksum_field}/\1${CHECKSUM}\3/g" /tmp/Package.swift
+          rm -f /tmp/Package.swift.bak
+
+          echo "Substituted Package.swift (${matches} checksum field(s)):"
           head -30 /tmp/Package.swift
 
       - name: Upload substituted Package.swift to GitHub Release
@@ -2646,11 +2793,12 @@ jobs:
 
   upload-cli-binaries:
     name: Upload CLI binaries to GitHub Release
-    needs: [prepare, build-cli-binaries]
+    needs: [prepare, validate-versions, build-cli-binaries]
     if: |
       always() &&
       needs.prepare.outputs.dry_run != 'true' &&
       needs.prepare.outputs.release_homebrew == 'true' &&
+      needs.validate-versions.result == 'success' &&
       needs.build-cli-binaries.result != 'cancelled' &&
       needs.build-cli-binaries.result != 'skipped'
     runs-on: ubuntu-latest
@@ -2690,13 +2838,78 @@ jobs:
         with:
           tag: ${{ needs.prepare.outputs.tag }}
           artifacts: "dist/cli/*"
-          draft: "false"
+          # ~keep Must stay "true", matching every other upload job. This step ran with
+          # "false" through v1.19.0 and un-drafted the release as a side effect of uploading
+          # CLI binaries — before a single registry publish, so v1.19.0 sits published on a
+          # release that shipped nothing. Promotion belongs to `promote-release` below.
+          draft: "true"
           token: ${{ steps.app-token.outputs.token }}
+
+  # ~keep Exists solely to break a dependency cycle. `verify-binstall` needs a PUBLISHED
+  # release (binstall resolves `[package.metadata.binstall] pkg-url` to
+  # `.../releases/download/v<version>/...`, which 404s while the release is a draft), but
+  # `release-finalize` will not promote until binstall has passed. The previous escape was
+  # `draft: "false"` on the CLI upload above, which un-drafted the release before any
+  # registry publish. Splitting promotion out resolves it in the correct order: this job
+  # gates only on the release-blocking jobs (versions, crates.io, and the CLI + C FFI
+  # assets), publishes the release, binstall then verifies against it, and
+  # `release-finalize` still judges every target afterwards — re-drafting via its
+  # `Hold release as draft` step if anything did not ship.
+  #
+  # Downstream must read `outputs.promoted`, not `.result`: a failure anywhere in a job's
+  # `needs` ancestry poisons the value of `needs.<job>.result` even when the job itself
+  # concluded `success`. Job outputs carry no such poison.
+  promote-release:
+    name: Publish GitHub Release from draft
+    needs:
+      - prepare
+      - validate-versions
+      - crates-gate
+      - upload-cli-binaries
+      - upload-c-ffi
+      # ~keep Ordering only: the draft flips once every per-language asset upload has
+      # settled, so a published release is never missing assets that are still uploading.
+      # Their results are deliberately absent from the `if` below -- one language's artifact
+      # must not block the release.
+      - upload-go-ffi
+      - upload-elixir-nifs
+      - upload-php-extensions
+      - upload-kotlin-android-aars
+      - upload-swift-release
+    if: |
+      !cancelled() &&
+      needs.prepare.outputs.is_tag == 'true' &&
+      needs.prepare.outputs.dry_run != 'true' &&
+      needs.validate-versions.result == 'success' &&
+      needs.crates-gate.outputs.ok == 'true' &&
+      needs.upload-cli-binaries.result == 'success' &&
+      needs.upload-c-ffi.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      promoted: ${{ steps.flip.outputs.promoted }}
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          owner: xberg-io
+      - name: Flip release out of draft
+        id: flip
+        shell: bash
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release edit "${TAG}" --draft=false
+          echo "promoted=true" >>"$GITHUB_OUTPUT"
 
   verify-binstall:
     name: Verify cargo-binstall install
-    needs: [prepare, upload-cli-binaries]
-    if: ${{ needs.prepare.outputs.release_homebrew == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.upload-cli-binaries.result == 'success' }}
+    needs: [prepare, upload-cli-binaries, promote-release]
+    if: ${{ !cancelled() && needs.prepare.outputs.release_homebrew == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.upload-cli-binaries.result == 'success' && needs.promote-release.outputs.promoted == 'true' }}
     uses: xberg-io/actions/.github/workflows/reusable-binstall-verify.yml@v1
     with:
       package-name: liter-llm-cli
@@ -2724,10 +2937,19 @@ jobs:
 
   publish-homebrew-formula:
     name: Update Homebrew formula
-    needs: [prepare, check-homebrew, crates-gate]
+    needs: [prepare, validate-versions, check-homebrew, crates-gate]
+    # ~keep `!cancelled()` is load-bearing. On a partial-target dispatch the crates-chain jobs
+    # skip, an upstream job survives only via its own `!cancelled()`, and GitHub's skipped-state
+    # propagation then resumes at the first dependent that declares no opt-out -- skipping it
+    # before this `if:` is ever evaluated, with every build leg green. Diagnosed on
+    # html-to-markdown runs 33491693123/33494806766/33495781759, fixed there in 98d4537c41.
+    # Every need that must have succeeded is already named explicitly below, which is what
+    # opting out of propagation requires.
     if: |
+      !cancelled() &&
       needs.prepare.outputs.release_homebrew == 'true' &&
       needs.prepare.outputs.dry_run != 'true' &&
+      needs.validate-versions.result == 'success' &&
       needs.check-homebrew.outputs.exists != 'true' &&
       needs.crates-gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
@@ -2782,12 +3004,130 @@ jobs:
           fi
           git add Formula/liter-llm.rb
           git commit -m "liter-llm ${{ needs.prepare.outputs.version }}"
-          git push origin HEAD
+          # Every repo's publish pipeline pushes to this one shared tap, so a concurrent
+          # release can land between our checkout and our push and reject it as non-fast-forward.
+          # Each repo touches only its own formulas, so rebasing onto the new tip and retrying is
+          # safe -- there is nothing for two releases to genuinely conflict over. ~keep
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD; then
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt); rebasing onto the current tap tip"
+            git fetch origin main
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "::error::tap rebase hit a real conflict; refusing to force the push"
+              exit 1
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "::error::could not push to the tap after 5 attempts"
+          exit 1
+
+  # The Windows counterpart of publish-homebrew-formula. There is deliberately no
+  # `check-scoop` idempotency gate: the render step rewrites the manifest in place and
+  # the commit below is guarded by `git diff --quiet bucket/`, so re-running a release
+  # is already a no-op. ~keep
+  publish-scoop-manifest:
+    name: Update Scoop manifest
+    needs: [prepare, validate-versions, upload-cli-binaries]
+    # ~keep `!cancelled()` is load-bearing. On a partial-target dispatch the crates-chain jobs
+    # skip, an upstream job survives only via its own `!cancelled()`, and GitHub's skipped-state
+    # propagation then resumes at the first dependent that declares no opt-out -- skipping it
+    # before this `if:` is ever evaluated, with every build leg green. Diagnosed on
+    # html-to-markdown runs 33491693123/33494806766/33495781759, fixed there in 98d4537c41.
+    # Every need that must have succeeded is already named explicitly below, which is what
+    # opting out of propagation requires.
+    if: |
+      !cancelled() &&
+      needs.prepare.outputs.release_scoop == 'true' &&
+      needs.validate-versions.result == 'success' &&
+      needs.upload-cli-binaries.result == 'success' &&
+      (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: bucket-token
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          owner: xberg-io
+          repositories: scoop-bucket
+
+      - uses: actions/create-github-app-token@v3
+        id: source-token
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          owner: xberg-io
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
+      - uses: actions/checkout@v7
+        with:
+          repository: xberg-io/scoop-bucket
+          token: ${{ steps.bucket-token.outputs.token }}
+          path: scoop-bucket
+          persist-credentials: true
+
+      - uses: xberg-io/actions/publish-scoop-manifests@v1
+        with:
+          bucket-dir: ${{ github.workspace }}/scoop-bucket
+          config-file: scripts/publish/scoop.json
+          tag: ${{ needs.prepare.outputs.tag }}
+          version: ${{ needs.prepare.outputs.version }}
+          github-repo: ${{ github.repository }}
+          dry-run: ${{ needs.prepare.outputs.dry_run }}
+          token: ${{ steps.source-token.outputs.token }}
+
+      - name: Commit and push to bucket
+        if: ${{ needs.prepare.outputs.dry_run != 'true' }}
+        working-directory: scoop-bucket
+        env:
+          GH_TOKEN: ${{ steps.bucket-token.outputs.token }}
+        run: |
+          git config user.name "xberg-dev-publisher[bot]"
+          git config user.email "291994444+xberg-dev-publisher[bot]@users.noreply.github.com"
+          if git diff --quiet bucket/; then
+            echo "No manifest changes; skipping commit."
+            exit 0
+          fi
+          git add bucket/liter-llm.json
+          git commit -m "liter-llm ${{ needs.prepare.outputs.version }}"
+          # Six release pipelines push to this one bucket, so a concurrent release can land
+          # between our checkout and our push and reject it as non-fast-forward. Each repo
+          # touches only its own manifest, so rebasing onto the new tip and retrying is safe --
+          # there is nothing for two releases to genuinely conflict over. ~keep
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD; then
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt); rebasing onto the current bucket tip"
+            git fetch origin main
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "::error::bucket rebase hit a real conflict; refusing to force the push"
+              exit 1
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "::error::could not push to the bucket after 5 attempts"
+          exit 1
 
   homebrew-bottles:
     name: Build Homebrew bottle (${{ matrix.bottle_tag }})
     needs: [prepare, publish-homebrew-formula]
+    # ~keep `!cancelled()` is load-bearing. On a partial-target dispatch the crates-chain jobs
+    # skip, an upstream job survives only via its own `!cancelled()`, and GitHub's skipped-state
+    # propagation then resumes at the first dependent that declares no opt-out -- skipping it
+    # before this `if:` is ever evaluated, with every build leg green. Diagnosed on
+    # html-to-markdown runs 33491693123/33494806766/33495781759, fixed there in 98d4537c41.
+    # Every need that must have succeeded is already named explicitly below, which is what
+    # opting out of propagation requires.
     if: |
+      !cancelled() &&
       needs.prepare.outputs.release_homebrew == 'true' &&
       needs.prepare.outputs.dry_run != 'true' &&
       needs.publish-homebrew-formula.result == 'success'
@@ -2797,7 +3137,14 @@ jobs:
       matrix:
         include:
           - { os: macos-latest, bottle_tag: arm64_sequoia, install_brew: false }
-          - { os: macos-15-intel, bottle_tag: sequoia, install_brew: false }
+          # ~keep The Intel macOS `sequoia` bottle is deliberately absent, not forgotten. From
+          # 2026-09-01 Homebrew serves no `openssl@3` bottle for x86_64 macOS -- "We do not provide
+          # support for this platform (as-of September 2026, announced August 2025)", after Apple
+          # dropped Intel in macOS 27 -- so the bottle cannot build and no change here can fix it.
+          # Leaving it in was not merely noise: its failure skipped `Merge Homebrew bottle DSL`,
+          # which left the homebrew target unpublished, which made `Finalize release` refuse and
+          # revert v1.19.1 to a DRAFT after all nine registries had already received 1.19.1.
+          # Re-add only once Homebrew restores Intel bottles for the dependency chain.
           - { os: ubuntu-latest, bottle_tag: x86_64_linux, install_brew: true }
           - { os: ubuntu-24.04-arm, bottle_tag: arm64_linux, install_brew: true }
     steps:
@@ -2837,12 +3184,28 @@ jobs:
 
   publish-homebrew-bottles:
     name: Merge Homebrew bottle DSL
-    needs: [prepare, publish-homebrew-formula, homebrew-bottles]
+    needs: [prepare, validate-versions, publish-homebrew-formula, homebrew-bottles]
+    # ~keep `!cancelled()` is load-bearing. On a partial-target dispatch the crates-chain jobs
+    # skip, an upstream job survives only via its own `!cancelled()`, and GitHub's skipped-state
+    # propagation then resumes at the first dependent that declares no opt-out -- skipping it
+    # before this `if:` is ever evaluated, with every build leg green. Diagnosed on
+    # html-to-markdown runs 33491693123/33494806766/33495781759, fixed there in 98d4537c41.
+    # Every need that must have succeeded is already named explicitly below, which is what
+    # opting out of propagation requires.
+    # A matrix job reports `failure` when ANY leg fails (fail-fast is off here), so gating the
+    # merge on `== 'success'` skipped it whenever one platform's bottle broke -- and skipping
+    # the merge leaves the PREVIOUS version's whole `bottle do` block in the tap, root_url
+    # included, so every platform's bottle 404s rather than just the one that failed to build.
+    # Merge whatever bottles did upload; the merge script itself errors when there are zero
+    # manifests, so a total failure is still loud. ~keep
     if: |
+      !cancelled() &&
       needs.prepare.outputs.release_homebrew == 'true' &&
       needs.prepare.outputs.dry_run != 'true' &&
+      needs.validate-versions.result == 'success' &&
       needs.publish-homebrew-formula.result == 'success' &&
-      needs.homebrew-bottles.result == 'success'
+      needs.homebrew-bottles.result != 'skipped' &&
+      needs.homebrew-bottles.result != 'cancelled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -2893,7 +3256,25 @@ jobs:
           fi
           git add Formula/liter-llm.rb
           git commit -m "liter-llm ${{ needs.prepare.outputs.version }}: add bottle DSL"
-          git push origin HEAD
+          # Every repo's publish pipeline pushes to this one shared tap, so a concurrent
+          # release can land between our checkout and our push and reject it as non-fast-forward.
+          # Each repo touches only its own formulas, so rebasing onto the new tip and retrying is
+          # safe -- there is nothing for two releases to genuinely conflict over. ~keep
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD; then
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt); rebasing onto the current tap tip"
+            git fetch origin main
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "::error::tap rebase hit a real conflict; refusing to force the push"
+              exit 1
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "::error::could not push to the tap after 5 attempts"
+          exit 1
 
   # NOTE: per-channel verify-install jobs are rebuilt in the test_apps plan
 
@@ -2925,11 +3306,13 @@ jobs:
       - publish-nuget
       - publish-packagist
       - publish-homebrew-bottles
+      - publish-scoop-manifest
       - trigger-pubdev
       - publish-zig
       - upload-swift-release
+      - promote-release
       - verify-binstall
-    if: always()
+    if: always() && (github.event_name != 'release' || github.actor != 'xberg-dev-publisher[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -2981,6 +3364,7 @@ jobs:
           RESULT_TRIGGER_PUBDEV: ${{ needs.trigger-pubdev.result }}
           RESULT_PUBLISH_ZIG: ${{ needs.publish-zig.result }}
           RESULT_PUBLISH_HOMEBREW: ${{ needs.publish-homebrew-bottles.result }}
+          RESULT_PUBLISH_SCOOP: ${{ needs.publish-scoop-manifest.result }}
           RESULT_UPLOAD_CLI: ${{ needs.upload-cli-binaries.result }}
           RESULT_VERIFY_BINSTALL: ${{ needs.verify-binstall.result }}
           RESULT_UPLOAD_C_FFI: ${{ needs.upload-c-ffi.result }}
@@ -3002,6 +3386,7 @@ jobs:
           RELEASE_ZIG: ${{ needs.prepare.outputs.release_zig }}
           RELEASE_SWIFT: ${{ needs.prepare.outputs.release_swift }}
           RELEASE_HOMEBREW: ${{ needs.prepare.outputs.release_homebrew }}
+          RELEASE_SCOOP: ${{ needs.prepare.outputs.release_scoop }}
           EXISTS_CRATES: ${{ needs.registry-results.outputs.cratesio }}
           EXISTS_PYPI: ${{ needs.registry-results.outputs.pypi }}
           EXISTS_NPM: ${{ needs.registry-results.outputs.npm }}
@@ -3075,11 +3460,28 @@ jobs:
           require_publish "pub.dev" "${RESULT_TRIGGER_PUBDEV}" "${RELEASE_DART}" "${EXISTS_PUB}"
           require_publish "zig" "${RESULT_PUBLISH_ZIG}" "${RELEASE_ZIG}" "${EXISTS_ZIG}"
           require_publish "homebrew" "${RESULT_PUBLISH_HOMEBREW}" "${RELEASE_HOMEBREW}" "${EXISTS_HOMEBREW}"
+          require_publish "scoop" "${RESULT_PUBLISH_SCOOP}" "${RELEASE_SCOOP}"
 
           # Release assets consumers resolve at install time.
           require_publish "cli-binaries" "${RESULT_UPLOAD_CLI}" "${RELEASE_HOMEBREW}" "${EXISTS_HOMEBREW}"
           require_publish "binstall-verify" "${RESULT_VERIFY_BINSTALL}" "${RELEASE_HOMEBREW}" "${EXISTS_HOMEBREW}"
-          require_publish "c-ffi-assets" "${RESULT_UPLOAD_C_FFI}" "true"
+          # ~keep `upload-c-ffi` has no registry of its own, so it cannot be given an
+          # `already` flag directly -- it rides on `build-ffi`, which runs only while at
+          # least one of its three consumers (Go, Java/Maven, C#/NuGet) still needs
+          # artifacts at this version. Re-run a tag whose consumers are all already
+          # published and `build-ffi` skips by design, `upload-c-ffi` skips with it, and
+          # passing a bare "true" here read that correct skip as a missed target: it is
+          # what re-drafted the complete v1.19.1 release on its second run (job
+          # 99983926589). Mirror `build-ffi`'s own condition so the two agree. Force
+          # republish is deliberately not repeated here -- `require_publish` already
+          # ignores `already` under FORCE_REPUBLISH, matching `build-ffi` running again.
+          ffi_already=true
+          if [[ "${RELEASE_GO}" == "true" && "${EXISTS_GO}" != "true" ]] ||
+             [[ "${RELEASE_JAVA}" == "true" && "${EXISTS_MAVEN}" != "true" ]] ||
+             [[ "${RELEASE_CSHARP}" == "true" && "${EXISTS_NUGET}" != "true" ]]; then
+            ffi_already=false
+          fi
+          require_publish "c-ffi-assets" "${RESULT_UPLOAD_C_FFI}" "true" "${ffi_already}"
           require_publish "go-ffi-assets" "${RESULT_UPLOAD_GO_FFI}" "${RELEASE_GO}" "${EXISTS_GO}"
           require_publish "elixir-nif-assets" "${RESULT_UPLOAD_ELIXIR}" "${RELEASE_ELIXIR}" "${EXISTS_HEX}"
           require_publish "php-extension-assets" "${RESULT_UPLOAD_PHP}" "${RELEASE_PHP}" "${EXISTS_PACKAGIST}"
@@ -3143,12 +3545,37 @@ jobs:
       # `contains(needs.*.result, 'failure')` alone was not enough: a target that shipped
       # nothing because an upstream gate failed reads as `skipped`, not `failure`, so the
       # verdict from the verify step above is what catches a release that published nothing. ~keep
+      # ~keep The step re-drafts rather than only asserting the state, because by the time it
+      # runs the release may legitimately already be published: `promote-release` publishes it
+      # early so `verify-binstall` has real assets to install from, and a re-run after an
+      # earlier green finalize starts from a published release too. Merely echoing left a
+      # published release advertising a run that shipped nothing — the v1.19.0 outcome.
+      #
+      # The retraction is CONDITIONAL. The Homebrew formula and Scoop manifest jobs above may
+      # already have pushed to the public tap and bucket, and both pin
+      # `.../releases/download/<tag>/...`. Re-drafting after that does not undo a partial
+      # release, it 404s every `brew upgrade` and `scoop update` resolving through those
+      # channels — crawlberg v1.5.0 sat exactly that way for two days (xberg-io/crawlberg#41).
+      # So the action retracts only while no channel advertises the release, and otherwise
+      # reports it and leaves it published to be rolled forward. The verdict is never masked:
+      # the step below fails the job either way. ~keep
       - name: Hold release as draft
+        if: ${{ needs.prepare.outputs.dry_run != 'true' && needs.prepare.outputs.is_tag == 'true' && (contains(needs.*.result, 'failure') || steps.verify.outputs.ok != 'true') }}
+        uses: xberg-io/actions/retract-incomplete-release@v1
+        with:
+          tag: ${{ needs.prepare.outputs.tag }}
+          consumer-results: |
+            homebrew-formula=${{ needs.publish-homebrew-formula.result }}
+            homebrew-bottles=${{ needs.publish-homebrew-bottles.result }}
+            scoop=${{ needs.publish-scoop-manifest.result }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Fail an incomplete release
         if: ${{ needs.prepare.outputs.dry_run != 'true' && (contains(needs.*.result, 'failure') || steps.verify.outputs.ok != 'true') }}
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          echo "::error::${TAG} did not reach every enabled publish target; leaving it as a draft release."
+          echo "::error::${TAG} did not reach every enabled publish target."
           exit 1
         shell: bash
 
@@ -3166,17 +3593,27 @@ jobs:
       - publish-nuget
       - publish-packagist
       - publish-homebrew-bottles
+      - publish-scoop-manifest
       - upload-c-ffi
       - upload-go-ffi
       - publish-go-module
       - upload-elixir-nifs
       - upload-php-extensions
       - upload-cli-binaries
+      - release-finalize
+    # ~keep Gated on release-finalize's job result, not on `contains(needs.*.result, 'failure')`.
+    # That expression cannot see a SKIPPED job, and `skipped` -- not `failure` -- is exactly what
+    # a publish job becomes when an upstream gate fails, so the announcement fired for releases
+    # that shipped nothing (the same defect release-finalize documents and fixed for itself at
+    # its `Verify every enabled publish target succeeded` step). release-finalize already computes
+    # that verdict and fails its `Hold release as draft` step on a bad one, so depending on its
+    # result reuses the corrected judgement instead of duplicating the skipped-detection logic
+    # here and drifting from it again.
     if: |
       always() &&
       !cancelled() &&
       needs.prepare.outputs.dry_run != 'true' &&
-      !contains(needs.*.result, 'failure')
+      needs.release-finalize.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -3241,20 +3678,27 @@ jobs:
           npm-tag: ${{ steps.dist_tag.outputs.tag }}
           access: public
           provenance: "true"
+          expected-version: ${{ needs.prepare.outputs.version }}
 
   # --- Coding-agent plugin (lives in plugin/, generated by ai-rulez; see plugin/README.md) ---
   # Additive best-effort like the language jobs above: intentionally NOT part of
   # finalize-release / announce `needs`, so a plugin hiccup never blocks the core
   # release. Both publish the same content every tagged release (version tracks core), so
-  # each guards against an already-published version. `needs: [prepare]` only — the plugin
-  # has no build- or runtime-dependency on the core packages (mcp-launch.sh resolves the CLI
-  # at runtime), so it publishes in parallel with the core jobs. ~keep
+  # each guards against an already-published version. No build- or runtime-dependency on
+  # the core packages (mcp-launch.sh resolves the CLI at runtime), so they publish in
+  # parallel with the core jobs — but they DO depend on validate-versions, which owns the
+  # `plugin/.ai-rulez/config.toml [plugin].version == tag` assertion. Without that edge a
+  # drifted plugin still ships: v1.19.0 published the npm bundle carrying 1.18.4 manifests
+  # (unrecoverable — npm forbids republishing a version) while the Hermes job rebuilt the
+  # 1.18.4 wheel, hit publish-pypi's skip-existing guard, and reported success having
+  # published nothing for the tag. ~keep
 
   publish-plugin-opencode:
     name: Publish OpenCode plugin to npm
-    needs: [prepare]
+    needs: [prepare, validate-versions]
     if: >-
       ${{ !cancelled() && needs.prepare.outputs.is_tag == 'true'
+      && needs.validate-versions.result == 'success'
       && needs.prepare.outputs.release_node == 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -3270,6 +3714,33 @@ jobs:
           registry-url: "https://registry.npmjs.org/"
       - name: Upgrade npm (trusted publishing support)
         run: npm install -g npm@latest
+      # ~keep validate-versions asserts the plugin *source* pin
+      # (plugin/.ai-rulez/config.toml [plugin].version); it says nothing about the rendered
+      # bundle this job actually uploads. plugin/package.json is regenerated from that pin by
+      # ai-rulez, and its freshness is only enforced by ci-plugin.yaml, which does not gate this
+      # workflow. A stale plugin/package.json breaks the guard below both ways: the probe
+      # reads the *artifact's* version, so a stale-but-published version sets skip=true and the
+      # job goes green having shipped nothing for the tag, while a stale-but-unpublished version
+      # is permanently accepted by npm under the resolved dist-tag, i.e. possibly `latest`. That
+      # is how v1.19.0 published an npm bundle carrying 1.18.4 manifests. Assert artifact ==
+      # release before anything is probed or uploaded.
+      - name: Assert the plugin bundle matches the release
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          actual="$(jq -r '.version' plugin/package.json)"
+          # ~keep A dry run synthesizes its tag as `<version>-dryrun-<sha>`; the manifests never
+          # carry that suffix, so comparing it verbatim fails on a bundle that is in fact
+          # correct. Strip it rather than skipping the assertion on dry runs -- a dry run is
+          # where a drifted bundle should surface, while nothing has been published.
+          expected="${VERSION%%-dryrun-*}"
+          if [[ "${actual}" != "${expected}" ]]; then
+            echo "::error::plugin/package.json declares ${actual} but the release is ${expected};" \
+              "regenerate the plugin bundle (task version:sync) before tagging"
+            exit 1
+          fi
+          echo "plugin/package.json matches the release at ${expected}"
       # Plain ESM adapter — no build step. Skip if this version is already on npm so a
       # release re-run is idempotent (publish-npm has no built-in skip-existing). ~keep
       - name: Skip if already on npm
@@ -3298,12 +3769,14 @@ jobs:
           npm-tag: ${{ steps.dist_tag.outputs.tag }}
           provenance: "true"
           dry-run: ${{ needs.prepare.outputs.dry_run }}
+          expected-version: ${{ needs.prepare.outputs.version }}
 
   publish-plugin-hermes:
     name: Publish Hermes plugin to PyPI
-    needs: [prepare]
+    needs: [prepare, validate-versions]
     if: >-
       ${{ !cancelled() && needs.prepare.outputs.is_tag == 'true'
+      && needs.validate-versions.result == 'success'
       && needs.prepare.outputs.release_python == 'true' }}
     runs-on: ubuntu-latest
     environment: pypi
@@ -3315,9 +3788,28 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           python-version: "3.13"
+      # ~keep Same rendered-bundle gap as the npm job, but silent: this job had no guard at
+      # all, and publish-pypi's skip-existing is not one — a stale
+      # plugin/.hermes/package/pyproject.toml rebuilds an already-published wheel version, gets
+      # skipped, and the job reports success having shipped nothing for the tag, which is what
+      # v1.19.0 did. ai-rulez renders this manifest in PEP 440 form, so the comparison uses the
+      # respelled release version prepare computes (1.9.0-rc.2 -> 1.9.0rc2). An unrecognised
+      # spelling fails loudly rather than publishing, which is the safe direction.
+      - name: Assert the plugin bundle matches the release
+        shell: bash
+        run: |
+          pyproject="plugin/.hermes/package/pyproject.toml"
+          actual="$(awk -F"[\"']" '/^version = /{print $2; exit}' "${pyproject}")"
+          expected="${{ needs.prepare.outputs.pypi_version }}"
+          if [[ "${actual}" != "${expected}" ]]; then
+            echo "::error::${pyproject} declares ${actual} but the release is ${expected};" \
+              "regenerate the plugin bundle (task version:sync) before tagging"
+            exit 1
+          fi
+          echo "${pyproject} matches the release at ${expected}"
       - name: Build Hermes wheel
         run: uv build --wheel --out-dir dist-hermes plugin/.hermes/package
       # publish-pypi is idempotent (skips a version already on PyPI). ~keep
@@ -3325,3 +3817,4 @@ jobs:
         with:
           packages-dir: dist-hermes
           dry-run: ${{ needs.prepare.outputs.dry_run }}
+          expected-version: ${{ needs.prepare.outputs.pypi_version }}

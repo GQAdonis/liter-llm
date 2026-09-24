@@ -89,6 +89,7 @@ pub struct ClientBuilder<K = NoApiKey, P = NoProvider> {
     base_url: Option<String>,
     timeout: Duration,
     max_retries: u32,
+    max_response_bytes: Option<usize>,
     transport: TransportConfig,
     load_env: bool,
     credential_provider: Option<Arc<dyn CredentialProvider>>,
@@ -128,6 +129,7 @@ impl ClientBuilder<NoApiKey, NoProvider> {
             base_url: None,
             timeout: Duration::from_secs(60),
             max_retries: 3,
+            max_response_bytes: None,
             transport: TransportConfig::default(),
             load_env: false,
             credential_provider: None,
@@ -178,6 +180,7 @@ impl<K, P> ClientBuilder<K, P> {
             base_url: self.base_url,
             timeout: self.timeout,
             max_retries: self.max_retries,
+            max_response_bytes: self.max_response_bytes,
             transport: self.transport,
             load_env: self.load_env,
             credential_provider: self.credential_provider,
@@ -222,6 +225,7 @@ impl<K, P> ClientBuilder<K, P> {
             base_url: self.base_url,
             timeout: self.timeout,
             max_retries: self.max_retries,
+            max_response_bytes: self.max_response_bytes,
             transport: self.transport,
             load_env: self.load_env,
             credential_provider: self.credential_provider,
@@ -272,10 +276,18 @@ impl<K, P> ClientBuilder<K, P> {
         self
     }
 
-    /// Set the HTTP transport configuration.
+    /// Limit retained HTTP bodies; successful streams keep their existing frame bounds.
     ///
-    /// Controls connection pooling, TCP keepalive, DNS caching, and HTTP
-    /// version selection.
+    /// # Errors
+    /// Returns an error when the limit is zero.
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    pub fn max_response_bytes(mut self, limit: usize) -> Result<Self> {
+        super::config::validate_response_limit(Some(limit))?;
+        self.max_response_bytes = Some(limit);
+        Ok(self)
+    }
+
+    /// Set HTTP connection pooling, TCP keepalive, DNS caching, and version selection.
     pub fn transport(mut self, config: TransportConfig) -> Self {
         self.transport = config;
         self
@@ -405,6 +417,7 @@ impl ClientBuilder<WithApiKey, WithProvider> {
             base_url: self.base_url,
             timeout: self.timeout,
             max_retries: self.max_retries,
+            max_response_bytes: self.max_response_bytes,
             extra_headers: Vec::new(),
             credential_provider: self.credential_provider,
             load_env: self.load_env,

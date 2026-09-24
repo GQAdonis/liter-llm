@@ -7,6 +7,174 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-09-18
+
+### Added
+
+- `OutboundPolicy::DenyPrivateExceptHosts`: keep `DenyPrivate` DNS filtering and redirect
+  restrictions for every public provider while letting explicitly trusted exact hosts or `.suffix`
+  domains resolve to private addresses. The same matcher applies during URL validation and during
+  fresh or cached connection-time DNS resolution
+  ([#217](https://github.com/xberg-io/liter-llm/pull/217)).
+
+### Fixed
+
+- Redact resolved addresses from `OutboundForbidden` errors and align the forbidden address ranges
+  between URL validation and connection-time resolution
+  ([#217](https://github.com/xberg-io/liter-llm/pull/217)).
+
+### Security
+
+- Bump rustls to 0.23.45 for RUSTSEC-2026-0285 (TLS 1.3 handshake messages accepted across
+  encryption level boundaries).
+
+## [2.0.2] - 2026-09-14
+
+### Fixed
+
+- Add optional native HTTP response limits to client builders. Enforce the limit before
+  retaining or parsing successful and final error bodies, including decoded gzip output,
+  while preserving unconfigured defaults and successful streaming behavior.
+
+## [2.0.1] - 2026-09-12
+
+### Changed
+
+- Refresh the model catalog from models.dev ([#211](https://github.com/xberg-io/liter-llm/pull/211)).
+- Upgrade jsonschema to 0.56 and rmcp to 3.3, and regenerate bindings with Alef 0.85.19.
+
+### Fixed
+
+- Allow explicitly allowlisted hostnames to resolve to internal addresses while preserving
+  `DenyPrivate` DNS filtering, exact-origin checks, and redirect restrictions. Allowlisting a
+  hostname now trusts its DNS results, including private, loopback, and link-local addresses;
+  literal private IP URLs remain blocked.
+
+- Deserialize generated Python DTOs through their Rust types so serde annotations remain effective ([Alef #375](https://github.com/xberg-io/alef/pull/375)).
+
+## [2.0.0] - 2026-09-09
+
+### Breaking changes
+
+- Rust callers of `OpenDalCacheStore::new` and `OpenDalVectorStore::new` must pass an `opendal` 0.59 operator instead of 0.58. Upgrade the application dependency alongside Liter.
+- Go consumers must use `github.com/xberg-io/liter-llm/packages/go/v2` in imports and module requirements.
+
+### Changed
+
+- Upgrade Rust dependency requirements, including jsonschema 0.55, rmcp 3.2, and OpenDAL 0.59.1, and regenerate bindings with Alef 0.85.11.
+
+### Fixed
+
+- Serve actually compressed gzip bodies for mock HTTP fixtures that declare gzip encoding.
+- Propagate C# native failures from fallible void calls and preserve numeric error codes in typed exceptions.
+- Narrow Java boolean native return values before comparison while retaining the compatible wide call layout.
+- Resolve the current Zig release archive and its actual content hash before running published consumer tests.
+- Render Cargo installation commands in the Rust package README.
+
+- Keep task lint coverage compatible with current Poly reports while rejecting formatter errors.
+- Update Ruby E2E Faraday and JSON dependencies to resolve three security advisories.
+- Synchronize Java and Kotlin test harnesses with the patched Jackson dependencies used by generated packages. Verify both Kotlin registry pins against the release version before native tests.
+- Update vulnerable JavaScript tooling and documentation dependencies, preserving scoped security overrides across regeneration.
+- Include every generated Zig streaming test in the native test build and check source-to-target coverage before running it.
+- Align PHP enum conversions with enabled core features and require the expected native exception in Ruby streaming error tests.
+
+- Build Swift native artifacts for the advertised macOS 13 and iOS 16 minimum versions.
+
+- Remove five Rust advisories by selecting the modern AWS Secrets Manager transport with Tokio runtime support and updating rust_decimal.
+
+- Preserve complete Python streaming requests and Ruby renamed and internally tagged fields.
+- Accept both native Elixir client references and typed wrappers in top-level client methods.
+- Make generated PHP error tests assert actual exceptions and Kotlin content tests check nonempty text.
+- Correct Swift stream and content assertions, and make generated streaming examples inspect individual chunks and release native resources.
+- Preserve Alef-owned Node declarations and loaders during native builds.
+- Remove obsolete standalone Swift bridge headers so the generated umbrella module passes strict compiler checks.
+- Resolve Java example dependencies from the Maven manifest and distinguish mocked fixture URLs from hosted samples.
+- Generate numeric C handles for file and batch list calls.
+
+- Correct the C# client factory and Java exception handling in documentation examples, and type-check them.
+
+- Synchronize the C# consumer using its actual `XbergIo.LiterLlm` NuGet package reference.
+- Restore Kotlin Android publishing after verifying the regenerated AAR and JNI bridge.
+
+- Refresh the root workspace lockfile from a current WASM build, including all six native Node packages, so frozen installation matches the release manifests.
+
+- Install prose tools from the standalone documentation workspace and check MDX as well as Markdown with real failure controls.
+
+- Refresh the Python and Rust consumer locks to published liter-llm 2.0.0.
+
+- Remove endpoint URLs from transport-retry warnings so URL path and query credentials
+  do not reach application logs; retain retry counts and the transport error category.
+
+## [1.19.2] - 2026-09-03
+
+## [1.19.1] - 2026-09-01
+
+### Fixed
+
+- **The plugin publish jobs no longer run ahead of version validation.** `publish-plugin-opencode`
+  and `publish-plugin-hermes` depended only on `prepare`, so they published while
+  `validate-versions` was failing. In v1.19.0 that shipped an npm bundle whose manifests still
+  declared 1.18.4, and rebuilt the Hermes wheel at 1.18.4 where the skip-existing guard reported
+  success having published nothing for the tag. Both jobs now require `validate-versions` to
+  succeed.
+- **`plugin/.ai-rulez/config.toml` is back in sync with the release version.** The 1.19.0 release
+  commit bumped `Cargo.toml` and the alef-managed manifests but not the plugin's own version
+  source, so every ai-rulez-generated plugin artifact stayed at 1.18.4 and `validate-versions`
+  blocked the entire publish.
+
+### Note
+
+- v1.19.0 reached no registry except the npm plugin bundle described above; 1.19.1 is the first
+  complete 1.19 release.
+
+## [1.19.0] - 2026-08-31
+
+### Added
+
+- Scoop is now a live release channel alongside Homebrew: a release publishes a Scoop manifest for
+  the CLI, and the install lists and badges cover it. The channel was previously inert because
+  `scoop` was held out of the workflow's `available-targets` -- alef only gained the target after
+  v0.79.2, and naming a target it does not recognise hard-errors the whole publish pipeline. The
+  pinned alef is now 0.79.5, which carries it, so the gate is enabled.
+
+### Fixed
+
+- The `uv-bump` development dependency pointed at a GitHub fork that no longer exists, so
+  resolving the dev dependency group failed outright and took the lint pipeline down with it. It
+  now tracks the published `uv-bump` package on PyPI — the same tool, at 0.6.0 instead of 0.3.0.
+- Dependency scanning now actually runs. The `cargo deny` step used a Docker container action
+  that failed for two independent reasons: the runner pre-builds such an image at job start, but
+  the `Free disk space` step prunes Docker images and deleted it before the step ran, and the
+  action's Dockerfile downloads an `x86_64` cargo-deny binary that cannot execute on the
+  `ubuntu-24.04-arm` runner anyway. No advisory, license, ban, or source check had ever been
+  evaluated in CI since the scan was added. cargo-deny is now installed as a native binary and
+  invoked directly.
+- The release announcement no longer fires for a release that shipped nothing. `announce-discord`
+  gated on `!contains(needs.*.result, 'failure')`, which cannot see a `skipped` job — and
+  `skipped` is exactly what a publish job becomes when an upstream gate fails. This is the same
+  defect `release-finalize` already documents and fixed for itself; the announcement now depends
+  on `release-finalize` and gates on its verdict.
+- `CI Rust`'s path filters now name the files its own gates read. Editing `deny.toml`,
+  `alef.toml`, `rust-toolchain.toml`, or `.cargo/config.toml` previously started no run at all,
+  so the dependency scan and the binding-freshness check could not disagree with the very
+  configuration that drives them.
+
+## [1.18.4] - 2026-08-28
+
+### Changed
+
+- Upgraded `etcd-client` 0.19 -> 0.20 and `jsonschema` 0.51 -> 0.52.
+
+## [1.18.3] - 2026-08-27
+
+### Note on 1.18.2
+
+1.18.2 was tagged and left as an unpublished Draft release; it never reached crates.io or PyPI
+(both remained at 1.18.1). Its publish run aborted on the `sync_plugin_version.py --expect` gate,
+because at that tag `Cargo.toml` was 1.18.2 while `plugin/.ai-rulez/config.toml` was still 1.18.1.
+The plugin pin was corrected on `main` after the tag was cut, so the tag could never satisfy the
+gate on a retry. 1.18.3 supersedes it and ships the corrected pin.
+
 ## [1.18.2] - 2026-08-25
 
 ### Changed

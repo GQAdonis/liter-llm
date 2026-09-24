@@ -28,9 +28,7 @@ dev = [
   "pytest>=9.0.3",
   "pyyaml>=6.0.3",
   "typing-extensions>=4.15.0",
-  "uv-bump",
 ]
 
 [tool.uv]
-sources.uv-bump = { git = "https://github.com/Goldziher/uv-bump" }
 workspace.exclude = ["test_apps/*"]

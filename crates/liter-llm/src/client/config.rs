@@ -10,6 +10,17 @@ use crate::http::transport::TransportConfig;
 #[cfg(feature = "tower")]
 use crate::tower::{BudgetConfig, CacheConfig, CacheStore, InFlightLimitConfig, LlmHook, RateLimitConfig};
 
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+pub(crate) fn validate_response_limit(limit: Option<usize>) -> Result<()> {
+    if limit == Some(0) {
+        return Err(LiterLlmError::BadRequest {
+            message: "max_response_bytes must be nonzero".into(),
+            status: 400,
+        });
+    }
+    Ok(())
+}
+
 /// Configuration for an LLM client.
 ///
 /// `api_key` is stored as a [`SecretString`] so it is zeroed on drop and never
@@ -25,6 +36,8 @@ pub struct ClientConfig {
     pub timeout: Duration,
     /// Maximum number of retries on 429 / 5xx responses.
     pub max_retries: u32,
+    /// Optional maximum retained HTTP response body size; None preserves unbounded reads.
+    pub max_response_bytes: Option<usize>,
     /// Extra headers sent on every request.
     ///
     /// Use `Vec<(String, String)>` rather than `HashMap` to preserve insertion
@@ -142,6 +155,7 @@ impl ClientConfig {
             base_url: None,
             timeout: Duration::from_secs(60),
             max_retries: 3,
+            max_response_bytes: None,
             extra_headers: Vec::new(),
             credential_provider: None,
             load_env: true,
@@ -194,6 +208,7 @@ impl std::fmt::Debug for ClientConfig {
             .field("base_url", &self.base_url)
             .field("timeout", &self.timeout)
             .field("max_retries", &self.max_retries)
+            .field("max_response_bytes", &self.max_response_bytes)
             .field("extra_headers", &redacted_headers)
             .field("load_env", &self.load_env)
             .field(
@@ -296,6 +311,19 @@ impl ClientConfigBuilder {
     pub fn max_retries(mut self, retries: u32) -> Self {
         self.config.max_retries = retries;
         self
+    }
+
+    /// Limit retained HTTP bodies, including final errors from streaming requests.
+    ///
+    /// Successful token streams retain their existing per-frame bounds.
+    ///
+    /// # Errors
+    /// Returns an error when the limit is zero.
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    pub fn max_response_bytes(mut self, limit: usize) -> Result<Self> {
+        validate_response_limit(Some(limit))?;
+        self.config.max_response_bytes = Some(limit);
+        Ok(self)
     }
 
     /// Set a dynamic credential provider for token-based or refreshable auth.

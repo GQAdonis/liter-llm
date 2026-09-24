@@ -11,7 +11,7 @@ use memchr::memchr;
 use pin_project_lite::pin_project;
 
 use crate::error::{LiterLlmError, Result};
-use crate::http::request::with_retry;
+use crate::http::request::{ResponseReadOptions, with_retry_bounded};
 #[cfg(test)]
 use crate::types::ChatCompletionChunk;
 
@@ -95,16 +95,7 @@ pub use tokio_util::sync::CancellationToken;
 /// Pass the provider's `parse_stream_event` method for chat completion
 /// streams, or an endpoint-specific parser (e.g. Responses API events) for
 /// other SSE-based endpoints.
-#[tracing::instrument(
-    level = "debug",
-    skip_all,
-    fields(
-        http.method = "POST",
-        http.url = %url,
-        http.status_code = tracing::field::Empty,
-        http.retry_count = tracing::field::Empty,
-    )
-)]
+#[allow(dead_code, reason = "retain the unconfigured raw request entry point")]
 pub async fn post_stream<P, T>(
     client: &reqwest::Client,
     url: &str,
@@ -118,9 +109,53 @@ where
     P: Fn(&str) -> Result<Option<T>> + Send + 'static,
     T: Send + 'static,
 {
+    post_stream_bounded(
+        client,
+        url,
+        auth_header,
+        extra_headers,
+        body,
+        parse_event,
+        ResponseReadOptions {
+            max_retries,
+            max_response_bytes: None,
+        },
+    )
+    .await
+}
+
+#[tracing::instrument(
+    name = "post_stream",
+    level = "debug",
+    skip_all,
+    fields(
+        http.method = "POST",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
+    )
+)]
+
+pub(crate) async fn post_stream_bounded<P, T>(
+    client: &reqwest::Client,
+    url: &str,
+    auth_header: Option<(&str, &str)>,
+    extra_headers: &[(&str, &str)],
+    body: Bytes,
+    parse_event: P,
+    options: ResponseReadOptions,
+) -> Result<crate::client::BoxStream<'static, Result<T>>>
+where
+    P: Fn(&str) -> Result<Option<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    let ResponseReadOptions {
+        max_retries,
+        max_response_bytes,
+    } = options;
     let mut retry_count = 0u32;
 
-    let resp = with_retry(url, max_retries, || {
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -155,16 +190,6 @@ where
 #[cfg(feature = "native-http")]
 #[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
-#[tracing::instrument(
-    level = "debug",
-    skip_all,
-    fields(
-        http.method = "POST",
-        http.url = %url,
-        http.status_code = tracing::field::Empty,
-        http.retry_count = tracing::field::Empty,
-    )
-)]
 pub async fn post_stream_with_cancel<P, T>(
     client: &reqwest::Client,
     url: &str,
@@ -179,9 +204,57 @@ where
     P: Fn(&str) -> Result<Option<T>> + Send + 'static,
     T: Send + 'static,
 {
+    post_stream_with_cancel_bounded(
+        client,
+        url,
+        auth_header,
+        extra_headers,
+        body,
+        parse_event,
+        cancel,
+        ResponseReadOptions {
+            max_retries,
+            max_response_bytes: None,
+        },
+    )
+    .await
+}
+
+#[tracing::instrument(
+    name = "post_stream_with_cancel",
+    level = "debug",
+    skip_all,
+    fields(
+        http.method = "POST",
+        http.url = %url,
+        http.status_code = tracing::field::Empty,
+        http.retry_count = tracing::field::Empty,
+    )
+)]
+#[cfg(feature = "native-http")]
+#[allow(dead_code)]
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn post_stream_with_cancel_bounded<P, T>(
+    client: &reqwest::Client,
+    url: &str,
+    auth_header: Option<(&str, &str)>,
+    extra_headers: &[(&str, &str)],
+    body: Bytes,
+    parse_event: P,
+    cancel: CancellationToken,
+    options: ResponseReadOptions,
+) -> Result<crate::client::BoxStream<'static, Result<T>>>
+where
+    P: Fn(&str) -> Result<Option<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    let ResponseReadOptions {
+        max_retries,
+        max_response_bytes,
+    } = options;
     let mut retry_count = 0u32;
 
-    let resp = with_retry(url, max_retries, || {
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
