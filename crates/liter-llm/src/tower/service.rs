@@ -1,15 +1,11 @@
-use std::collections::VecDeque;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures_core::Stream;
 use tower::Service;
 
 use super::types::{LlmRequest, LlmRequestKind, LlmResponse};
 use crate::client::{BoxFuture, LlmClient};
 use crate::error::{LiterLlmError, Result};
-use crate::types::ChatCompletionChunk;
 
 /// A thin tower [`Service`] wrapper around any [`LlmClient`] implementation.
 ///
@@ -20,15 +16,9 @@ use crate::types::ChatCompletionChunk;
 ///
 /// # Streaming behaviour
 ///
-/// **Important:** Streaming responses (`ChatStream`) are **fully buffered** in
-/// memory before being yielded to the caller.  This is a consequence of Tower's
-/// `Service` trait requiring `'static` futures — the borrowed stream returned by
-/// [`LlmClient::chat_stream`] cannot outlive the `call` future without unsafe
-/// lifetime extension.  All chunks are collected into a `VecDeque` and then
-/// replayed through a `BoxStream<'static, ...>`.
-///
-/// If you need incremental, unbuffered streaming, use [`LlmClient`] directly
-/// instead of wrapping it in `LlmService`.
+/// The client returns an owned `'static` stream, so the service forwards it
+/// directly. Downstream polling supplies backpressure, dropping the response
+/// closes the upstream stream, and cancelling `call` drops initialization.
 #[cfg_attr(alef, alef(skip))]
 pub struct LlmService<C> {
     inner: Arc<C>,
@@ -88,13 +78,8 @@ where
                     Ok(LlmResponse::Chat(resp))
                 }
                 LlmRequestKind::ChatStream(r) => {
-                    // ~keep Buffer chunks to avoid unsoundly extending the borrowed stream lifetime to 'static.
-                    // ~keep Tower middleware cannot express borrowed lifetimes across the Service boundary.
                     let stream = client.chat_stream(r).await?;
-                    let chunks = collect_stream(stream).await?;
-                    let static_stream: crate::client::BoxStream<'static, Result<ChatCompletionChunk>> =
-                        Box::pin(OwnedChunksStream { chunks });
-                    Ok(LlmResponse::ChatStream(static_stream))
+                    Ok(LlmResponse::ChatStream(stream))
                 }
                 LlmRequestKind::Embed(r) => {
                     let resp = client.embed(r).await?;
@@ -134,44 +119,5 @@ where
                 }
             }
         })
-    }
-}
-
-/// Collect all items from a stream into a `VecDeque`, stopping on the first error.
-async fn collect_stream<'a>(
-    mut stream: crate::client::BoxStream<'a, Result<ChatCompletionChunk>>,
-) -> Result<VecDeque<ChatCompletionChunk>> {
-    let mut chunks = VecDeque::new();
-    loop {
-        let item = std::future::poll_fn(|cx| Pin::as_mut(&mut stream).poll_next(cx)).await;
-        match item {
-            Some(Ok(chunk)) => chunks.push_back(chunk),
-            Some(Err(e)) => return Err(e),
-            None => break,
-        }
-    }
-    Ok(chunks)
-}
-
-/// A `Stream` that yields items from an owned `VecDeque` in order.
-///
-/// Uses `pop_front` to avoid cloning — each chunk is moved out of the deque
-/// and ownership is transferred to the caller without any copy.
-///
-/// Used to wrap collected streaming chunks so they can be returned as a
-/// `BoxStream<'static, ...>` without any lifetime dependencies.
-struct OwnedChunksStream {
-    chunks: VecDeque<ChatCompletionChunk>,
-}
-
-impl Stream for OwnedChunksStream {
-    type Item = Result<ChatCompletionChunk>;
-
-    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Poll::Ready(self.chunks.pop_front().map(Ok))
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.chunks.len(), Some(self.chunks.len()))
     }
 }
