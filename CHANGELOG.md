@@ -42,6 +42,12 @@ surfaces at compile or type-check time rather than at runtime.
   Passing a bare string still works at runtime but is a type error.
 - **Ruby: `AuthType` in `sig/types.rbs` is now a `type` alias rather than a class**, with ~13
   accompanying retypes. An RBS/Steep break only.
+- **Ruby: untagged enums must now be constructed explicitly.** `ToolChoice` is emitted as a
+  wrapped class, so `tool_choice: 'auto'` and `tool_choice: { 'type' => 'function', ... }` raise
+  `TypeError: no implicit conversion of String into LiterLlm::ToolChoice`. Build the value with
+  `LiterLlm::ToolChoice.from_mode` or `.from_specific` instead. This is a generator defect, not an
+  intended API change — the Rust `ToolChoice` is `#[serde(untagged)]`, so the bare string is a
+  valid representation, and the coercion is being restored in 2.1.1. Tracked as a known issue.
 - **Bedrock credentials that cannot be signed are now rejected instead of sent unsigned.** In a
   build without the `bedrock` feature — WASM, the proxy and the CLI — explicit
   `bedrock_credentials(...)` with no `AWS_BEARER_TOKEN_BEDROCK` fails `validate()` with a 401
