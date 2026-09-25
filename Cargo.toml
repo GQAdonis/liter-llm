@@ -93,9 +93,9 @@ opendal = { version = "0.59.3", default-features = false, features = [
     "services-s3",
 ] }
 opendal-http-transport-reqwest = { version = "0.59.3", default-features = false }
-opentelemetry = { version = "0.32", features = ["metrics"] }
-opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic", "trace", "metrics"] }
-opentelemetry_sdk = { version = "0.32", features = ["rt-tokio"] }
+opentelemetry = { version = "0.33", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.33", features = ["grpc-tonic", "trace", "metrics"] }
+opentelemetry_sdk = { version = "0.33", features = ["rt-tokio"] }
 pin-project-lite = "0.2"
 pyo3 = { version = "0.29", features = ["abi3-py310", "multiple-pymethods"] }
 pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }
@@ -165,7 +165,7 @@ tower-http = { version = "0.7", features = [
 tower-layer = "0.3"
 tower-service = "0.3"
 tracing = "0.1"
-tracing-opentelemetry = "0.33"
+tracing-opentelemetry = "0.34"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 url = "2.5"
 utoipa = { version = "6.0", features = ["axum_extras"] }

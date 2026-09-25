@@ -9,7 +9,10 @@ no-default-features = false
 feature-depth = 1
 
 [advisories]
-ignore = ["RUSTSEC-2025-0119", "RUSTSEC-2024-0436", "RUSTSEC-2023-0071", "RUSTSEC-2026-0194", "RUSTSEC-2026-0195"]
+# Both are `unmaintained` notices, not vulnerabilities, and both arrive transitively.
+# RUSTSEC-2023-0071, RUSTSEC-2026-0194 and RUSTSEC-2026-0195 were dropped in 2.1.0: they
+# matched no crate in the graph, so they silently disarmed the gate for those advisories. ~keep
+ignore = ["RUSTSEC-2025-0119", "RUSTSEC-2024-0436"]
 
 [licenses]
 allow = [

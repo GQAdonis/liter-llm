@@ -33,9 +33,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reshape comes from; it also moves the Ruby native extension to magnus 0.9, narrows the gem's
   file glob so sibling packages stay out of the archive, and makes the generated Python package
   type-check clean under Pyrefly's `strict` preset without adding a runtime dependency.
-- Upgrade dependencies, holding the OpenTelemetry crates at 0.32/0.33: utoipa 5.5 to 6.0, rmcp
-  3.3 to 3.4, opendal 0.59.1 to 0.59.3, jsonschema 0.56 to 0.57 (dev only), and the Java, Node,
-  Ruby, Elixir, Python and PHP manifests within their majors.
+- Upgrade every dependency to its latest release: `opentelemetry`, `opentelemetry-otlp` and
+  `opentelemetry_sdk` 0.32 to 0.33 with `tracing-opentelemetry` 0.33 to 0.34 (the four move as one
+  set — `tracing-opentelemetry` 0.34 requires `opentelemetry` 0.33 — and the `otel` feature needed
+  no source changes), utoipa 5.5 to 6.0, rmcp 3.3 to 3.4, opendal 0.59.1 to 0.59.3, jsonschema
+  0.56 to 0.57 (dev only), and the Java, Node, Ruby, Elixir, Python, PHP and Dart manifests —
+  including Dart's `freezed` code generator from 3.2 to 4.0, verified against the committed
+  generated bindings with `dart analyze`. The `getrandom` 0.2 and 0.3 aliases and
+  `flutter_rust_bridge` 2.13.0 stay pinned deliberately: the first keeps a wasm-js backend
+  available to transitive consumers at each major, the second must match `packages/dart`.
+- Drop `RUSTSEC-2023-0071`, `RUSTSEC-2026-0194` and `RUSTSEC-2026-0195` from `deny.toml`. None
+  matched a crate in the dependency graph, so they disarmed the advisory gate for those IDs while
+  appearing to be active exceptions. The two remaining ignores are `unmaintained` notices for
+  transitive `number_prefix` and `paste`, not vulnerabilities.
 - Pay down four single-entry quality-debt baselines — `tokenizer.rs`, `commands/mcp.rs`,
   `routes/mod.rs` and `client/config_file.rs` — taking the baseline from 75 findings across 49
   files to 71 across 45. Behaviour is unchanged
