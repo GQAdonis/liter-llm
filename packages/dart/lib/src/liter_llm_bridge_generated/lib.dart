@@ -1196,6 +1196,11 @@ enum BatchStatus {
 /// `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`,
 /// `BEDROCK_CROSS_REGION`).
 ///
+/// A Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK` authenticates on its own and
+/// needs none of the credential fields below. It is read per request rather than
+/// from this struct; in a build that can sign (the `bedrock` feature) a credential
+/// set here takes precedence over it.
+///
 /// Implements `Debug` manually (see below) so the AWS credential fields are
 /// redacted rather than printed in full.
 class BedrockConfig {

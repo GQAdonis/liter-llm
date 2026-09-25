@@ -44,7 +44,7 @@ dbg_macro = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(alef)'] }
 
 [workspace.package]
-version = "2.0.3"
+version = "2.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
@@ -76,26 +76,26 @@ futures-util = "0.3"
 gcp_auth = { version = "0.12", default-features = false, features = ["ring"] }
 hex = "0.4"
 http = "1"
-jsonschema = "0.56"
+jsonschema = "0.57"
 jsonwebtoken = { version = "11", default-features = false, features = ["use_pem"] }
 
-magnus = "0.8"
+magnus = "0.9"
 memchr = "2"
 mimalloc = { version = "0.1", default-features = false }
 napi = { version = "3", features = ["napi4", "serde-json", "async"] }
 napi-build = "2"
 napi-derive = "3"
 notify = { version = "8", features = ["macos_kqueue"] }
-opendal = { version = "0.59.1", default-features = false, features = [
+opendal = { version = "0.59.3", default-features = false, features = [
     "services-memory",
     "services-redis",
     "services-fs",
     "services-s3",
 ] }
-opendal-http-transport-reqwest = { version = "0.59.1", default-features = false }
-opentelemetry = { version = "0.32", features = ["metrics"] }
-opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic", "trace", "metrics"] }
-opentelemetry_sdk = { version = "0.32", features = ["rt-tokio"] }
+opendal-http-transport-reqwest = { version = "0.59.3", default-features = false }
+opentelemetry = { version = "0.33", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.33", features = ["grpc-tonic", "trace", "metrics"] }
+opentelemetry_sdk = { version = "0.33", features = ["rt-tokio"] }
 pin-project-lite = "0.2"
 pyo3 = { version = "0.29", features = ["abi3-py310", "multiple-pymethods"] }
 pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }
@@ -104,7 +104,7 @@ rb-sys = "0.9"
 regex = "1"
 # ~keep Async / HTTP: TLS-agnostic base only; each crate adds TLS features target-conditionally.
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form"] }
-rmcp = { version = "3.3", features = [
+rmcp = { version = "3.4", features = [
     "server",
     "macros",
     "transport-io",
@@ -165,10 +165,10 @@ tower-http = { version = "0.7", features = [
 tower-layer = "0.3"
 tower-service = "0.3"
 tracing = "0.1"
-tracing-opentelemetry = "0.33"
+tracing-opentelemetry = "0.34"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 url = "2.5"
-utoipa = { version = "5.5", features = ["axum_extras"] }
+utoipa = { version = "6.0", features = ["axum_extras"] }
 vaultrs = { version = "0.8", default-features = false, features = ["rustls"] }
 walkdir = "2.5"
 wasm-bindgen = "0.2"

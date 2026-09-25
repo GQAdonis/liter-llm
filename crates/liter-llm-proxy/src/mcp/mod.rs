@@ -304,7 +304,7 @@ fn complete_values(arg_name: &str, partial: &str, model_names: &[&str]) -> Vec<S
 #[tool_handler]
 #[prompt_handler]
 impl ServerHandler for LiterLlmMcp {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         let capabilities = ServerCapabilities::builder()
             .enable_tools()
             .enable_prompts()
