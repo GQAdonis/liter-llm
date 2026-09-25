@@ -12,6 +12,7 @@ pub struct ConfigCheckArgs {
     pub config: PathBuf,
 }
 
+#[expect(clippy::print_stdout, reason = "machine-readable CLI command result")]
 pub fn run(args: ConfigCheckArgs) -> Result<(), String> {
     let result = match fs::read_to_string(&args.config) {
         Ok(source) => match ProxyConfig::from_toml_str(&source) {
@@ -29,7 +30,6 @@ pub fn run(args: ConfigCheckArgs) -> Result<(), String> {
         }),
     };
 
-    #[expect(clippy::print_stdout, reason = "machine-readable CLI command result")]
     println!("{result}");
     Ok(())
 }

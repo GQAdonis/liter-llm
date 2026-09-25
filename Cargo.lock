@@ -3108,6 +3108,7 @@ dependencies = [
  "opentelemetry_sdk",
  "rmcp",
  "secrecy",
+ "serde_json",
  "tikv-jemallocator",
  "tokio",
  "tracing",
