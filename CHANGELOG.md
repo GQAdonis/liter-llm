@@ -17,18 +17,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   token, then environment SigV4 credentials; with the feature off, the token alone
   ([#227](https://github.com/xberg-io/liter-llm/pull/227)).
 
-### Changed
+### Breaking changes
 
-- **Breaking for Node, WASM and TypeScript consumers: `Message` is now a flat discriminated
-  union.** A message was typed `{ role: "user", user: UserMessage }`, nesting the payload under a
-  key named after the role. The Rust `Message` is `#[serde(tag = "role")]`, so that shape never
-  matched what the core actually serializes. It is now `{ role: "user" } & UserMessage`, i.e.
-  `{ role: "user", content: "hi" }`, matching both the Rust representation and the OpenAI wire
-  format. Update message literals accordingly; no other binding type changes shape.
+All wire formats are unchanged. Every break below is source compatibility only, so an upgrade
+surfaces at compile or type-check time rather than at runtime.
+
+- **Node, WASM and TypeScript: `Message` is now a flat discriminated union.** A message was typed
+  `{ role: "user", user: UserMessage }`, nesting the payload under a key named after the role. The
+  Rust `Message` is `#[serde(tag = "role")]`, so that shape never matched what the core actually
+  serializes. It is now `{ role: "user" } & UserMessage`, i.e. `{ role: "user", content: "hi" }`,
+  matching both the Rust representation and the OpenAI wire format. WASM consumers additionally
+  move from constructing a `#[wasm_bindgen]` class to passing a plain object with camelCase
+  payload fields.
+- **Java: generated enum constants are now `SCREAMING_SNAKE_CASE`** — `AuthType.Bearer` becomes
+  `AuthType.BEARER`, `ApiKey` becomes `API_KEY`, across 53 constants. The wire strings the
+  constants carry are untouched.
+- **Swift: `BudgetConfig`, `LlmBudgetConfig`, `LlmCacheConfig`, `LlmConfig` and `ProviderConfig`
+  are now native `struct`s** with a memberwise initialiser, rather than `typealias`es over the
+  Rust bridge types. This turns a reference type into a value type.
+- **PHP: `AuthHeaderFormat` constants become static constructors** — `AuthHeaderFormat::BEARER`
+  becomes `AuthHeaderFormat::bearer()` — and `getAuthHeader()` now returns `AuthHeaderFormat`
+  instead of `string`.
+- **Python: 13 `Enum | str` parameter unions in `_internal_bindings.pyi` are now the enum alone.**
+  Passing a bare string still works at runtime but is a type error.
+- **Ruby: `AuthType` in `sig/types.rbs` is now a `type` alias rather than a class**, with ~13
+  accompanying retypes. An RBS/Steep break only.
 - **Bedrock credentials that cannot be signed are now rejected instead of sent unsigned.** In a
   build without the `bedrock` feature — WASM, the proxy and the CLI — explicit
   `bedrock_credentials(...)` with no `AWS_BEARER_TOKEN_BEDROCK` fails `validate()` with a 401
-  rather than emitting a request with no `Authorization` header and an opaque upstream 403.
+  rather than emitting a request with no `Authorization` header and an opaque upstream 403. Note
+  that this also rejects a configuration that previously worked: a default-feature build pointing
+  `BEDROCK_BASE_URL` at a signing sidecar or mock, with credentials still in config, now fails at
+  client construction.
+
+### Changed
+
 - Pin Alef 0.96.3 (from 0.85.19) and regenerate every binding. This is where the `Message`
   reshape comes from; it also moves the Ruby native extension to magnus 0.9, narrows the gem's
   file glob so sibling packages stay out of the archive, and makes the generated Python package
@@ -46,10 +69,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matched a crate in the dependency graph, so they disarmed the advisory gate for those IDs while
   appearing to be active exceptions. The two remaining ignores are `unmaintained` notices for
   transitive `number_prefix` and `paste`, not vulnerabilities.
-- Pay down four single-entry quality-debt baselines — `tokenizer.rs`, `commands/mcp.rs`,
-  `routes/mod.rs` and `client/config_file.rs` — taking the baseline from 75 findings across 49
+- Pay down five single-entry quality-debt baselines — `azure.rs` (thanks @peteraisher,
+  [#228](https://github.com/xberg-io/liter-llm/pull/228)), `tokenizer.rs`, `commands/mcp.rs`,
+  `routes/mod.rs` and `client/config_file.rs` — taking the baseline from 76 findings across 50
   files to 71 across 45. Behaviour is unchanged
   ([#201](https://github.com/xberg-io/liter-llm/issues/201)).
+- Refresh the model catalog from models.dev: 430 model ids added, 94 removed. Removals are
+  user-visible, and catalog pricing feeds budget enforcement while `context` feeds request
+  validation.
 
 ### Fixed
 
