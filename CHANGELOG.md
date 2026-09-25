@@ -7,12 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-25
+
 ### Added
 
 - **`AWS_BEARER_TOKEN_BEDROCK` authenticates the Bedrock provider.** A Bedrock API key
   (`ABSK...`) is sent as `Authorization: Bearer <token>` and needs no signing, so it works with
   the `bedrock` feature off. Precedence is any explicitly configured credential field, then the
-  token, then environment SigV4 credentials; with the feature off, the token alone.
+  token, then environment SigV4 credentials; with the feature off, the token alone
+  ([#227](https://github.com/xberg-io/liter-llm/pull/227)).
+
+### Changed
+
+- **Breaking for Node, WASM and TypeScript consumers: `Message` is now a flat discriminated
+  union.** A message was typed `{ role: "user", user: UserMessage }`, nesting the payload under a
+  key named after the role. The Rust `Message` is `#[serde(tag = "role")]`, so that shape never
+  matched what the core actually serializes. It is now `{ role: "user" } & UserMessage`, i.e.
+  `{ role: "user", content: "hi" }`, matching both the Rust representation and the OpenAI wire
+  format. Update message literals accordingly; no other binding type changes shape.
+- **Bedrock credentials that cannot be signed are now rejected instead of sent unsigned.** In a
+  build without the `bedrock` feature — WASM, the proxy and the CLI — explicit
+  `bedrock_credentials(...)` with no `AWS_BEARER_TOKEN_BEDROCK` fails `validate()` with a 401
+  rather than emitting a request with no `Authorization` header and an opaque upstream 403.
+- Pin Alef 0.96.2 (from 0.85.19) and regenerate every binding. This is where the `Message`
+  reshape comes from; it also moves the Ruby native extension to magnus 0.9, narrows the gem's
+  file glob so sibling packages stay out of the archive, and makes the generated Python package
+  type-check clean under Pyrefly's `strict` preset without adding a runtime dependency.
+- Upgrade dependencies, holding the OpenTelemetry crates at 0.32/0.33: utoipa 5.5 to 6.0, rmcp
+  3.3 to 3.4, opendal 0.59.1 to 0.59.3, jsonschema 0.56 to 0.57 (dev only), and the Java, Node,
+  Ruby, Elixir, Python and PHP manifests within their majors.
+- Pay down four single-entry quality-debt baselines — `tokenizer.rs`, `commands/mcp.rs`,
+  `routes/mod.rs` and `client/config_file.rs` — taking the baseline from 75 findings across 49
+  files to 71 across 45. Behaviour is unchanged
+  ([#201](https://github.com/xberg-io/liter-llm/issues/201)).
 
 ## [2.0.3] - 2026-09-18
 
