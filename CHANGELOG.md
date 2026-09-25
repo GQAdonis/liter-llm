@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   build without the `bedrock` feature — WASM, the proxy and the CLI — explicit
   `bedrock_credentials(...)` with no `AWS_BEARER_TOKEN_BEDROCK` fails `validate()` with a 401
   rather than emitting a request with no `Authorization` header and an opaque upstream 403.
-- Pin Alef 0.96.2 (from 0.85.19) and regenerate every binding. This is where the `Message`
+- Pin Alef 0.96.3 (from 0.85.19) and regenerate every binding. This is where the `Message`
   reshape comes from; it also moves the Ruby native extension to magnus 0.9, narrows the gem's
   file glob so sibling packages stay out of the archive, and makes the generated Python package
   type-check clean under Pyrefly's `strict` preset without adding a runtime dependency.
@@ -50,6 +50,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `routes/mod.rs` and `client/config_file.rs` — taking the baseline from 75 findings across 49
   files to 71 across 45. Behaviour is unchanged
   ([#201](https://github.com/xberg-io/liter-llm/issues/201)).
+
+### Fixed
+
+- **Ruby: the native extension compiles again.** The regenerated kwargs constructors handed
+  `Default::default()` to `EmbeddingRequest.input`, `ModerationRequest.input`,
+  `OcrRequest.document` and `content` on the system, tool and user messages — all required fields
+  whose types are mirrored into the generated crate without the `Default` impl that `core` marks
+  `alef(skip)` — producing six `error[E0277]`s. A missing required keyword now raises instead.
+- **Kotlin/Android: array-valued content keeps its `type` discriminator.** `UserContent.Parts`,
+  `AssistantContent.Parts` and `EmbeddingInput.Multimodal` serialized every element as `{}`, so the
+  Rust side rejected the request with `data did not match any variant of untagged enum` before it
+  was sent. Only the first had test coverage; the other two were silently broken.
 
 ## [2.0.3] - 2026-09-18
 
