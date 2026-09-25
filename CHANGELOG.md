@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-09-25
+
+Two binding fixes from Alef 0.96.4. No Rust, Kotlin or wire-format change — 0.96.4's third fix
+widens the Kotlin container-payload serializer, which this tree's bindings already satisfied.
+
+### Fixed
+
+- **Ruby: `tool_choice` accepts a bare string or hash again.** 2.1.0 emitted `ToolChoice` as a
+  native wrapped class and made that class the *only* accepted input, so `tool_choice: 'auto'` and
+  `tool_choice: { 'type' => 'function', ... }` raised
+  `TypeError: no implicit conversion of String into LiterLlm::ToolChoice`. The Rust type is
+  `#[serde(untagged)]`, so both of those are valid representations and the binding was wrong. The
+  wrapped instance is now tried first and anything else falls through to serde's own reader, so the
+  explicit `LiterLlm::ToolChoice.from_mode` / `.from_specific` constructors introduced in 2.1.0 keep
+  working and the pre-2.1.0 forms work again. This closes the known issue recorded against 2.1.0.
+
+- **Java: multimodal content keeps its `type` discriminator.** `UserContent.ofObject`,
+  `AssistantContent.ofObject` and `EmbeddingInput.ofObject` wrapped a `List` with
+  `MAPPER.valueToTree`. Java erases a collection's element type, so Jackson resolved each element
+  with its untyped lookup and never wrote the `@JsonTypeInfo` discriminator — a list of
+  `ContentPart` serialized as `[{"text":...},{"image_url":...}]` with no `"type"` key, and the
+  request was rejected before reaching a provider. Because the tag-less tree is frozen into the
+  wrapper, nothing downstream could recover it. Lists are now written through a writer with the
+  element type pinned. **This is not a 2.1.0 regression** — it has been present since at least
+  1.19.0, in every release carrying the declarative `@JsonTypeInfo` representation. Single values
+  and `List<String>` payloads were never affected and are unchanged.
+
 ## [2.1.0] - 2026-09-25
 
 ### Added
