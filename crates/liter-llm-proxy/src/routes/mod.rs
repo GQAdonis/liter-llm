@@ -86,6 +86,29 @@ pub(crate) async fn dispatch(
     Ok(svc.call(request).await?)
 }
 
+// ~keep Wildcard CORS must not expose Authorization or it permits credentialed requests.
+fn build_cors_layer(cors_origins: &[String]) -> Option<CorsLayer> {
+    if cors_origins.is_empty() {
+        None
+    } else if cors_origins.iter().any(|o| o == "*") {
+        Some(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                // ~keep Deliberately exclude Authorization for wildcard origins.
+                .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::ACCEPT]),
+        )
+    } else {
+        let origins: Vec<HeaderValue> = cors_origins.iter().filter_map(|o| o.parse().ok()).collect();
+        Some(
+            CorsLayer::new()
+                .allow_origin(AllowOrigin::list(origins))
+                .allow_methods(Any)
+                .allow_headers(Any),
+        )
+    }
+}
+
 /// Build the full axum router with all routes, middleware, and shared state.
 pub fn build_router(state: AppState) -> Router {
     // ~keep Router-build config is startup-only; handlers must load config per request.
@@ -140,31 +163,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/readyz", get(health::readyz))
         .route("/openapi.json", get(crate::openapi::openapi_schema));
 
-    // ~keep Wildcard CORS must not expose Authorization or it permits credentialed requests.
-    let cors_layer: Option<CorsLayer> = if cfg_snapshot.server.cors_origins.is_empty() {
-        None
-    } else if cfg_snapshot.server.cors_origins.iter().any(|o| o == "*") {
-        Some(
-            CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods(Any)
-                // ~keep Deliberately exclude Authorization for wildcard origins.
-                .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::ACCEPT]),
-        )
-    } else {
-        let origins: Vec<HeaderValue> = cfg_snapshot
-            .server
-            .cors_origins
-            .iter()
-            .filter_map(|o| o.parse().ok())
-            .collect();
-        Some(
-            CorsLayer::new()
-                .allow_origin(AllowOrigin::list(origins))
-                .allow_methods(Any)
-                .allow_headers(Any),
-        )
-    };
+    let cors_layer = build_cors_layer(&cfg_snapshot.server.cors_origins);
 
     let mut router = Router::new()
         .merge(v1_routes)

@@ -2196,12 +2196,26 @@ jobs:
 
   publish-hex:
     name: Publish Hex.pm
-    needs: [prepare, validate-versions, registry-results, publish-crates, build-elixir-nifs, upload-elixir-nifs]
+    # ~keep `generate-elixir-checksums` reads the NIF assets through the REST get-release-by-tag
+    # endpoint, which returns 404 for a draft release. On the `release: published` trigger the
+    # release is already public when the run starts, but on `workflow_dispatch` `prepare` creates
+    # it as a draft and only `promote-release` flips it -- so this job must wait for that flip or
+    # it burns its 20 download retries and fails. The dry-run arm keeps working because
+    # `promote-release` is skipped there and the checksum step is itself dry-run gated.
+    needs:
+      - prepare
+      - validate-versions
+      - registry-results
+      - publish-crates
+      - build-elixir-nifs
+      - upload-elixir-nifs
+      - promote-release
     if: |
       always() &&
       needs.prepare.outputs.release_elixir == 'true' &&
       needs.validate-versions.result == 'success' &&
       needs.upload-elixir-nifs.result == 'success' &&
+      (needs.promote-release.result == 'success' || needs.prepare.outputs.dry_run == 'true') &&
       (needs.registry-results.outputs.hex != 'true' || needs.prepare.outputs.force_republish == 'true')
     runs-on: ubuntu-latest
     environment: hex

@@ -12,7 +12,7 @@ name = "liter-llm"
 # same fix already applied to the other vendored crates in vendor/git/
 # (surreal-memory, sycophancy-core). Values must stay in sync with
 # ../../Cargo.toml's `[workspace.package]` table when bumping upstream.
-version = "2.0.3"
+version = "2.1.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
@@ -124,13 +124,13 @@ gloo-timers = { version = "0.4", features = ["futures"], optional = true }
 hex = { version = "0.4", optional = true }
 jsonwebtoken = { version = "11", default-features = false, features = ["use_pem"], optional = true }
 memchr = { version = "2", optional = true }
-opendal = { version = "0.59.1", default-features = false, features = [
+opendal = { version = "0.59.3", default-features = false, features = [
     "services-memory",
     "services-redis",
     "services-fs",
     "services-s3",
 ], optional = true }
-opentelemetry = { version = "0.32", features = ["metrics"], optional = true }
+opentelemetry = { version = "0.33", features = ["metrics"], optional = true }
 pin-project-lite = "0.2"
 # ~keep Only for RoutingStrategy::WeightedRandom's per-router PRNG (tower/router.rs);
 # ~keep sys_rng seeds it once at Router::new; SmallRng itself is unconditionally
@@ -172,29 +172,29 @@ tower-http = { version = "0.7", features = [
     "limit",
 ], optional = true }
 tracing = "0.1"
-tracing-opentelemetry = { version = "0.33", optional = true }
+tracing-opentelemetry = { version = "0.34", optional = true }
 url = "2.5"
-utoipa = { version = "5.5", features = ["axum_extras"], optional = true }
+utoipa = { version = "6.0", features = ["axum_extras"], optional = true }
 web-time = { version = "1", optional = true }
 
 # ~keep Non-Windows uses rustls + ring to avoid aws-lc-sys as the bundled TLS provider.
 # ~keep The workspace reqwest base is TLS-agnostic; this layer supplies TLS.
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-opendal-http-transport-reqwest = { version = "0.59.1", default-features = false, optional = true, features = ["rustls-no-provider"] }
+opendal-http-transport-reqwest = { version = "0.59.3", default-features = false, optional = true, features = ["rustls-no-provider"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form", "rustls-no-provider"], optional = true }
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"], optional = true }
 
 # ~keep Windows uses SChannel via native-tls to avoid aws-lc-sys MSVC build failures.
 # ~keep rustls is intentionally not pulled in on Windows.
 [target.'cfg(target_os = "windows")'.dependencies]
-opendal-http-transport-reqwest = { version = "0.59.1", default-features = false, optional = true, features = ["native-tls"] }
+opendal-http-transport-reqwest = { version = "0.59.3", default-features = false, optional = true, features = ["native-tls"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form", "native-tls"], optional = true }
 
 [dev-dependencies]
 ctor = "1.0"
 etcd-client = { version = "0.20", default-features = false }
 futures-util = "0.3"
-jsonschema = "0.56"
+jsonschema = "0.57"
 serde_json = "1"
 serial_test = "4"
 tempfile = "3"

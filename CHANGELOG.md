@@ -7,6 +7,122 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-09-25
+
+Two binding fixes from Alef 0.96.4. No Rust, Kotlin or wire-format change — 0.96.4's third fix
+widens the Kotlin container-payload serializer, which this tree's bindings already satisfied.
+
+### Fixed
+
+- **Ruby: `tool_choice` accepts a bare string or hash again.** 2.1.0 emitted `ToolChoice` as a
+  native wrapped class and made that class the *only* accepted input, so `tool_choice: 'auto'` and
+  `tool_choice: { 'type' => 'function', ... }` raised
+  `TypeError: no implicit conversion of String into LiterLlm::ToolChoice`. The Rust type is
+  `#[serde(untagged)]`, so both of those are valid representations and the binding was wrong. The
+  wrapped instance is now tried first and anything else falls through to serde's own reader, so the
+  explicit `LiterLlm::ToolChoice.from_mode` / `.from_specific` constructors introduced in 2.1.0 keep
+  working and the pre-2.1.0 forms work again. This closes the known issue recorded against 2.1.0.
+
+- **Java: multimodal content keeps its `type` discriminator.** `UserContent.ofObject`,
+  `AssistantContent.ofObject` and `EmbeddingInput.ofObject` wrapped a `List` with
+  `MAPPER.valueToTree`. Java erases a collection's element type, so Jackson resolved each element
+  with its untyped lookup and never wrote the `@JsonTypeInfo` discriminator — a list of
+  `ContentPart` serialized as `[{"text":...},{"image_url":...}]` with no `"type"` key, and the
+  request was rejected before reaching a provider. Because the tag-less tree is frozen into the
+  wrapper, nothing downstream could recover it. Lists are now written through a writer with the
+  element type pinned. **This is not a 2.1.0 regression** — it has been present since at least
+  1.19.0, in every release carrying the declarative `@JsonTypeInfo` representation. Single values
+  and `List<String>` payloads were never affected and are unchanged.
+
+## [2.1.0] - 2026-09-25
+
+### Added
+
+- **`AWS_BEARER_TOKEN_BEDROCK` authenticates the Bedrock provider.** A Bedrock API key
+  (`ABSK...`) is sent as `Authorization: Bearer <token>` and needs no signing, so it works with
+  the `bedrock` feature off. Precedence is any explicitly configured credential field, then the
+  token, then environment SigV4 credentials; with the feature off, the token alone
+  ([#227](https://github.com/xberg-io/liter-llm/pull/227)).
+
+### Breaking changes
+
+All wire formats are unchanged. Every break below is source compatibility only, so an upgrade
+surfaces at compile or type-check time rather than at runtime.
+
+- **Node, WASM and TypeScript: `Message` is now a flat discriminated union.** A message was typed
+  `{ role: "user", user: UserMessage }`, nesting the payload under a key named after the role. The
+  Rust `Message` is `#[serde(tag = "role")]`, so that shape never matched what the core actually
+  serializes. It is now `{ role: "user" } & UserMessage`, i.e. `{ role: "user", content: "hi" }`,
+  matching both the Rust representation and the OpenAI wire format. WASM consumers additionally
+  move from constructing a `#[wasm_bindgen]` class to passing a plain object with camelCase
+  payload fields.
+- **Java: generated enum constants are now `SCREAMING_SNAKE_CASE`** — `AuthType.Bearer` becomes
+  `AuthType.BEARER`, `ApiKey` becomes `API_KEY`, across 53 constants. The wire strings the
+  constants carry are untouched.
+- **Swift: `BudgetConfig`, `LlmBudgetConfig`, `LlmCacheConfig`, `LlmConfig` and `ProviderConfig`
+  are now native `struct`s** with a memberwise initialiser, rather than `typealias`es over the
+  Rust bridge types. This turns a reference type into a value type.
+- **PHP: `AuthHeaderFormat` constants become static constructors** — `AuthHeaderFormat::BEARER`
+  becomes `AuthHeaderFormat::bearer()` — and `getAuthHeader()` now returns `AuthHeaderFormat`
+  instead of `string`.
+- **Python: 13 `Enum | str` parameter unions in `_internal_bindings.pyi` are now the enum alone.**
+  Passing a bare string still works at runtime but is a type error.
+- **Ruby: `AuthType` in `sig/types.rbs` is now a `type` alias rather than a class**, with ~13
+  accompanying retypes. An RBS/Steep break only.
+- **Ruby: untagged enums must now be constructed explicitly.** `ToolChoice` is emitted as a
+  wrapped class, so `tool_choice: 'auto'` and `tool_choice: { 'type' => 'function', ... }` raise
+  `TypeError: no implicit conversion of String into LiterLlm::ToolChoice`. Build the value with
+  `LiterLlm::ToolChoice.from_mode` or `.from_specific` instead. This is a generator defect, not an
+  intended API change — the Rust `ToolChoice` is `#[serde(untagged)]`, so the bare string is a
+  valid representation, and the coercion is being restored in 2.1.1. Tracked as a known issue.
+- **Bedrock credentials that cannot be signed are now rejected instead of sent unsigned.** In a
+  build without the `bedrock` feature — WASM, the proxy and the CLI — explicit
+  `bedrock_credentials(...)` with no `AWS_BEARER_TOKEN_BEDROCK` fails `validate()` with a 401
+  rather than emitting a request with no `Authorization` header and an opaque upstream 403. Note
+  that this also rejects a configuration that previously worked: a default-feature build pointing
+  `BEDROCK_BASE_URL` at a signing sidecar or mock, with credentials still in config, now fails at
+  client construction.
+
+### Changed
+
+- Pin Alef 0.96.3 (from 0.85.19) and regenerate every binding. This is where the `Message`
+  reshape comes from; it also moves the Ruby native extension to magnus 0.9, narrows the gem's
+  file glob so sibling packages stay out of the archive, and makes the generated Python package
+  type-check clean under Pyrefly's `strict` preset without adding a runtime dependency.
+- Upgrade every dependency to its latest release: `opentelemetry`, `opentelemetry-otlp` and
+  `opentelemetry_sdk` 0.32 to 0.33 with `tracing-opentelemetry` 0.33 to 0.34 (the four move as one
+  set — `tracing-opentelemetry` 0.34 requires `opentelemetry` 0.33 — and the `otel` feature needed
+  no source changes), utoipa 5.5 to 6.0, rmcp 3.3 to 3.4, opendal 0.59.1 to 0.59.3, jsonschema
+  0.56 to 0.57 (dev only), and the Java, Node, Ruby, Elixir, Python, PHP and Dart manifests —
+  including Dart's `freezed` code generator from 3.2 to 4.0, verified against the committed
+  generated bindings with `dart analyze`. The `getrandom` 0.2 and 0.3 aliases and
+  `flutter_rust_bridge` 2.13.0 stay pinned deliberately: the first keeps a wasm-js backend
+  available to transitive consumers at each major, the second must match `packages/dart`.
+- Drop `RUSTSEC-2023-0071`, `RUSTSEC-2026-0194` and `RUSTSEC-2026-0195` from `deny.toml`. None
+  matched a crate in the dependency graph, so they disarmed the advisory gate for those IDs while
+  appearing to be active exceptions. The two remaining ignores are `unmaintained` notices for
+  transitive `number_prefix` and `paste`, not vulnerabilities.
+- Pay down five single-entry quality-debt baselines — `azure.rs` (thanks @peteraisher,
+  [#228](https://github.com/xberg-io/liter-llm/pull/228)), `tokenizer.rs`, `commands/mcp.rs`,
+  `routes/mod.rs` and `client/config_file.rs` — taking the baseline from 76 findings across 50
+  files to 71 across 45. Behaviour is unchanged
+  ([#201](https://github.com/xberg-io/liter-llm/issues/201)).
+- Refresh the model catalog from models.dev: 430 model ids added, 94 removed. Removals are
+  user-visible, and catalog pricing feeds budget enforcement while `context` feeds request
+  validation.
+
+### Fixed
+
+- **Ruby: the native extension compiles again.** The regenerated kwargs constructors handed
+  `Default::default()` to `EmbeddingRequest.input`, `ModerationRequest.input`,
+  `OcrRequest.document` and `content` on the system, tool and user messages — all required fields
+  whose types are mirrored into the generated crate without the `Default` impl that `core` marks
+  `alef(skip)` — producing six `error[E0277]`s. A missing required keyword now raises instead.
+- **Kotlin/Android: array-valued content keeps its `type` discriminator.** `UserContent.Parts`,
+  `AssistantContent.Parts` and `EmbeddingInput.Multimodal` serialized every element as `{}`, so the
+  Rust side rejected the request with `data did not match any variant of untagged enum` before it
+  was sent. Only the first had test coverage; the other two were silently broken.
+
 ## [2.0.3] - 2026-09-18
 
 ### Added

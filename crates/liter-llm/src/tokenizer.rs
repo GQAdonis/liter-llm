@@ -159,26 +159,14 @@ pub fn count_request_tokens(model: &str, req: &ChatCompletionRequest) -> Result<
         match msg {
             Message::System(m) => total += user_content_token_count(&m.content, &encode)?,
             Message::User(m) => total += user_content_token_count(&m.content, &encode)?,
-            Message::Assistant(m) => {
-                match &m.content {
-                    Some(AssistantContent::Text(t)) => total += encode(t)?,
-                    Some(AssistantContent::Parts(parts)) => {
-                        for part in parts {
-                            if let Some(text) = assistant_part_text(part) {
-                                total += encode(text)?;
-                            }
-                        }
-                    }
-                    None => {}
-                }
-                if m.content.is_none()
-                    && let Some(ref calls) = m.tool_calls
-                {
-                    for call in calls {
+            Message::Assistant(m) => match &m.content {
+                Some(content) => total += assistant_content_token_count(content, &encode)?,
+                None => {
+                    for call in m.tool_calls.iter().flatten() {
                         total += encode(call.function.arguments.as_str())?;
                     }
                 }
-            }
+            },
             Message::Tool(m) => total += user_content_token_count(&m.content, &encode)?,
             Message::Developer(m) => total += encode(&m.content)?,
             Message::Function(m) => total += encode(&m.content)?,
@@ -210,9 +198,143 @@ fn user_content_token_count(content: &UserContent, encode: &impl Fn(&str) -> Res
     }
 }
 
+/// Token count of an [`AssistantContent`] value: the whole string for `Text`, or the
+/// sum of every `AssistantPart::Text` part for `Parts` (refusal and output image/audio
+/// parts carry no textual content and are not counted).
+fn assistant_content_token_count(content: &AssistantContent, encode: &impl Fn(&str) -> Result<usize>) -> Result<usize> {
+    match content {
+        AssistantContent::Text(t) => encode(t),
+        AssistantContent::Parts(parts) => {
+            let mut total = 0usize;
+            for part in parts {
+                if let Some(text) = assistant_part_text(part) {
+                    total += encode(text)?;
+                }
+            }
+            Ok(total)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
+    use crate::types::{AssistantMessage, FunctionCall, ToolCall, ToolType};
+
+    /// Model whose tokenizer cache key (`meta-llama/Meta-Llama-3-8B`) is not shared with the
+    /// network-backed `#[ignore]`d tests, so seeding it cannot perturb them.
+    const OFFLINE_TEST_MODEL: &str = "llama-3-70b";
+
+    /// A `WordLevel` tokenizer whose vocabulary holds only the unknown-token entry, so every
+    /// whitespace-separated word encodes to exactly one token.
+    const WORD_LEVEL_TOKENIZER_SPEC: &str = r#"{
+        "version": "1.0",
+        "truncation": null,
+        "padding": null,
+        "added_tokens": [],
+        "normalizer": null,
+        "pre_tokenizer": { "type": "WhitespaceSplit" },
+        "post_processor": null,
+        "decoder": null,
+        "model": { "type": "WordLevel", "vocab": { "[UNK]": 0 }, "unk_token": "[UNK]" }
+    }"#;
+
+    /// Seed the process-global cache so `count_request_tokens` runs offline against a
+    /// deterministic one-token-per-word tokenizer. Idempotent: re-seeding writes the same value
+    /// under the same key, so tests stay order-independent. ~keep
+    fn install_offline_tokenizer() {
+        let tokenizer = Tokenizer::from_str(WORD_LEVEL_TOKENIZER_SPEC).expect("tokenizer spec should parse");
+        let mut cache = TOKENIZER_CACHE
+            .write()
+            .expect("tokenizer cache lock should not be poisoned");
+        cache.insert(resolve_tokenizer_id(OFFLINE_TEST_MODEL).to_owned(), Arc::new(tokenizer));
+    }
+
+    fn assistant_request(message: AssistantMessage) -> ChatCompletionRequest {
+        ChatCompletionRequest {
+            model: OFFLINE_TEST_MODEL.to_owned(),
+            messages: vec![Message::Assistant(message)],
+            ..Default::default()
+        }
+    }
+
+    fn tool_call(arguments: &str) -> ToolCall {
+        ToolCall {
+            id: "call_1".to_owned(),
+            call_type: ToolType::Function,
+            function: FunctionCall {
+                name: "lookup".to_owned(),
+                arguments: arguments.to_owned(),
+            },
+        }
+    }
+
+    #[test]
+    fn count_request_tokens_sums_assistant_text_parts_and_skips_non_text_parts() {
+        install_offline_tokenizer();
+        let request = assistant_request(AssistantMessage {
+            content: Some(AssistantContent::Parts(vec![
+                AssistantPart::Text {
+                    text: "alpha beta gamma".to_owned(),
+                },
+                AssistantPart::Refusal {
+                    refusal: "I cannot help with that".to_owned(),
+                },
+                AssistantPart::Text {
+                    text: "delta".to_owned(),
+                },
+            ])),
+            ..Default::default()
+        });
+
+        let count = count_request_tokens(OFFLINE_TEST_MODEL, &request).expect("counting should succeed");
+
+        assert_eq!(count, 4 + 4, "4 text-part words plus the 4-token per-message overhead");
+    }
+
+    #[test]
+    fn count_request_tokens_counts_assistant_text_content_and_ignores_tool_calls() {
+        install_offline_tokenizer();
+        let request = assistant_request(AssistantMessage {
+            content: Some(AssistantContent::Text("alpha beta".to_owned())),
+            tool_calls: Some(vec![tool_call("one two three four five")]),
+            ..Default::default()
+        });
+
+        let count = count_request_tokens(OFFLINE_TEST_MODEL, &request).expect("counting should succeed");
+
+        assert_eq!(count, 2 + 4, "present content suppresses tool-call arguments entirely");
+    }
+
+    #[test]
+    fn count_request_tokens_counts_assistant_tool_call_arguments_when_content_is_absent() {
+        install_offline_tokenizer();
+        let request = assistant_request(AssistantMessage {
+            content: None,
+            tool_calls: Some(vec![tool_call("one two three"), tool_call("four five")]),
+            ..Default::default()
+        });
+
+        let count = count_request_tokens(OFFLINE_TEST_MODEL, &request).expect("counting should succeed");
+
+        assert_eq!(
+            count,
+            5 + 4,
+            "every tool call's arguments are counted when content is absent"
+        );
+    }
+
+    #[test]
+    fn count_request_tokens_counts_nothing_for_an_assistant_message_without_content_or_tool_calls() {
+        install_offline_tokenizer();
+        let request = assistant_request(AssistantMessage::default());
+
+        let count = count_request_tokens(OFFLINE_TEST_MODEL, &request).expect("counting should succeed");
+
+        assert_eq!(count, 4, "only the per-message overhead remains");
+    }
 
     #[test]
     fn test_resolve_tokenizer_id_openai() {

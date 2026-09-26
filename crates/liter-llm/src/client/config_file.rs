@@ -146,11 +146,11 @@ impl FileConfig {
     /// applying all fields that are set.
     ///
     /// Fields not present in the TOML file use the builder's defaults.
-    pub fn into_builder(self) -> super::ClientConfigBuilder {
-        let api_key = self.api_key.unwrap_or_default();
+    pub fn into_builder(mut self) -> super::ClientConfigBuilder {
+        let api_key = self.api_key.take().unwrap_or_default();
         let mut builder = super::ClientConfigBuilder::new(api_key);
 
-        if let Some(url) = self.base_url {
+        if let Some(url) = self.base_url.take() {
             builder = builder.base_url(url);
         }
         if let Some(t) = self.timeout_secs {
@@ -161,7 +161,7 @@ impl FileConfig {
         }
 
         #[cfg(any(feature = "native-http", feature = "wasm-http"))]
-        if let Some(headers) = self.extra_headers {
+        if let Some(headers) = self.extra_headers.take() {
             for (k, v) in headers {
                 if reqwest::header::HeaderName::from_bytes(k.as_bytes()).is_ok()
                     && reqwest::header::HeaderValue::from_str(&v).is_ok()
@@ -173,68 +173,75 @@ impl FileConfig {
 
         #[cfg(feature = "tower")]
         {
-            if let Some(cache) = self.cache {
-                use crate::tower::{CacheBackend, CacheConfig};
-                let backend = match cache.backend.as_deref() {
-                    Some("memory") | None => CacheBackend::Memory,
-                    #[cfg(feature = "opendal-cache")]
-                    Some(scheme) => CacheBackend::OpenDal {
-                        scheme: scheme.to_string(),
-                        config: cache.backend_config.unwrap_or_default(),
-                    },
-                    #[cfg(not(feature = "opendal-cache"))]
-                    Some(_) => CacheBackend::Memory,
-                };
-                builder = builder.cache(CacheConfig {
-                    max_entries: cache.max_entries.unwrap_or(256),
-                    ttl: Duration::from_secs(cache.ttl_seconds.unwrap_or(300)),
-                    backend,
-                });
-            }
+            builder = Self::apply_tower_config(builder, self);
+        }
 
-            if let Some(budget) = self.budget {
-                use crate::tower::{BudgetConfig, Enforcement};
-                builder = builder.budget(BudgetConfig {
-                    global_limit: budget.global_limit,
-                    model_limits: budget.model_limits.unwrap_or_default(),
-                    enforcement: match budget.enforcement.as_deref() {
-                        Some("soft") => Enforcement::Soft,
-                        _ => Enforcement::Hard,
-                    },
-                });
-            }
+        builder
+    }
 
-            if let Some(secs) = self.cooldown_secs {
-                builder = builder.cooldown(Duration::from_secs(secs));
-            }
+    #[cfg(feature = "tower")]
+    fn apply_tower_config(mut builder: super::ClientConfigBuilder, config: Self) -> super::ClientConfigBuilder {
+        if let Some(cache) = config.cache {
+            use crate::tower::{CacheBackend, CacheConfig};
+            let backend = match cache.backend.as_deref() {
+                Some("memory") | None => CacheBackend::Memory,
+                #[cfg(feature = "opendal-cache")]
+                Some(scheme) => CacheBackend::OpenDal {
+                    scheme: scheme.to_string(),
+                    config: cache.backend_config.unwrap_or_default(),
+                },
+                #[cfg(not(feature = "opendal-cache"))]
+                Some(_) => CacheBackend::Memory,
+            };
+            builder = builder.cache(CacheConfig {
+                max_entries: cache.max_entries.unwrap_or(256),
+                ttl: Duration::from_secs(cache.ttl_seconds.unwrap_or(300)),
+                backend,
+            });
+        }
 
-            if let Some(rl) = self.rate_limit {
-                use crate::tower::RateLimitConfig;
-                builder = builder.rate_limit(RateLimitConfig {
-                    rpm: rl.rpm,
-                    tpm: rl.tpm,
-                    window: Duration::from_secs(rl.window_seconds.unwrap_or(60)),
-                });
-            }
+        if let Some(budget) = config.budget {
+            use crate::tower::{BudgetConfig, Enforcement};
+            builder = builder.budget(BudgetConfig {
+                global_limit: budget.global_limit,
+                model_limits: budget.model_limits.unwrap_or_default(),
+                enforcement: match budget.enforcement.as_deref() {
+                    Some("soft") => Enforcement::Soft,
+                    _ => Enforcement::Hard,
+                },
+            });
+        }
 
-            if let Some(limit) = self.in_flight_limit {
-                use crate::tower::InFlightLimitConfig;
-                builder = builder.in_flight_limit(InFlightLimitConfig {
-                    max_in_flight: limit.max_in_flight,
-                });
-            }
+        if let Some(secs) = config.cooldown_secs {
+            builder = builder.cooldown(Duration::from_secs(secs));
+        }
 
-            if let Some(secs) = self.health_check_secs {
-                builder = builder.health_check(Duration::from_secs(secs));
-            }
+        if let Some(rl) = config.rate_limit {
+            use crate::tower::RateLimitConfig;
+            builder = builder.rate_limit(RateLimitConfig {
+                rpm: rl.rpm,
+                tpm: rl.tpm,
+                window: Duration::from_secs(rl.window_seconds.unwrap_or(60)),
+            });
+        }
 
-            if let Some(ct) = self.cost_tracking {
-                builder = builder.cost_tracking(ct);
-            }
+        if let Some(limit) = config.in_flight_limit {
+            use crate::tower::InFlightLimitConfig;
+            builder = builder.in_flight_limit(InFlightLimitConfig {
+                max_in_flight: limit.max_in_flight,
+            });
+        }
 
-            if let Some(t) = self.tracing {
-                builder = builder.tracing(t);
-            }
+        if let Some(secs) = config.health_check_secs {
+            builder = builder.health_check(Duration::from_secs(secs));
+        }
+
+        if let Some(ct) = config.cost_tracking {
+            builder = builder.cost_tracking(ct);
+        }
+
+        if let Some(t) = config.tracing {
+            builder = builder.tracing(t);
         }
 
         builder

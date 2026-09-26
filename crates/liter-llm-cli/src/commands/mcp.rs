@@ -1,7 +1,12 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use clap::Args;
+use liter_llm_proxy::auth::{KeyContext, KeyStore};
 use liter_llm_proxy::config::ProxyConfig;
+use liter_llm_proxy::file_store::FileStore;
+use liter_llm_proxy::mcp::{LiterLlmMcp, McpTransportKind};
+use liter_llm_proxy::service_pool::ServicePool;
 
 #[derive(Args)]
 pub struct McpArgs {
@@ -20,17 +25,6 @@ pub struct McpArgs {
 }
 
 pub async fn run(args: McpArgs) -> Result<(), String> {
-    use std::sync::Arc;
-
-    use arc_swap::ArcSwap;
-    use liter_llm_proxy::auth::{KeyContext, KeyStore};
-    use liter_llm_proxy::file_store::FileStore;
-    use liter_llm_proxy::mcp::{LiterLlmMcp, McpTransportKind};
-    use liter_llm_proxy::secrets::{EnvVarSecretManager, SecretManagerRegistry};
-    use liter_llm_proxy::service_pool::ServicePool;
-    use liter_llm_proxy::state::AppState;
-    use rmcp::ServiceExt;
-
     // ~keep Hold the guard for the whole server so the OTLP providers flush on exit.
     let _telemetry_guard = crate::telemetry::init("info");
 
@@ -47,95 +41,112 @@ pub async fn run(args: McpArgs) -> Result<(), String> {
     )?);
 
     match args.transport.as_str() {
-        "stdio" => {
-            let default_ctx = match (&config.mcp.stdio_key_id, config.mcp.stdio_trust_local) {
-                (Some(key_id), _) => {
-                    let key_cfg = key_store.get(key_id).ok_or_else(|| {
-                        format!(
-                            "mcp.stdio_key_id '{key_id}' not found in the virtual key store; \
-                             add it under [[keys]] in your config"
-                        )
-                    })?;
-                    KeyContext::from_config(&key_cfg)
-                }
-                (None, true) => KeyContext::master(),
-                (None, false) => {
-                    return Err("stdio MCP transport requires authentication configuration; set either \
-                         `mcp.stdio_key_id` (to bind a specific virtual key) or \
-                         `mcp.stdio_trust_local = true` (for fully trusted local environments) \
-                         in your liter-llm-proxy.toml"
-                        .into());
-                }
-            };
-
-            let mcp = LiterLlmMcp::new(
-                service_pool.clone(),
-                file_store.clone(),
-                default_ctx,
-                McpTransportKind::Stdio,
-            );
-
-            tracing::info!("starting MCP server with stdio transport");
-            let service = mcp
-                .serve(rmcp::transport::stdio())
-                .await
-                .map_err(|e| format!("MCP stdio serve failed: {e}"))?;
-            service.waiting().await.map_err(|e| format!("MCP server error: {e}"))?;
-        }
-        "http" => {
-            use liter_llm_proxy::auth::validate_api_key;
-            use rmcp::transport::streamable_http_server::StreamableHttpService;
-            use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-
-            let addr: std::net::SocketAddr = format!("{}:{}", args.host, args.port)
-                .parse()
-                .map_err(|e| format!("invalid MCP listen address: {e}"))?;
-
-            let app_state = AppState {
-                key_store: key_store.clone(),
-                key_resolver: key_store.clone(),
-                guardrails: service_pool.guardrails(),
-                service_pool: service_pool.clone(),
-                file_store: file_store.clone(),
-                config: Arc::new(ArcSwap::new(Arc::new(config.clone()))),
-                secret_registry: Arc::new(
-                    SecretManagerRegistry::builder()
-                        .register("env", Arc::new(EnvVarSecretManager::new()))
-                        .default_backend(Arc::new(EnvVarSecretManager::new()))
-                        .build(),
-                ),
-                shutdown: None,
-                usage_sink: None,
-            };
-
-            let http_service = StreamableHttpService::new(
-                move || {
-                    let sp = service_pool.clone();
-                    let fs = file_store.clone();
-                    Ok(LiterLlmMcp::new(sp, fs, KeyContext::master(), McpTransportKind::Http))
-                },
-                LocalSessionManager::default().into(),
-                Default::default(),
-            );
-
-            let router = axum::Router::new()
-                .nest_service("/mcp", http_service)
-                .layer(axum::middleware::from_fn_with_state(
-                    app_state.clone(),
-                    validate_api_key,
-                ))
-                .with_state(app_state);
-
-            tracing::info!("starting MCP server with HTTP transport on {addr}");
-            let listener = tokio::net::TcpListener::bind(addr)
-                .await
-                .map_err(|e| format!("failed to bind MCP HTTP {addr}: {e}"))?;
-            axum::serve(listener, router)
-                .await
-                .map_err(|e| format!("MCP HTTP server error: {e}"))?;
-        }
-        other => return Err(format!("unknown transport '{other}', use 'stdio' or 'http'")),
+        "stdio" => run_stdio(&config, service_pool, key_store, file_store).await,
+        "http" => run_http(&args, &config, service_pool, key_store, file_store).await,
+        other => Err(format!("unknown transport '{other}', use 'stdio' or 'http'")),
     }
+}
+
+async fn run_stdio(
+    config: &ProxyConfig,
+    service_pool: Arc<ServicePool>,
+    key_store: Arc<KeyStore>,
+    file_store: Arc<FileStore>,
+) -> Result<(), String> {
+    use rmcp::ServiceExt;
+
+    let default_ctx = match (&config.mcp.stdio_key_id, config.mcp.stdio_trust_local) {
+        (Some(key_id), _) => {
+            let key_cfg = key_store.get(key_id).ok_or_else(|| {
+                format!(
+                    "mcp.stdio_key_id '{key_id}' not found in the virtual key store; \
+                     add it under [[keys]] in your config"
+                )
+            })?;
+            KeyContext::from_config(&key_cfg)
+        }
+        (None, true) => KeyContext::master(),
+        (None, false) => {
+            return Err("stdio MCP transport requires authentication configuration; set either \
+                 `mcp.stdio_key_id` (to bind a specific virtual key) or \
+                 `mcp.stdio_trust_local = true` (for fully trusted local environments) \
+                 in your liter-llm-proxy.toml"
+                .into());
+        }
+    };
+
+    let mcp = LiterLlmMcp::new(service_pool, file_store, default_ctx, McpTransportKind::Stdio);
+
+    tracing::info!("starting MCP server with stdio transport");
+    let service = mcp
+        .serve(rmcp::transport::stdio())
+        .await
+        .map_err(|e| format!("MCP stdio serve failed: {e}"))?;
+    service.waiting().await.map_err(|e| format!("MCP server error: {e}"))?;
+
+    Ok(())
+}
+
+async fn run_http(
+    args: &McpArgs,
+    config: &ProxyConfig,
+    service_pool: Arc<ServicePool>,
+    key_store: Arc<KeyStore>,
+    file_store: Arc<FileStore>,
+) -> Result<(), String> {
+    use arc_swap::ArcSwap;
+    use liter_llm_proxy::auth::validate_api_key;
+    use liter_llm_proxy::secrets::{EnvVarSecretManager, SecretManagerRegistry};
+    use liter_llm_proxy::state::AppState;
+    use rmcp::transport::streamable_http_server::StreamableHttpService;
+    use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+
+    let addr: std::net::SocketAddr = format!("{}:{}", args.host, args.port)
+        .parse()
+        .map_err(|e| format!("invalid MCP listen address: {e}"))?;
+
+    let app_state = AppState {
+        key_store: key_store.clone(),
+        key_resolver: key_store.clone(),
+        guardrails: service_pool.guardrails(),
+        service_pool: service_pool.clone(),
+        file_store: file_store.clone(),
+        config: Arc::new(ArcSwap::new(Arc::new(config.clone()))),
+        secret_registry: Arc::new(
+            SecretManagerRegistry::builder()
+                .register("env", Arc::new(EnvVarSecretManager::new()))
+                .default_backend(Arc::new(EnvVarSecretManager::new()))
+                .build(),
+        ),
+        shutdown: None,
+        usage_sink: None,
+    };
+
+    let http_service = StreamableHttpService::new(
+        move || {
+            let sp = service_pool.clone();
+            let fs = file_store.clone();
+            Ok(LiterLlmMcp::new(sp, fs, KeyContext::master(), McpTransportKind::Http))
+        },
+        LocalSessionManager::default().into(),
+        Default::default(),
+    );
+
+    let router = axum::Router::new()
+        .nest_service("/mcp", http_service)
+        .layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            validate_api_key,
+        ))
+        .with_state(app_state);
+
+    tracing::info!("starting MCP server with HTTP transport on {addr}");
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .map_err(|e| format!("failed to bind MCP HTTP {addr}: {e}"))?;
+    axum::serve(listener, router)
+        .await
+        .map_err(|e| format!("MCP HTTP server error: {e}"))?;
 
     Ok(())
 }
