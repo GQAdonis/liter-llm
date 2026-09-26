@@ -718,6 +718,13 @@ impl Provider for OpenAiCompatibleProvider {
             .iter()
             .any(|prefix| model.starts_with(prefix.as_str()))
     }
+
+    fn strip_model_prefix<'m>(&self, model: &'m str) -> &'m str {
+        self.model_prefixes
+            .iter()
+            .find_map(|prefix| model.strip_prefix(prefix))
+            .unwrap_or(model)
+    }
 }
 
 /// A data-driven provider backed by a [`ProviderConfig`] entry from providers.json.
