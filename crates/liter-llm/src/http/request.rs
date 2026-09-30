@@ -49,9 +49,11 @@ pub(crate) struct StreamingPost<'a> {
 }
 
 impl StreamingPost<'_> {
-    /// Send this request as a JSON `POST` under the retry policy in `options`,
-    /// then record the final status and retry count on the calling span
-    /// (`post_stream*` / `post_eventstream*`), which declares those fields.
+    /// Send this request as a JSON `POST` under the retry policy in `options`.
+    ///
+    /// Once a response is obtained, its status and the retry count are recorded
+    /// on the calling span (`post_stream*` / `post_eventstream*`), which declares
+    /// those fields; a terminal error returns before anything is recorded.
     pub(crate) async fn send(
         &self,
         client: &reqwest::Client,
