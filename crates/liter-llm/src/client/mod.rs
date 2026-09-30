@@ -1113,10 +1113,12 @@ impl LlmClient for DefaultClient {
                 provider::StreamFormat::AwsEventStream => {
                     let stream = http::eventstream::post_eventstream_bounded(
                         &self.http,
-                        &url,
-                        auth,
-                        &extra,
-                        prepared.body_bytes,
+                        http::request::StreamingPost {
+                            url: &url,
+                            auth_header: auth,
+                            extra_headers: &extra,
+                            body: prepared.body_bytes,
+                        },
                         provider::bedrock::parse_bedrock_stream_event,
                         self.response_read_options(),
                     )
@@ -1500,10 +1502,12 @@ impl LlmClientRaw for DefaultClient {
                 provider::StreamFormat::AwsEventStream => {
                     http::eventstream::post_eventstream_bounded(
                         &self.http,
-                        &url,
-                        auth,
-                        &extra,
-                        prepared.body_bytes,
+                        http::request::StreamingPost {
+                            url: &url,
+                            auth_header: auth,
+                            extra_headers: &extra,
+                            body: prepared.body_bytes,
+                        },
                         provider::bedrock::parse_bedrock_stream_event,
                         self.response_read_options(),
                     )
