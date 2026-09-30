@@ -32,6 +32,9 @@ pub struct ClientConfig {
     /// Override base URL.  When set, all requests go here regardless of model
     /// name, and provider auto-detection is skipped.
     pub base_url: Option<String>,
+    /// Redact `base_url` from Debug output when an embedding host treats the
+    /// request-owned endpoint as secret material.
+    pub redact_base_url: bool,
     /// Request timeout.
     pub timeout: Duration,
     /// Maximum number of retries on 429 / 5xx responses.
@@ -153,6 +156,7 @@ impl ClientConfig {
         Self {
             api_key: SecretString::from(api_key.into()),
             base_url: None,
+            redact_base_url: false,
             timeout: Duration::from_secs(60),
             max_retries: 3,
             max_response_bytes: None,
@@ -205,7 +209,14 @@ impl std::fmt::Debug for ClientConfig {
             .collect();
         let mut dbg = f.debug_struct("ClientConfig");
         dbg.field("api_key", &"[redacted]")
-            .field("base_url", &self.base_url)
+            .field(
+                "base_url",
+                &if self.redact_base_url {
+                    self.base_url.as_ref().map(|_| "[redacted]")
+                } else {
+                    self.base_url.as_deref()
+                },
+            )
             .field("timeout", &self.timeout)
             .field("max_retries", &self.max_retries)
             .field("max_response_bytes", &self.max_response_bytes)
