@@ -385,7 +385,8 @@ where
 }
 
 /// Once the inner stream has ended, report any bytes left in the buffers as a
-/// truncation error, clearing them either way. `None` means a clean end.
+/// truncation error, clearing the leftover data it finds. `None` means a clean
+/// end, in which case there was nothing left to clear.
 fn truncation_error_at_eof(buffer: &mut String, cursor: &mut usize, pending: &mut Vec<u8>) -> Option<LiterLlmError> {
     // ~keep Leftover bytes at EOF are an incomplete SSE line: the connection was
     // cut mid-event. That is data loss, not a clean end, so it must surface as

@@ -222,10 +222,11 @@ async fn should_reject_oversized_headers_before_waiting_for_body() {
 async fn should_bound_final_stream_errors_without_limiting_successful_streams() {
     set_outbound_policy(OutboundPolicy::Off);
     let (address, server) = one_shot_server("HTTP/1.1 400 error\r\nContent-Length: 3\r\n\r\nerr".into());
+    let url = format!("http://{address}/");
     let result = crate::http::streaming::post_stream_bounded::<_, serde_json::Value>(
         &reqwest::Client::new(),
         crate::http::request::StreamingPost {
-            url: &format!("http://{address}/"),
+            url: &url,
             auth_header: None,
             extra_headers: &[],
             body: Bytes::from_static(b"{}"),
@@ -354,10 +355,11 @@ async fn should_keep_successful_stream_traffic_above_retained_body_limit() {
         SSE_BODY.len()
     );
     let (address, server) = one_shot_server(response);
+    let url = format!("http://{address}/");
     let result = crate::http::streaming::post_stream_bounded::<_, serde_json::Value>(
         &reqwest::Client::new(),
         crate::http::request::StreamingPost {
-            url: &format!("http://{address}/"),
+            url: &url,
             auth_header: None,
             extra_headers: &[],
             body: Bytes::from_static(b"{}"),
