@@ -525,8 +525,8 @@ fn transform_request_basic_chat() {
 }
 
 /// Revert line: delete
-/// `super::validate_sampling_param_range(body, "temperature", "Bedrock", 0.0, 1.0)?;`
-/// in `transform_request` to make this test fail.
+/// `crate::provider::validate_sampling_param_range(body, "temperature", "Bedrock", 0.0, 1.0)?;`
+/// in `bedrock::request::transform_converse_request` to make this test fail.
 #[test]
 #[serial]
 fn transform_request_rejects_temperature_above_bedrock_maximum() {
@@ -554,8 +554,8 @@ fn transform_request_rejects_temperature_above_bedrock_maximum() {
 }
 
 /// Revert line: delete
-/// `super::validate_sampling_param_range(body, "top_p", "Bedrock", 0.0, 1.0)?;`
-/// in `transform_request` to make this test fail.
+/// `crate::provider::validate_sampling_param_range(body, "top_p", "Bedrock", 0.0, 1.0)?;`
+/// in `bedrock::request::transform_converse_request` to make this test fail.
 #[test]
 #[serial]
 fn transform_request_rejects_top_p_above_bedrock_maximum() {

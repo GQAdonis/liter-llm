@@ -29,8 +29,9 @@ const COHERE_EMBED_DEFAULT_INPUT_TYPE: &str = "search_document";
 ///
 /// ~keep Titan's `invoke` endpoint accepts exactly one string per call (batch Titan
 /// ~keep embedding is a separate async `CreateModelInvocationJob` API, not this
-/// ~keep synchronous path). A batched OpenAI `input` is reduced to its first element;
-/// ~keep the rest are dropped with a warning rather than silently discarded.
+/// ~keep synchronous path). A batched OpenAI `input` with more than one element is
+/// ~keep therefore rejected with a `BadRequest` rather than truncated, since one
+/// ~keep vector for an N-element batch would silently misalign `data[]` with `input[]`.
 pub(super) fn transform_bedrock_embed_request(body: &mut serde_json::Value) -> Result<()> {
     use crate::error::LiterLlmError;
     use serde_json::json;
