@@ -390,6 +390,14 @@ type ClientSink = SplitSink<WebSocket, Message>;
 type UpstreamSink = SplitSink<UpstreamStream, TungsteniteMessage>;
 
 /// State shared by one direction of the proxy loop.
+///
+/// Both directions carry both sinks even though each only sends on one (plus
+/// the client sink for error events). Sink lifetime is owned by `run_proxy`,
+/// which holds its own `Arc`s until both tasks are joined, so the extra clone
+/// never changes when a sink closes; keeping one shape for both directions is
+/// simpler than two near-identical context types. Do not drop the unused sink
+/// from one direction on the assumption that it affects close timing -- it
+/// does not, and neither does keeping it.
 struct PumpContext {
     client_tx: Arc<Mutex<ClientSink>>,
     upstream_tx: Arc<Mutex<UpstreamSink>>,
@@ -416,7 +424,7 @@ async fn pump_client_to_upstream(mut stream: SplitStream<WebSocket>, ctx: PumpCo
                     }
                     Some(Ok(Message::Close(_))) => break,
                     Some(Ok(Message::Text(text))) => {
-                        if forward_client_text(&ctx, &text).await.is_break() {
+                        if forward_client_text(&ctx, text.as_str()).await.is_break() {
                             break;
                         }
                     }
@@ -457,7 +465,7 @@ async fn forward_client_text(ctx: &PumpContext, text: &str) -> ControlFlow<()> {
         }
     };
 
-    let raw = match apply_guardrails_input(&ctx.guardrails, &raw, &ctx.metadata).await {
+    let raw = match apply_guardrails_input(ctx.guardrails.as_slice(), &raw, ctx.metadata.as_ref()).await {
         GuardrailOutcome::Allow(payload) => payload,
         GuardrailOutcome::Block { reason, code } => {
             let err_json = guardrail_error_json(code, &reason);
@@ -516,7 +524,7 @@ async fn pump_upstream_to_client(mut stream: SplitStream<UpstreamStream>, ctx: P
                         break;
                     }
                     Some(Ok(TungsteniteMessage::Text(text))) => {
-                        if forward_upstream_text(&ctx, &text).await.is_break() {
+                        if forward_upstream_text(&ctx, text.as_str()).await.is_break() {
                             break;
                         }
                     }
@@ -579,7 +587,8 @@ async fn forward_upstream_text(ctx: &PumpContext, text: &str) -> ControlFlow<()>
     let label = event_type_label(&event);
     let audio_bytes = audio_bytes_for_event(&event);
 
-    let forward_json = match apply_guardrails_output_chunk(&ctx.guardrails, &raw, &ctx.metadata).await {
+    let forward_json = match apply_guardrails_output_chunk(ctx.guardrails.as_slice(), &raw, ctx.metadata.as_ref()).await
+    {
         GuardrailOutcome::Allow(v) => serde_json::to_string(&v).unwrap_or_default(),
         GuardrailOutcome::Block { reason, code } => {
             let err = RealtimeEvent::Error {
