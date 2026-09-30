@@ -48,6 +48,47 @@ pub(crate) struct StreamingPost<'a> {
     pub body: Bytes,
 }
 
+impl StreamingPost<'_> {
+    /// Send this request as a JSON `POST` under the retry policy in `options`,
+    /// then record the final status and retry count on the calling span
+    /// (`post_stream*` / `post_eventstream*`), which declares those fields.
+    pub(crate) async fn send(
+        &self,
+        client: &reqwest::Client,
+        options: ResponseReadOptions,
+    ) -> Result<reqwest::Response> {
+        let ResponseReadOptions {
+            max_retries,
+            max_response_bytes,
+        } = options;
+        let mut retry_count = 0u32;
+
+        let resp = with_retry_bounded(self.url, max_retries, max_response_bytes, || {
+            let mut builder = client
+                .post(self.url)
+                .header(reqwest::header::CONTENT_TYPE, "application/json")
+                .body(self.body.clone());
+            if let Some((name, value)) = self.auth_header {
+                builder = builder.header(name, value);
+            }
+            for (name, value) in self.extra_headers {
+                builder = builder.header(*name, *value);
+            }
+            retry_count += 1;
+            builder.send()
+        })
+        .await?;
+
+        {
+            let span = tracing::Span::current();
+            span.record("http.status_code", resp.status().as_u16());
+            span.record("http.retry_count", retry_count.saturating_sub(1));
+        }
+
+        Ok(resp)
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn response_limit_error(limit: usize) -> LiterLlmError {
     LiterLlmError::Streaming {
