@@ -101,7 +101,8 @@ fn record_stream_on_completion<L: BudgetLedger>(
         // ~keep Guard against "no current runtime" if the stream is drained outside Tokio (matches
         // ~keep the tokio::runtime::Handle::try_current() convention used by hooks.rs's CancellationGuard).
         let record = async move {
-            ledger.record(&meta.record_ctx(usd, &usage)).await;
+            let ctx = meta.record_ctx(usd, &usage);
+            ledger.record(&ctx).await;
         };
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(record);
@@ -154,7 +155,8 @@ where
             if let Some(usage) = resp.usage()
                 && let Some(usd) = meta.cost_of(usage)
             {
-                ledger.record(&meta.record_ctx(usd, usage)).await;
+                let ctx = meta.record_ctx(usd, usage);
+                ledger.record(&ctx).await;
             }
             Ok(resp)
         })
