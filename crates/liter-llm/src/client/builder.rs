@@ -415,6 +415,7 @@ impl ClientBuilder<WithApiKey, WithProvider> {
         let config = ClientConfig {
             api_key: self.api_key,
             base_url: self.base_url,
+            redact_base_url: false,
             timeout: self.timeout,
             max_retries: self.max_retries,
             max_response_bytes: self.max_response_bytes,
