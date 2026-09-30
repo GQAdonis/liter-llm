@@ -224,10 +224,12 @@ async fn should_bound_final_stream_errors_without_limiting_successful_streams() 
     let (address, server) = one_shot_server("HTTP/1.1 400 error\r\nContent-Length: 3\r\n\r\nerr".into());
     let result = crate::http::streaming::post_stream_bounded::<_, serde_json::Value>(
         &reqwest::Client::new(),
-        &format!("http://{address}/"),
-        None,
-        &[],
-        Bytes::from_static(b"{}"),
+        crate::http::request::StreamingPost {
+            url: &format!("http://{address}/"),
+            auth_header: None,
+            extra_headers: &[],
+            body: Bytes::from_static(b"{}"),
+        },
         |_| Ok(None),
         ResponseReadOptions {
             max_retries: 0,
@@ -352,10 +354,12 @@ async fn should_keep_successful_stream_traffic_above_retained_body_limit() {
     let (address, server) = one_shot_server(response);
     let result = crate::http::streaming::post_stream_bounded::<_, serde_json::Value>(
         &reqwest::Client::new(),
-        &format!("http://{address}/"),
-        None,
-        &[],
-        Bytes::from_static(b"{}"),
+        crate::http::request::StreamingPost {
+            url: &format!("http://{address}/"),
+            auth_header: None,
+            extra_headers: &[],
+            body: Bytes::from_static(b"{}"),
+        },
         |event| Ok(Some(serde_json::from_str(event)?)),
         ResponseReadOptions {
             max_retries: 0,
