@@ -294,18 +294,20 @@ fn serialize_assistant_message_with_role<S>(message: &AssistantMessage, serializ
 where
     S: serde::Serializer,
 {
-    #[derive(Serialize)]
-    struct WithRole<'a> {
-        role: &'static str,
-        #[serde(flatten)]
-        message: &'a AssistantMessage,
-    }
-
-    WithRole {
-        role: "assistant",
-        message,
-    }
-    .serialize(serializer)
+    let mut value = serde_json::to_value(message).map_err(serde::ser::Error::custom)?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| {
+            serde::ser::Error::custom("assistant message did not serialize to an object")
+        })?;
+    object.insert(
+        "role".to_owned(),
+        serde_json::Value::String("assistant".to_owned()),
+    );
+    object
+        .entry("refusal".to_owned())
+        .or_insert(serde_json::Value::Null);
+    value.serialize(serializer)
 }
 
 /// A streamed chunk of a chat completion response.

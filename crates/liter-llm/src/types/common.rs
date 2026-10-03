@@ -291,9 +291,10 @@ pub struct AssistantMessage {
     pub tool_calls: Option<Vec<ToolCall>>,
     /// Refusal reason, if the model declined to respond per safety policies.
     ///
-    /// OpenAI's response schema requires this key to be present even when null,
-    /// so it is deliberately not `skip_serializing_if`. ~keep
-    #[serde(default)]
+    /// Completion responses restore this nullable key in their response-specific
+    /// serializer. Request history omits it when absent because compatible
+    /// providers such as Groq reject response-only fields on input messages. ~keep
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refusal: Option<String>,
     /// Deprecated legacy function_call field; retained for API compatibility.
     #[serde(default, skip_serializing_if = "Option::is_none")]
