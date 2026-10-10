@@ -10,7 +10,8 @@
 Gem::Specification.new do |spec|
   spec.name = "liter_llm"
   spec.version = "2.2.3"
-  spec.authors       = ["Na'aman Hirschfeld"]
+  spec.authors       = ["Na'aman Hirschfeld", "Tobias Perlstein"]
+  spec.email         = ["naaman@xberg.io", "tobias@xberg.io"]
   spec.summary       = "Universal LLM API client with Rust-powered polyglot bindings."
   spec.description   = "Universal LLM API client with Rust-powered polyglot bindings."
   spec.homepage      = "https://github.com/xberg-io/liter-llm"
