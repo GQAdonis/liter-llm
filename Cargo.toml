@@ -34,8 +34,8 @@ needless-pass-by-value = "allow"
 module-name-repetitions = "allow"
 missing-errors-doc = "allow"
 missing-panics-doc = "allow"
-# Diagnostics belong in `tracing`, not raw stdout/stderr writes. CLI data output and
-# build-script `cargo:` directives opt back in locally with `#[expect(clippy::print_stdout)]`. ~keep
+# ~keep Diagnostics use tracing; CLI result output opts in with expect(print_stdout).
+# ~keep Cargo build-script directives are exempt from the print lint automatically.
 print_stdout = "deny"
 print_stderr = "deny"
 dbg_macro = "deny"

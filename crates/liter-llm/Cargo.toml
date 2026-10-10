@@ -1,4 +1,27 @@
 [package]
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/src/**",
+    "/README.md",
+    "/schemas/catalog.json",
+    "/schemas/providers.json",
+    "!/src/tests.rs",
+    "!/src/cost/refresh_tests.rs",
+    "!/src/cost/tests.rs",
+    "!/src/tower/budget/ledger_tests.rs",
+    "!/src/tower/budget/tests.rs",
+    "!/src/tower/tests.rs",
+    "!/src/tower/tests_common.rs",
+    "!/src/provider/vertex/response_tests.rs",
+    "!/src/provider/vertex/tests.rs",
+    "!/src/provider/bedrock/provider_tests.rs",
+    "!/src/provider/bedrock/tests.rs",
+    "!/src/provider/anthropic/feature_tests.rs",
+    "!/src/provider/anthropic/tests.rs",
+    "!/src/guardrail/tests.rs",
+    "!/src/http/request_body_tests.rs",
+]
 name = "liter-llm"
 version.workspace = true
 edition.workspace = true

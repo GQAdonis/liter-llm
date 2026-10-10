@@ -1,4 +1,10 @@
 [package]
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/src/**",
+    "!/src/routes/realtime/tests.rs",
+]
 name = "liter-llm-proxy"
 version.workspace = true
 edition.workspace = true
