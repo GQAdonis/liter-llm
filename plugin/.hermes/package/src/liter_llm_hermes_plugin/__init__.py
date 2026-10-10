@@ -1,6 +1,6 @@
 # AI-RULEZ :: GENERATED FILE — DO NOT EDIT
 # Content-Hash: blake3:4dca5a316c0770b1c9a828e273dce278fd397174ebb60e9e45a012325533789c
-# Source-Hash: blake3:3cb955aedbbbd51d9b5f60a411d90b9386534c5f14bf20a056bef60f7dace49e
+# Source-Hash: blake3:6e7ae063f9fc40941b06b8b44471e2f6941cb2fe61e657d5f76ee1b6734fb271
 # Schema-Version: v1
 
 """Hermes Agent plugin package."""

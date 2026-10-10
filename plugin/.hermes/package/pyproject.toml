@@ -3,14 +3,6 @@ requires = ['hatchling>=1.27']
 build-backend = 'hatchling.build'
 
 [project]
-authors = [
-  { name = "Na'aman Hirschfeld", email = "naaman@xberg.io" },
-  { name = "Tobias Perlstein", email = "tobias@xberg.io" },
-]
-maintainers = [
-  { name = "Na'aman Hirschfeld", email = "naaman@xberg.io" },
-  { name = "Tobias Perlstein", email = "tobias@xberg.io" },
-]
 name = 'liter-llm-hermes-plugin'
 version = '2.2.3'
 description = 'Universal LLM API client for 174 providers — chat, streaming, tools, embeddings, search, OCR, plus an OpenAI-compatible proxy and an MCP server.'

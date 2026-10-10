@@ -17,6 +17,30 @@ Self-host:
 /plugin install liter-llm@liter-llm
 ```
 
+### Pi
+
+From a checkout of this repository, run:
+
+```bash
+pi install ./plugin
+```
+
+Once a plugin release includes Pi support, use the shared OpenCode/Pi npm package:
+
+```bash
+pi install npm:@xberg-io/opencode-liter-llm
+```
+
+Pi discovers skills from `.pi/skills` and prompt templates from `.pi/prompts`.
+Use `/liter-llm-chat` and `/liter-llm-stream` to start a task.
+Install the CLI separately using the instructions below. The Pi package does not
+register MCP servers, hooks, or executable extensions. The MCP integration
+sections below apply to clients with MCP support.
+
+Git installs use the repository root's `package.json` resource paths. GitHub
+hosts the checkout resources; the existing npm plugin release publishes the same
+Pi content alongside the OpenCode adapter. No separate Pi release job is needed.
+
 ### Binary requirement
 
 The bundled MCP launcher (`scripts/mcp-launch.sh`) resolves a `liter-llm` binary
@@ -151,6 +175,22 @@ Embed these five paragraphs with openai/text-embedding-3-small and rank them aga
 ## Versioning
 
 The plugin version tracks the liter-llm core release (`Cargo.toml`). See [CHANGELOG.md](../CHANGELOG.md) for release notes.
+
+## Maintaining the plugin
+
+Edit `plugin/.ai-rulez` sources, then run these commands from the repository root
+with a Pi-capable ai-rulez v5 binary installed:
+
+```bash
+task plugin:generate
+task plugin:verify
+task plugin:test
+```
+
+CI builds the generator from a pinned source revision and verifies the generated
+bundles, OpenCode tools, and actual npm archive before publication. The shared
+npm package publishes both OpenCode and Pi resources; Hermes uses its existing
+PyPI release job. GitHub hosts the remaining plugin bundles and marketplace indexes.
 
 ## License
 
