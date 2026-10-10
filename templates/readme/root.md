@@ -283,6 +283,28 @@ copilot plugin install liter-llm@liter-llm
 </details>
 
 <details>
+<summary><strong>Pi</strong></summary>
+
+Install from a local checkout now:
+
+```bash
+pi install ./plugin
+```
+
+After the next plugin release, install the same package used by OpenCode:
+
+```bash
+pi install npm:@xberg-io/opencode-liter-llm
+```
+
+Pi loads the bundled skills and prompt templates. Use `/liter-llm-chat` and `/liter-llm-stream`
+to start a task. Install the CLI separately as
+shown in [the plugin README](https://github.com/xberg-io/liter-llm/blob/main/plugin/README.md).
+This package does not register MCP servers, hooks, or executable extensions in Pi.
+
+</details>
+
+<details>
 <summary><strong>opencode</strong></summary>
 
 Add the package to `opencode.json`:

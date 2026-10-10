@@ -76,6 +76,28 @@ copilot plugin install liter-llm@liter-llm
 </details>
 
 <details>
+<summary><strong>Pi</strong></summary>
+
+Install from a local checkout now:
+
+```bash
+pi install ./plugin
+```
+
+After the next plugin release, install the same package used by OpenCode:
+
+```bash
+pi install npm:@xberg-io/opencode-liter-llm
+```
+
+Pi loads the bundled skills and prompt templates. Use `/liter-llm-chat` and `/liter-llm-stream`
+to start a task. Install the CLI separately as
+shown in [the plugin README](https://github.com/xberg-io/liter-llm/blob/main/plugin/README.md).
+This package does not register MCP servers, hooks, or executable extensions in Pi.
+
+</details>
+
+<details>
 <summary><strong>opencode</strong></summary>
 
 Add the package to `opencode.json`:
@@ -91,7 +113,7 @@ Add the package to `opencode.json`:
 
 ## MCP server
 
-Every harness above installs the same bundled MCP server and registers it for you — there is nothing to configure by hand. The plugin points at `scripts/mcp-launch.sh`, which resolves the `liter-llm` binary at runtime (`npx @xberg-io/liter-llm-cli`, `uvx --from liter-llm-cli`, Homebrew, or a downloaded release).
+The MCP-capable integrations above install the same bundled MCP server and register it for you — there is nothing to configure by hand. The plugin points at `scripts/mcp-launch.sh`, which resolves the `liter-llm` binary at runtime (`npx @xberg-io/liter-llm-cli`, `uvx --from liter-llm-cli`, Homebrew, or a downloaded release).
 
 To register the server directly in any other MCP client (without the plugin), add it to that client's MCP config:
 

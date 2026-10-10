@@ -6,7 +6,7 @@ description: Use when defining functions/tools for an LLM to call through liter-
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
 Content-Hash: blake3:636c5d6448b2e3c003bd5caec347391513d72e415ceaef0740241141bc363b35
-Source-Hash: blake3:3cb955aedbbbd51d9b5f60a411d90b9386534c5f14bf20a056bef60f7dace49e
+Source-Hash: blake3:6e7ae063f9fc40941b06b8b44471e2f6941cb2fe61e657d5f76ee1b6734fb271
 Schema-Version: v1
 -->
 

@@ -1,8 +1,13 @@
-version = "4.0"
+version = "5.0"
 name = "liter-llm"
 description = "Universal LLM API client for 174 providers — chat, streaming, tools, embeddings, search, OCR, plus an OpenAI-compatible proxy and an MCP server."
+# Pinned by `ai-rulez migrate v5`: the 4.x default. Remove this line to take the v5 default.
+agents_md = false
+# Pinned by `ai-rulez migrate v5`: the 4.x default. Remove this line to take the v5 default.
+gitignore = true
 
 [plugin]
+runtimes = ["claude", "cursor", "codex", "gemini", "kimi", "opencode", "factory", "hermes", "pi"]
 name = "liter-llm"
 version = "2.2.3"
 display_name = "Liter-LLM"
@@ -47,3 +52,7 @@ brand_color = "#1F6FEB"
 
 [plugin.gemini]
 context_file_name = "GEMINI.md"
+
+# Pinned by `ai-rulez migrate v5`: the 4.x default. Remove this line to take the v5 default.
+[header]
+hashes = "full"

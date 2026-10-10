@@ -39,5 +39,13 @@
       "name": "using-the-mcp-server",
       "description": "Use when calling LLM APIs through the liter-llm MCP server's 22 tools, and to decide when MCP beats the CLI or SDK. Covers the tool surface, the auto-installing launcher, and authentication."
     }
+  },
+  "commands": {
+    "liter-llm-chat": {
+      "description": "Call an LLM provider using liter-llm"
+    },
+    "liter-llm-stream": {
+      "description": "Stream responses with liter-llm"
+    }
   }
 }
