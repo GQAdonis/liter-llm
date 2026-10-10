@@ -1,14 +1,11 @@
-version = "4.0"
+version = "5.0"
 name = "liter-llm"
 description = "Multi-language LLM library with Rust core and polyglot bindings (Python, TypeScript, Ruby, PHP, Elixir, Go, Java, C#, WASM)"
 gitignore = true
 
-presets = ["claude", "codex", "opencode"]
+presets = ["claude", "codex", "opencode", "pi"]
 
 compact = true
-[header]
-style = "minimal"
-
 builtins = [
   "rust",
   "python",
@@ -23,6 +20,11 @@ builtins = [
   "napi-rs",
   "default-commands",
 ]
+
+[header]
+style = "minimal"
+
+hashes = "full"
 
 [[includes]]
 name = "xberg-core"
