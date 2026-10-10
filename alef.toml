@@ -2294,7 +2294,7 @@ issues = "https://github.com/xberg-io/liter-llm/issues"
 description = "Universal LLM API client with Rust-powered polyglot bindings."
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
-authors = ["Na'aman Hirschfeld"]
+authors = ["Na'aman Hirschfeld <naaman@xberg.io>", "Tobias Perlstein <tobias@xberg.io>"]
 keywords = ["llm", "api-client", "openai", "anthropic"]
 
 [crates.scaffold.cargo]

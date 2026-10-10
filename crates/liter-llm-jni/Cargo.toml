@@ -2,6 +2,7 @@
 # alef:hash:574cbe4f100dfa22c78ebcf30c6986751c45973586b3c8583b308ed3317d24f7
 
 [package]
+authors.workspace = true
 name = "liter-llm-jni"
 version.workspace = true
 edition = "2024"
