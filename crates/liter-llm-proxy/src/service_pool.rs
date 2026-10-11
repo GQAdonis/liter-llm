@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use regex::Regex;
-use tower::Layer;
+use tower::{Layer, Service};
 
 use liter_llm::client::{ClientConfigBuilder, DefaultClient};
 use liter_llm::error::LiterLlmError;
@@ -23,6 +24,56 @@ use crate::error::ProxyError;
 use crate::tenant_limit::{KeyLimitLayer, PerKeyBudgetLedger, build_key_limits};
 
 type Bcs = tower::util::BoxCloneService<LlmRequest, LlmResponse, LiterLlmError>;
+
+#[derive(Clone)]
+struct ModelRewriteService<S> {
+    inner: S,
+    provider_model: Arc<str>,
+}
+
+impl<S> ModelRewriteService<S> {
+    fn new(inner: S, provider_model: &str) -> Self {
+        Self {
+            inner,
+            provider_model: Arc::from(provider_model),
+        }
+    }
+}
+
+impl<S> Service<LlmRequest> for ModelRewriteService<S>
+where
+    S: Service<LlmRequest, Response = LlmResponse, Error = LiterLlmError>,
+{
+    type Response = LlmResponse;
+    type Error = LiterLlmError;
+    type Future = S::Future;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, mut request: LlmRequest) -> Self::Future {
+        let provider_model = self.provider_model.to_string();
+        match &mut request.kind {
+            liter_llm::tower::types::LlmRequestKind::Chat(inner)
+            | liter_llm::tower::types::LlmRequestKind::ChatStream(inner) => inner.model.clone_from(&provider_model),
+            liter_llm::tower::types::LlmRequestKind::Embed(inner) => inner.model.clone_from(&provider_model),
+            liter_llm::tower::types::LlmRequestKind::ListModels => {}
+            liter_llm::tower::types::LlmRequestKind::ImageGenerate(inner) => {
+                inner.model = Some(provider_model.clone());
+            }
+            liter_llm::tower::types::LlmRequestKind::Speech(inner) => inner.model.clone_from(&provider_model),
+            liter_llm::tower::types::LlmRequestKind::Transcribe(inner) => inner.model.clone_from(&provider_model),
+            liter_llm::tower::types::LlmRequestKind::Moderate(inner) => {
+                inner.model = Some(provider_model.clone());
+            }
+            liter_llm::tower::types::LlmRequestKind::Rerank(inner) => inner.model.clone_from(&provider_model),
+            liter_llm::tower::types::LlmRequestKind::Search(inner) => inner.model.clone_from(&provider_model),
+            liter_llm::tower::types::LlmRequestKind::Ocr(inner) => inner.model.clone_from(&provider_model),
+        }
+        self.inner.call(request)
+    }
+}
 
 /// Thread-safe wrapper around `BoxCloneService`.
 ///
@@ -332,7 +383,10 @@ fn build_base_service(
 ) -> Result<(Bcs, Arc<DefaultClient>), String> {
     if entries.len() == 1 {
         let client_arc = Arc::new(build_client(entries[0], config)?);
-        let base: Bcs = tower::util::BoxCloneService::new(LlmService::new_from_arc(Arc::clone(&client_arc)));
+        let base: Bcs = tower::util::BoxCloneService::new(ModelRewriteService::new(
+            LlmService::new_from_arc(Arc::clone(&client_arc)),
+            &entries[0].provider_model,
+        ));
         return Ok((base, client_arc));
     }
 
@@ -343,7 +397,10 @@ fn build_base_service(
         if first_client.is_none() {
             first_client = Some(Arc::clone(&client_arc));
         }
-        deployments.push(LlmService::new_from_arc(client_arc));
+        deployments.push(ModelRewriteService::new(
+            LlmService::new_from_arc(client_arc),
+            &entry.provider_model,
+        ));
     }
     let deployment_models = deployment_model_ids(entries);
 
