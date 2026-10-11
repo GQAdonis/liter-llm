@@ -56,13 +56,13 @@ def main() -> None:
     prompts = len(list((plugin / ".ai-rulez/commands").glob("*.md")))
     with tempfile.TemporaryDirectory(prefix="pi-package-") as destination:
         result = subprocess.run(
-            ["npm", "pack", "--json", "--ignore-scripts", "--offline", "--pack-destination", destination],
+            ["pnpm", "pack", "--json", "--ignore-scripts", "--pack-destination", destination],
             cwd=plugin,
             check=True,
             text=True,
             capture_output=True,
         )
-        archive = Path(destination) / json.loads(result.stdout)[0]["filename"]
+        archive = Path(destination) / json.loads(result.stdout)["filename"]
         verify_archive(archive, metadata["name"], skills, prompts)
 
 

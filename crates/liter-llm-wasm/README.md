@@ -106,7 +106,7 @@ Install via one of the supported package managers:
 **npm:**
 
 ```bash
-npm install @xberg-io/liter-llm-wasm
+pnpm add @xberg-io/liter-llm-wasm
 ```
 
 **pnpm:**

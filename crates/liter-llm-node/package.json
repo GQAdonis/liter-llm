@@ -67,9 +67,9 @@
     ]
   },
   "scripts": {
-    "build": "npx --yes -p @napi-rs/cli@^3.8.6 napi build --platform --no-js --dts index.native.d.ts --release",
-    "artifacts": "npx --yes -p @napi-rs/cli@^3.8.6 napi artifacts",
-    "prepublishOnly": "npx --yes -p @napi-rs/cli@^3.8.6 napi prepublish -t npm --skip-optional-publish"
+    "build": "pnpm --package @napi-rs/cli@^3.8.6 dlx napi build --platform --no-js --dts index.native.d.ts --release",
+    "artifacts": "pnpm --package @napi-rs/cli@^3.8.6 dlx napi artifacts",
+    "prepublishOnly": "pnpm --package @napi-rs/cli@^3.8.6 dlx napi prepublish -t npm --skip-optional-publish"
   },
   "engines": {
     "node": ">= 22"
@@ -79,5 +79,6 @@
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.10.8"
-  }
+  },
+  "packageManager": "pnpm@12.11.2"
 }
