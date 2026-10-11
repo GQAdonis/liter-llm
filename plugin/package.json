@@ -64,5 +64,6 @@
     "url": "https://github.com/xberg-io/liter-llm"
   },
   "type": "module",
-  "version": "2.2.3"
+  "version": "2.2.3",
+  "packageManager": "pnpm@12.11.2"
 }

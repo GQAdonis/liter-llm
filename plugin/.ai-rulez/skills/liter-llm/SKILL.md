@@ -63,7 +63,7 @@ building software; the proxy when centralizing access for multiple consumers.
 brew install xberg-io/tap/liter-llm
 
 # or run it without a persistent install (the CLI proxy package self-installs the binary)
-npx @xberg-io/liter-llm-cli --help
+pnpm dlx @xberg-io/liter-llm-cli --help
 uvx --from liter-llm-cli liter-llm --help
 
 # or download a prebuilt binary from the latest GitHub release:

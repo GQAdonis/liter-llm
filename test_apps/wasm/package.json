@@ -11,7 +11,8 @@
   },
   "devDependencies": {
     "@xberg-io/liter-llm-wasm": "2.2.3",
-    "rollup": "^4.53.3",
-    "vitest": "^4.1.10"
-  }
+    "rollup": "^4.64.5",
+    "vitest": "^5.0.3"
+  },
+  "packageManager": "pnpm@12.11.2"
 }

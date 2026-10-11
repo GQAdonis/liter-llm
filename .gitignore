@@ -340,3 +340,6 @@ test_apps/java/.mvn/*
 !test_apps/java/.mvn/wrapper/
 test_apps/java/.mvn/wrapper/*
 !test_apps/java/.mvn/wrapper/maven-wrapper.properties
+
+!test_apps/node/pnpm-lock.yaml
+!test_apps/wasm/pnpm-lock.yaml

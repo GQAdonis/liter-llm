@@ -29,7 +29,7 @@ Install via your preferred package manager:
 {% if "npm" in package_manager %}
 
 ```bash
-npm install {{ package_name }}
+pnpm add {{ package_name }}
 ```
 
 {% endif %}
@@ -171,7 +171,7 @@ pip install {{ package_name }}
 **npm:**
 
 ```bash
-npm install {{ package_name }}
+pnpm add {{ package_name }}
 ```
 
 {% elif pm == "pnpm" %}

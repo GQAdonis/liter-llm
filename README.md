@@ -267,7 +267,7 @@ The `liter-llm` CLI ships both the OpenAI-compatible proxy and the MCP tool serv
 brew install xberg-io/tap/liter-llm
 cargo install liter-llm-cli                 # from crates.io
 cargo binstall liter-llm-cli               # prebuilt binary from GitHub Releases
-npx @xberg-io/liter-llm-cli --help         # npm (self-installs the binary)
+pnpm dlx @xberg-io/liter-llm-cli --help         # npm (self-installs the binary)
 docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-your-key ghcr.io/xberg-io/liter-llm
 ```
 
