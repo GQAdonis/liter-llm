@@ -79,6 +79,9 @@ pub use client::{
 // ~keep Batch polling helpers are binding-public and used by every language binding.
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 pub use client::{BatchWaitError, WaitForBatchConfig};
+/// Shared incremental SSE framing for host-owned native provider adapters.
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+pub use http::streaming::{SseDecoder, SseEvent};
 pub use http::transport::TransportConfig;
 // ~keep DefaultClient requires an HTTP stack: reqwest on native or browser fetch on WASM.
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]

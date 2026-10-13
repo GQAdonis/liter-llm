@@ -116,6 +116,11 @@ impl Provider for CohereProvider {
     /// missed: `content-delta` always yielded empty text, tool-call id/name/arguments were
     /// always empty, and `finish_reason`/`usage` never surfaced because the event-type
     /// strings never matched — streaming opened without error but delivered nothing.
+    #[cfg(any(feature = "native-http", feature = "wasm-http"))]
+    fn chat_stream_protocol(&self) -> crate::http::chat_streaming::ChatStreamProtocol {
+        crate::http::chat_streaming::ChatStreamProtocol::Cohere
+    }
+
     fn parse_stream_event(&self, event_data: &str) -> Result<Option<ChatCompletionChunk>> {
         let v: Value = serde_json::from_str(event_data).map_err(|e| LiterLlmError::Streaming {
             message: format!("failed to parse Cohere SSE event: {e}"),

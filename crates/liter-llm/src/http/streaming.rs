@@ -334,6 +334,101 @@ where
     }
 }
 
+/// One completely framed SSE event. Data lines are joined with a newline.
+#[derive(Debug)]
+pub struct SseEvent {
+    /// Optional SSE event name.
+    pub event: String,
+    /// Complete UTF-8 data payload.
+    pub data: String,
+}
+
+/// Incremental SSE framing shared by chat transports and native host adapters.
+/// Uses the pinned UTF-8 decoder and buffer limit; never parses a partial line.
+#[derive(Default)]
+pub struct SseDecoder {
+    buffer: String,
+    pending: Vec<u8>,
+    cursor: usize,
+    event: String,
+    data: String,
+    has_data: bool,
+    has_fields: bool,
+}
+
+impl SseDecoder {
+    /// Append transport bytes, retaining split UTF-8 codepoints.
+    ///
+    /// # Errors
+    /// Returns a streaming error for invalid UTF-8 or excessive buffered data.
+    pub fn push(&mut self, bytes: &[u8]) -> Result<()> {
+        if self.buffer.len() + self.data.len() + self.event.len() + self.pending.len() + bytes.len()
+            > MAX_BUFFER_BYTES
+        {
+            return Err(LiterLlmError::Streaming {
+                message: "SSE event exceeds buffer limit".into(),
+            });
+        }
+        append_chunk(&mut self.buffer, &mut self.pending, bytes).map_or(Ok(()), Err)
+    }
+
+    /// Consume complete lines until an entire event is available.
+    pub fn next_event(&mut self) -> Option<SseEvent> {
+        loop {
+            let offset = memchr(b'\n', &self.buffer.as_bytes()[self.cursor..])?;
+            let end = self.cursor + offset;
+            let line = self.buffer[self.cursor..end].trim_end_matches('\r');
+            let result = if line.is_empty() {
+                let result = self.has_data.then(|| SseEvent {
+                    event: std::mem::take(&mut self.event),
+                    data: std::mem::take(&mut self.data),
+                });
+                self.event.clear();
+                self.data.clear();
+                self.has_data = false;
+                self.has_fields = false;
+                result
+            } else {
+                if !line.starts_with(':') {
+                    self.has_fields = true;
+                    let (field, value) = line.split_once(':').unwrap_or((line, ""));
+                    let value = value.strip_prefix(' ').unwrap_or(value);
+                    match field {
+                        "event" => self.event = value.to_owned(),
+                        "data" => {
+                            if self.has_data {
+                                self.data.push('\n');
+                            }
+                            self.data.push_str(value);
+                            self.has_data = true;
+                        }
+                        _ => {}
+                    }
+                }
+                None
+            };
+            self.cursor = end + 1;
+            compact_if_needed(&mut self.buffer, &mut self.cursor);
+            if result.is_some() {
+                return result;
+            }
+        }
+    }
+
+    /// Require a complete event boundary at EOF, including empty-line dispatch.
+    ///
+    /// # Errors
+    /// Returns a streaming error for unfinished lines, events, or UTF-8.
+    pub fn finish(&self) -> Result<()> {
+        if self.cursor != self.buffer.len() || !self.pending.is_empty() || self.has_fields {
+            return Err(LiterLlmError::Streaming {
+                message: "SSE stream ended with an incomplete event or UTF-8 codepoint".into(),
+            });
+        }
+        Ok(())
+    }
+}
+
 /// What the line at the read cursor produced.
 enum BufferedLine<T> {
     /// No complete line is buffered yet; more bytes are needed.
