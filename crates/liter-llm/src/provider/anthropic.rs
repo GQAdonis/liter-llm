@@ -224,6 +224,11 @@ impl Provider for AnthropicProvider {
     /// fields because this parser is stateless — it cannot carry forward values
     /// from earlier events.  This differs from the OpenAI format where every
     /// chunk includes `id` and `model`.
+    #[cfg(any(feature = "native-http", feature = "wasm-http"))]
+    fn chat_stream_protocol(&self) -> crate::http::chat_streaming::ChatStreamProtocol {
+        crate::http::chat_streaming::ChatStreamProtocol::Anthropic
+    }
+
     fn parse_stream_event(&self, event_data: &str) -> Result<Option<ChatCompletionChunk>> {
         stream::parse_stream_event(event_data)
     }

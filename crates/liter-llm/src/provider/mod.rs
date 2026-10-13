@@ -517,6 +517,12 @@ pub(crate) trait Provider: Send + Sync {
             })
     }
 
+    /// Required terminal semantics for this provider's chat SSE stream.
+    #[cfg(any(feature = "native-http", feature = "wasm-http"))]
+    fn chat_stream_protocol(&self) -> crate::http::chat_streaming::ChatStreamProtocol {
+        crate::http::chat_streaming::ChatStreamProtocol::OpenAi
+    }
+
     /// The streaming wire format this provider uses.
     ///
     /// Default: [`StreamFormat::Sse`].  Override for providers that use

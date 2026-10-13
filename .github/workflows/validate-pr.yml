@@ -6,5 +6,6 @@ on:
 
 jobs:
   validate:
+    if: github.repository == 'xberg-io/liter-llm'
     uses: xberg-io/actions/.github/workflows/reusable-validate-pr.yml@v1
     secrets: inherit
