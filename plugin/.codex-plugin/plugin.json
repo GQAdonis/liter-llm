@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "Liter-LLM",
     "shortDescription": "Universal LLM client for 174 providers with proxy and MCP server",
-    "longDescription": "Call 174 LLM providers through one unified interface — chat, streaming, tool calling, embeddings, image generation, audio, moderation, web search, OCR, and reranking. Routes by `provider/model` prefix with built-in caching, rate limiting, cost tracking, budgets, and fallback. Ships an OpenAI-compatible proxy server and an auto-installing MCP server exposing 22 tools. The plugin's MCP launcher locates or downloads a version-matched `liter-llm` binary on first run.",
+    "longDescription": "Call 174 LLM providers through one unified interface — chat, streaming, tool calling, embeddings, image generation, audio, moderation, web search, OCR, and reranking. Routes by `provider/model` prefix with built-in caching, rate limiting, cost tracking, budgets, and fallback. Ships an OpenAI-compatible proxy server and an auto-installing MCP server exposing 22 tools. The plugin's MCP launcher locates an installed `liter-llm` binary or installs an available CLI on first run.",
     "developerName": "Kreuzberg, Inc.",
     "category": "developer-tools",
     "capabilities": [

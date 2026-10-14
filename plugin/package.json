@@ -1,6 +1,11 @@
 {
+  "author": {
+    "email": "contact@xberg.io",
+    "name": "Kreuzberg, Inc.",
+    "url": "https://xberg.io"
+  },
   "dependencies": {
-    "@opencode/plugin": "^2.0.20"
+    "@opencode/plugin": "^2.0.26"
   },
   "description": "Universal LLM API client for 174 providers — chat, streaming, tools, embeddings, search, OCR, plus an OpenAI-compatible proxy and an MCP server.",
   "exports": {
@@ -12,22 +17,36 @@
     ".opencode/commands/liter-llm-chat.md",
     ".opencode/commands/liter-llm-stream.md",
     ".opencode/plugins/liter-llm.js",
-    ".opencode/skills/calling-llms/SKILL.md",
-    ".opencode/skills/embeddings-and-search/SKILL.md",
+    ".opencode/skills/liter-llm-calling-llms/SKILL.md",
+    ".opencode/skills/liter-llm-calling-llms/index.md",
+    ".opencode/skills/liter-llm-embeddings-and-search/SKILL.md",
+    ".opencode/skills/liter-llm-embeddings-and-search/index.md",
+    ".opencode/skills/liter-llm-running-the-proxy/SKILL.md",
+    ".opencode/skills/liter-llm-running-the-proxy/index.md",
+    ".opencode/skills/liter-llm-streaming-responses/SKILL.md",
+    ".opencode/skills/liter-llm-streaming-responses/index.md",
+    ".opencode/skills/liter-llm-tool-calling/SKILL.md",
+    ".opencode/skills/liter-llm-tool-calling/index.md",
+    ".opencode/skills/liter-llm-using-the-mcp-server/SKILL.md",
+    ".opencode/skills/liter-llm-using-the-mcp-server/index.md",
     ".opencode/skills/liter-llm/SKILL.md",
-    ".opencode/skills/running-the-proxy/SKILL.md",
-    ".opencode/skills/streaming-responses/SKILL.md",
-    ".opencode/skills/tool-calling/SKILL.md",
-    ".opencode/skills/using-the-mcp-server/SKILL.md",
+    ".opencode/skills/liter-llm/index.md",
     ".pi/prompts/liter-llm-chat.md",
     ".pi/prompts/liter-llm-stream.md",
-    ".pi/skills/calling-llms/SKILL.md",
-    ".pi/skills/embeddings-and-search/SKILL.md",
+    ".pi/skills/liter-llm-calling-llms/SKILL.md",
+    ".pi/skills/liter-llm-calling-llms/index.md",
+    ".pi/skills/liter-llm-embeddings-and-search/SKILL.md",
+    ".pi/skills/liter-llm-embeddings-and-search/index.md",
+    ".pi/skills/liter-llm-running-the-proxy/SKILL.md",
+    ".pi/skills/liter-llm-running-the-proxy/index.md",
+    ".pi/skills/liter-llm-streaming-responses/SKILL.md",
+    ".pi/skills/liter-llm-streaming-responses/index.md",
+    ".pi/skills/liter-llm-tool-calling/SKILL.md",
+    ".pi/skills/liter-llm-tool-calling/index.md",
+    ".pi/skills/liter-llm-using-the-mcp-server/SKILL.md",
+    ".pi/skills/liter-llm-using-the-mcp-server/index.md",
     ".pi/skills/liter-llm/SKILL.md",
-    ".pi/skills/running-the-proxy/SKILL.md",
-    ".pi/skills/streaming-responses/SKILL.md",
-    ".pi/skills/tool-calling/SKILL.md",
-    ".pi/skills/using-the-mcp-server/SKILL.md",
+    ".pi/skills/liter-llm/index.md",
     "README.md",
     "assets/",
     "scripts/"
@@ -44,19 +63,20 @@
   "license": "MIT",
   "main": ".opencode/plugins/liter-llm.js",
   "name": "@xberg-io/opencode-liter-llm",
+  "packageManager": "pnpm@12.11.2",
   "pi": {
     "prompts": [
       "./.pi/prompts/liter-llm-chat.md",
       "./.pi/prompts/liter-llm-stream.md"
     ],
     "skills": [
-      "./.pi/skills/calling-llms",
-      "./.pi/skills/embeddings-and-search",
-      "./.pi/skills/liter-llm",
-      "./.pi/skills/running-the-proxy",
-      "./.pi/skills/streaming-responses",
-      "./.pi/skills/tool-calling",
-      "./.pi/skills/using-the-mcp-server"
+      "./.pi/skills/liter-llm-calling-llms",
+      "./.pi/skills/liter-llm-embeddings-and-search",
+      "./.pi/skills/liter-llm-running-the-proxy",
+      "./.pi/skills/liter-llm-streaming-responses",
+      "./.pi/skills/liter-llm-tool-calling",
+      "./.pi/skills/liter-llm-using-the-mcp-server",
+      "./.pi/skills/liter-llm"
     ]
   },
   "repository": {
@@ -64,6 +84,5 @@
     "url": "https://github.com/xberg-io/liter-llm"
   },
   "type": "module",
-  "version": "2.2.3",
-  "packageManager": "pnpm@12.11.2"
+  "version": "2.2.3"
 }

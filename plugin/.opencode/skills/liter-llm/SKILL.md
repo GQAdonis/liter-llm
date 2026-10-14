@@ -1,24 +1,17 @@
 ---
-name: liter-llm
-description: >-
-  Universal LLM API client for 174 providers with native bindings for 14
-  languages. Use when writing code that calls LLM APIs via liter-llm in Python,
-  TypeScript, Rust, Go, Java, C#, Ruby, PHP, Elixir, WASM, or C, when running
-  the OpenAI-compatible proxy, or when calling LLMs through the MCP server.
-  Covers chat, streaming, tool calling, embeddings, image generation, speech,
-  transcription, moderation, web search, OCR, reranking, provider routing,
-  middleware, and configuration.
+description: Universal LLM API client for 174 providers with native bindings for 14 languages. Use when writing code that calls LLM APIs via liter-llm in Python, TypeScript, Rust, Go, Java, C#, Ruby, PHP, Elixir, WASM, or C, when running the OpenAI-compatible proxy, or when calling LLMs through the MCP server. Covers chat, streaming, tool calling, embeddings, image generation, speech, transcription, moderation, web search, OCR, reranking, provider routing, middleware, and configuration.
 license: MIT
 metadata:
-  author: xberg-io
-  version: "0.1.0"
-  repository: https://github.com/xberg-io/liter-llm
+    author: xberg-io
+    version: "0.1.0"
+    repository: https://github.com/xberg-io/liter-llm
+name: liter-llm
 ---
 
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-Content-Hash: blake3:4c225507a3afd50b57d77a64697e865deeb31b88a491ab3e8541cea22a5884ff
-Source-Hash: blake3:6e7ae063f9fc40941b06b8b44471e2f6941cb2fe61e657d5f76ee1b6734fb271
+Content-Hash: blake3:d6c306e983d2305d8037cb8f4e973ff21eeb0e3ed4a5ac342c4c7dbfae965836
+Source-Hash: blake3:5ac813a6450a58b23abb444cfde3cba7aee62445dd63d12077b541f29514734d
 Schema-Version: v1
 -->
 
@@ -37,7 +30,7 @@ Gemini, Groq, Mistral, Cohere, AWS Bedrock, Azure, and many more).
   and file operations.
 - **Provider routing** — `provider/model` prefix selects the backend
   (`openai/gpt-4o`, `anthropic/claude-sonnet-4-20250514`,
-  `gemini/gemini-2.0-flash`). Set `model_hint` to skip the prefix.
+  `gemini/gemini-2.0-flash`). Set a full `provider/model` as `model_hint` to choose the client provider.
 - **Middleware** — response caching, rate limiting (RPM/TPM), cost tracking,
   budget enforcement (`hard` / `soft`), fallback chains, circuit-breaker
   cooldown, and background health checks.
@@ -70,8 +63,7 @@ building software; the proxy when centralizing access for multiple consumers.
 brew install xberg-io/tap/liter-llm
 
 # or run it without a persistent install (the CLI proxy package self-installs the binary)
-pnpm dlx @xberg-io/liter-llm-cli --help
-uvx --from liter-llm-cli liter-llm --help
+pnpm dlx @xberg-io/liter-llm-cli@2.2.3 --help
 
 # or download a prebuilt binary from the latest GitHub release:
 #   https://github.com/xberg-io/liter-llm/releases/latest
@@ -126,9 +118,11 @@ ChatCompletionRequest.from_json('{"model":"gemini/gemini-2.0-flash","messages":[
 ChatCompletionRequest.from_json('{"model":"groq/llama3-70b","messages":[...]}')
 ```
 
-API keys come from environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
-`GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `CO_API_KEY`, and AWS
-credentials for Bedrock.
+Client construction resolves credentials for its selected provider from environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+`GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`, and AWS
+credentials for Bedrock. Create a separate client for each provider with matching
+`model_hint` and credentials. Request prefixes change routing but reuse the client
+API key; they do not select a new environment key per request.
 
 ## Configuration
 
@@ -140,7 +134,7 @@ from the cwd upward.
 ```toml
 # liter-llm.toml
 api_key = "${OPENAI_API_KEY}"
-model_hint = "openai"
+model_hint = "openai/gpt-4o"
 timeout_secs = 120
 max_retries = 5
 
@@ -161,7 +155,7 @@ tpm = 100000
 |--------|---------|-------------|
 | `api_key` | required | Provider key, wrapped in `SecretString` (never logged). |
 | `base_url` | from registry | Override the provider base URL. |
-| `model_hint` | none | Pre-resolve a provider, skipping the prefix lookup. |
+| `model_hint` | none | Full provider/model used to select the client provider and credentials. |
 | `timeout_secs` | 60 | Request timeout in seconds. |
 | `max_retries` | 3 | Retries on 429/5xx with exponential backoff. |
 | `cache` | none | `max_entries`, `ttl_seconds`. |
@@ -196,8 +190,8 @@ and Responses API (`create_response`, `retrieve_response`, `cancel_response`).
 
 ## Common pitfalls
 
-1. **Provider prefix is required** — use `"provider/model"` unless `model_hint`
-   is set, or routing fails.
+1. **Provider routing** — use `"provider/model"` to select a request backend. Bare
+   model names fall back to the configured client provider (OpenAI by default).
 2. **API keys are SecretString** — never logged or serialized. Read from env
    vars; never hardcode.
 3. **Python methods are async** — `await` inside an async context.

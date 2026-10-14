@@ -1,5 +1,10 @@
 ---
-description: "Stream responses with liter-llm"
+type: Reference
+title: Liter Llm Stream
+description: Stream responses with liter-llm
+x-ai-rulez:
+  kind: command
+  id: liter-llm-stream
 ---
 
 Implement this streaming task: $ARGUMENTS

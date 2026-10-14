@@ -7,6 +7,7 @@ name = 'liter-llm-hermes-plugin'
 version = '2.2.3'
 description = 'Universal LLM API client for 174 providers — chat, streaming, tools, embeddings, search, OCR, plus an OpenAI-compatible proxy and an MCP server.'
 requires-python = '>=3.11'
+dependencies = ['mcp==1.28.1', 'PyYAML==6.0.3']
 keywords = ['llm', 'openai', 'proxy', 'embeddings', 'mcp']
 
 [project.entry-points]
