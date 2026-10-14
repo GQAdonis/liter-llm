@@ -1,6 +1,6 @@
 {
   "schema_version": "v1",
-  "source_hash": "blake3:7808f4a3cb886db16e6194648beb0e635329a56dd26887256487b0ec057e55c0",
+  "source_hash": "blake3:bf4816cabfe35bfedbf04a799b5b9b054e30d83ecfd7424d20bb0847ba6c34d1",
   "outputs": {
     ".claude-plugin/plugin.json": {
       "content_hash": "blake3:cc384383f5cfa3c79e8baec842ff6dd230b6591833495b218dd1ce7642321cb0",
@@ -99,7 +99,7 @@
       "mode": "0644"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/hermes.py": {
-      "content_hash": "blake3:0162d4cda4174826e95db99f2382ac6694f9e91d3303190f6c83b6d1a60a72d6",
+      "content_hash": "blake3:b65eff21f8ba5d5f74a9dc5835a141fd04996b14d62fccff191895be672ac3d2",
       "mode": "0644"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/plugin.yaml": {
@@ -175,7 +175,7 @@
       "mode": "0644"
     },
     ".hermes/plugins/liter-llm/hermes.py": {
-      "content_hash": "blake3:0162d4cda4174826e95db99f2382ac6694f9e91d3303190f6c83b6d1a60a72d6",
+      "content_hash": "blake3:b65eff21f8ba5d5f74a9dc5835a141fd04996b14d62fccff191895be672ac3d2",
       "mode": "0644"
     },
     ".hermes/plugins/liter-llm/plugin.yaml": {
