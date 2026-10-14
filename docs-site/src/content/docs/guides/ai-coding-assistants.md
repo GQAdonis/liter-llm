@@ -12,9 +12,25 @@ The liter-llm plugin ships a set of agent skills, installed from this repo's sel
 - **Chat and streaming** — build requests, handle streamed responses, and switch models across providers.
 - **Tool calling** — define tools and handle the model's tool calls.
 - **Embeddings** — generate and use embeddings for search and retrieval.
-- **MCP server** — bundles the liter-llm MCP server and auto-registers it, so your agent can call it with no manual config.
+- **MCP server** — registers the liter-llm MCP server with your client. Use the compatible CLI described below.
 
 Once installed, your assistant applies these skills automatically when you ask it to work with liter-llm.
+
+## CLI release compatibility
+
+Published CLI 2.2.3 predates the local-stdio trust and deferred-provider-credential fixes.
+Until a CLI release includes them, use a source build for startup without an extra auth config:
+
+```sh
+cargo install --git https://github.com/xberg-io/liter-llm \
+  --rev f14fb8862f9cc73e2c4ab38a2876efe77fab8bf4 --locked liter-llm-cli
+```
+
+Put the installed binary on the assistant's PATH. If a plugin has already cached an older binary,
+remove that plugin's `bin/liter-llm` (or `bin/liter-llm.exe`) before retrying so it selects the source build.
+The released 2.2.3 binary requires `mcp.stdio_trust_local = true` or a configured `mcp.stdio_key_id`;
+configured providers may also require credentials at startup. The source build defers missing provider
+credentials until a request uses that provider. HTTP authentication remains configured separately.
 
 ## Installing
 
@@ -156,7 +172,7 @@ To register the server directly in any other MCP client (without the plugin), ad
 
 `uvx --from liter-llm-cli liter-llm mcp --transport stdio` works as an alternative command.
 
-Because liter-llm is a provider proxy, the stdio MCP transport requires an auth binding in your liter-llm config — set either `mcp.stdio_trust_local = true` (fully trusted local environments) or `mcp.stdio_key_id` to bind a specific virtual key. Without one, the server refuses to start. See the [MCP server guide](/server/mcp-server/) for running and configuring it directly.
+For the released 2.2.3 CLI, the stdio transport requires the auth binding described above. The source build trusts local stdio by default. See the [MCP server guide](/server/mcp-server/) for transport and provider configuration.
 
 ## Hermes
 

@@ -217,7 +217,7 @@ liter-llm mcp --transport stdio               # MCP tool server (stdio)
 liter-llm mcp --transport http --port 3001    # MCP tool server (Streamable HTTP)
 ```
 
-See the [MCP server guide](https://docs.liter-llm.xberg.io/server/mcp-server/) and the [proxy guide](https://docs.liter-llm.xberg.io/server/proxy-server/) for transports, routing, virtual keys, and budgets. To use the MCP server inside a coding agent, install the **liter-llm plugin** (below) — it auto-registers the server, no manual config required.
+See the [MCP server guide](https://docs.liter-llm.xberg.io/server/mcp-server/) and the [proxy guide](https://docs.liter-llm.xberg.io/server/proxy-server/) for transports, routing, virtual keys, and budgets. To use the MCP server inside a coding agent, install the **liter-llm plugin** (below) — it registers the server for your MCP client. The CLI release compatibility requirements below also apply to auto-installed binaries.
 
 </details>
 
@@ -242,7 +242,21 @@ npx skills add xberg-io/liter-llm
 Choose the skills and target agents interactively. Installing instructions does not install the
 product CLI or configure provider credentials.
 
-The stdio MCP server trusts its local host by default and starts without a provider key.
+Published CLI 2.2.3 predates the local-stdio trust and deferred-provider-credential fixes.
+Until a CLI release includes them, use a source build for startup without an extra auth config:
+
+```sh
+cargo install --git https://github.com/xberg-io/liter-llm \
+  --rev f14fb8862f9cc73e2c4ab38a2876efe77fab8bf4 --locked liter-llm-cli
+```
+
+Put the installed binary on the assistant's PATH. If a plugin has already cached an older binary,
+remove that plugin's `bin/liter-llm` (or `bin/liter-llm.exe`) before retrying so it selects the source build.
+The released 2.2.3 binary requires `mcp.stdio_trust_local = true` or a configured `mcp.stdio_key_id`;
+configured providers may also require credentials at startup. The source build defers missing provider
+credentials until a request uses that provider. HTTP authentication remains configured separately.
+
+The source-built stdio MCP server trusts its local host by default and starts without a provider key.
 Set provider credentials such as `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` before sending
 requests to that provider; missing credentials fail the request. HTTP MCP access retains
 its configured authentication. Use `liter-llm api` for the proxy and `liter-llm mcp` for MCP;

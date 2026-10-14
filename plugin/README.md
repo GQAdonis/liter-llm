@@ -92,6 +92,22 @@ Set provider API keys via environment variables (`OPENAI_API_KEY`,
 | **liter-llm-running-the-proxy** | Use when running the `liter-llm api` OpenAI-compatible gateway with virtual keys, rate limits, and budgets. |
 | **liter-llm-using-the-mcp-server** | Use when calling LLM APIs through the 22 MCP tools, and to decide when MCP beats the CLI or SDK. |
 
+## CLI release compatibility
+
+Published CLI 2.2.3 predates the local-stdio trust and deferred-provider-credential fixes.
+Until a CLI release includes them, use a source build for startup without an extra auth config:
+
+```sh
+cargo install --git https://github.com/xberg-io/liter-llm \
+  --rev f14fb8862f9cc73e2c4ab38a2876efe77fab8bf4 --locked liter-llm-cli
+```
+
+Put the installed binary on the assistant's PATH. If a plugin has already cached an older binary,
+remove that plugin's `bin/liter-llm` (or `bin/liter-llm.exe`) before retrying so it selects the source build.
+The released 2.2.3 binary requires `mcp.stdio_trust_local = true` or a configured `mcp.stdio_key_id`;
+configured providers may also require credentials at startup. The source build defers missing provider
+credentials until a request uses that provider. HTTP authentication remains configured separately.
+
 ## MCP server
 
 The plugin auto-registers an MCP server named `liter-llm`, launched via
