@@ -1,6 +1,6 @@
 {
   "schema_version": "v1",
-  "source_hash": "blake3:bf4816cabfe35bfedbf04a799b5b9b054e30d83ecfd7424d20bb0847ba6c34d1",
+  "source_hash": "blake3:c8f40afc3586bc1e1a7b38e14e877d5beea7ce125fe86b1fcd291ca3944d1d7d",
   "outputs": {
     ".claude-plugin/plugin.json": {
       "content_hash": "blake3:cc384383f5cfa3c79e8baec842ff6dd230b6591833495b218dd1ce7642321cb0",
@@ -83,7 +83,7 @@
       "mode": "0644"
     },
     ".hermes/package/pyproject.toml": {
-      "content_hash": "blake3:f18a20c63dda690375c796e857ab785267f2f326d3b042c29c327392c7363261",
+      "content_hash": "blake3:03a62e3361487e8eba5a043839b2769664b337c83d2585d2a5f5ab02b570c733",
       "mode": "0644"
     },
     ".hermes/package/src/liter_llm_hermes_plugin/__init__.py": {
