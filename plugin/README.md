@@ -45,9 +45,8 @@ Pi content alongside the OpenCode adapter. No separate Pi release job is needed.
 
 The bundled MCP launcher (`scripts/mcp-launch.sh`) resolves a `liter-llm` binary
 automatically on first run: it reuses one already on `PATH`, then tries
-`npx`/`uvx`, then Homebrew, then a checksum-verified prebuilt binary from the
-tool's latest GitHub release. No manual install is required to use the MCP
-server.
+`npx`/`uvx`, then Homebrew, then a prebuilt binary from the
+tool's latest GitHub release. If every method fails, install a CLI with MCP support using the commands below.
 
 To install the CLI yourself (also gives you the proxy server):
 
@@ -72,12 +71,12 @@ Set provider API keys via environment variables (`OPENAI_API_KEY`,
 | Skill | Trigger |
 |-------|---------|
 | **liter-llm** | Universal LLM client surface — chat, streaming, tools, embeddings, image/audio, moderation, search, OCR, reranking — across 174 providers and 14 language bindings. Use when writing LLM code in any supported language or choosing between the SDK, proxy, and MCP server. |
-| **calling-llms** | Use when sending chat completions and routing to a specific provider via the `provider/model` prefix. |
-| **streaming-responses** | Use when streaming tokens incrementally over SSE or async iterators. |
-| **tool-calling** | Use when defining functions/tools for the model to call, or requesting structured outputs. |
-| **embeddings-and-search** | Use when generating embeddings, calling the web-search providers, or running OCR over documents. |
-| **running-the-proxy** | Use when running the `liter-llm api` OpenAI-compatible gateway with virtual keys, rate limits, and budgets. |
-| **using-the-mcp-server** | Use when calling LLM APIs through the 22 MCP tools, and to decide when MCP beats the CLI or SDK. |
+| **liter-llm-calling-llms** | Use when sending chat completions and routing to a specific provider via the `provider/model` prefix. |
+| **liter-llm-streaming-responses** | Use when streaming tokens incrementally over SSE or async iterators. |
+| **liter-llm-tool-calling** | Use when defining functions/tools for the model to call, or requesting structured outputs. |
+| **liter-llm-embeddings-and-search** | Use when generating embeddings, calling the web-search providers, or running OCR over documents. |
+| **liter-llm-running-the-proxy** | Use when running the `liter-llm api` OpenAI-compatible gateway with virtual keys, rate limits, and budgets. |
+| **liter-llm-using-the-mcp-server** | Use when calling LLM APIs through the 22 MCP tools, and to decide when MCP beats the CLI or SDK. |
 
 ## MCP server
 
@@ -104,9 +103,11 @@ through to the next on any failure (override with
 3. `uvx --from liter-llm-cli liter-llm` — the published PyPI CLI proxy package
    (probed first; falls through if not published yet).
 4. `brew install xberg-io/tap/liter-llm` if Homebrew is available.
-5. A checksum-verified prebuilt binary from the tool's *latest* GitHub release
-   (`liter-llm-<latest-version>-<target>.tar.gz`, verified against
-   `SHA256SUMS-<latest-version>.txt`). The tool version is resolved from the
+5. A prebuilt binary from the tool's *latest* GitHub release
+   (`liter-llm-<latest-version>-<target>.tar.gz`). Its hash is checked against
+   `SHA256SUMS-<latest-version>.txt` when the manifest and a hashing tool are available.
+   Missing checksums cause an explicit warning and HTTPS-only download fallback;
+   a hash mismatch fails. The tool version is resolved from the
    GitHub API — it is independent of the plugin's own version.
 
 The `@xberg-io/*` / `liter-llm` binding packages (NAPI-RS / PyO3) are language
@@ -200,3 +201,69 @@ MIT. Skill content references the upstream [liter-llm](https://github.com/xberg-
 
 - **Marketplace**: this repo — `/plugin marketplace add xberg-io/liter-llm`
 - **Upstream**: [xberg-io/liter-llm](https://github.com/xberg-io/liter-llm)
+
+## Generated runtime bundles
+
+`plugin/.ai-rulez/config.toml` loads `config.plugins.toml` through the `plugins` layer;
+skills, commands and runtime adapters are authored alongside it. AI-Rulez 5.2.1 generates
+all eleven supported runtimes: Claude, Cursor, Codex, Gemini, Kimi, OpenCode, Factory,
+Hermes, Pi, Agent Plugins and Copilot. Codex ships both manifest layouts; repository-root
+Claude and Codex marketplace indexes point to the `plugin` bundle. Cursor also has a marketplace index.
+
+Pi packages skills and prompts without MCP integration. Copilot packages skills and MCP configuration, but does not package slash commands or hooks.
+Hermes includes a Python package under `.hermes/package`; OpenCode and Pi share the npm package.
+The Agent Plugins manifest uses the stable 1.0 specification. Runtime capabilities differ;
+install the CLI before using skills in a runtime without MCP registration.
+
+Run `ai-rulez generate --plugin` from the repository root to regenerate and
+`ai-rulez verify --plugin` to compare current source output and provenance.
+The release workflow packages every runtime into a deterministic archive, checksums,
+and marketplace metadata; npm and PyPI retain their existing publishing jobs.
+
+## Hermes runtime setup
+
+Install the product CLI with MCP support and put it on Hermes' PATH before using the plugin.
+The Hermes adapter registers every bundled skill under the product namespace and provides
+`liter_llm_call`, which calls the selected native MCP tool with `tool_arguments` through a local
+stdio session. Select `tool: "list_tools"` first to inspect the server's exact request schemas. Hermes skills are selected explicitly; they are not automatically appended to the
+system prompt. Enable the plugin in Hermes configuration; project plugins also require
+`HERMES_ENABLE_PROJECT_PLUGINS=true`.
+
+The bridge uses the installed CLI directly. The auto-installing launchers used by other MCP clients
+are not included in the Hermes Python wheel. Provider credentials are inherited from the environment,
+and are needed for provider-backed requests. Missing CLIs, unavailable tools and model preparation
+fail with an actionable request error. CLI result data remains untrusted document content.
+
+## Public Agent Skills
+
+The repository-root `skills/` directory contains the same generated skills and supporting
+resources as `plugin/skills/`. Install them independently of a plugin runtime:
+
+```sh
+npx skills add xberg-io/liter-llm --skill liter-llm
+```
+
+Edit `plugin/.ai-rulez/skills`, then run `task plugin:generate` to regenerate runtime
+bundles and synchronize the public export. `task plugin:verify` checks both projections;
+`task plugin:skills:test` verifies resource freshness, ownership and symlink protection.
+The public ownership manifest records SHA-256 hashes of every exported file.
+
+## Gemini provider credentials
+
+Gemini filters sensitive shell environment variables. This extension declares provider keys
+through native sensitive settings; values are entered in Gemini and stored in its keychain.
+To install without entering credentials for every provider:
+
+```sh
+gemini extensions install ./plugin --skip-settings
+gemini extensions config liter-llm "OpenAI key"
+```
+
+Configure only the provider used by your `liter-llm-proxy.toml` model routing. The local stdio
+server can start without provider credentials; provider-backed requests require a configured
+model and its credentials. For a provider with another variable name, add an appropriate
+`[[plugin.gemini.settings]]` entry in the source and regenerate, or configure a Gemini MCP
+server override. Never put key values in source or a generated manifest.
+
+Launcher and visual assets are authored in `plugin/.ai-rulez/scripts/` and
+`plugin/.ai-rulez/assets/`; `task plugin:generate` copies them into the runtime bundle.

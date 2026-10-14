@@ -53,6 +53,19 @@
 
 {% include 'partials/installation.md' %}
 
+## Coding-agent plugin
+
+Install the [liter-llm plugin](https://github.com/xberg-io/liter-llm/blob/main/plugin/README.md)
+for product skills and runtime integrations, or install [public skills](https://github.com/xberg-io/liter-llm/tree/main/skills)
+independently:
+
+```sh
+npx skills add xberg-io/liter-llm
+```
+
+Select the skills and target agents interactively. Install the product CLI separately for
+executable operations; the skill installer adds instructions only.
+
 ## Quick Start
 
 {% include 'partials/quick_start.md' %}

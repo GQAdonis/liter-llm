@@ -1,5 +1,10 @@
 ---
-description: "Call an LLM provider using liter-llm"
+type: Reference
+title: Liter Llm Chat
+description: Call an LLM provider using liter-llm
+x-ai-rulez:
+  kind: command
+  id: liter-llm-chat
 ---
 
 Help with this chat task: $ARGUMENTS

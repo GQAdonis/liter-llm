@@ -4,4 +4,4 @@ tasks:
   ai-rulez:
     desc: Generate ai-rulez configuration files (CLAUDE.md, etc.)
     cmds:
-      - pnpm dlx ai-rulez@latest generate
+      - ai-rulez generate

@@ -1,11 +1,11 @@
 ---
-description: "Call an LLM provider using liter-llm"
+description: Call an LLM provider using liter-llm
 ---
 
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-Content-Hash: blake3:72cd3bd1462131db638b3880bf2bfb077ec26e1e7c507626139ef418989c29c0
-Source-Hash: blake3:6e7ae063f9fc40941b06b8b44471e2f6941cb2fe61e657d5f76ee1b6734fb271
+Content-Hash: blake3:dc58c1c881db41b233402714bcc5ae0ca87dde33b30ae97d010db865ea6aa26b
+Source-Hash: blake3:7808f4a3cb886db16e6194648beb0e635329a56dd26887256487b0ec057e55c0
 Schema-Version: v1
 -->
 

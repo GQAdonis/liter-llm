@@ -60,7 +60,7 @@ For IDE integration (VS Code, GitHub Copilot, Claude Desktop, Cursor), use the `
 liter-llm mcp --transport stdio --config /path/to/liter-llm-proxy.toml
 ```
 
-This is the standard way to integrate MCP servers into IDEs. The server communicates via stdin/stdout and is configured in the IDE's MCP settings. The proxy config must include `[mcp] stdio_key_id = "..."` or `[mcp] stdio_trust_local = true`.
+This is the standard way to integrate MCP servers into IDEs. The server communicates via stdin/stdout and is configured in the IDE's MCP settings. Local stdio trusts the harness by default and does not require an authentication key to start. Set `stdio_trust_local = false` and `stdio_key_id` to an existing virtual key to enforce a key policy. Configure provider credentials separately before sending provider-backed requests.
 
 ### HTTP Transport (Remote/Custom)
 
