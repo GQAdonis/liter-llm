@@ -55,25 +55,7 @@ async fn run_stdio(
 ) -> Result<(), String> {
     use rmcp::ServiceExt;
 
-    let default_ctx = match (&config.mcp.stdio_key_id, config.mcp.stdio_trust_local) {
-        (Some(key_id), _) => {
-            let key_cfg = key_store.get(key_id).ok_or_else(|| {
-                format!(
-                    "mcp.stdio_key_id '{key_id}' not found in the virtual key store; \
-                     add it under [[keys]] in your config"
-                )
-            })?;
-            KeyContext::from_config(&key_cfg)
-        }
-        (None, true) => KeyContext::master(),
-        (None, false) => {
-            return Err("stdio MCP transport requires authentication configuration; set either \
-                 `mcp.stdio_key_id` (to bind a specific virtual key) or \
-                 `mcp.stdio_trust_local = true` (for fully trusted local environments) \
-                 in your liter-llm-proxy.toml"
-                .into());
-        }
-    };
+    let default_ctx = stdio_key_context(config, &key_store)?;
 
     let mcp = LiterLlmMcp::new(service_pool, file_store, default_ctx, McpTransportKind::Stdio);
 
@@ -85,6 +67,26 @@ async fn run_stdio(
     service.waiting().await.map_err(|e| format!("MCP server error: {e}"))?;
 
     Ok(())
+}
+
+fn stdio_key_context(config: &ProxyConfig, key_store: &KeyStore) -> Result<KeyContext, String> {
+    match (&config.mcp.stdio_key_id, config.mcp.stdio_trust_local) {
+        (Some(key_id), _) => {
+            let key_cfg = key_store.get(key_id).ok_or_else(|| {
+                format!(
+                    "mcp.stdio_key_id '{key_id}' not found in the virtual key store; \
+                     add it under [[keys]] in your config"
+                )
+            })?;
+            Ok(KeyContext::from_config(&key_cfg))
+        }
+        (None, true) => Ok(KeyContext::master()),
+        (None, false) => Err("stdio MCP transport requires authentication configuration; set either \
+                 `mcp.stdio_key_id` (to bind a specific virtual key) or \
+                 `mcp.stdio_trust_local = true` (for fully trusted local environments) \
+                 in your liter-llm-proxy.toml"
+            .into()),
+    }
 }
 
 async fn run_http(
@@ -149,4 +151,52 @@ async fn run_http(
         .map_err(|e| format!("MCP HTTP server error: {e}"))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::stdio_key_context;
+    use liter_llm_proxy::auth::KeyStore;
+    use liter_llm_proxy::config::ProxyConfig;
+
+    #[test]
+    fn should_resolve_default_local_stdio_as_master() {
+        let config = ProxyConfig::default();
+        let key_store = KeyStore::from_config(None, &[]);
+        assert!(stdio_key_context(&config, &key_store).unwrap().is_master);
+    }
+
+    #[test]
+    fn should_require_a_key_when_local_trust_is_disabled() {
+        let config = ProxyConfig::from_toml_str("[mcp]\nstdio_trust_local = false\n").unwrap();
+        let key_store = KeyStore::from_config(None, &[]);
+        assert!(
+            stdio_key_context(&config, &key_store)
+                .unwrap_err()
+                .contains("requires authentication")
+        );
+    }
+
+    #[test]
+    fn should_restrict_explicit_virtual_key_even_when_local_trust_is_enabled() {
+        let config = ProxyConfig::from_toml_str(
+            "[mcp]\nstdio_key_id = 'restricted'\n[[keys]]\nkey = 'restricted'\nmodels = ['allowed']\n",
+        )
+        .unwrap();
+        let key_store = KeyStore::from_config(None, &config.keys);
+        let context = stdio_key_context(&config, &key_store).unwrap();
+        assert!(!context.is_master);
+        assert_eq!(context.allowed_models, Some(vec!["allowed".to_owned()]));
+    }
+
+    #[test]
+    fn should_fail_when_explicit_stdio_key_is_unknown() {
+        let config = ProxyConfig::from_toml_str("[mcp]\nstdio_key_id = 'missing'\n").unwrap();
+        let key_store = KeyStore::from_config(None, &[]);
+        assert!(
+            stdio_key_context(&config, &key_store)
+                .unwrap_err()
+                .contains("not found")
+        );
+    }
 }
