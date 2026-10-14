@@ -5,7 +5,8 @@ use std::time::Duration;
 use regex::Regex;
 use tower::Layer;
 
-use liter_llm::client::{ClientConfigBuilder, DefaultClient};
+use liter_llm::auth::{Credential, CredentialProvider};
+use liter_llm::client::{BoxFuture, ClientConfigBuilder, DefaultClient};
 use liter_llm::error::LiterLlmError;
 use liter_llm::guardrail::GuardrailRegistry;
 use liter_llm::observability::{MultiUsageSink, UsageSinkErased};
@@ -473,10 +474,34 @@ fn build_client(entry: &ModelEntry, config: &ProxyConfig) -> Result<DefaultClien
     builder = builder.timeout(Duration::from_secs(timeout_secs));
     builder = builder.max_retries(config.general.max_retries);
 
-    let client_config = builder.build();
+    let mut client_config = builder.build();
+    let client = match DefaultClient::new(client_config.clone(), Some(&entry.provider_model)) {
+        Err(LiterLlmError::Authentication { message, status }) => {
+            client_config.load_env = false;
+            client_config.credential_provider = Some(Arc::new(MissingProviderCredentials { message, status }));
+            DefaultClient::new(client_config, Some(&entry.provider_model))
+        }
+        result => result,
+    };
+    client.map_err(|e| format!("failed to build client for model '{}': {e}", entry.name))
+}
 
-    DefaultClient::new(client_config, Some(&entry.provider_model))
-        .map_err(|e| format!("failed to build client for model '{}': {e}", entry.name))
+// ~keep Missing provider keys are request failures; the MCP catalog and local
+// ~keep tools must remain available before provider credentials are configured.
+struct MissingProviderCredentials {
+    message: String,
+    status: u16,
+}
+
+impl CredentialProvider for MissingProviderCredentials {
+    fn resolve(&self) -> BoxFuture<'_, liter_llm::error::Result<Credential>> {
+        Box::pin(async move {
+            Err(LiterLlmError::Authentication {
+                message: self.message.clone(),
+                status: self.status,
+            })
+        })
+    }
 }
 
 /// Compose the Tower middleware stack, following the same layering order as
@@ -1235,5 +1260,66 @@ action = { kind = "redact", replacement = "x" }
         let registry = pool.guardrails();
         assert_eq!(registry.len(), 1);
         assert_eq!(registry.iter().next().expect("one guardrail").name(), "block-ssn");
+    }
+    #[test]
+    fn should_defer_missing_provider_credentials_until_requests() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "service_pool::tests::missing_provider_credentials_request_probe",
+                "--ignored",
+            ])
+            .env_remove("OPENAI_API_KEY")
+            .env_remove("AZURE_OPENAI_ENDPOINT")
+            .env_remove("AZURE_ENDPOINT")
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stdout));
+        assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"));
+    }
+
+    #[tokio::test]
+    #[ignore = "invoked with an isolated environment by should_defer_missing_provider_credentials_until_requests"]
+    async fn missing_provider_credentials_request_probe() {
+        use tower::ServiceExt;
+        let config =
+            ProxyConfig::from_toml_str("[[models]]\nname = 'gpt'\nprovider_model = 'openai/gpt-4o'\n").unwrap();
+        let pool = ServicePool::from_config(&config, None).expect("missing credentials must not prevent startup");
+        assert_eq!(pool.model_names(), vec!["gpt"]);
+        let malformed =
+            ProxyConfig::from_toml_str("[[models]]\nname = 'broken'\nprovider_model = 'azure/gpt-4o'\n").unwrap();
+        let error = ServicePool::from_config(&malformed, None)
+            .err()
+            .expect("malformed providers must still fail startup");
+        assert!(error.contains("requires a base URL"));
+        let embedding = serde_json::from_value(serde_json::json!({"model": "gpt", "input": "probe"})).unwrap();
+        for request in [chat_with("probe"), LlmRequest::Embed(embedding)] {
+            let error = pool.get_service("gpt").unwrap().oneshot(request).await.unwrap_err();
+            assert!(matches!(error, LiterLlmError::Authentication { status: 401, .. }));
+            assert!(error.to_string().contains("OPENAI_API_KEY"));
+        }
+    }
+    #[tokio::test]
+    async fn should_report_missing_credentials_before_contacting_upstream() {
+        use tower::ServiceExt;
+        let upstream = wiremock::MockServer::start().await;
+        let config = ClientConfigBuilder::new("")
+            .base_url(upstream.uri())
+            .load_env(false)
+            .credential_provider(Arc::new(MissingProviderCredentials {
+                message: "configure OPENAI_API_KEY".into(),
+                status: 401,
+            }))
+            .build();
+        let client = DefaultClient::new(config, Some("openai/gpt-4o")).unwrap();
+        let embedding = serde_json::from_value(serde_json::json!({"model": "gpt", "input": "probe"})).unwrap();
+        for request in [chat_with("probe"), LlmRequest::Embed(embedding)] {
+            let error = LlmService::new_from_arc(Arc::new(client.clone()))
+                .oneshot(request)
+                .await
+                .unwrap_err();
+            assert!(matches!(error, LiterLlmError::Authentication { status: 401, .. }));
+        }
+        assert_eq!(upstream.received_requests().await.unwrap().len(), 0);
     }
 }
