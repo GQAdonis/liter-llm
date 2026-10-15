@@ -97,6 +97,8 @@ jobs:
 
       - name: Build FFI library
         uses: xberg-io/actions/build-rust-ffi@v1
+        env:
+          ALEF_EXPORT_GENERATED_HEADERS: "1"
         with:
           crate-name: liter-llm-ffi
 

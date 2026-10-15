@@ -913,7 +913,8 @@ e2e = ["cd e2e/wasm && pnpm install", "cd e2e/wasm && pnpm vitest run"]
 
 [crates.test.ffi]
 precondition = "command -v make >/dev/null 2>&1"
-before = "cargo build -p liter-llm-ffi --release && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
+# ~keep Alef may replace the header while Cargo keeps build.rs cached; touching its source forces feature stamping.
+before = "touch crates/liter-llm-ffi/build.rs && ALEF_EXPORT_GENERATED_HEADERS=1 cargo build -p liter-llm-ffi --release && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
 e2e = "cd e2e/c && make test"
 
 [crates.test.dart]
@@ -931,7 +932,8 @@ e2e = "scripts/e2e/run-with-mock-server.sh 'cd e2e/swift_e2e && swift test'"
 
 [crates.test.zig]
 precondition = "command -v zig >/dev/null 2>&1"
-before = "cargo build -p liter-llm-ffi --release && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
+# ~keep Alef may replace the header while Cargo keeps build.rs cached; touching its source forces feature stamping.
+before = "touch crates/liter-llm-ffi/build.rs && ALEF_EXPORT_GENERATED_HEADERS=1 cargo build -p liter-llm-ffi --release && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
 e2e = [
   "python3 scripts/ci/check_zig_test_targets.py",
   "scripts/e2e/run-with-mock-server.sh 'cd e2e/zig && zig build test --summary all'",

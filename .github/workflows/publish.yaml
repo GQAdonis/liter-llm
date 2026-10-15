@@ -651,6 +651,8 @@ jobs:
       - name: Build FFI library
         run: cargo build -p liter-llm-ffi --release
         shell: bash
+        env:
+          ALEF_EXPORT_GENERATED_HEADERS: "1"
 
       - name: Install Ruby dependencies
         shell: bash
@@ -964,6 +966,7 @@ jobs:
         id: ffi
         uses: xberg-io/actions/build-rust-ffi@v1
         env:
+          ALEF_EXPORT_GENERATED_HEADERS: "1"
           CARGO_PROFILE_RELEASE_STRIP: debuginfo
         with:
           crate-name: liter-llm-ffi
