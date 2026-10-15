@@ -75,11 +75,12 @@ jobs:
       - name: Verify generated plugin bundles are current
         run: |
           ai-rulez verify --plugin
-      - uses: xberg-io/actions/setup-node-workspace@v1
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
-          frozen-lockfile: "true"
-          ignore-scripts: "true"
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
       - name: Verify OpenCode tools and packed Pi resources
         run: |
           node --test scripts/tests/opencode-plugin.test.mjs
