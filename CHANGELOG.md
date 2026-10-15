@@ -21,6 +21,8 @@ Dependency refresh and regenerated polyglot bindings with Alef 0.110.13.
 
 - Install protobuf development headers in the shared lint runner so etcd-client builds succeed.
 - Mark the native Python client as safe to share across async worker threads.
+- Keep iOS builds compatible with the Flutter Rust bridge by holding libc below its incompatible Apple symbol change.
+- Run mobile CI when Cargo manifests, the workspace lockfile, or Alef configuration changes.
 
 ## [2.2.3] - 2026-10-10
 

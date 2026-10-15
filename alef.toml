@@ -572,6 +572,10 @@ module_name = "liter_llm"
 [crates.dart]
 package_name = "liter_llm"
 
+[crates.dart.extra_dependencies]
+# ~keep libc 0.2.190 hides Apple dyld symbols used by FRB's backtrace dependency on iOS.
+libc = "=0.2.189"
+
 [crates.swift]
 package_name = "LiterLlm"
 exclude_functions = ["all_providers"]
