@@ -3697,6 +3697,9 @@ jobs:
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org/"
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          run_install: false
       - name: Upgrade npm (trusted publishing support)
         run: npm install -g npm@latest
       # ~keep validate-versions asserts the plugin *source* pin
