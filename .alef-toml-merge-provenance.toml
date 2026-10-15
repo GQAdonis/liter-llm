@@ -36,6 +36,14 @@ values = [
   "**/vendor/**",
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "**/_generated/**",
   "/Package.swift",
   "packages/**",
@@ -80,6 +88,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   "/.ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -118,6 +127,14 @@ values = [
   "**/vendor/**",
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -162,6 +179,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -190,6 +208,14 @@ values = [
   "**/vendor/**",
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -234,6 +260,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -262,6 +289,14 @@ values = [
   "**/vendor/**",
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -306,6 +341,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]

@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.107.12"
+alef_version = "0.110.13"
 languages = [
   "python",
   "node",
@@ -34,8 +34,11 @@ user_owned = [
   "e2e/java/pom.xml",
   "e2e/kotlin_android/build.gradle.kts",
   "e2e/node/package.json",
+  "e2e/php/composer.json",
   "e2e/wasm/pnpm-workspace.yaml",
   "e2e/zig/build.zig",
+  # ~keep Preserve the supported Dart 3.11 minimum across patch releases.
+  "packages/dart/pubspec.yaml",
   "test_apps/csharp/LiterLlm.E2eTests.csproj",
   "test_apps/dart/pubspec.yaml",
   "test_apps/elixir/mix.exs",
@@ -45,6 +48,7 @@ user_owned = [
   "test_apps/kotlin_android/build.gradle.kts",
   "test_apps/kotlin_android/gradle/wrapper/gradle-wrapper.properties",
   "test_apps/node/package.json",
+  "test_apps/php/composer.json",
   "test_apps/wasm/package.json",
   "test_apps/zig/build.zig",
   "test_apps/zig/build.zig.zon",
@@ -478,9 +482,20 @@ features = ["native-http", "full"]
 untagged_union_text_types = ["AssistantContent"]
 
 [crates.python]
+# ~keep Native LlmClient requires Send + Sync; Python async calls may drop clients off-thread.
+send_sync_types = ["DefaultClient"]
 module_name = "_internal_bindings"
 pip_name = "liter-llm"
 run_wrapper = "uv run --no-sync"
+
+# ~keep Preserve the Python bridge's existing worker stack size after Alef made runtime setup opt-in.
+[crates.custom_registrations.python]
+init_calls = ['''{
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    builder.enable_all();
+    builder.thread_stack_size(16 * 1024 * 1024);
+    pyo3_async_runtimes::tokio::init(builder);
+}''']
 
 [crates.python.stubs]
 output = "packages/python/liter_llm/"
@@ -1013,6 +1028,10 @@ result_fields = [
   "content",
 ]
 fields_method_calls = ["status_code"]
+
+[crates.e2e.harness_extras.wasm.dev_dependencies]
+rollup = "^4.64.6"
+vitest = "^5.0.4"
 
 [crates.e2e.snippets]
 output = "docs-site/src/snippets"
@@ -2191,6 +2210,9 @@ name = "xberg-io/liter-llm"
 [crates.e2e.registry.packages.kotlin_android]
 name = "io.xberg.literllm:liter-llm-android"
 
+[crates.e2e.registry.packages.dart]
+name = "liter_llm"
+
 [crates.e2e.registry.packages.elixir]
 name = "liter_llm"
 
@@ -2204,8 +2226,8 @@ name = "liter_llm_ffi"
 name = "LiterLlm"
 
 [crates.e2e.registry.packages.zig]
-version = "2.2.3"
-hash = "liter_llm-2.2.3-Jfgk_AR7FjNQG4Xrznb1QGb5Ok1RHe9S-qBaV1eYM_f4"
+version = "2.2.4"
+hash = "liter_llm-2.2.4-Jfgk_AR7FjNQG4Xrznb1QGb5Ok1RHe9S-qBaV1eYM_f4"
 
 [crates.e2e.registry.packages.homebrew]
 tap = "xberg-io/homebrew-tap"

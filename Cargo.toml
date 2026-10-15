@@ -44,7 +44,7 @@ dbg_macro = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(alef)'] }
 
 [workspace.package]
-version = "2.2.3"
+version = "2.2.4"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
@@ -114,7 +114,7 @@ rmcp = { version = "3.5", features = [
     "transport-streamable-http-server",
 ] }
 rust_decimal = { version = "1", features = ["serde"] }
-rustler = "0.38"
+rustler = "0.39"
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 
 schemars = "1"

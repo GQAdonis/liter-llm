@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.4] - 2026-10-15
+
+Dependency refresh and regenerated polyglot bindings with Alef 0.110.13.
+
+### Changed
+
+- Upgrade Rust and language-package dependencies and refresh their lockfiles.
+- Regenerate bindings, package scaffolding, documentation, and test suites with the latest Alef.
+- Remove unused-argument lint warnings from the Hermes plugin test fixture.
+
+### Fixed
+
+- Install protobuf development headers in the shared lint runner so etcd-client builds succeed.
+- Mark the native Python client as safe to share across async worker threads.
+
 ## [2.2.3] - 2026-10-10
 
 Reliable Go publication, smaller bundled native libraries, and static C distribution artifacts.

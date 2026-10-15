@@ -6,7 +6,7 @@ name: liter-llm-calling-llms
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
 Content-Hash: blake3:d45c8ad7f731f0e0bc91646e677fd7c89b6af31e38944bff4302e7e242a12906
-Source-Hash: blake3:c8f40afc3586bc1e1a7b38e14e877d5beea7ce125fe86b1fcd291ca3944d1d7d
+Source-Hash: blake3:b4401694fa726347666d3c38e03983129e7cacf42d479c669a3702937e26a7ff
 Schema-Version: v1
 -->
 
