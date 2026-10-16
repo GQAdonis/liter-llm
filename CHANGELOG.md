@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.5] - 2026-10-16
+
 ### Fixed
 
+- Keep release dry runs from moving existing tags when republishing is requested.
 - Reject whitespace-only resolved Bedrock credentials before sending requests while preserving nonblank signing bytes (#285).
 - Send Gemini and Vertex structured-output schemas through `responseJsonSchema` to preserve nullable fields and nested JSON Schema (#284).
 - Preserve Gemini model metadata and request-model fallbacks across standard and streaming responses, and resolve Gemini routing aliases for cost attribution (#283).

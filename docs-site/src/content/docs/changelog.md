@@ -10,30 +10,1253 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.5] - 2026-10-16
+
 ### Fixed
 
+- Keep release dry runs from moving existing tags when republishing is requested.
 - Reject whitespace-only resolved Bedrock credentials before sending requests while preserving nonblank signing bytes (#285).
 - Send Gemini and Vertex structured-output schemas through `responseJsonSchema` to preserve nullable fields and nested JSON Schema (#284).
 - Preserve Gemini model metadata and request-model fallbacks across standard and streaming responses, and resolve Gemini routing aliases for cost attribution (#283).
 - Sign Bedrock requests with per-request resolved AWS credentials across standard and streaming clients, including refreshed session tokens (#285).
 
+## [2.2.4] - 2026-10-15
+
+Dependency refresh and regenerated polyglot bindings with Alef 0.110.13.
+
+### Changed
+
+- Upgrade Rust and language-package dependencies and refresh their lockfiles.
+- Regenerate bindings, package scaffolding, documentation, and test suites with the latest Alef.
+- Remove unused-argument lint warnings from the Hermes plugin test fixture.
+
+### Fixed
+
+- Install protobuf development headers in the shared lint runner so etcd-client builds succeed.
+- Mark the native Python client as safe to share across async worker threads.
+- Keep iOS builds compatible with the Flutter Rust bridge by holding libc below its incompatible Apple symbol change.
+- Run mobile CI when Cargo manifests, the workspace lockfile, or Alef configuration changes.
+
+## [2.2.3] - 2026-10-10
+
+Reliable Go publication, smaller bundled native libraries, and static C distribution artifacts.
+Generated with Alef 0.107.12.
+
+### Fixed
+
+- Release catalog uploads retain explicit GitHub repository context, so the prepare gate no longer
+  blocks every downstream package and Go module-tag job after staging files outside the checkout
+  (#281).
+- Go FFI shared libraries strip release debug information and enforce a 40 MiB size budget before
+  packaging, preventing oversized native binaries from entering the module bundle (#282).
+
+### Changed
+
+- C FFI release archives include the static library and its native linker metadata through the
+  shared `xberg-io/actions/build-rust-ffi` action.
+- Removed repository-wide JavaScript lint exemptions for Unicode regexes, array indexing, and
+  string replacement, plus the obsolete async-plugin exemption.
+
+## [2.2.2] - 2026-10-09
+
+Security, provider correctness, bounded Go clients, truthful catalog pricing, and repaired release
+assets. Generated with Alef 0.107.11.
+
+### Added
+
+- Go and the other generated bindings expose `ClientOptions.max_response_bytes`; provider-quota
+  exhaustion has its own stable cross-language error variant (#275, #278).
+- Model metadata exposes `price_known`, allowing callers to distinguish unsupported or missing
+  per-token prices from genuinely free models (#276).
+
+### Fixed
+
+- Authenticated native clients never follow redirects, preventing prompt bodies and credentials
+  from being replayed to another origin even when outbound policy enforcement is disabled (#277).
+- Empty API keys omit authentication headers, and provider error bodies redact both full bearer
+  values and bare echoed tokens (#272, #279).
+- Anthropic's final streaming usage is cumulative and retains prompt-cache details; 529 overloads
+  preserve their status and malformed successful responses are serialization errors (#274, #275).
+- Tagged releases publish catalog checksums, macOS static archives are no longer corrupted by
+  `strip -S`, and the Go module-tag/native-asset publish path uses the corrected Alef packager
+  (#270, #271, #273).
+
+### Changed
+
+- Updated Rust, Node/WASM, and generated language dependency locks.
+
+## [2.2.1] - 2026-10-09
+
+Provider correctness, safer transport errors, refreshed catalog metadata, and portable Go release
+assets. Generated with Alef 0.107.7.
+
+### Added
+
+- Go setup supports explicit static linking, offline native-library directories, and Linux musl
+  targets; release builds now publish stripped musl archives (#267).
+- Catalog responses expose provenance and whether model lookup was exact or used a fallback (#260,
+  #262).
+- Network failures have stable cross-language error code 109, including `ErrNetwork` in Go (#258).
+
+### Fixed
+
+- Gemini and Vertex embedding requests preserve every input, requested dimensions, and response
+  order (#268).
+- OpenAI-compatible streams request usage by default, while preserving explicit caller overrides
+  (#266).
+- Anthropic uses native JSON-schema output configuration, preserves caller system-message order,
+  reports ignored strict/seed options, and derives the default output limit from catalog metadata
+  (#264, #265).
+- OpenAI reasoning requests use `max_completion_tokens`; custom endpoints retain the native Google,
+  Vertex, Bedrock, Azure, and Anthropic transforms (#256, #264).
+- Retry classification handles quota exhaustion, 529 responses, 503 retry hints,
+  `retry-after-ms`, HTTP dates, and context-window error variants correctly (#257).
+- Provider error bodies redact configured secrets, network errors omit request URLs, and custom
+  base URLs append paths before query strings (#259).
+- Gemini and Anthropic usage maps cached, cache-creation, tool-use, and thinking tokens into the
+  public usage fields used for pricing (#254, #255).
+- Catalog refresh uses isolated atomic downloads with integrity checks, layers overlays, refreshes
+  the embedded snapshot, and corrects model modes and embedding dimensions (#261, #262, #263).
+
+### Changed
+
+- Paid down the remaining tracked provider, fallback, and generated-documentation lint complexity
+  debt (#201).
+- Completed the ai-rulez integration tracker for usage, pricing, errors, routing, and distribution
+  (#269).
+
+## [2.2.0] - 2026-10-08
+
+Gemini thinking-token accounting and the corresponding cross-language usage API. Generated with
+Alef 0.106.1.
+
+### Added
+
+- Usage responses expose `completion_tokens_details.reasoning_tokens` in Rust and every generated
+  language binding.
+
+### Fixed
+
+- **Gemini usage includes thinking tokens.** Google AI and Vertex AI responses now add
+  `thoughtsTokenCount` to completion tokens, preserve `totalTokenCount`, and report usage on
+  streaming chunks (#253).
+
+### Changed
+
+- Lint-debt pay-down (#201): split the provider documentation generator into focused helpers and
+  removed its `function-too-long` baseline exemption.
+
+## [2.1.4] - 2026-10-06
+
+Publishes the 2.1.3 changes. The 2.1.3 publish run stopped at version validation, so 2.1.3 reached
+only Packagist; every other registry goes from 2.1.2 to 2.1.4. Generated with Alef 0.106.1.
+
+### Fixed
+
+- **Kotlin Android: the library compiles again.** `LiterLlmError.RateLimited` redeclared
+  `retryAfter`, which the sealed base now exposes as an `open val` accessor; the field is now
+  declared `override`.
+- Plugin bundles and test-app coordinates are pinned to the release version.
+
+## [2.1.3] - 2026-10-06
+
+Go/FFI fixes for the issues filed against 2.1.2, client-config fixes, and nine new providers.
+Generated with Alef 0.105.0.
+
+### Added
+
+- **Providers:** cognition, cortecs, prism, reka, sail, nadir, scx-ai, edenai and
+  qwen_ai_platform (174 providers total). Registry entries can now declare `aliases`, so
+  `lm_studio/`, `ollama_chat/` and `qwencloud/` route and strip like the provider name. DashScope
+  and Qwen AI Platform support rerank via the compatible-api route.
+- **Cache:** an `opendal:<scheme>` backend value selects any OpenDAL service, including
+  `opendal:memory`.
+- **Errors:** every `LiterLlmError` variant has a stable error code, and reqwest timeouts map to
+  `Timeout`.
+
+### Fixed
+
+- **Go: typed errors.** Native errors surface as `*literllm.Error` with code, status, transient
+  flag, error type and `RetryAfter`; `errors.Is` matches the sentinels (#244).
+- **Go: per-call cancellation.** `ChatWithContext` / `EmbedWithContext` cancel the in-flight
+  native request when the context is done (#245).
+- **Go: no more `(nil, nil)`.** Serialisation and decode failures return an error (#246).
+- **FFI static library links on its own.** The cgo preamble declares the system libraries, and
+  the Go release asset ships `native-static-libs.txt` (#247). macOS FFI builds pin
+  `MACOSX_DEPLOYMENT_TARGET=11.0` so C objects match the Rust objects (#248).
+- **`base_url` prefix stripping.** A known `provider/` prefix is stripped from the model name
+  when `base_url` is set; unknown org prefixes such as `meta-llama/` are kept (#249).
+- **JSON client config is applied.** `create_client_from_json` now builds the middleware stack
+  (budget, cache, cost tracking, rate limits, hooks) and registers custom providers, which it
+  previously parsed and ignored (#251). The budget and cache snippets configure a client in
+  every language.
+- **Go README** documents the real release asset names, static vs dynamic linking, the current
+  API, typed errors and the slim FFI build (#250, #252).
+- Swift basic chat snippet compiles.
+
+### Changed
+
+- Lint-debt pay-down (#201): table-driven outbound IPv4 policy, smaller tower hedge, hooks and
+  rate-limit functions.
+
+## [2.1.1] - 2026-09-25
+
+Two binding fixes from Alef 0.96.4. No Rust, Kotlin or wire-format change — 0.96.4's third fix
+widens the Kotlin container-payload serializer, which this tree's bindings already satisfied.
+
+### Fixed
+
+- **Ruby: `tool_choice` accepts a bare string or hash again.** 2.1.0 emitted `ToolChoice` as a
+  native wrapped class and made that class the *only* accepted input, so `tool_choice: 'auto'` and
+  `tool_choice: { 'type' => 'function', ... }` raised
+  `TypeError: no implicit conversion of String into LiterLlm::ToolChoice`. The Rust type is
+  `#[serde(untagged)]`, so both of those are valid representations and the binding was wrong. The
+  wrapped instance is now tried first and anything else falls through to serde's own reader, so the
+  explicit `LiterLlm::ToolChoice.from_mode` / `.from_specific` constructors introduced in 2.1.0 keep
+  working and the pre-2.1.0 forms work again. This closes the known issue recorded against 2.1.0.
+
+- **Java: multimodal content keeps its `type` discriminator.** `UserContent.ofObject`,
+  `AssistantContent.ofObject` and `EmbeddingInput.ofObject` wrapped a `List` with
+  `MAPPER.valueToTree`. Java erases a collection's element type, so Jackson resolved each element
+  with its untyped lookup and never wrote the `@JsonTypeInfo` discriminator — a list of
+  `ContentPart` serialized as `[{"text":...},{"image_url":...}]` with no `"type"` key, and the
+  request was rejected before reaching a provider. Because the tag-less tree is frozen into the
+  wrapper, nothing downstream could recover it. Lists are now written through a writer with the
+  element type pinned. **This is not a 2.1.0 regression** — it has been present since at least
+  1.19.0, in every release carrying the declarative `@JsonTypeInfo` representation. Single values
+  and `List<String>` payloads were never affected and are unchanged.
+
+## [2.1.0] - 2026-09-25
+
+### Added
+
+- **`AWS_BEARER_TOKEN_BEDROCK` authenticates the Bedrock provider.** A Bedrock API key
+  (`ABSK...`) is sent as `Authorization: Bearer <token>` and needs no signing, so it works with
+  the `bedrock` feature off. Precedence is any explicitly configured credential field, then the
+  token, then environment SigV4 credentials; with the feature off, the token alone
+  ([#227](https://github.com/xberg-io/liter-llm/pull/227)).
+
+### Breaking changes
+
+All wire formats are unchanged. Every break below is source compatibility only, so an upgrade
+surfaces at compile or type-check time rather than at runtime.
+
+- **Node, WASM and TypeScript: `Message` is now a flat discriminated union.** A message was typed
+  `{ role: "user", user: UserMessage }`, nesting the payload under a key named after the role. The
+  Rust `Message` is `#[serde(tag = "role")]`, so that shape never matched what the core actually
+  serializes. It is now `{ role: "user" } & UserMessage`, i.e. `{ role: "user", content: "hi" }`,
+  matching both the Rust representation and the OpenAI wire format. WASM consumers additionally
+  move from constructing a `#[wasm_bindgen]` class to passing a plain object with camelCase
+  payload fields.
+- **Java: generated enum constants are now `SCREAMING_SNAKE_CASE`** — `AuthType.Bearer` becomes
+  `AuthType.BEARER`, `ApiKey` becomes `API_KEY`, across 53 constants. The wire strings the
+  constants carry are untouched.
+- **Swift: `BudgetConfig`, `LlmBudgetConfig`, `LlmCacheConfig`, `LlmConfig` and `ProviderConfig`
+  are now native `struct`s** with a memberwise initialiser, rather than `typealias`es over the
+  Rust bridge types. This turns a reference type into a value type.
+- **PHP: `AuthHeaderFormat` constants become static constructors** — `AuthHeaderFormat::BEARER`
+  becomes `AuthHeaderFormat::bearer()` — and `getAuthHeader()` now returns `AuthHeaderFormat`
+  instead of `string`.
+- **Python: 13 `Enum | str` parameter unions in `_internal_bindings.pyi` are now the enum alone.**
+  Passing a bare string still works at runtime but is a type error.
+- **Ruby: `AuthType` in `sig/types.rbs` is now a `type` alias rather than a class**, with ~13
+  accompanying retypes. An RBS/Steep break only.
+- **Ruby: untagged enums must now be constructed explicitly.** `ToolChoice` is emitted as a
+  wrapped class, so `tool_choice: 'auto'` and `tool_choice: { 'type' => 'function', ... }` raise
+  `TypeError: no implicit conversion of String into LiterLlm::ToolChoice`. Build the value with
+  `LiterLlm::ToolChoice.from_mode` or `.from_specific` instead. This is a generator defect, not an
+  intended API change — the Rust `ToolChoice` is `#[serde(untagged)]`, so the bare string is a
+  valid representation, and the coercion is being restored in 2.1.1. Tracked as a known issue.
+- **Bedrock credentials that cannot be signed are now rejected instead of sent unsigned.** In a
+  build without the `bedrock` feature — WASM, the proxy and the CLI — explicit
+  `bedrock_credentials(...)` with no `AWS_BEARER_TOKEN_BEDROCK` fails `validate()` with a 401
+  rather than emitting a request with no `Authorization` header and an opaque upstream 403. Note
+  that this also rejects a configuration that previously worked: a default-feature build pointing
+  `BEDROCK_BASE_URL` at a signing sidecar or mock, with credentials still in config, now fails at
+  client construction.
+
+### Changed
+
+- Pin Alef 0.96.3 (from 0.85.19) and regenerate every binding. This is where the `Message`
+  reshape comes from; it also moves the Ruby native extension to magnus 0.9, narrows the gem's
+  file glob so sibling packages stay out of the archive, and makes the generated Python package
+  type-check clean under Pyrefly's `strict` preset without adding a runtime dependency.
+- Upgrade every dependency to its latest release: `opentelemetry`, `opentelemetry-otlp` and
+  `opentelemetry_sdk` 0.32 to 0.33 with `tracing-opentelemetry` 0.33 to 0.34 (the four move as one
+  set — `tracing-opentelemetry` 0.34 requires `opentelemetry` 0.33 — and the `otel` feature needed
+  no source changes), utoipa 5.5 to 6.0, rmcp 3.3 to 3.4, opendal 0.59.1 to 0.59.3, jsonschema
+  0.56 to 0.57 (dev only), and the Java, Node, Ruby, Elixir, Python, PHP and Dart manifests —
+  including Dart's `freezed` code generator from 3.2 to 4.0, verified against the committed
+  generated bindings with `dart analyze`. The `getrandom` 0.2 and 0.3 aliases and
+  `flutter_rust_bridge` 2.13.0 stay pinned deliberately: the first keeps a wasm-js backend
+  available to transitive consumers at each major, the second must match `packages/dart`.
+- Drop `RUSTSEC-2023-0071`, `RUSTSEC-2026-0194` and `RUSTSEC-2026-0195` from `deny.toml`. None
+  matched a crate in the dependency graph, so they disarmed the advisory gate for those IDs while
+  appearing to be active exceptions. The two remaining ignores are `unmaintained` notices for
+  transitive `number_prefix` and `paste`, not vulnerabilities.
+- Pay down five single-entry quality-debt baselines — `azure.rs` (thanks @peteraisher,
+  [#228](https://github.com/xberg-io/liter-llm/pull/228)), `tokenizer.rs`, `commands/mcp.rs`,
+  `routes/mod.rs` and `client/config_file.rs` — taking the baseline from 76 findings across 50
+  files to 71 across 45. Behaviour is unchanged
+  ([#201](https://github.com/xberg-io/liter-llm/issues/201)).
+- Refresh the model catalog from models.dev: 430 model ids added, 94 removed. Removals are
+  user-visible, and catalog pricing feeds budget enforcement while `context` feeds request
+  validation.
+
+### Fixed
+
+- **Ruby: the native extension compiles again.** The regenerated kwargs constructors handed
+  `Default::default()` to `EmbeddingRequest.input`, `ModerationRequest.input`,
+  `OcrRequest.document` and `content` on the system, tool and user messages — all required fields
+  whose types are mirrored into the generated crate without the `Default` impl that `core` marks
+  `alef(skip)` — producing six `error[E0277]`s. A missing required keyword now raises instead.
+- **Kotlin/Android: array-valued content keeps its `type` discriminator.** `UserContent.Parts`,
+  `AssistantContent.Parts` and `EmbeddingInput.Multimodal` serialized every element as `{}`, so the
+  Rust side rejected the request with `data did not match any variant of untagged enum` before it
+  was sent. Only the first had test coverage; the other two were silently broken.
+
+## [2.0.3] - 2026-09-18
+
+### Added
+
+- `OutboundPolicy::DenyPrivateExceptHosts`: keep `DenyPrivate` DNS filtering and redirect
+  restrictions for every public provider while letting explicitly trusted exact hosts or `.suffix`
+  domains resolve to private addresses. The same matcher applies during URL validation and during
+  fresh or cached connection-time DNS resolution
+  ([#217](https://github.com/xberg-io/liter-llm/pull/217)).
+
+### Fixed
+
+- Redact resolved addresses from `OutboundForbidden` errors and align the forbidden address ranges
+  between URL validation and connection-time resolution
+  ([#217](https://github.com/xberg-io/liter-llm/pull/217)).
+
+### Security
+
+- Bump rustls to 0.23.45 for RUSTSEC-2026-0285 (TLS 1.3 handshake messages accepted across
+  encryption level boundaries).
+
+## [2.0.2] - 2026-09-14
+
+### Fixed
+
+- Add optional native HTTP response limits to client builders. Enforce the limit before
+  retaining or parsing successful and final error bodies, including decoded gzip output,
+  while preserving unconfigured defaults and successful streaming behavior.
+
+## [2.0.1] - 2026-09-12
+
+### Changed
+
+- Refresh the model catalog from models.dev ([#211](https://github.com/xberg-io/liter-llm/pull/211)).
+- Upgrade jsonschema to 0.56 and rmcp to 3.3, and regenerate bindings with Alef 0.85.19.
+
+### Fixed
+
+- Allow explicitly allowlisted hostnames to resolve to internal addresses while preserving
+  `DenyPrivate` DNS filtering, exact-origin checks, and redirect restrictions. Allowlisting a
+  hostname now trusts its DNS results, including private, loopback, and link-local addresses;
+  literal private IP URLs remain blocked.
+
+- Deserialize generated Python DTOs through their Rust types so serde annotations remain effective ([Alef #375](https://github.com/xberg-io/alef/pull/375)).
+
+## [2.0.0] - 2026-09-09
+
+### Breaking changes
+
+- Rust callers of `OpenDalCacheStore::new` and `OpenDalVectorStore::new` must pass an `opendal` 0.59 operator instead of 0.58. Upgrade the application dependency alongside Liter.
+- Go consumers must use `github.com/xberg-io/liter-llm/packages/go/v2` in imports and module requirements.
+
+### Changed
+
+- Upgrade Rust dependency requirements, including jsonschema 0.55, rmcp 3.2, and OpenDAL 0.59.1, and regenerate bindings with Alef 0.85.11.
+
+### Fixed
+
+- Serve actually compressed gzip bodies for mock HTTP fixtures that declare gzip encoding.
+- Propagate C# native failures from fallible void calls and preserve numeric error codes in typed exceptions.
+- Narrow Java boolean native return values before comparison while retaining the compatible wide call layout.
+- Resolve the current Zig release archive and its actual content hash before running published consumer tests.
+- Render Cargo installation commands in the Rust package README.
+
+- Keep task lint coverage compatible with current Poly reports while rejecting formatter errors.
+- Update Ruby E2E Faraday and JSON dependencies to resolve three security advisories.
+- Synchronize Java and Kotlin test harnesses with the patched Jackson dependencies used by generated packages. Verify both Kotlin registry pins against the release version before native tests.
+- Update vulnerable JavaScript tooling and documentation dependencies, preserving scoped security overrides across regeneration.
+- Include every generated Zig streaming test in the native test build and check source-to-target coverage before running it.
+- Align PHP enum conversions with enabled core features and require the expected native exception in Ruby streaming error tests.
+
+- Build Swift native artifacts for the advertised macOS 13 and iOS 16 minimum versions.
+
+- Remove five Rust advisories by selecting the modern AWS Secrets Manager transport with Tokio runtime support and updating rust_decimal.
+
+- Preserve complete Python streaming requests and Ruby renamed and internally tagged fields.
+- Accept both native Elixir client references and typed wrappers in top-level client methods.
+- Make generated PHP error tests assert actual exceptions and Kotlin content tests check nonempty text.
+- Correct Swift stream and content assertions, and make generated streaming examples inspect individual chunks and release native resources.
+- Preserve Alef-owned Node declarations and loaders during native builds.
+- Remove obsolete standalone Swift bridge headers so the generated umbrella module passes strict compiler checks.
+- Resolve Java example dependencies from the Maven manifest and distinguish mocked fixture URLs from hosted samples.
+- Generate numeric C handles for file and batch list calls.
+
+- Correct the C# client factory and Java exception handling in documentation examples, and type-check them.
+
+- Synchronize the C# consumer using its actual `XbergIo.LiterLlm` NuGet package reference.
+- Restore Kotlin Android publishing after verifying the regenerated AAR and JNI bridge.
+
+- Refresh the root workspace lockfile from a current WASM build, including all six native Node packages, so frozen installation matches the release manifests.
+
+- Install prose tools from the standalone documentation workspace and check MDX as well as Markdown with real failure controls.
+
+- Refresh the Python and Rust consumer locks to published liter-llm 2.0.0.
+
+- Remove endpoint URLs from transport-retry warnings so URL path and query credentials
+  do not reach application logs; retain retry counts and the transport error category.
+
+## [1.19.2] - 2026-09-03
+
+## [1.19.1] - 2026-09-01
+
+### Fixed
+
+- **The plugin publish jobs no longer run ahead of version validation.** `publish-plugin-opencode`
+  and `publish-plugin-hermes` depended only on `prepare`, so they published while
+  `validate-versions` was failing. In v1.19.0 that shipped an npm bundle whose manifests still
+  declared 1.18.4, and rebuilt the Hermes wheel at 1.18.4 where the skip-existing guard reported
+  success having published nothing for the tag. Both jobs now require `validate-versions` to
+  succeed.
+- **`plugin/.ai-rulez/config.toml` is back in sync with the release version.** The 1.19.0 release
+  commit bumped `Cargo.toml` and the alef-managed manifests but not the plugin's own version
+  source, so every ai-rulez-generated plugin artifact stayed at 1.18.4 and `validate-versions`
+  blocked the entire publish.
+
+### Note
+
+- v1.19.0 reached no registry except the npm plugin bundle described above; 1.19.1 is the first
+  complete 1.19 release.
+
+## [1.19.0] - 2026-08-31
+
+### Added
+
+- Scoop is now a live release channel alongside Homebrew: a release publishes a Scoop manifest for
+  the CLI, and the install lists and badges cover it. The channel was previously inert because
+  `scoop` was held out of the workflow's `available-targets` -- alef only gained the target after
+  v0.79.2, and naming a target it does not recognise hard-errors the whole publish pipeline. The
+  pinned alef is now 0.79.5, which carries it, so the gate is enabled.
+
+### Fixed
+
+- The `uv-bump` development dependency pointed at a GitHub fork that no longer exists, so
+  resolving the dev dependency group failed outright and took the lint pipeline down with it. It
+  now tracks the published `uv-bump` package on PyPI — the same tool, at 0.6.0 instead of 0.3.0.
+- Dependency scanning now actually runs. The `cargo deny` step used a Docker container action
+  that failed for two independent reasons: the runner pre-builds such an image at job start, but
+  the `Free disk space` step prunes Docker images and deleted it before the step ran, and the
+  action's Dockerfile downloads an `x86_64` cargo-deny binary that cannot execute on the
+  `ubuntu-24.04-arm` runner anyway. No advisory, license, ban, or source check had ever been
+  evaluated in CI since the scan was added. cargo-deny is now installed as a native binary and
+  invoked directly.
+- The release announcement no longer fires for a release that shipped nothing. `announce-discord`
+  gated on `!contains(needs.*.result, 'failure')`, which cannot see a `skipped` job — and
+  `skipped` is exactly what a publish job becomes when an upstream gate fails. This is the same
+  defect `release-finalize` already documents and fixed for itself; the announcement now depends
+  on `release-finalize` and gates on its verdict.
+- `CI Rust`'s path filters now name the files its own gates read. Editing `deny.toml`,
+  `alef.toml`, `rust-toolchain.toml`, or `.cargo/config.toml` previously started no run at all,
+  so the dependency scan and the binding-freshness check could not disagree with the very
+  configuration that drives them.
+
+## [1.18.4] - 2026-08-28
+
+### Changed
+
+- Upgraded `etcd-client` 0.19 -> 0.20 and `jsonschema` 0.51 -> 0.52.
+
+## [1.18.3] - 2026-08-27
+
+### Note on 1.18.2
+
+1.18.2 was tagged and left as an unpublished Draft release; it never reached crates.io or PyPI
+(both remained at 1.18.1). Its publish run aborted on the `sync_plugin_version.py --expect` gate,
+because at that tag `Cargo.toml` was 1.18.2 while `plugin/.ai-rulez/config.toml` was still 1.18.1.
+The plugin pin was corrected on `main` after the tag was cut, so the tag could never satisfy the
+gate on a retry. 1.18.3 supersedes it and ships the corrected pin.
+
+## [1.18.2] - 2026-08-25
+
+### Changed
+
+- Regenerated all language bindings on alef 0.68.0.
+
+### Fixed
+
+- Outbound policies now cover every provider request URL, including streaming, multipart uploads,
+  health probes, catalog refreshes, Vault, credential acquisition, and native DNS connection attempts
+  and redirect targets. Authenticated clients reject cross-origin redirects so provider credentials
+  cannot leak to a redirected host, while credential-free catalog downloads may follow a cross-origin
+  redirect only after validating its target and never across an HTTPS-to-HTTP downgrade. Policy
+  failures retain their non-retryable
+  `OutboundForbidden` classification, and active policies disable HTTP proxies so connection-time DNS
+  checks cannot be delegated around the guarded resolver. Vertex ADC limits its private-network
+  exception to the fixed, redirect-free metadata endpoint and disables the opaque `gcp_auth` fallback
+  under active policies; the embedded-library default remains `Off`, preserving local mock endpoints.
+
+- **A skipped `publish-crates` no longer reads as a passing gate, and a release that published
+  nothing can no longer report success.** Five places in `.github/workflows/publish.yaml` gated
+  downstream build, publish and release-promotion jobs on
+  `needs.publish-crates.result != 'failure'`. That expression is TRUE when the dependency was
+  *skipped*, and `publish-crates` skips for two opposite reasons: the version is already on
+  crates.io (a re-run or a resumed release, where downstream must proceed) or an upstream gate
+  such as version validation or crate packaging failed (where downstream must not). `result`
+  alone cannot separate them, so every one of those conditions was gating on nothing --
+  tree-sitter-language-pack v1.15.5 promoted a GitHub release to `Latest` with 40+ failed jobs and
+  every registry publish skipped, and still reported success.
+
+  A new always-running `crates-gate` job resolves the ambiguity once, into an explicit
+  `outcome` (`published` / `already-present` / `not-required` / `dry-run` / `blocked`) and an
+  `ok` flag that every consumer now tests instead of `result`. Because the job always runs, its
+  outputs always exist; because it never fails, depending on it cannot skip a consumer. The
+  legitimate already-published path stays exactly as permissive as before, and only the
+  gate-failed path is newly blocked.
+
+  `release-finalize` gated finalization on `!contains(needs.*.result, 'failure')`, which cannot
+  see a skipped job -- so a release whose targets all silently shipped nothing was finalized out
+  of draft and reported green. It now verifies every enabled target individually before flipping
+  the draft, and holds the release as a draft and fails when an enabled, not-yet-published target
+  did not succeed.
+
+  One of the five sites, `publish-homebrew-formula`, had the mirror-image defect: the job carries
+  no `always()` or `!cancelled()`, so GitHub skipped it outright whenever `publish-crates` was
+  skipped and its `if:` never ran at all. The formula therefore went unupdated on exactly the
+  re-runs it was meant to cover. Depending on `crates-gate` -- which always succeeds -- lets the
+  condition be evaluated, so the formula now updates on a resumed release and is still held back
+  when the crates.io prerequisite was never met.
+
+- **A drifted coding-agent plugin now fails the release instead of shipping.** `CI Plugin` already
+  re-ran on `Cargo.toml`, so `--check` caught drift on `main` — but nothing asserted the plugin
+  version against the tag actually being published. `scripts/sync_plugin_version.py` gains
+  `--expect <version>`, which requires core and `plugin/.ai-rulez/config.toml` `[plugin].version` to
+  both equal the version being released, and `publish.yaml`'s `validate-versions` job runs it against
+  `needs.prepare.outputs.version`. `.task/tools/version-sync.yml` joins the `ci-plugin.yaml` path
+  filter so edits to the sync task re-run the gate as well.
+
+### Changed
+
+- Repinned `alef.toml` `alef_version` from `0.67.2` to `0.67.5` and regenerated. Behaviour picked up
+  from the three upstream releases:
+  - Swift e2e assertions now decide a leaf's shape from the bridged getter rather than the accessor
+    text, so `tool_calls` assertions that swift-bridge JSON-bridges to `RustString` are emitted as an
+    explicit skip instead of an assertion that could not compile against the real binding.
+  - Zig e2e assertions no longer wrap expected strings in `std.mem.trim`, which silently masked
+    leading and trailing whitespace differences.
+  - Java FFI wrappers rethrow `LiterLlmRsException` instead of re-wrapping it in a second
+    `LiterLlmRsException("FFI call failed")`, so the original typed error survives the call boundary.
+  - `poly.toml` adds `MD025` to the markdown formatter's disable list.
+- `alef.toml` `[crates.exclude].functions` now excludes `configure_outbound_client_builder`. It takes
+  and returns a `reqwest::ClientBuilder`, which has no binding representation, so alef sanitized both
+  to `String` and failed extraction. It is a Rust-only escape hatch and is excluded the same way its
+  outbound-policy siblings (`set_outbound_policy`, `current_policy`, `validate_outbound_url`) already
+  were.
+
+- Repinned `alef.toml` `alef_version` from `0.66.0` to `0.67.2` and regenerated. Behaviour picked up
+  from the two upstream releases:
+  - `crates/liter-llm-ffi/build.rs`: C header generation is now opt-in behind
+    `ALEF_EXPORT_GENERATED_HEADERS=1` and writes both `crates/liter-llm-ffi/include/liter_llm.h` and
+    `packages/go/include/liter_llm.h` atomically with rollback. A plain `cargo build -p liter-llm-ffi`
+    no longer rewrites either header, so ordinary builds stop mutating committed source; regenerating
+    with the flag set reproduces the committed headers byte for byte. `alef verify` is the freshness
+    gate now.
+  - `packages/dart`: flutter_rust_bridge moved from 2.12.0 to 2.13.0 (`pubspec.yaml`,
+    `packages/dart/rust/Cargo.toml`, `Cargo.lock`, regenerated bridge). The generated bridge now
+    allows `mismatched_lifetime_syntaxes` and fully qualifies `std::result::Result::Ok`.
+    `packages/dart/rust/build.rs` passes `--no-deps-check` to `flutter_rust_bridge_codegen` and only
+    re-applies the FRB cfg gates after a regeneration — the committed bridge already carries them, so
+    the previous unconditional repair on every build was redundant.
+  - `docs-site/src/snippets`: 1,691 snippets regenerated. The generator now prints a field of the
+    result instead of the whole value (`System.out.println(result.data())` rather than
+    `System.out.println(result)`). Where the fixture's assertion path is not a field of the returned
+    type — `is_true` on `cost_tracked`, `equals` on `error.status_code`, or `audio` on a response the
+    binding flattens to a byte array — the emitted accessor does not exist and the snippet no longer
+    typechecks. Verified against built packages: 17 C# and 78 Java snippets regress this way. Tracked
+    upstream against alef; these snippets are generated and cannot be fixed in this repo.
+
+## [1.18.1] - 2026-08-22
+
+### Fixed
+
+- `packages/ruby/sig/types.rbs`: the `fine-tune` enum value was emitted as a bare symbol,
+  `:fine-tune`, which is not valid RBS — the hyphen terminates an unquoted symbol literal, so the
+  declaration failed to parse and steep could not type-check the Ruby package. It is now emitted
+  quoted, `:"fine-tune"`, and `poly lint`'s steep check passes again. Fixed upstream in alef 0.64.0
+  and picked up here by regenerating the bindings.
+
+- `.task/tools/docs.yml`: `docs:snippets:validate` and `docs:snippets:validate:lang` invoked
+  `alef snippets validate`, a subcommand that does not exist (`alef snippets` has only `list`,
+  `check`, `parse`, `audit`, `gaps`), so both targets failed immediately with
+  `error: unrecognized subcommand 'validate'`. Both now call `alef snippets check --strict`, with
+  the per-language target using `--lang`. The canonical `docs:snippets:all` gate was never affected
+  — it already called `check` directly. The removed `LEVEL` variable has no replacement: validation
+  level is config-owned (`validation_level = "typecheck"`), so per-language runs now typecheck
+  instead of defaulting to syntax.
+
+- `.github/workflows/publish.yaml`: the `dry_run` workflow_dispatch input declared
+  `default: "false"` (a quoted string) against `type: boolean`, which made the whole `on:` block
+  fail GitHub's workflow schema (`gau --check` reported
+  `schema validation failed at /on: ... is not valid under any of the schemas listed in the 'oneOf' keyword`).
+  Its sibling inputs `force_republish` and `republish` already used an unquoted `false`. No job
+  behaviour changes: every `if:` in the workflow gates on the normalized string outputs
+  `steps.meta.outputs.dry_run` / `needs.prepare.outputs.dry_run`, never on `inputs.dry_run`.
+
+### Removed
+
+- Retired 18 of 20 `legacy_python_*` hand-maintained doc snippets under `docs-site/src/snippets/python`
+  whose API surface (basic/streaming/tool-calling chat, multi-turn, configuration, embeddings, batches,
+  files, responses, image generation, local providers, moderation, OCR, rerank, search, speech,
+  transcription) is already covered by alef-generated fixture snippets. Doc pages under
+  `docs-site/src/content/docs/usage/*.mdx` now import the equivalent generated fixtures instead.
+  `legacy_python_guides_error_handling` and `legacy_python_multimodal` are kept: they demonstrate
+  per-exception-type branching and multimodal/audio/document/structured-output patterns that the
+  generated fixtures do not currently express.
+- Retired 18 of 19 `legacy_csharp_*` hand-maintained doc snippets under `docs-site/src/snippets/csharp`
+  covering the same topic set as the Python legacy snippets (the C# tree has no `multimodal` legacy
+  file). `legacy_csharp_guides_error_handling` is kept for the same reason as its Python counterpart.
+- Retired 18 of 19 `legacy_dart_*` hand-maintained doc snippets under `docs-site/src/snippets/dart`,
+  same topic set and same triage as csharp/python. `legacy_dart_guides_error_handling` is kept.
+  These snippets were only referenced from `reference/legacy-snippet-catalog.mdx`; that page now
+  points at the equivalent generated fixtures instead.
+- Retired 18 of 19 `legacy_elixir_*` hand-maintained doc snippets under `docs-site/src/snippets/elixir`,
+  same triage as csharp. `legacy_elixir_guides_error_handling` is kept.
+- Retired 18 of 20 `legacy_go_*` hand-maintained doc snippets under `docs-site/src/snippets/go`, same
+  triage as python. `legacy_go_guides_error_handling` and `legacy_go_usage_multimodal` are kept.
+- Retired 18 of 19 `legacy_java_*` hand-maintained doc snippets under `docs-site/src/snippets/java`,
+  same triage as csharp. `legacy_java_guides_error_handling` is kept.
+- Retired 18 of 19 `legacy_kotlin_*` hand-maintained doc snippets under `docs-site/src/snippets/kotlin`.
+  Alef's generated fixtures for this target live under `docs-site/src/snippets/kotlin-android`
+  (the crate key is `kotlin_android`, not `kotlin`); the legacy-snippet-catalog page now points there.
+  `legacy_kotlin_guides_error_handling` is kept.
+- Retired 18 of 20 `legacy_php_*` hand-maintained doc snippets under `docs-site/src/snippets/php`,
+  same triage as python/go. `legacy_php_guides_error_handling` and `legacy_php_usage_multimodal` are
+  kept.
+- Retired 18 of 19 `legacy_ruby_*` hand-maintained doc snippets under `docs-site/src/snippets/ruby`,
+  same triage as csharp. `legacy_ruby_guides_error_handling` is kept.
+- Retired 18 of 19 `legacy_rust_*` hand-maintained doc snippets under `docs-site/src/snippets/rust`,
+  same triage as csharp. `legacy_rust_guides_error_handling` is kept.
+- Retired 18 of 19 `legacy_swift_*` hand-maintained doc snippets under `docs-site/src/snippets/swift`,
+  same topic set and same triage as dart (catalog-only references).
+  `legacy_swift_guides_error_handling` is kept.
+- Retired 18 of 19 `legacy_typescript_*` hand-maintained doc snippets under
+  `docs-site/src/snippets/typescript`, same triage as python. `legacy_typescript_guides_error_handling`
+  is kept.
+- Retired 18 of 19 `legacy_wasm_*` hand-maintained doc snippets under `docs-site/src/snippets/wasm`,
+  same triage as csharp. `legacy_wasm_guides_error_handling` is kept.
+- Retired 18 of 19 `legacy_zig_*` hand-maintained doc snippets under `docs-site/src/snippets/zig`,
+  same topic set and same triage as dart/swift (catalog-only references).
+  `legacy_zig_guides_error_handling` is kept.
+
+  This completes the doc-snippet triage across all 14 languages that carried `legacy_*` snippets
+  (269 files total): 252 retired as superseded by alef-generated fixtures, 17 kept
+  (`guides_error_handling` in every language, plus `usage_multimodal` in go/php and
+  `python_multimodal` in python) because they demonstrate patterns — per-exception-type branching,
+  and multimodal/audio/document/structured-output/typed-constructor usage — that the generated
+  fixtures do not currently express.
+
+## [1.18.0] - 2026-08-22
+
+### Added
+
+- Multimodal embedding inputs can combine tagged text, image URL, and base64 image parts. Self-hosted
+  embedding providers forward the complete input, and vector metadata can retain an image payload
+  and convert it directly to `ContentPart::ImageUrl` for multimodal RAG.
+- A queueing `InFlightLimitLayer` and managed-client configuration now bound simultaneous provider
+  requests globally per client. Cache hits bypass the limiter, `None` remains unlimited, and zero is
+  rejected as invalid configuration.
+
+### Changed
+
+- **Breaking:** `EmbeddingProvider::embed` now accepts `&EmbeddingInput` instead of `&str`, and
+  `VectorMetadata` adds an `image_url` field. Custom provider implementations and metadata struct
+  literals must be updated. Built-in Bedrock, Google AI, and Vertex AI embedding adapters reject
+  multimodal inputs explicitly; use a compatible custom or self-hosted endpoint for image embeddings.
+
+## [1.17.3] - 2026-08-21
+
+### Fixed
+
+- **The release actually publishes.** v1.17.2 was tagged and released but published nothing to any
+  registry: the `Validate versions` gate failed on stale `Cargo.lock` files under `e2e/rust` and
+  `packages/ruby/ext/liter_llm_rb/native`, which skipped the crates.io publish job. Every
+  language-package build behind it then failed with
+  `failed to select a version for the requirement ^1.17.2`, because `alef publish prepare` was
+  retrying against a registry version that had never been pushed. The lockfiles are refreshed and
+  the gate passes. Note that Packagist did ingest the 1.17.2 tag through its own webhook,
+  independently of CI, so PHP is the one ecosystem where 1.17.2 resolves; every other ecosystem is
+  still on 1.17.1. Use this version instead.
+
+## [1.17.2] - 2026-08-21
+
+### Fixed
+
+- Generated bindings regenerated on alef 0.62.8. This carries alef's fixes for JNI and FFI casts to
+  a value's own type (which tripped `clippy::unnecessary_cast` in the JNI crate, linted with
+  `-D warnings`), a dead `java.util.List` import, and a `kotlin.test.assertNotNull` import emitted
+  where nothing referenced it.
+
+- `packages/ruby/ext/liter_llm_rb/native/Cargo.toml` and `e2e/rust/Cargo.toml` now follow the
+  project version. Both are alef-owned but were never reached by the version sync, so each release
+  left them pinned to the previous version.
+
+- The publish workflow pins `xberg-io/actions` at `@v1` rather than `@main`, so it no longer tracks
+  untagged changes to that repository.
+
+### Security
+
+- `h2` advanced to 0.4.18, resolving RUSTSEC-2026-0258 (unbounded empty DATA frames: a peer could
+  queue empty frames without limit, risking unbounded memory use or a panic on length overflow).
+  Low severity.
+
+### Changed
+
+- All Rust dependencies taken to their latest versions (`cargo upgrade --incompatible` followed by
+  `cargo update`): `jsonschema` 0.49 to 0.50 and `rand` 0.9 to 0.10 as direct dependencies, plus 105
+  transitive bumps and two new packages. Nothing was downgraded. `rand` 0.10 required source
+  changes: the `os_rng` feature is now `sys_rng`, `small_rng` is gone (`SmallRng` compiles
+  unconditionally), `SmallRng::from_os_rng()` becomes `rand::make_rng::<SmallRng>()`, and
+  `Rng::random_range` moved to a new `RngExt` trait.
+
+- alef pinned to 0.62.8.
+
+### Known issues
+
+- The Dart package does not analyze cleanly. `packages/dart/lib/src/liter_llm.dart` calls
+  `countTokens`, `countRequestTokens` and `recordCostUsd`, which the committed
+  flutter_rust_bridge bridge does not declare, so `dart analyze` reports three
+  `undefined_function` errors. The three functions are declared in the bridge facade; the bridge
+  generator emits them only when invoked as a `cargo` build-script subprocess and not when invoked
+  as a bare CLI, which is how alef calls it. Tracked upstream; other language bindings are
+  unaffected.
+
 ## [1.17.1] - 2026-08-15
 
 ### Changed
 
-- **catalog**: refreshed the bundled model catalog (`schemas/catalog.json`) from models.dev.
-  Providers increased from 184 to 185, models from 6293 to 6321. The single new provider is
-  `crusoe`.
-- **client**: scoped restoring of the transport `stream` field to only providers that preserve it
-  after request transformations.
+- **wasm/typescript**: `#[serde(untagged)]` data enums now generate real structural TypeScript
+  types instead of `any`. Six types change shape in the generated `.d.ts`: `ModerationInput` and
+  `EmbeddingInput` (`string | string[]`), `StopSequence` (`string | string[]`), `RerankDocument`
+  (`string | { text: string; }`), `UserContent` (`string | any[]`), and `ToolChoice`
+  (`"auto" | "required" | "none" | WasmSpecificToolChoice`). TypeScript consumers may see **new
+  compile errors** at call sites that previously typechecked only because `any` hid a genuine
+  mismatch between the value passed and the shape the binding actually accepts. These are
+  pre-existing bugs the old typing concealed, not new runtime restrictions — the accepted runtime
+  values are unchanged. `AssistantContent` is deliberately exempt via `untagged_union_text_types`
+  and continues to bridge as a plain `string` on its field, getter, and setter.
+
+- **catalog**: refreshed the bundled model catalog (`schemas/catalog.json`) from models.dev. The
+  catalog is embedded via `include_str!` and backs pricing and capability lookups in `cost.rs`.
+  Providers went from 184 to 185 and models from 6293 to 6321: **70 models added, 42 removed, and
+  no existing model repriced** — input and output costs are byte-identical for every model present
+  both before and after. The single new provider is `crusoe`.
+
+  The removals are the upgrade risk, since a removed identifier no longer resolves for cost
+  lookup. 36 of the 42 are under `cloudflare-ai-gateway`, and they are genuine deletions rather
+  than renames — nothing was added back under those names. Notably **every** Anthropic model
+  behind that gateway is gone (`claude-3-haiku`, `claude-3-sonnet`, `claude-3-opus`,
+  `claude-3.5-haiku`, `claude-3-5-haiku`, `claude-3.5-sonnet`, `claude-sonnet-4`,
+  `claude-opus-4`, `claude-opus-4-1`), along with 24 `workers-ai` models,
+  `openai/gpt-5.1-codex`, `openai/gpt-5.2-codex`, and `moonshotai/kimi-k3`. The remaining six
+  removals are `inclusionai/ling-3.0-tiny` variants across `kilo`, `nano-gpt`, `openrouter`, and
+  `vercel`, plus `nano-gpt/TEE/minimax-m2.5`. If you route Anthropic models through
+  `cloudflare-ai-gateway`, cost lookup for those ids will no longer resolve after this upgrade.
 
 ### Fixed
 
-- **client**: fixed Vertex/Gemini non-streaming requests that previously shipped `"stream": false` and
-  failed with `Invalid JSON payload received`.
-- **version**: aligned per-language binding crate versions with the core workspace version for this
-  release.
-- **docs**: fixed MCP HTTP transport snippet highlighting by marking it as `bash` instead of `toml`.
+- **client**: stop re-inserting `stream` into request bodies that providers rebuilt without it.
+  `prepare_request` set the transport-controlled `stream` flag before `transform_request`, then
+  restored it after the `extra_body` merge so `extra_body` could not desync the wire flag from the
+  chosen transport. That restore ran for every provider, including those whose native wire format
+  has no `stream` field at all. Vertex/Gemini rebuilds the body into `generateContent` shape and
+  deliberately drops the key, so a plain non-streaming call shipped `"stream": false` and Vertex
+  rejected the entire request with HTTP 400 `Invalid JSON payload received. Unknown name "stream":
+  Cannot find field.` — breaking **every** non-streaming chat completion against Vertex AI,
+  including vision and structured-extraction calls, which surfaced only as a silently absent
+  result. The restore is now scoped to providers whose body still carried `stream` after their own
+  transform, so OpenAI-compatible, Anthropic, and Cohere bodies keep the flag while Vertex and
+  Bedrock — which select streaming by endpoint — no longer receive a field their native request
+  formats do not define.
+- **version**: stop the per-language binding crates from drifting behind the core workspace
+  version, so a binding crate published from this release carries the same version as the
+  `liter-llm` core it was built against.
+- **docs**: label the MCP HTTP transport snippet as `bash` instead of `toml` so it renders with the
+  correct syntax highlighting.
+
+## [1.17.0] - 2026-08-13
+
+### Upgrade notes
+
+- **`tenant_id` no longer defaults to the virtual key token — this resets budget spend and cache
+  scope for every unconfigured key.** The key token was silently doubling as the tenant identifier,
+  which meant a live credential flowed into the OTLP `gen_ai.budget.tenant_id` attribute, the
+  budget-ledger CSV chargeback export, tenant-scoped cache keys at rest, and `UsageEvent` logs. That
+  could not be preserved as the default — it was the vulnerability. Virtual keys now take an
+  optional `tenant_id` field; if left unset, a *new* tenant id is derived instead of reusing the key.
+  On deploy this means: **month-to-date budget spend resets to zero for every key that does not set
+  `tenant_id` explicitly**, and that key's existing tenant-scoped cache entries become orphaned
+  (unreachable, not deleted).
+
+  If you need **billing** continuity across this upgrade, set `tenant_id` to the old key value for
+  every affected virtual key **in the same deploy**, before traffic hits the new build.
+
+  **Understand what that costs before you do it.** Setting `tenant_id` to the key token puts the
+  live credential back into every sink listed above — the OTLP attribute, the chargeback export,
+  cache keys at rest and `UsageEvent` logs. None of those sinks were hardened by this release; only
+  the default changed. The code deliberately prints `tenant_id` in plain text (in `KeyContext`'s
+  `Debug`, for one) precisely *because* it is no longer expected to be a secret, so this remedy
+  reinstates the exposure the release exists to remove. Treat it as a temporary migration step:
+  carry spend across the deploy, then rotate the affected keys and drop the explicit `tenant_id`.
+  If you can absorb a spend reset instead, that is the safer choice.
+
+  Cache continuity is **not** available by any route — see the next note. Every entry is
+  unreachable after this deploy regardless of what `tenant_id` is set to, so do not accept the
+  credential-reexposure cost expecting to keep a warm cache.
+- **Deploying this release invalidates every existing cache entry.** The cache key now folds in
+  `tenant_id` and `system_prompt` (both previously hard-coded to `None`) and additionally hashes
+  `tools`, `response_format`, `seed`, `presence_penalty`, `frequency_penalty`, `logit_bias`,
+  `tool_choice`, `parallel_tool_calls`, `reasoning_effort`, `modalities` and `extra_body`. Old keys
+  become unreachable the moment this deploys — there is no error and no warning, just a cold cache
+  and a burst of upstream traffic and spend until it refills. This is intended: the old keys were
+  the defect. Expect the cold-start cost and do not read the traffic spike as a regression.
+- **Wire format: chat responses now always include `role`, `logprobs` and `refusal`.** OpenAI's
+  schema requires all three on `choices[]`/`choices[].message`; a strict client deserializing a
+  response from this proxy previously failed on the missing keys. `refusal` is now serialized even
+  when `null`, which as a side effect also makes it appear on *request* messages you send — that is
+  valid per OpenAI's schema, but if you diff request payloads byte-for-byte, expect the new key.
+- **API: exhaustive struct literals against `Choice` or `CreateResponseRequest` will not compile.**
+  `Choice` gained `logprobs`; `CreateResponseRequest` gained `extra_body`.
+- **API: `CacheDecision` loses `stale_while_revalidate` and `use_streaming_replay`.** Both were
+  public, documented, and read nowhere — an operator could set either and believe it took effect.
+  `stale_while_revalidate` never served a stale entry, and the "opt-in via policy" streaming replay
+  did nothing. `semantic_ttl` stays, but its doc no longer implies a separate duration: a semantic
+  hit resolves to the same physical entry, which has exactly one TTL.
+- **API: `HttpProbeHealthChecker::new` no longer takes a timeout parameter.** See the health-gate
+  entry under Fixed.
+- **API: `GuardrailService` and `HooksService` gained an `S: Clone` bound.** The bound is on the
+  `Service` impl, not the struct, so it breaks composition rather than construction: a stack
+  wrapping an inner service that is not `Clone` no longer compiles. Both needed it to defer the
+  inner call until after their own pre-flight decision.
+
+### Security
+
+- **Singleflight deduplication ignored tenant identity, so one tenant could be served another's
+  response.** `singleflight_key` hashed only the inner chat/embedding request; `tenant_id` lives on
+  the `LlmRequest` envelope, whose `Serialize` forwards to that inner value alone, so tenant could
+  not reach the hasher even indirectly — while the exact and semantic cache tiers, already fixed for
+  this, read it explicitly. Two virtual keys posting byte-identical bodies inside one in-flight
+  window collapsed to a single upstream call, and the follower skipped the budget, cost and
+  guardrail layers entirely: its spend went unrecorded and its cap unenforced, while it was reported
+  as a cache hit on a call made for someone else. Only reachable if you compose `SingleflightLayer`
+  yourself; no in-tree stack did.
+- **The proxy ran no guardrails at all.** The trait, the stage enum and the whole apply-path shipped,
+  but nothing populated a guardrail set — see "Added" for the config surface that fixes it.
+- **The virtual key token was echoed into client-visible 403 error bodies from six call sites**,
+  across `require_master`, guardrail rejections and other proxy error paths — the live credential
+  landed in the caller's own logs plus every access log, reverse proxy and error tracker on the
+  response path. `Debug` output on `KeyContext` had the same problem: both `key_id` and `tenant_id`
+  printed verbatim into any captured span or panic message. Both are now redacted; error bodies and
+  `Debug` report a stable, non-reversible correlation id instead. Two tests that had pinned the leak
+  by asserting the raw token was present now assert the opposite.
+- **`tenant_id` was the virtual key token itself, and it flowed into weakly-protected sinks with no
+  rotation-linked purge**: the OTLP `gen_ai.budget.tenant_id` metric attribute, the budget-ledger CSV
+  chargeback export, tenant-scoped cache entries at rest, and `UsageEvent` usage logs. See "Upgrade
+  notes" above — this is now fixed, and the fix changes tenant identity for unconfigured keys.
+- **An empty master key was a full authentication bypass, not a weak credential.**
+  `Authorization: Bearer` (empty, trailing space) resolved to `KeyContext::master()` — full
+  read/delete access to every tenant's files, batches and responses — because unset env-var
+  interpolation yields `""`, and the constant-time comparison treated two empty byte slices as
+  equal. Config load now refuses a master or virtual key that interpolates to empty, and the
+  comparison itself rejects empty operands. Virtual keys had the same hazard and are fixed the same
+  way.
+- **The realtime proxy documented guardrail enforcement it has never performed.** The module doc
+  stated as fact that client → upstream messages are checked at `GuardrailStage::Input` and
+  upstream → client at `GuardrailStage::OutputChunk`. The machinery to do so exists and is
+  correct, but the only production call site passes an empty guardrail set, and there is no proxy
+  config field, no `AppState` field and no other caller that populates one — so both checks
+  iterate nothing and always allow. No behaviour changed here; what changed is that the docs no
+  longer assert a control that is not running. If you relied on realtime sessions being moderated,
+  they were not. Wiring a real config surface for this is tracked separately.
+- **MCP tool calls and realtime sessions bypassed per-key rate limits and budgets entirely.**
+  Model-routed MCP calls never attached `tenant_id` to the Tower stack, and a missing `tenant_id` is
+  treated as intentionally unlimited; realtime never entered the Tower stack at all. Both are now
+  routed through the same rpm/tpm/budget enforcement a unary HTTP call gets — realtime is
+  necessarily pre-flight-only, since a live session has no discrete request to meter.
+- `server.request_timeout_secs` was parsed from config and had no effect. It is now applied to unary
+  routes, bounding an upstream that never responds. (Realtime and already-flowing stream bodies are
+  not covered — see the commit notes for why.)
+- CEL guardrail expressions could exhaust the native stack through an unparenthesized operator chain
+  (`"!!!!...true"`, a long `&&` chain) that the existing bracket-depth cap could not see, since it
+  counts only `( [ {`. Operator count is now bounded too. Not a confirmed exploit — defence in depth
+  alongside the existing depth cap.
+- **Proxy: any valid virtual key could read, download and delete another tenant's files, batches and
+  responses.** The nine REST handlers in `routes/files.rs` and `routes/batches.rs` bound `KeyContext`
+  as `_key_ctx` and discarded it. These IDs are opaque identifiers on a single shared upstream
+  provider account with no per-tenant ownership record in the proxy, so they are now scoped to master
+  keys — matching what the MCP layer already enforced for the same twelve operations.
+- **Proxy: revoked virtual keys and rotated master keys kept working until restart.** The config
+  watcher swapped only the config `Arc`; `KeyStore` is now built once, shared with the watcher, and
+  reloaded on every `Put`/`Resync` event.
+- **Cache: enabling the semantic tier silently defeated tenant isolation.** The exact tier folded
+  `tenant_id` into its key, but the semantic tier wrote every entry with `tenant_id: None` and
+  `VectorStore::search` took no tenant argument, so it could not have filtered even if the metadata
+  were populated — tenant B asking a semantically similar question was served tenant A's cached
+  response. `search` now takes a tenant and both backends filter on it. `None` matches only `None`;
+  treating it as a wildcard would reopen the hole it closes.
+- **Bedrock: a SigV4 signing failure sent the request to AWS unauthenticated.** `signing_headers`
+  called `sigv4_sign(...).unwrap_or_default()`, so failure yielded empty headers. Credentials are now
+  validated on every request and fail hard before any network I/O.
+- **Credentials appeared in `{:?}` output.** `LlmConfig` and `BedrockConfig` derived `Debug` over
+  `api_key`, `access_key_id`, `secret_access_key` and `session_token`, so any debug formatting — a
+  tracing event, a panic message — printed live credentials. Both now redact, matching the existing
+  `ClientConfig` convention. Proxy config structs holding virtual keys and provider credentials are
+  redacted likewise.
+- **Output guardrails did nothing for streamed responses.** `GuardrailStage::OutputChunk` was defined
+  and documented but never invoked, so a guardrail that blocks a phrase had no effect once the caller
+  streamed. Chunks now pass through it, and a blocked chunk terminates the stream: bytes already sent
+  cannot be recalled, but nothing further reaches the caller.
+- CEL guardrail expressions reached the parser with no bound on length or nesting depth. A stack
+  overflow aborts the process and `catch_unwind` cannot catch it, so one malicious rule string could
+  take the process down. Expressions are now validated before compilation. The abort was never
+  reproduced — this is defence in depth, not a confirmed exploit.
+- A panicking guardrail poisoned the global registry lock and permanently disabled guardrail
+  enforcement for the rest of the process; the guard is now recovered with a warning.
+- The CLI now warns when a master key is passed as a command-line argument, where it is visible in
+  the process table.
+
+### Changed
+
+- Chat responses now always serialize `role` (on `choices[].message`), `logprobs` (on `choices[]`)
+  and `refusal` (present even when `null`) to satisfy OpenAI's response schema. See "Upgrade notes."
+- `Choice` gained a `logprobs` field; `CreateResponseRequest` gained an `extra_body` field;
+  `GuardrailService` and `HooksService` both gained an `S: Clone` bound. See "Upgrade notes."
+- **`DenyListGuardrail` never blocked anything, and `AllowListGuardrail` would have blocked
+  everything.** Both decide on `GuardrailContext::metadata`, and nothing populated it per call —
+  `GuardrailService` passed only the static per-layer map, and `LlmRequest::tenant_id` was never
+  copied in. A deny-list on `tenant_id` therefore read `None`, which that guardrail treats as
+  "nothing to deny", so a configured and documented access control silently allowed every request;
+  an allow-list read `None` as "required field absent" and would have blocked all traffic. CEL
+  expressions referencing `metadata.tenant_id` were broken the same way. `tenant_id` is now merged
+  into the per-call context. Static per-layer metadata still wins on a key collision, with a
+  warning, so an operator's explicit value is never silently overwritten.
+- **A hook-rejected request no longer consumes rate-limit and budget accounting.** `HooksService`
+  called the inner service before running its `on_request` hooks, so a request the hooks rejected
+  had already executed every inner layer's synchronous body — and `ModelRateLimitService`
+  increments its RPM counter there. A burst of hook-rejected traffic therefore exhausted the RPM
+  window and started rejecting *legitimate* requests, none of which had reached a provider. No
+  upstream call was ever made, so this cost bookkeeping rather than money, but it is a self-DoS
+  any client could trigger by repeatedly sending content a guardrail hook blocks. The inner call
+  now happens after the hooks pass. The existing short-circuit test could not catch this: its mock
+  counted inside the async body, which is never polled either way.
+- **An Azure-routed Responses call sent a malformed URL instead of failing.** All four
+  `ResponseClient` methods pass an empty model to `build_url` — none of create/retrieve/cancel has
+  one to give — and Azure embeds the model in the path unconditionally, so the request went out to
+  `.../openai/deployments//responses` and relied on Azure's 404. It now returns
+  `EndpointNotSupported` before any network call. The check tests the URL shape rather than the
+  provider name, so it cannot reject OpenAI-compatible gateways running under a different provider
+  name, and will catch any future provider with the same URL-embedding pattern. Bedrock, Vertex and
+  Google AI were never affected — contrary to what the `ResponseClient` doc claimed, they fall
+  through to the plain `{base}{path}` branch; that doc is corrected too.
+- **`top_p` never reached Cohere at any value.** Cohere's v2 `/chat` endpoint has no `top_p` field
+  — its nucleus-sampling parameter is named `p` — so the value was forwarded under a name Cohere
+  does not recognise and silently dropped, leaving nucleus sampling entirely unset on every Cohere
+  request that asked for it. It is now renamed to `p` on the way out and range-checked against
+  Cohere's documented `[0.01, 0.99]`. Note the floor is `0.01`, not `0.0`: `top_p: 0.0` is legal
+  for OpenAI and was legal per this crate's own docs, and is now rejected for Cohere rather than
+  quietly coerced. The error names `top_p`, the field you set, not Cohere's internal `p`.
+- **A single failed health probe took the whole service offline.** The global gate stored
+  `result.is_ok()` from one `ListModels` probe, so any failure rejected all traffic with 503 until
+  the next tick — and a provider that does not implement `ListModels` returns `EndpointNotSupported`
+  and was taken down permanently for a capability gap, while ordinary chat through it would have
+  worked. The gate now uses the same consecutive-failure thresholds the per-provider checker already
+  had (3 to open, 2 to close), and `EndpointNotSupported` is not counted at all. Set both thresholds
+  to `1` for the old behaviour. `HealthCheckConfig::timeout` was also applied to nothing, so a
+  stalled checker froze the probe loop and left a dead provider marked healthy forever; it now bounds
+  every probe. **Breaking: `HttpProbeHealthChecker::new` no longer takes a timeout** — two
+  independent deadlines for one probe is worse than one.
+- **Every cached error replayed as a 500.** The negative cache rewrote each error to
+  `InternalError`, so a cached 429 came back without its `Retry-After` and with `is_transient()`
+  false — clients stopped retrying. The variant is now preserved on both the write and read paths.
+  Fixing only that would have been worse than the bug: replays re-entered the write path and pushed
+  the expiry out every time, which was masked solely because the replayed error was non-transient.
+  The window is now set once, by the call that saw the real failure, so steady polling can no longer
+  keep an entry alive forever.
+- **The OpenDAL cache backend silently discarded every configured TTL** — it never overrode
+  `set_ttl`, so the trait's no-op ran and entries kept the store's construction-time TTL regardless
+  of config or per-model policy. Both existing tests named for this defect used the in-memory store,
+  which does override it. Error entries are also no longer logged at WARN on this backend, which
+  previously produced one warning per failed request during exactly the outage the negative cache
+  exists for.
+- **Metrics mislabelled everything after the first request for a model.** The attribute cache was
+  keyed on `(system, model)` but also cached `gen_ai.response.model` and `gen_ai.operation.name`, so
+  one early failure fixed both for good — and requests with no model (`ListModels`, and image or
+  moderation calls without one) all collapsed onto a single key and inherited whichever operation
+  arrived first. Token usage also dropped every streamed request while cost did not, so a streaming
+  deployment reported spend against zero tokens. `gen_ai.system` was empty on all cache-tier metrics,
+  making hit rate impossible to break down by provider.
+- **`temperature` above a provider's documented cap is now rejected locally instead of forwarded.**
+  `ChatCompletionRequest` documented `temperature` as `[0.0, 2.0]` — OpenAI's range — while
+  Anthropic and Amazon Bedrock both cap it at `1.0`, so a value legal per our own API docs failed
+  at the provider after a network round trip. Those two now return a `BadRequest` naming the field,
+  the value and the provider's range. The same outcome as before, just earlier and legible; nothing
+  that previously succeeded now fails. Deliberately not clamped — the parameter is supported and
+  only the scale differs, so clamping would silently rewrite the caller's request. Enforcement
+  applies only where the provider's own schema states a bound: Cohere documents `temperature` as a
+  non-negative float with no maximum, Google's docs contradict each other on the ceiling, and
+  Mistral publishes a recommendation rather than a bound, so those are left forwarded unchecked.
+- **The Responses API is documented as OpenAI-only.** No behaviour changed, but the docs previously
+  implied otherwise — `parse_response_stream_event` described the event shape as "uniform across
+  providers that support it", a set that does not exist: the provider registry models no
+  `responses` endpoint for any of its 165 providers, no provider overrides `responses_path()`, and
+  neither `transform_request` nor `transform_response` runs on this path. A `provider/model` prefix
+  on `CreateResponseRequest.model` is not stripped and does not re-route. If you point this path at
+  a non-OpenAI provider today, it does not work and is not expected to.
+
+### Fixed
+
+- **Cohere streaming was entirely non-functional.** The parser matched Cohere's legacy v1 NDJSON
+  event names and field paths against the v2 endpoint the provider actually targets, so a stream
+  opened cleanly and then yielded empty text, empty tool calls, and no `finish_reason` or usage —
+  ever. All twelve existing streaming tests encoded the v1 shapes and asserted the broken behaviour;
+  rewritten against the real v2 wire format.
+- **Every non-streaming Cohere completion failed deserialization.** Cohere's v2 chat response has no
+  `choices` wrapper — `id`, `finish_reason`, `message` and `usage` are top level — so
+  `transform_response` was a no-op on real payloads. The old tests passed only because they fed the
+  wrong shape as input.
+- **Gemini streaming hit the non-streaming endpoint and failed with a misleading error.**
+  `build_stream_url` reused the non-streaming `:generateContent` URL with `?alt=sse` appended;
+  Gemini ignores `alt=sse` there and returns one ordinary JSON body, which surfaced as "SSE stream
+  truncated" with no content. Both Google AI Studio and Vertex AI now call
+  `:streamGenerateContent`.
+- **Bedrock embedding requests were silently discarded.** Bedrock has no unified embeddings API, so
+  embedding calls fell through to the Converse (chat) transform, which rebuilds the body and
+  dropped the input entirely. Titan and Cohere embedding shapes are now dispatched on model prefix
+  and their responses normalised to OpenAI's `data[]` list form; a batched Titan input errors rather
+  than silently truncating to one vector, and an unrecognised embedding model errors instead of
+  guessing.
+- **Vertex, Google AI and Bedrock silently dropped documented OpenAI request fields**
+  (`logprobs`/`top_logprobs`, `service_tier`, `metadata`, and others) because those providers
+  rebuild the request body wholesale. Fields with a real equivalent are now mapped (e.g.
+  `logprobs`/`top_logprobs` → Gemini's `responseLogprobs`/`logprobs`); anything without one now
+  warns instead of vanishing. Anthropic had the opposite defect — it mutates the body in place, so
+  seven unmapped fields reached its wire verbatim, and a caller's `metadata` collided with
+  Anthropic's own `metadata.user_id`. Anthropic now strips what it doesn't support.
+- **Setting `modalities` or `seed` on an Anthropic request failed the entire call with a 400.** Two
+  fields were still missing from Anthropic's strip list, and the Messages API rejects any
+  unrecognised top-level key with `"Extra inputs are not permitted"` rather than ignoring it — so
+  these did not degrade the request, they broke it, including `modalities: ["text"]`, which is a
+  no-op for a provider that only emits text. Both are now stripped; `seed` warns, since a caller
+  pinning it for reproducibility gets none.
+- The `cohere` and `cohere_chat` registry entries pointed at `api.cohere.ai` while the provider
+  itself used `api.cohere.com`. Both hosts are live aliases so nothing failed, but anything reading
+  the registry to locate Cohere disagreed with the client that sends the request. Both now say
+  `api.cohere.com`, and a test pins them together.
+- **The proxy rejected documented OpenAI chat request fields with a hard 400** instead of ignoring
+  them: `logprobs`, `top_logprobs`, `max_completion_tokens`, `service_tier`, `store`, `metadata`,
+  `prediction`, `audio`, `web_search_options`. All are now accepted and forwarded to the provider.
+- **The Responses API had no escape hatch for provider extensions.** `CreateResponseRequest` had no
+  `extra_body`, and because the type denies unknown fields, a caller-supplied `extra_body` was
+  rejected outright — for example, there was no way to reach OpenAI's `reasoning.effort` on this
+  path. `extra_body` is now merged on both the streaming and non-streaming Responses paths, reusing
+  the same merge the chat path already used (GH [#174], reported by @huangmiuXyz).
+- Guardrail `Mutate` decisions were applied at the `OutputChunk` streaming stage but silently
+  ignored at the `Input` and `Output` stages — a redaction guardrail (including the built-in
+  `RegexGuardrail` in Redact mode) sent the provider the unredacted content and returned the
+  unredacted response to the caller. Both stages now apply the mutated payload, and fail closed: if
+  a mutated payload cannot be applied, the call aborts rather than silently forwarding the original.
+- The circuit breaker could be force-closed by a stale in-flight request. A request that started
+  while the circuit was `Closed` and completed after other requests had since tripped it to `Open`
+  unconditionally reset the breaker to `Closed` and zeroed the failure count on success, sending
+  traffic back at a backend that was still down. Closing now requires a `HalfOpen -> Closed`
+  transition; a success recorded against an already-`Open` circuit is ignored.
+- A realtime session hanging up could shut down the entire proxy. The handler passed the
+  process-wide shutdown token straight into the relay loop, so a normal session close cancelled the
+  same token graceful shutdown awaits — any client could trigger it deliberately, and a legitimate
+  user closing a call could trigger it by accident. Sessions now cancel a child token instead.
+- Streamed requests that a caller abandoned early recorded no spend, even though the full
+  completion is generated and buffered server-side before the first byte reaches the caller —
+  opening and dropping streams in a loop was unmetered usage against a budget-limited endpoint.
+  Spend now also settles on stream `Drop`.
+- Several in-memory maps had no bound and were reachable with attacker-controlled keys, each a
+  memory-exhaustion vector in a long-running proxy: the per-key idempotency store (also fixed to
+  hash bodies deterministically across restarts and replicas, rather than per-process-random), the
+  budget ledger's per-user/per-key spend maps (reclaims only zero-spend entries — an
+  already-tracked principal's recorded spend is never discarded), and the semantic-routing
+  classifier verdict cache (capped at 4096 entries by default).
+- Cache TTL configuration was ignored on two of three write paths. `CacheLayer::new` hardcoded a
+  300s policy TTL regardless of `CacheConfig.ttl`; `with_store` (used by every custom store and
+  every OpenDAL backend via `ManagedClient`) took no config at all and had the same default.
+  `CacheLayer::new` now honours it, and a new `CacheLayer::with_store_and_config` constructor
+  carries the config through — `ManagedClient` uses it. **`with_store` itself is unchanged and
+  still cannot honour a TTL**, because it takes no `CacheConfig`; if you build a custom store
+  through it, switch to `with_store_and_config` or you will keep getting the 300s default.
+- Weighted-random routing seeded its RNG from `SystemTime` subsecond nanos, so requests arriving in
+  the same timer tick drew near-identical values and a burst of traffic collapsed onto one
+  deployment instead of spreading per the configured weights. Now seeded once from OS entropy.
+- A request body containing a non-ASCII character within the first 64 bytes panicked while
+  computing the idempotency body hash, which sliced a fixed-length prefix on a byte boundary that
+  could fall mid-character. Now cuts on the nearest character boundary; previously-working hashes
+  are unchanged.
+- `LiterLlmError` gained a `retry_after()` accessor alongside `status_code()` and `error_type()`,
+  exposing the delay already parsed from a `Retry-After` header on `RateLimited` errors. Consumers
+  previously had to invent their own backoff from the status code alone; bindings pick this up on
+  their next regen.
+- The npm package's `bin/liter-llm.js` was committed non-executable, so a checkout — or any install
+  path that preserves archive file modes — could not run it directly.
+- The C# README badge linked to `nuget.org/packages/LiterLlm`, a package this project does not own.
+- **Budget: month-to-date spend reset on every config reload, not on restart.** `InMemoryBudgetLedger`
+  had no way to update its limits, so the proxy rebuilt and swapped the whole ledger to apply a
+  reloaded config, discarding every sliding window. With hot-reload enabled and frequent config
+  pushes a tenant's budget could effectively never be enforced, and it failed open. Limits now sit
+  behind an `ArcSwap` and only that pointer is swapped, so a lowered limit applies to spend already
+  recorded rather than forgiving it.
+- **Budget enforcement, cost tracking and rate limiting skipped every streamed request.**
+  `LlmResponse::usage()` is always `None` for `ChatStream`; streams are now wrapped to fire accounting
+  on completion.
+- **Requests differing only in `tools`, `response_format`, `seed`, `logit_bias`, `tool_choice` or
+  `extra_body` collided in the cache and were served each other's responses.** See the upgrade note
+  above.
+- The negative cache was dead code: it wrote keys with a std `DefaultHasher` over raw JSON while the
+  read path used a seeded `ahash` over a curated field set, so an entry could never be read back.
+  Both paths now share one `CacheKeyStrategy`.
+- SSE stream truncation was reported as a clean EOF — silent data loss. Truncated lines and truncated
+  UTF-8 codepoints now surface as errors, and transport errors go through the retry budget instead of
+  propagating immediately. Anthropic 529 is treated as retryable and its `Retry-After` is honored.
+- Gemini reasoning parts carry a `thought` flag but were concatenated into visible content; they now
+  route to `reasoning_content`, and `reasoning_effort` maps to `thinkingConfig` instead of being
+  dropped.
+- `ImageUrl` and `AudioContent` are shared between request and response types but carried
+  `deny_unknown_fields`, so a provider adding a field to its image or audio output hard-failed the
+  whole response.
+- The proxy routed to only one deployment and silently dropped the rest; per-key rpm, tpm and
+  `budget_limit` were parsed from config and never enforced by anything.
+- Idempotency keys are released by an RAII guard when a request is cancelled, instead of being
+  stranded for the full 24h TTL.
+- Metrics attribute caches were unbounded, so label cardinality grew without limit in a long-running
+  proxy. The cost histogram was declared and never recorded to, which made any dashboard built on it
+  read zero forever.
+- Documentation examples are generated from every E2E fixture across the configured binding-language matrix, keeping
+  examples correlated with executable coverage and making missing target renderers visible during generation.
+- Dart: the native loader downloads and caches the library again on a cold cache. It only read
+  the versioned cache and then threw a `StateError`, even though `nativeDownloadAndCacheLibrary()`
+  was defined and exported for exactly that case. The loader also now searches for the
+  `_dart`-suffixed cdylib that is actually built, opens every candidate by absolute path (a
+  hardened runtime rejects a relative `dlopen`), and names the real environment variable in its
+  error message instead of printing the identifier `$nativeLibDirEnv` literally. Fixed upstream in
+  alef 0.55.6.
+
+  Behavior change: an unresolvable native now throws a descriptive `StateError` naming the asset
+  URL and the download command, where it previously returned `null` and let flutter_rust_bridge
+  attempt its own relative-path `dlopen`.
+
+[#174]: https://github.com/xberg-io/liter-llm/issues/174
+
+## [1.16.0] - 2026-08-05
+
+### Added
+
+- **`[[guardrails]]` — the proxy can now actually enforce guardrails.** One registry is built at
+  startup, layered into every model's Tower stack, and handed to the realtime WebSocket relay as the
+  same `Arc`, so a rule cannot be live on one path and absent on the other. Supports `regex` (block
+  or redact), `length_cap`, `prompt_injection`, and `cel` behind the `guardrail-cel` feature, each
+  scoped to explicit `stages`. Nothing degrades: an invalid pattern or expression, an unknown or
+  misspelled key, an empty `stages` list, a duplicate name, or a `cel` entry in a build without the
+  feature all abort startup before the listener binds — a partially-applied set is indistinguishable
+  from an unguarded proxy. `allow_list`/`deny_list` are deliberately not exposed yet; they key on a
+  named metadata field and only `tenant_id` is populated, so any other field would fail silently.
+  Guardrails are not hot-reloadable — the watcher warns rather than let a reloaded config describe a
+  set the proxy is not running.
+
+- Tool results can carry multimodal content. `ToolMessage.content` was `String`,
+  so a tool returning an image had to describe it in prose or smuggle it through
+  a separate user turn. It is now `UserContent` — the same untagged
+  text-or-parts type user messages already use — with `Message::tool_result()`
+  for the common text case, so existing `ToolMessage { content: "…".into() }`
+  call sites keep working and a plain JSON string still deserializes ([#165]).
+
+### Fixed
+
+- Bedrock no longer silently drops non-text content parts. Converting a
+  multi-part message kept only the text and discarded images without a trace;
+  conversion is now shared with the other providers and warns on any part it
+  cannot represent. This bug predates the change above.
+- Go and Ruby bindings compile again. `LlmConfig.providers` was generated as both
+  a struct field and a method — `field and method with the same name Providers`
+  in Go, a duplicate method definition plus an RBS `DuplicatedMethodDefinition`
+  in Ruby. Fixed upstream in alef 0.55.0, which also regenerates Swift and C#.
+- The nightly model-catalog sync no longer reports failure after doing its job.
+  It opened and merged the PR correctly, then died on `gh pr merge --auto`, which
+  GitHub rejects once the PR is already mergeable ("clean status") — so the job
+  went red on roughly every other run.
+- CI runs poly's whole-project lint phase. It was skipped entirely because the
+  shared validate job could install only Rust, Python and Java, so golangci-lint,
+  rubocop, steep, dart-analyze and credo ran in the git hooks and never in CI —
+  which is why the Go and Ruby breakage above reached `main` unnoticed.
+
+### Changed
+
+- **Python:** `config.providers` is an attribute again rather than a bound
+  method. The generated getter was shadowed by a same-named method wrapper, so
+  the attribute the type stub and the constructor keyword both promised did not
+  exist at runtime. Any caller written against the accidental
+  `config.providers()` spelling must drop the parentheses.
+
+[#165]: https://github.com/xberg-io/liter-llm/issues/165
+
+## [1.15.0] - 2026-08-04
+
+### Added
+
+- `LlmConfig`, a canonical, binding-friendly client configuration type
+  (`client::LlmConfig`, re-exported at the crate root). Unlike `ClientConfig`
+  and `FileConfig`, it is plain data (`String` / `Option<primitive>` /
+  `HashMap` / `Vec` / plain sub-structs — no secrets, no trait objects, no
+  `Duration`), derives `Serialize`/`Deserialize`, and is not excluded from
+  generated language bindings. Field-name parity with the fields
+  `model`, `api_key`, `base_url`, `timeout_secs`, `max_retries`, `temperature`,
+  `max_tokens`, `load_env`, and `headers`, plus additive support for custom
+  providers, cache, budget, rate-limit, cost tracking, tracing, cooldown,
+  health-check, and AWS Bedrock configuration. Convert to a runtime client via
+  `LlmConfig::into_client_builder`.
+- `schema` cargo feature: derives `utoipa::ToSchema` on `LlmConfig` and its
+  sub-structs for OpenAPI schema generation.
+- AWS Bedrock is now fully configurable instead of environment-only:
+  `ClientConfigBuilder::bedrock_region`, `bedrock_cross_region_prefix`, and
+  `bedrock_credentials` set the region, cross-region inference profile
+  prefix, and explicit AWS credentials on `ClientConfig`. `BedrockProvider`
+  gained `from_config` and builder methods (`with_cross_region_prefix`,
+  `with_credentials`) that fall back to the existing environment variables
+  (`AWS_DEFAULT_REGION`/`AWS_REGION`, `BEDROCK_CROSS_REGION`,
+  `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_SESSION_TOKEN`) when left
+  unset, so existing env-driven setups are unaffected.
+
+## [1.14.0] - 2026-08-04
+
+### Added
+
+- Streaming support for the Responses API: `create_response_stream` on the
+  `ResponseClient` trait plus a `ResponseStreamEvent` type and a `stream` field
+  on `CreateResponseRequest`, reusing the SSE machinery so Responses
+  tool-calling apps get progressive output and streaming tool-call arguments
+  (#162). Available in the Rust core crate; the language bindings are unchanged
+  this release (the streaming event types are core-crate-only).
+
+### Changed
+
+- Regenerated all language bindings on alef 0.51.2.
+
+### Fixed
+
+- Ruby binding no longer publishes generated types into the global `Object`
+  namespace (the `Parser` collision with the `parser` gem); types stay
+  namespaced under the binding module (tree-sitter-language-pack #173, via
+  alef 0.51.1).
 
 ## [1.13.0] - 2026-08-02
 
@@ -750,7 +1973,7 @@ Virtual-key holders who previously hit MCP tools without a model-access policy n
 
 - **API rename**: `ResponseClient::retrieve_response` / `cancel_response` now take a parameter named `response_id` (was `id`). Positional callers are unaffected; named-arg callers must update. Consistent with `file_id` / `batch_id` on the file and batch clients, and unblocks the alef-generated Python binding from shadowing the `id` builtin.
 - **GitHub Release CLI assets** ship a single sorted `SHA256SUMS-<version>.txt` instead of one `.sha256` per archive — closes #67.
-- **WebAssembly build verified `mio`-free.** `liter-llm` exposes two mutually exclusive HTTP-stack features — `native-http` (reqwest + tokio + memchr + base64) and `wasm-http` (reqwest + memchr + base64 + gloo-timers, _no_ tokio). `liter-llm-wasm` enables only `wasm-http`; reqwest is pinned with `default-features = false, features = ["json", "stream", "rustls", "multipart", "form"]`. `cargo build --target wasm32-unknown-unknown -p liter-llm-wasm` pulls neither `mio` nor `tokio` — reqwest auto-routes to the browser/Node `fetch` API on `wasm32` targets.
+- **WebAssembly build verified `mio`-free.** `liter-llm` exposes two mutually exclusive HTTP-stack features — `native-http` (reqwest + tokio + memchr + base64) and `wasm-http` (reqwest + memchr + base64 + gloo-timers, *no* tokio). `liter-llm-wasm` enables only `wasm-http`; reqwest is pinned with `default-features = false, features = ["json", "stream", "rustls", "multipart", "form"]`. `cargo build --target wasm32-unknown-unknown -p liter-llm-wasm` pulls neither `mio` nor `tokio` — reqwest auto-routes to the browser/Node `fetch` API on `wasm32` targets.
 - **Ruby publish** vendors core crates exclusively via the shared `xberg-io/actions/rewrite-native-deps@v1` action (alef `publish prepare`, `vendor_mode = "core-only"`). The bespoke `scripts/ci/ruby/vendor-liter-llm-core.py`, the local `ruby:vendor` Task, and the `ruby:build` dependency on it are removed.
 - **Repo hygiene**: `.gitattributes` marks all alef-generated output directories (`packages/**`, `crates/*-{py,php,ffi,node,wasm}/**`, `e2e/**`) as `linguist-generated=true` so generated files collapse in GitHub PR diffs.
 

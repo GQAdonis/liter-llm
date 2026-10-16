@@ -1,9 +1,11 @@
 """Verify the release archives satisfy the generated Go setup contract."""
 
+import ast
 import hashlib
 from pathlib import Path
 
 import pytest
+import yaml
 from check_native_library_size import validate_library_size
 from prepare_go_release_assets import prepare
 
@@ -90,3 +92,61 @@ def test_tagged_release_uploads_catalog_checksum() -> None:
     assert (
         'gh release upload "$TAG" "$CATALOG_DIR/catalog.json" "$CATALOG_DIR/catalog.json.sha256" --clobber' in workflow
     )
+
+
+def evaluate_retag_condition(expression: str, values: dict[str, object]) -> bool:
+    """Evaluate the workflow's boolean/equality subset without executing expressions."""
+    translated = " ".join(expression.removeprefix("${{").removesuffix("}}").split())
+    translated = translated.replace("&&", "and").replace("||", "or")
+
+    def evaluate(node: ast.expr) -> object:
+        if isinstance(node, ast.BoolOp):
+            operands = [bool(evaluate(value)) for value in node.values]
+            return all(operands) if isinstance(node.op, ast.And) else any(operands)
+        if isinstance(node, ast.Compare):
+            assert len(node.ops) == len(node.comparators) == 1
+            left, right = evaluate(node.left), evaluate(node.comparators[0])
+            if isinstance(node.ops[0], ast.Eq):
+                return left == right
+            assert isinstance(node.ops[0], ast.NotEq)
+            return left != right
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, ast.Name) and node.id in ("true", "false"):
+            return node.id == "true"
+        if isinstance(node, ast.Attribute):
+            return values[ast.unparse(node)]
+        raise AssertionError(f"unsupported workflow expression: {ast.dump(node)}")
+
+    return bool(evaluate(ast.parse(translated, mode="eval").body))
+
+
+@pytest.mark.parametrize("republish", [(False, False), (True, False), (False, True), (True, True)])
+@pytest.mark.parametrize(
+    "dry_run",
+    [
+        (False, False),
+        (None, None),
+        ("false", "false"),
+        (True, False),
+        ("true", False),
+        (False, True),
+        (False, "true"),
+        (True, True),
+        ("true", "true"),
+    ],
+)
+def test_release_retag_never_mutates_dry_run_tags(republish: tuple[bool, bool], dry_run: tuple[object, object]) -> None:
+    """Both dispatch channels must reject boolean and string dry-run requests."""
+    workflow = yaml.safe_load(PUBLISH_WORKFLOW.read_text())
+    steps = workflow["jobs"]["prepare"]["steps"]
+    retag = [step for step in steps if step.get("name") == "Retag for republish"]
+    assert len(retag) == 1
+    values = {
+        "inputs.republish": republish[0],
+        "github.event.client_payload.republish": republish[1],
+        "inputs.dry_run": dry_run[0],
+        "github.event.client_payload.dry_run": dry_run[1],
+    }
+    expected = any(republish) and not any(value is True or value == "true" for value in dry_run)
+    assert evaluate_retag_condition(retag[0]["if"], values) is expected

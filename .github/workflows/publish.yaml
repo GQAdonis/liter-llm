@@ -123,7 +123,10 @@ jobs:
       # fell back to its `github.token` default. GITHUB_TOKEN cannot write git refs, which is
       # the HTTP 403 on `POST /git/refs` that made `republish: true` unusable. ~keep
       - name: Retag for republish
-        if: ${{ inputs.republish == true || github.event.client_payload.republish == true }}
+        if: >-
+          ${{ (inputs.republish == true || github.event.client_payload.republish == true) &&
+              inputs.dry_run != true && inputs.dry_run != 'true' &&
+              github.event.client_payload.dry_run != true && github.event.client_payload.dry_run != 'true' }}
         uses: xberg-io/actions/retag-for-republish@v1
         with:
           tag: ${{ inputs.tag || github.event.client_payload.tag }}
