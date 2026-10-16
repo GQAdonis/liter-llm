@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use regex::Regex;
-use tower::{Layer, Service};
+use tower::{Layer, Service, ServiceExt};
 
 use liter_llm::auth::{Credential, CredentialProvider};
 use liter_llm::client::{BoxFuture, ClientConfig, ClientConfigBuilder, DefaultClient};
@@ -333,7 +333,7 @@ fn build_base_service(
 ) -> Result<(Bcs, Arc<DefaultClient>), String> {
     if entries.len() == 1 {
         let client_arc = Arc::new(build_client(entries[0], config)?);
-        let base: Bcs = tower::util::BoxCloneService::new(LlmService::new_from_arc(Arc::clone(&client_arc)));
+        let base = deployment_service(Arc::clone(&client_arc), entries[0].provider_model.clone());
         return Ok((base, client_arc));
     }
 
@@ -344,7 +344,7 @@ fn build_base_service(
         if first_client.is_none() {
             first_client = Some(Arc::clone(&client_arc));
         }
-        deployments.push(LlmService::new_from_arc(client_arc));
+        deployments.push(deployment_service(client_arc, entry.provider_model.clone()));
     }
     let deployment_models = deployment_model_ids(entries);
 
@@ -355,6 +355,28 @@ fn build_base_service(
     let base = guard_classifier_credentials(tower::util::BoxCloneService::new(router), config)?;
     let client_arc = first_client.ok_or_else(|| "deployment pool must have at least one entry".to_string())?;
     Ok((base, client_arc))
+}
+
+fn deployment_service(client: Arc<DefaultClient>, provider_model: String) -> Bcs {
+    tower::util::BoxCloneService::new(
+        LlmService::new_from_arc(client).map_request(move |request| with_configured_model(request, &provider_model)),
+    )
+}
+
+fn with_configured_model(mut request: LlmRequest, model: &str) -> LlmRequest {
+    match &mut request.kind {
+        LlmRequestKind::Chat(r) | LlmRequestKind::ChatStream(r) => model.clone_into(&mut r.model),
+        LlmRequestKind::Embed(r) => model.clone_into(&mut r.model),
+        LlmRequestKind::ImageGenerate(r) => r.model = Some(model.to_owned()),
+        LlmRequestKind::Speech(r) => model.clone_into(&mut r.model),
+        LlmRequestKind::Transcribe(r) => model.clone_into(&mut r.model),
+        LlmRequestKind::Moderate(r) => r.model = Some(model.to_owned()),
+        LlmRequestKind::Rerank(r) => model.clone_into(&mut r.model),
+        LlmRequestKind::Search(r) => model.clone_into(&mut r.model),
+        LlmRequestKind::Ocr(r) => model.clone_into(&mut r.model),
+        LlmRequestKind::ListModels => {}
+    }
+    request
 }
 
 /// Translate `config.routing` (`[routing]`) into the runtime
@@ -674,6 +696,67 @@ mod tests {
     use super::*;
     use crate::config::ProxyConfig;
     use liter_llm::tower::CostRecordContext;
+
+    #[test]
+    fn deployment_mapping_changes_only_model_for_every_model_bearing_request() {
+        use serde_json::json;
+
+        let cases = [
+            ("Chat", json!({"model":"alias","messages":[],"temperature":0.2})),
+            ("ChatStream", json!({"model":"alias","messages":[],"stream":true})),
+            ("Embed", json!({"model":"alias","input":"embedding input"})),
+            ("ImageGenerate", json!({"model":"alias","prompt":"image input"})),
+            ("ImageGenerate", json!({"prompt":"image input"})),
+            (
+                "Speech",
+                json!({"model":"alias","input":"speech input","voice":"alloy"}),
+            ),
+            ("Transcribe", json!({"model":"alias","file":"eA==","language":"en"})),
+            ("Moderate", json!({"model":"alias","input":"moderation input"})),
+            ("Moderate", json!({"input":"moderation input"})),
+            (
+                "Rerank",
+                json!({"model":"alias","query":"rerank input","documents":["document"]}),
+            ),
+            ("Search", json!({"model":"alias","query":"search input","country":"US"})),
+            (
+                "Ocr",
+                json!({"model":"alias","document":{"type":"base64","data":"eA==","media_type":"application/pdf"}}),
+            ),
+        ];
+        assert_eq!(cases.len(), 12);
+        for (variant, payload) in cases {
+            let kind = serde_json::from_value(json!({variant: payload})).expect("valid request variant");
+            let original = LlmRequest {
+                kind,
+                tenant_id: Some(TenantId::from("synthetic-tenant")),
+                idempotency_key: Some("synthetic-idempotency".to_owned()),
+            };
+            let mut expected = serde_json::to_value(&original.kind).expect("original JSON");
+            expected[variant]["model"] = json!("openai/configured-model");
+            let mapped = with_configured_model(original.clone(), "openai/configured-model");
+            assert_eq!(
+                serde_json::to_value(&mapped.kind).expect("mapped JSON"),
+                expected,
+                "{variant}"
+            );
+            assert_eq!(mapped.tenant_id, original.tenant_id, "{variant}");
+            assert_eq!(mapped.idempotency_key, original.idempotency_key, "{variant}");
+            assert_eq!(mapped.model(), Some("openai/configured-model"), "{variant}");
+        }
+    }
+
+    #[test]
+    fn deployment_mapping_preserves_model_less_list_request_and_envelope() {
+        let original = LlmRequest::ListModels()
+            .with_tenant_id("synthetic-tenant")
+            .with_idempotency_key("synthetic-idempotency");
+        let mapped = with_configured_model(original.clone(), "openai/configured-model");
+        assert_eq!(mapped.model(), None);
+        assert_eq!(serde_json::to_value(mapped.kind).expect("mapped JSON"), "ListModels");
+        assert_eq!(mapped.tenant_id, original.tenant_id);
+        assert_eq!(mapped.idempotency_key, original.idempotency_key);
+    }
 
     fn config_with_one_model() -> ProxyConfig {
         ProxyConfig::from_toml_str(

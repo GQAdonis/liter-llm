@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Send each deployment's configured provider model upstream when proxy clients use aliases, including streaming,
+  deployment pools, and default image/moderation models. (#286)
+
 ## [2.2.5] - 2026-10-16
 
 ### Fixed
