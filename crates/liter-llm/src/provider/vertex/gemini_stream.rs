@@ -15,9 +15,8 @@ use crate::types::{
 /// normalize it into OpenAI format, then build a `ChatCompletionChunk` from
 /// the first choice's message content.
 ///
-/// **Note:** The `id` and `model` fields are empty strings on every chunk
-/// because Gemini's streaming payloads do not include them, and this parser
-/// is stateless.
+/// Provider-reported response IDs and model versions are preserved. The client
+/// supplies model context for chunks that omit `modelVersion`.
 pub(crate) fn parse_gemini_stream_event(event_data: &str) -> Result<Option<ChatCompletionChunk>> {
     // ~keep `[DONE]` is consumed by the SSE parser before provider parsing.
     if event_data.trim().is_empty() {

@@ -226,7 +226,9 @@ pub struct ChatCompletionResponse {
     pub object: String,
     /// Unix timestamp of response creation.
     pub created: u64,
-    /// Model used to generate the response.
+    /// Provider-reported model identifier. For Gemini, this is `modelVersion`;
+    /// when omitted, the client retains the requested model, which may be an alias
+    /// and does not establish the resolved model version.
     pub model: String,
     /// List of completion choices.
     pub choices: Vec<Choice>,
@@ -335,7 +337,9 @@ pub struct ChatCompletionChunk {
     /// Unix timestamp of chunk creation.
     #[serde(default)]
     pub created: u64,
-    /// Model used to generate the chunk.
+    /// Provider-reported model identifier. Gemini chunks without `modelVersion`
+    /// retain the last reported model, or the requested model if none was reported.
+    /// A requested-model fallback does not establish the resolved model version.
     #[serde(default)]
     pub model: String,
     /// Streaming choices (delta updates).

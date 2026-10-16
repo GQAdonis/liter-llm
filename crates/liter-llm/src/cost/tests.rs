@@ -455,3 +455,70 @@ fn non_primary_provider_bare_name_does_not_resolve() {
         "completion_cost must not resolve a non-primary-provider bare name"
     );
 }
+
+#[test]
+fn should_resolve_gemini_routing_prefixes_to_their_catalog_provider() {
+    let google = ModelPricing {
+        input_cost_per_token: 1.0,
+        ..Default::default()
+    };
+    let vertex = ModelPricing {
+        input_cost_per_token: 2.0,
+        ..Default::default()
+    };
+    let models = HashMap::from([
+        ("google/gemini-test".to_owned(), google),
+        ("google-vertex/gemini-test".to_owned(), vertex),
+    ]);
+    for (prefix, provider, input_price) in [
+        ("gemini", "google", 1.0),
+        ("google_ai", "google", 1.0),
+        ("vertex_ai", "google-vertex", 2.0),
+    ] {
+        for suffix in ["", "-001"] {
+            let requested = format!("{prefix}/gemini-test{suffix}");
+            let (key, pricing) = lookup_in(&models, &requested).expect("routing alias resolves");
+            assert_eq!(key, format!("{provider}/gemini-test"));
+            assert_eq!(pricing.input_cost_per_token, input_price);
+        }
+    }
+    assert_eq!(lookup_in(&models, "unknown/gemini-test").map(|(key, _)| key), None);
+}
+
+#[test]
+fn should_prefer_exact_catalog_key_over_google_routing_alias() {
+    let exact = ModelPricing {
+        input_cost_per_token: 3.0,
+        ..Default::default()
+    };
+    let canonical = ModelPricing {
+        input_cost_per_token: 1.0,
+        ..Default::default()
+    };
+    let models = HashMap::from([
+        ("gemini/gemini-test".to_owned(), exact),
+        ("google/gemini-test".to_owned(), canonical),
+    ]);
+    let (key, pricing) = lookup_in(&models, "gemini/gemini-test").expect("exact catalog key resolves");
+    assert_eq!(key, "gemini/gemini-test");
+    assert_eq!(pricing.input_cost_per_token, 3.0);
+}
+
+#[test]
+fn should_prefer_original_routing_key_revision_fallback_over_canonical_alias() {
+    let original = ModelPricing {
+        input_cost_per_token: 3.0,
+        ..Default::default()
+    };
+    let canonical = ModelPricing {
+        input_cost_per_token: 1.0,
+        ..Default::default()
+    };
+    let models = HashMap::from([
+        ("gemini/gemini-test".to_owned(), original),
+        ("google/gemini-test".to_owned(), canonical),
+    ]);
+    let (key, pricing) = lookup_in(&models, "gemini/gemini-test-001").expect("original revision fallback resolves");
+    assert_eq!(key, "gemini/gemini-test");
+    assert_eq!(pricing.input_cost_per_token, 3.0);
+}

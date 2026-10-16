@@ -675,10 +675,24 @@ fn lookup_in<'a>(models: &'a HashMap<String, ModelPricing>, model: &str) -> Opti
         return Some((key.as_str(), pricing));
     }
 
-    let candidate = fallback_model_key(model)?;
-    models
-        .get_key_value(candidate)
-        .map(|(key, pricing)| (key.as_str(), pricing))
+    if let Some(candidate) = fallback_model_key(model)
+        && let Some((key, pricing)) = models.get_key_value(candidate)
+    {
+        return Some((key.as_str(), pricing));
+    }
+
+    if let Some((prefix, model_id)) = model.split_once('/') {
+        let catalog_provider = match prefix {
+            "gemini" | "google_ai" => Some("google"),
+            "vertex_ai" => Some("google-vertex"),
+            _ => None,
+        };
+        if let Some(provider) = catalog_provider {
+            return lookup_in(models, &format!("{provider}/{model_id}"));
+        }
+    }
+
+    None
 }
 
 fn fallback_model_key(model: &str) -> Option<&str> {

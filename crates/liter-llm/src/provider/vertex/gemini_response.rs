@@ -16,9 +16,8 @@ use crate::error::Result;
 /// If `groundingMetadata` is present on the candidate, it is included in the
 /// response as `_grounding_metadata` for supplementary use by callers.
 ///
-/// **Known limitation:** The `model` field in the normalized response is
-/// always `""`.  Gemini/Vertex AI does not include the model name in its
-/// response body -- the model is only present in the request URL path.
+/// The provider-reported `modelVersion` is preserved as `model`. When omitted,
+/// the client supplies the requested model as a fallback, without resolving aliases.
 pub(crate) fn transform_gemini_response(body: &mut Value) -> Result<()> {
     if let Some(normalized) = non_chat_response(body) {
         *body = normalized;
@@ -68,7 +67,7 @@ pub(crate) fn transform_gemini_response(body: &mut Value) -> Result<()> {
         "id": response_id,
         "object": "chat.completion",
         "created": crate::provider::unix_timestamp_secs(),
-        "model": "",
+        "model": body.get("modelVersion").and_then(Value::as_str).unwrap_or(""),
         "choices": [{
             "index": 0,
             "message": message,
@@ -285,7 +284,7 @@ fn blocked_prompt_response(body: &Value) -> Value {
         "id": "gemini-resp",
         "object": "chat.completion",
         "created": crate::provider::unix_timestamp_secs(),
-        "model": "",
+        "model": body.get("modelVersion").and_then(Value::as_str).unwrap_or(""),
         "choices": [{
             "index": 0,
             "message": {"role": "assistant", "content": null},

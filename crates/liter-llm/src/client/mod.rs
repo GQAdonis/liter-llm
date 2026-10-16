@@ -180,23 +180,47 @@ fn provider_auth_header(provider: &dyn Provider, api_key: &str) -> Option<(Strin
 }
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
+#[derive(Default)]
+struct ChatStreamState {
+    usage: Option<Usage>,
+    model: String,
+}
+
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn attribute_chat_model(provider: &dyn Provider, model: &mut String, fallback_model: &str) {
+    if model.is_empty() && matches!(provider.name(), "google_ai" | "vertex_ai") {
+        tracing::debug!(
+            provider = provider.name(),
+            fallback_model,
+            "Gemini omitted modelVersion; using request or prior stream model context"
+        );
+        *model = fallback_model.to_owned();
+    }
+}
+
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
 fn parse_chat_stream_event(
     provider: &dyn Provider,
-    cumulative_usage: &std::sync::Mutex<Option<Usage>>,
+    state: &std::sync::Mutex<ChatStreamState>,
     data: &str,
 ) -> Result<Option<ChatCompletionChunk>> {
     let mut chunk = match provider.parse_stream_event(data)? {
         Some(chunk) => chunk,
         None => return Ok(None),
     };
-    if provider.name() != "anthropic" {
+    if !matches!(provider.name(), "anthropic" | "google_ai" | "vertex_ai") {
+        return Ok(Some(chunk));
+    }
+    let mut state = state.lock().map_err(|_| LiterLlmError::InternalError {
+        message: "chat stream state lock poisoned".into(),
+    })?;
+    attribute_chat_model(provider, &mut chunk.model, &state.model);
+    if matches!(provider.name(), "google_ai" | "vertex_ai") {
+        state.model.clone_from(&chunk.model);
         return Ok(Some(chunk));
     }
     if let Some(usage) = chunk.usage.as_mut() {
-        let mut cumulative = cumulative_usage.lock().map_err(|_| LiterLlmError::InternalError {
-            message: "stream usage accumulator lock poisoned".into(),
-        })?;
-        let aggregate = cumulative.get_or_insert_with(Usage::default);
+        let aggregate = state.usage.get_or_insert_with(Usage::default);
         aggregate.prompt_tokens = aggregate.prompt_tokens.max(usage.prompt_tokens);
         aggregate.completion_tokens = aggregate.completion_tokens.max(usage.completion_tokens);
         aggregate.total_tokens = aggregate.prompt_tokens + aggregate.completion_tokens;
@@ -1167,7 +1191,9 @@ impl LlmClient for DefaultClient {
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
-            serde_json::from_value::<ChatCompletionResponse>(raw).map_err(LiterLlmError::from)
+            let mut response = serde_json::from_value::<ChatCompletionResponse>(raw).map_err(LiterLlmError::from)?;
+            attribute_chat_model(prepared.provider.as_ref(), &mut response.model, &req.model);
+            Ok(response)
         })
     }
 
@@ -1205,9 +1231,11 @@ impl LlmClient for DefaultClient {
             match prepared.provider.stream_format() {
                 provider::StreamFormat::Sse => {
                     let provider = Arc::clone(&prepared.provider);
-                    let cumulative_usage = std::sync::Mutex::new(None);
-                    let parse_event =
-                        move |data: &str| parse_chat_stream_event(provider.as_ref(), &cumulative_usage, data);
+                    let state = std::sync::Mutex::new(ChatStreamState {
+                        model: req.model.clone(),
+                        ..Default::default()
+                    });
+                    let parse_event = move |data: &str| parse_chat_stream_event(provider.as_ref(), &state, data);
                     let stream = http::streaming::post_stream_bounded(
                         &self.http,
                         http::request::StreamingPost {
@@ -1582,7 +1610,8 @@ impl LlmClientRaw for DefaultClient {
 
             let raw_response = Some(raw.clone());
             prepared.provider.transform_response(&mut raw)?;
-            let data = serde_json::from_value::<ChatCompletionResponse>(raw).map_err(LiterLlmError::from)?;
+            let mut data = serde_json::from_value::<ChatCompletionResponse>(raw).map_err(LiterLlmError::from)?;
+            attribute_chat_model(prepared.provider.as_ref(), &mut data.model, &req.model);
 
             Ok(RawExchange {
                 data,
@@ -1621,9 +1650,11 @@ impl LlmClientRaw for DefaultClient {
             let stream = match prepared.provider.stream_format() {
                 provider::StreamFormat::Sse => {
                     let provider = Arc::clone(&prepared.provider);
-                    let cumulative_usage = std::sync::Mutex::new(None);
-                    let parse_event =
-                        move |data: &str| parse_chat_stream_event(provider.as_ref(), &cumulative_usage, data);
+                    let state = std::sync::Mutex::new(ChatStreamState {
+                        model: req.model.clone(),
+                        ..Default::default()
+                    });
+                    let parse_event = move |data: &str| parse_chat_stream_event(provider.as_ref(), &state, data);
                     http::streaming::post_stream_bounded(
                         &self.http,
                         http::request::StreamingPost {
@@ -3201,7 +3232,7 @@ mod build_provider_tests {
     #[test]
     fn anthropic_final_stream_usage_is_cumulative() {
         let provider = crate::provider::anthropic::AnthropicProvider::new();
-        let cumulative = std::sync::Mutex::new(None);
+        let cumulative = std::sync::Mutex::new(ChatStreamState::default());
         let start = r#"{"type":"message_start","message":{"id":"msg_1","model":"claude-sonnet-4-5","usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":200}}}"#;
         let delta = r#"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":7}}"#;
 

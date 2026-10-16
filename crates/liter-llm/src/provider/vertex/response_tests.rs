@@ -696,3 +696,18 @@ fn transform_request_response_modalities_translated() {
     assert!(arr.contains(&json!("TEXT")), "expected TEXT in {arr:?}");
     assert!(arr.contains(&json!("IMAGE")), "expected IMAGE in {arr:?}");
 }
+
+#[test]
+fn should_preserve_reported_model_when_gemini_blocks_prompt() {
+    let mut body = json!({
+        "modelVersion": "gemini-2.5-flash",
+        "promptFeedback": {"blockReason": "SAFETY"},
+        "usageMetadata": {"promptTokenCount": 337}
+    });
+    provider()
+        .transform_response(&mut body)
+        .expect("normalize blocked response");
+    assert_eq!(body["model"], "gemini-2.5-flash");
+    assert_eq!(body["choices"][0]["finish_reason"], "content_filter");
+    assert_eq!(body["usage"]["prompt_tokens"], 337);
+}
