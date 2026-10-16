@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Send Gemini and Vertex structured-output schemas through `responseJsonSchema` to preserve nullable fields and nested JSON Schema (#284).
+
 ## [2.2.4] - 2026-10-15
 
 Dependency refresh and regenerated polyglot bindings with Alef 0.110.13.

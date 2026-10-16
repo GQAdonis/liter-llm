@@ -1160,7 +1160,7 @@ pub struct SpecificFunction {
 ///   chat-completions spec.
 /// - **Gemini / Vertex AI**: translated to
 ///   `generationConfig.responseMimeType = "application/json"` and
-///   `generationConfig.responseSchema = <schema>`. The `name`,
+///   `generationConfig.responseJsonSchema = <schema>`. The `name`,
 ///   `description`, and `strict` fields are dropped — Gemini's
 ///   structured-output API does not consume them.
 /// - **Anthropic**: no native JSON mode. A system instruction is

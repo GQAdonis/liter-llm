@@ -353,7 +353,55 @@ fn transform_request_response_format_json_schema() {
         .expect("transform_request should not fail");
 
     assert_eq!(body["generationConfig"]["responseMimeType"], "application/json");
-    assert_eq!(body["generationConfig"]["responseSchema"]["type"], "object");
+    assert_eq!(body["generationConfig"]["responseJsonSchema"]["type"], "object");
+    assert_eq!(body["generationConfig"].get("responseSchema"), None);
+}
+
+#[test]
+fn should_preserve_nullable_json_schema_for_google_and_vertex() {
+    let google = crate::provider::google_ai::GoogleAiProvider::default();
+    let vertex = provider();
+    let providers: [&dyn Provider; 2] = [&google, &vertex];
+    let schema = json!({
+        "type": "object",
+        "required": ["purchase_order", "lines"],
+        "additionalProperties": false,
+        "properties": {
+            "purchase_order": {"type": ["string", "null"]},
+            "lines": {
+                "type": "array",
+                "items": {
+                    "type": ["object", "null"],
+                    "required": ["quantity", "tags"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "quantity": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                        "tags": {"type": ["array", "null"], "items": {"type": ["string", "null"]}}
+                    }
+                }
+            }
+        }
+    });
+    for provider in providers {
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "Extract the invoice."}],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "invoice", "strict": true, "schema": schema}
+            }
+        });
+
+        provider
+            .transform_request(&mut body)
+            .expect("schema request should translate");
+
+        assert_eq!(
+            body["generationConfig"],
+            json!({"responseMimeType": "application/json", "responseJsonSchema": schema}),
+            "{} must use the JSON Schema field without an OpenAPI schema or wrapper fields",
+            provider.name()
+        );
+    }
 }
 
 #[test]
