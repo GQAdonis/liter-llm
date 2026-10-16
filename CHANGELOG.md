@@ -7,15 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- Send each deployment's configured provider model upstream when proxy clients use aliases, including streaming,
-  deployment pools, and default image/moderation models. (#286)
-
 ## [2.2.5] - 2026-10-16
 
 ### Fixed
 
+- Send each deployment's configured provider model upstream when proxy clients use aliases, including streaming,
+  deployment pools, and default image/moderation models. (#286)
 - Keep release dry runs from moving existing tags when republishing is requested.
 - Reject whitespace-only resolved Bedrock credentials before sending requests while preserving nonblank signing bytes (#285).
 - Send Gemini and Vertex structured-output schemas through `responseJsonSchema` to preserve nullable fields and nested JSON Schema (#284).
