@@ -94,15 +94,21 @@ def test_tagged_release_uploads_catalog_checksum() -> None:
     )
 
 
-def evaluate_retag_condition(expression: str, values: dict[str, object]) -> bool:
+def evaluate_workflow_expression(expression: str, values: dict[str, object]) -> object:
     """Evaluate the workflow's boolean/equality subset without executing expressions."""
     translated = " ".join(expression.removeprefix("${{").removesuffix("}}").split())
     translated = translated.replace("&&", "and").replace("||", "or")
 
     def evaluate(node: ast.expr) -> object:
         if isinstance(node, ast.BoolOp):
-            operands = [bool(evaluate(value)) for value in node.values]
-            return all(operands) if isinstance(node.op, ast.And) else any(operands)
+            result = evaluate(node.values[0])
+            for value in node.values[1:]:
+                if isinstance(node.op, ast.And) and not result:
+                    return result
+                if isinstance(node.op, ast.Or) and result:
+                    return result
+                result = evaluate(value)
+            return result
         if isinstance(node, ast.Compare):
             assert len(node.ops) == len(node.comparators) == 1
             left, right = evaluate(node.left), evaluate(node.comparators[0])
@@ -118,7 +124,12 @@ def evaluate_retag_condition(expression: str, values: dict[str, object]) -> bool
             return values[ast.unparse(node)]
         raise AssertionError(f"unsupported workflow expression: {ast.dump(node)}")
 
-    return bool(evaluate(ast.parse(translated, mode="eval").body))
+    return evaluate(ast.parse(translated, mode="eval").body)
+
+
+def evaluate_retag_condition(expression: str, values: dict[str, object]) -> bool:
+    """Retag conditions require a boolean result from the shared expression subset."""
+    return bool(evaluate_workflow_expression(expression, values))
 
 
 @pytest.mark.parametrize("republish", [(False, False), (True, False), (False, True), (True, True)])
@@ -150,3 +161,89 @@ def test_release_retag_never_mutates_dry_run_tags(republish: tuple[bool, bool], 
     }
     expected = any(republish) and not any(value is True or value == "true" for value in dry_run)
     assert evaluate_retag_condition(retag[0]["if"], values) is expected
+
+
+@pytest.mark.parametrize("dry_run", ["true", "false"])
+@pytest.mark.parametrize("requested_ref", [None, "", "main", "a" * 40])
+@pytest.mark.parametrize("event_ref", ["refs/heads/main", "refs/tags/v2.2.5"])
+def test_release_checkout_forwards_resolved_metadata_ref(
+    dry_run: str, requested_ref: str | None, event_ref: str
+) -> None:
+    """A dry-run checkout must retain the metadata action's immutable SHA."""
+    workflow = yaml.safe_load(PUBLISH_WORKFLOW.read_text())
+    expression = workflow["jobs"]["prepare"]["outputs"]["checkout_ref"]
+    resolved_ref = "b" * 40 if dry_run == "true" else "refs/tags/v2.2.5"
+    values = {
+        "steps.meta.outputs.dry_run": dry_run,
+        "steps.meta.outputs.checkout_ref": resolved_ref,
+        "inputs.ref": requested_ref,
+        "github.ref": event_ref,
+    }
+    assert evaluate_workflow_expression(expression, values) == resolved_ref
+
+
+def test_checkout_regression_rejects_the_retired_moving_branch_expression() -> None:
+    """The negative control must fail for the original semantic defect."""
+    retired = (
+        "${{ steps.meta.outputs.dry_run == 'true' && (inputs.ref || github.ref) || steps.meta.outputs.checkout_ref }}"
+    )
+    values = {
+        "steps.meta.outputs.dry_run": "true",
+        "steps.meta.outputs.checkout_ref": "b" * 40,
+        "inputs.ref": "",
+        "github.ref": "refs/heads/main",
+    }
+    assert evaluate_workflow_expression(retired, values) == "refs/heads/main"
+    with pytest.raises(AssertionError):
+        assert evaluate_workflow_expression(retired, values) == "b" * 40
+
+
+@pytest.mark.parametrize("republish", [False, True])
+@pytest.mark.parametrize("dry_run", [True, "true", False, "false", None])
+@pytest.mark.parametrize("payload_dry_run", [True, "true", False, "false", None])
+@pytest.mark.parametrize("requested_ref", [None, "", "release-candidate", "a" * 40])
+@pytest.mark.parametrize("event_ref", ["refs/heads/main", "refs/tags/v2.2.5"])
+def test_initial_metadata_checkout_pins_dry_runs_and_preserves_ref_priority(
+    republish: bool, dry_run: object, payload_dry_run: object, requested_ref: str | None, event_ref: str
+) -> None:
+    """Metadata and build checkout must read the same dispatch source."""
+    workflow = yaml.safe_load(PUBLISH_WORKFLOW.read_text())
+    checkouts = [step for step in workflow["jobs"]["prepare"]["steps"] if step.get("name") == "Checkout"]
+    assert len(checkouts) == 1
+    values = {
+        "inputs.republish": republish,
+        "inputs.ref": requested_ref,
+        "inputs.dry_run": dry_run,
+        "github.event.client_payload.dry_run": payload_dry_run,
+        "github.event.repository.default_branch": "main",
+        "github.sha": "b" * 40,
+        "github.ref": event_ref,
+    }
+    if republish:
+        expected = requested_ref or "main"
+    elif requested_ref:
+        expected = requested_ref
+    elif dry_run is True or dry_run == "true" or payload_dry_run is True or payload_dry_run == "true":
+        expected = "b" * 40
+    else:
+        expected = event_ref
+    assert evaluate_workflow_expression(checkouts[0]["with"]["ref"], values) == expected
+
+
+def test_initial_checkout_negative_control_detects_the_moving_branch() -> None:
+    """The retired initial checkout must fail the immutable-source contract."""
+    retired = (
+        "${{ (inputs.republish == true && (inputs.ref || github.event.repository.default_branch)) "
+        "|| inputs.ref || github.ref }}"
+    )
+    values = {
+        "inputs.republish": False,
+        "inputs.ref": "",
+        "inputs.dry_run": True,
+        "github.event.repository.default_branch": "main",
+        "github.sha": "b" * 40,
+        "github.ref": "refs/heads/main",
+    }
+    assert evaluate_workflow_expression(retired, values) == "refs/heads/main"
+    with pytest.raises(AssertionError):
+        assert evaluate_workflow_expression(retired, values) == values["github.sha"]
