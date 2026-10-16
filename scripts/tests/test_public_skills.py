@@ -1,6 +1,10 @@
 """Exercise public skill exports including resource bytes and stale ownership."""
 
 import importlib.util
+import os
+import re
+import shutil
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -61,6 +65,53 @@ class PublicSkillsTests(unittest.TestCase):
         self.module.synchronize(self.root, check=False)
         assert not resource.exists()
         assert self.module.synchronize(self.root, check=True) == (1, 1)
+
+    def test_should_refresh_public_skills_when_versions_are_synchronized(self) -> None:
+        """Run the real version recipe with isolated generation and real byte export."""
+        repository = Path(__file__).resolve().parents[2]
+        self.module.synchronize(self.root, check=False)
+        scripts = self.root / "scripts"
+        (scripts / "ci").mkdir(parents=True)
+        shutil.copyfile(repository / "scripts/sync_public_skills.py", scripts / "sync_public_skills.py")
+        for script in ["sync_plugin_version.py", "ci/check_consumer_versions.py"]:
+            (scripts / script).write_text("")
+        generated = "---\nname: example\ndescription: Updated skill.\n---\nUpdated body\n"
+        (self.root / "plugin/next.md").write_text(generated)
+        binary = self.root / "bin"
+        binary.mkdir()
+        for name, command in [("alef", ":"), ("ai-rulez", "cp plugin/next.md plugin/skills/example/SKILL.md")]:
+            executable = binary / name
+            executable.write_text("#!/bin/sh\nset -eu\n" + command + "\n")
+            executable.chmod(0o755)
+        (self.root / "Taskfile.yml").write_text(
+            'version: "3"\nincludes:\n'
+            f'  version: "{repository / ".task/tools/version-sync.yml"}"\n'
+            f'  plugin: "{repository / ".task/tools/plugin.yml"}"\n'
+        )
+        result = subprocess.run(
+            ["task", "version:sync"],
+            cwd=self.root,
+            env={**os.environ, "PATH": str(binary) + os.pathsep + os.environ["PATH"]},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert (self.root / "plugin/skills/example/SKILL.md").read_text() == generated
+        assert self.module.synchronize(self.root, check=True) == (1, 2)
+        assert (self.root / "skills/example/SKILL.md").read_text() == generated
+
+    def test_should_install_task_before_ci_executes_version_sync_regression(self) -> None:
+        """The public-skill job must provision the real recipe runner it exercises."""
+        repository = Path(__file__).resolve().parents[2]
+        workflow = (repository / ".github/workflows/ci-plugin.yaml").read_text()
+        assert workflow.count("  launcher-contract:\n") == 1
+        job = workflow.split("  launcher-contract:\n", 1)[1]
+        installers = list(re.finditer(r"uses: xberg-io/actions/install-task@[0-9a-f]{40}\b", job))
+        assert len(installers) == 1, "Launcher job must install the pinned Task CLI exactly once"
+        command = "python3 scripts/tests/test_public_skills.py"
+        assert job.count(command) == 1
+        assert installers[0].start() < job.index(command)
 
     def test_should_reject_unowned_exports_without_deleting_them(self) -> None:
         """Author-owned files must not be silently removed by synchronization."""

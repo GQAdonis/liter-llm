@@ -134,6 +134,9 @@ jobs:
             --recursive
             --print-output-on-failure
 
+      - name: Install Task for version synchronization regression
+        uses: xberg-io/actions/install-task@23602a93e64f32d552325d5304540927f27d8794
+
       - name: Verify public skills and export ownership
         run: |
           python3 scripts/tests/test_public_skills.py
