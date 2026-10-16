@@ -1528,7 +1528,9 @@ class ChatCompletionChunk {
   /// Unix timestamp of chunk creation.
   final PlatformInt64 created;
 
-  /// Model used to generate the chunk.
+  /// Provider-reported model identifier. Gemini chunks without `modelVersion`
+  /// retain the last reported model, or the requested model if none was reported.
+  /// A requested-model fallback does not establish the resolved model version.
   final String model;
 
   /// Streaming choices (delta updates).
@@ -1820,7 +1822,9 @@ class ChatCompletionResponse {
   /// Unix timestamp of response creation.
   final PlatformInt64 created;
 
-  /// Model used to generate the response.
+  /// Provider-reported model identifier. For Gemini, this is `modelVersion`;
+  /// when omitted, the client retains the requested model, which may be an alias
+  /// and does not establish the resolved model version.
   final String model;
 
   /// List of completion choices.
