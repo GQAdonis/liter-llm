@@ -637,17 +637,17 @@ impl Provider for BedrockProvider {
 fn validate_resolved_credential(credential: &crate::auth::Credential) -> Result<()> {
     use secrecy::ExposeSecret;
 
-    let is_empty = match credential {
-        crate::auth::Credential::BearerToken(token) => token.expose_secret().is_empty(),
+    let is_blank = match credential {
+        crate::auth::Credential::BearerToken(token) => token.expose_secret().trim().is_empty(),
         crate::auth::Credential::AwsCredentials {
             access_key_id,
             secret_access_key,
             ..
-        } => access_key_id.expose_secret().is_empty() || secret_access_key.expose_secret().is_empty(),
+        } => access_key_id.expose_secret().trim().is_empty() || secret_access_key.expose_secret().trim().is_empty(),
     };
-    if is_empty {
+    if is_blank {
         return Err(LiterLlmError::Authentication {
-            message: "resolved Bedrock credentials require a non-empty bearer token or access-key pair".into(),
+            message: "resolved Bedrock credentials require a non-blank bearer token or access-key pair".into(),
             status: 401,
         });
     }

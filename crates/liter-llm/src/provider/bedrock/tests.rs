@@ -917,3 +917,42 @@ fn should_reject_resolved_aws_credentials_without_signing_feature() {
     );
     assert!(matches!(result, Err(LiterLlmError::Authentication { status: 401, .. })));
 }
+
+#[test]
+fn should_reject_whitespace_only_resolved_credentials_without_changing_nonblank_values() {
+    let mut rejected = 0;
+    for blank in [" ", " \t\r\n ", "\u{00a0}\u{2003}"] {
+        let credentials = [
+            crate::auth::Credential::BearerToken(blank.into()),
+            crate::auth::Credential::AwsCredentials {
+                access_key_id: blank.into(),
+                secret_access_key: "secret".into(),
+                session_token: None,
+            },
+            crate::auth::Credential::AwsCredentials {
+                access_key_id: "key".into(),
+                secret_access_key: blank.into(),
+                session_token: None,
+            },
+        ];
+        for credential in credentials {
+            if matches!(
+                validate_resolved_credential(&credential),
+                Err(LiterLlmError::Authentication { status: 401, .. })
+            ) {
+                rejected += 1;
+            }
+        }
+    }
+    assert_eq!(rejected, 9, "all ASCII and Unicode whitespace cases must be rejected");
+    for credential in [
+        crate::auth::Credential::BearerToken(" token ".into()),
+        crate::auth::Credential::AwsCredentials {
+            access_key_id: "key".into(),
+            secret_access_key: " secret ".into(),
+            session_token: None,
+        },
+    ] {
+        validate_resolved_credential(&credential).expect("nonblank bytes are accepted intact");
+    }
+}

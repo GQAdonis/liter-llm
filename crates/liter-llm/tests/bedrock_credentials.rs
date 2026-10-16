@@ -147,7 +147,7 @@ fn hmac_sha256(key: &[u8], message: &[u8]) -> Vec<u8> {
         .to_vec()
 }
 
-fn assert_signature(request: &CapturedRequest, generation: usize) {
+fn assert_signature(request: &CapturedRequest, generation: usize, secret: &str) {
     let authorization = &request.headers["authorization"];
     let (_, fields) = authorization.split_once(' ').expect("signature algorithm");
     let fields: HashMap<_, _> = fields
@@ -177,7 +177,7 @@ fn assert_signature(request: &CapturedRequest, generation: usize) {
         hex::encode(Sha256::digest(canonical))
     );
     let date = scope.split('/').next().expect("scope date");
-    let date_key = hmac_sha256(format!("AWS4resolved-secret-{generation}").as_bytes(), date.as_bytes());
+    let date_key = hmac_sha256(format!("AWS4{secret}").as_bytes(), date.as_bytes());
     let region_key = hmac_sha256(&date_key, b"us-east-1");
     let service_key = hmac_sha256(&region_key, b"bedrock");
     let signing_key = hmac_sha256(&service_key, b"aws4_request");
@@ -202,7 +202,7 @@ async fn assert_rotating_credentials(mode: Mode) {
     assert_eq!(requests.len(), 2);
     assert_eq!(credentials.0.load(Ordering::SeqCst), 2);
     for (generation, request) in requests.iter().enumerate() {
-        assert_signature(request, generation);
+        assert_signature(request, generation, &format!("resolved-secret-{generation}"));
     }
 }
 
@@ -290,7 +290,7 @@ async fn should_allow_resolved_credentials_without_static_aws_credentials() {
     assert_eq!(requests.len(), 2);
     assert_eq!(credentials.0.load(Ordering::SeqCst), 2);
     for (generation, request) in requests.iter().enumerate() {
-        assert_signature(request, generation);
+        assert_signature(request, generation, &format!("resolved-secret-{generation}"));
     }
 }
 
@@ -367,4 +367,85 @@ async fn should_reject_empty_resolved_secret_key_before_http() {
         session_token: None,
     })
     .await;
+}
+
+async fn assert_whitespace_credentials_prevent_all_http_routes(credential: Credential) {
+    let mut failures = Vec::new();
+    let mut routes = 0;
+    for mode in [Mode::Chat, Mode::RawChat, Mode::Stream, Mode::RawStream] {
+        routes += 1;
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind whitespace guard fixture");
+        listener.set_nonblocking(true).expect("nonblocking fixture");
+        let client = client(
+            format!("http://{}", listener.local_addr().expect("fixture address")),
+            Arc::new(FixedCredentials(credential.clone())),
+        );
+        let result = send(&client, mode).await;
+        let sent_http = match listener.accept() {
+            Ok(_) => true,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => false,
+            Err(error) => panic!("failed to inspect HTTP receipt: {error}"),
+        };
+        let authentication_error = matches!(result, Err(LiterLlmError::Authentication { status: 401, .. }));
+        if sent_http || !authentication_error {
+            failures.push((routes, sent_http, authentication_error));
+        }
+    }
+    assert_eq!(routes, 4);
+    assert!(
+        failures.is_empty(),
+        "route, sent HTTP, authentication error: {failures:?}"
+    );
+}
+
+#[tokio::test]
+async fn should_reject_whitespace_only_resolved_bearer_before_all_http_routes() {
+    assert_whitespace_credentials_prevent_all_http_routes(Credential::BearerToken("   ".into())).await;
+}
+
+#[tokio::test]
+async fn should_reject_whitespace_only_resolved_access_key_before_all_http_routes() {
+    assert_whitespace_credentials_prevent_all_http_routes(Credential::AwsCredentials {
+        access_key_id: "   ".into(),
+        secret_access_key: "resolved-secret".into(),
+        session_token: None,
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn should_reject_whitespace_only_resolved_secret_key_before_all_http_routes() {
+    assert_whitespace_credentials_prevent_all_http_routes(Credential::AwsCredentials {
+        access_key_id: "resolved-key".into(),
+        secret_access_key: "   ".into(),
+        session_token: None,
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn should_preserve_nonblank_resolved_secret_bytes_in_all_signatures() {
+    const SECRET: &str = " \tresolved-secret-0 \t";
+    for mode in [Mode::Chat, Mode::RawChat, Mode::Stream, Mode::RawStream] {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind exact-secret fixture");
+        let client = client(
+            format!("http://{}", listener.local_addr().expect("fixture address")),
+            Arc::new(FixedCredentials(Credential::AwsCredentials {
+                access_key_id: "resolved-key-0".into(),
+                secret_access_key: SECRET.into(),
+                session_token: Some("resolved-token".into()),
+            })),
+        );
+        let server = thread::spawn(move || capture(listener, mode));
+        for _ in 0..2 {
+            send(&client, mode)
+                .await
+                .expect("nonblank secret signs without trimming");
+        }
+        let requests = server.join().expect("exact-secret fixture completes");
+        assert_eq!(requests.len(), 2);
+        for request in requests {
+            assert_signature(&request, 0, SECRET);
+        }
+    }
 }
