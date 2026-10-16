@@ -177,6 +177,7 @@ pub struct BedrockProvider {
     secret_access_key: Option<String>,
     /// Explicit AWS session token, overriding `AWS_SESSION_TOKEN` when set.
     session_token: Option<String>,
+    dynamic_credentials: bool,
 }
 
 impl BedrockProvider {
@@ -210,6 +211,7 @@ impl BedrockProvider {
             access_key_id: None,
             secret_access_key: None,
             session_token: None,
+            dynamic_credentials: false,
         }
     }
 
@@ -247,6 +249,11 @@ impl BedrockProvider {
         Self::new(region)
             .with_cross_region_prefix(cross_region_prefix)
             .with_credentials(access_key_id, secret_access_key, session_token)
+    }
+
+    pub(crate) fn with_dynamic_credentials(mut self, enabled: bool) -> Self {
+        self.dynamic_credentials = enabled;
+        self
     }
 
     /// Override the cross-region inference profile prefix (e.g. `"us"`).
@@ -379,6 +386,10 @@ impl Provider for BedrockProvider {
     /// override. Explicit credentials without a token are rejected: nothing in
     /// that build can sign them, so the request would go out unauthenticated.
     fn validate(&self) -> Result<()> {
+        // ~keep Request-local credentials are validated by the signer after asynchronous resolution.
+        if self.dynamic_credentials {
+            return Ok(());
+        }
         #[cfg(not(feature = "bedrock"))]
         {
             if self.has_explicit_credential() && self.bearer_token().is_none() {
@@ -555,6 +566,7 @@ impl Provider for BedrockProvider {
                     access_key_id: self.access_key_id.as_deref(),
                     secret_access_key: self.secret_access_key.as_deref(),
                     session_token: self.session_token.as_deref(),
+                    use_environment: true,
                 },
             )
             .map_err(|error| {
@@ -573,6 +585,73 @@ impl Provider for BedrockProvider {
             Ok(vec![])
         }
     }
+
+    fn signing_headers_with_credential(
+        &self,
+        method: &str,
+        url: &str,
+        body: &[u8],
+        credential: Option<&crate::auth::Credential>,
+    ) -> Result<Vec<(String, String)>> {
+        let Some(credential) = credential else {
+            return self.signing_headers(method, url, body);
+        };
+        validate_resolved_credential(credential)?;
+        match credential {
+            crate::auth::Credential::BearerToken(_) => Ok(Vec::new()),
+            crate::auth::Credential::AwsCredentials {
+                access_key_id,
+                secret_access_key,
+                session_token,
+            } => {
+                #[cfg(feature = "bedrock")]
+                {
+                    use secrecy::ExposeSecret;
+
+                    sigv4_sign(
+                        method,
+                        url,
+                        body,
+                        &self.region,
+                        SigV4Credentials {
+                            access_key_id: Some(access_key_id.expose_secret()),
+                            secret_access_key: Some(secret_access_key.expose_secret()),
+                            session_token: session_token.as_ref().map(ExposeSecret::expose_secret),
+                            use_environment: false,
+                        },
+                    )
+                }
+                #[cfg(not(feature = "bedrock"))]
+                {
+                    let _ = (access_key_id, secret_access_key, session_token);
+                    Err(LiterLlmError::Authentication {
+                        message: "resolved AWS credentials require the `bedrock` feature to sign requests".into(),
+                        status: 401,
+                    })
+                }
+            }
+        }
+    }
+}
+
+fn validate_resolved_credential(credential: &crate::auth::Credential) -> Result<()> {
+    use secrecy::ExposeSecret;
+
+    let is_empty = match credential {
+        crate::auth::Credential::BearerToken(token) => token.expose_secret().is_empty(),
+        crate::auth::Credential::AwsCredentials {
+            access_key_id,
+            secret_access_key,
+            ..
+        } => access_key_id.expose_secret().is_empty() || secret_access_key.expose_secret().is_empty(),
+    };
+    if is_empty {
+        return Err(LiterLlmError::Authentication {
+            message: "resolved Bedrock credentials require a non-empty bearer token or access-key pair".into(),
+            status: 401,
+        });
+    }
+    Ok(())
 }
 
 /// Map a Bedrock Converse `stopReason` to an OpenAI `finish_reason`. Shared by
@@ -631,19 +710,31 @@ fn apply_cross_region_prefix(model: &str) -> String {
     }
 }
 
-/// Explicit AWS credentials for [`sigv4_sign`]; each `None` falls back to its
-/// standard environment variable.
+/// AWS credentials for [`sigv4_sign`], with environment fallback only for static configuration.
 #[cfg(feature = "bedrock")]
 struct SigV4Credentials<'a> {
     access_key_id: Option<&'a str>,
     secret_access_key: Option<&'a str>,
     session_token: Option<&'a str>,
+    use_environment: bool,
+}
+
+#[cfg(feature = "bedrock")]
+impl SigV4Credentials<'_> {
+    fn resolve(&self, explicit: Option<&str>, env_var: &str) -> Option<String> {
+        explicit.map(str::to_owned).or_else(|| {
+            if self.use_environment {
+                std::env::var(env_var).ok()
+            } else {
+                None
+            }
+        })
+    }
 }
 
 /// Compute AWS SigV4 signing headers using the `aws-sigv4` crate.
 ///
-/// Each credential falls back to the standard AWS environment variable when
-/// the corresponding explicit argument is `None`:
+/// When environment fallback is enabled, an absent explicit credential uses:
 /// - `access_key_id` -> `AWS_ACCESS_KEY_ID` (required)
 /// - `secret_access_key` -> `AWS_SECRET_ACCESS_KEY` (required)
 /// - `session_token` -> `AWS_SESSION_TOKEN` (optional, for temporary credentials)
@@ -663,9 +754,7 @@ fn sigv4_sign(
     use aws_sigv4::sign::v4::SigningParams;
 
     let access_key = credentials
-        .access_key_id
-        .map(str::to_owned)
-        .or_else(|| std::env::var("AWS_ACCESS_KEY_ID").ok())
+        .resolve(credentials.access_key_id, "AWS_ACCESS_KEY_ID")
         .ok_or_else(|| LiterLlmError::BadRequest {
             message: "AWS access key ID is required for Bedrock requests: set it explicitly via config or \
                       the AWS_ACCESS_KEY_ID environment variable"
@@ -673,19 +762,14 @@ fn sigv4_sign(
             status: 400,
         })?;
     let secret_key = credentials
-        .secret_access_key
-        .map(str::to_owned)
-        .or_else(|| std::env::var("AWS_SECRET_ACCESS_KEY").ok())
+        .resolve(credentials.secret_access_key, "AWS_SECRET_ACCESS_KEY")
         .ok_or_else(|| LiterLlmError::BadRequest {
             message: "AWS secret access key is required for Bedrock requests: set it explicitly via config or \
                       the AWS_SECRET_ACCESS_KEY environment variable"
                 .into(),
             status: 400,
         })?;
-    let session_token = credentials
-        .session_token
-        .map(str::to_owned)
-        .or_else(|| std::env::var("AWS_SESSION_TOKEN").ok());
+    let session_token = credentials.resolve(credentials.session_token, "AWS_SESSION_TOKEN");
 
     let credentials = Credentials::new(access_key, secret_key, session_token, None, "env");
 

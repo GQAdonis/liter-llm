@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Send Gemini and Vertex structured-output schemas through `responseJsonSchema` to preserve nullable fields and nested JSON Schema (#284).
 - Preserve Gemini model metadata and request-model fallbacks across standard and streaming responses, and resolve Gemini routing aliases for cost attribution (#283).
+- Sign Bedrock requests with per-request resolved AWS credentials across standard and streaming clients, including refreshed session tokens (#285).
 
 ## [2.2.4] - 2026-10-15
 

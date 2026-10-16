@@ -576,6 +576,24 @@ pub(crate) trait Provider: Send + Sync {
         let _ = (method, url, body);
         Ok(vec![])
     }
+
+    /// Sign with the credential resolved for this request, when configured.
+    ///
+    /// The default preserves static signing for providers without dynamic signing support.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when credentials are unsupported or request signing fails.
+    fn signing_headers_with_credential(
+        &self,
+        method: &str,
+        url: &str,
+        body: &[u8],
+        credential: Option<&crate::auth::Credential>,
+    ) -> Result<Vec<(String, String)>> {
+        let _ = credential;
+        self.signing_headers(method, url, body)
+    }
 }
 
 pub(crate) mod anthropic;

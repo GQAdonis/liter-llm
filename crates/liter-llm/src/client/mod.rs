@@ -903,20 +903,23 @@ impl DefaultClient {
 
     /// Compute the auth header for a given provider (potentially different from
     /// the construction-time cached one).
-    async fn resolve_auth_header_for_provider(&self, prov: &dyn Provider) -> Result<Option<(String, String)>> {
+    async fn resolve_auth_header_for_provider(
+        &self,
+        prov: &dyn Provider,
+    ) -> Result<(Option<(String, String)>, Option<Credential>)> {
         if let Some(ref cp) = self.config.credential_provider {
             let credential = cp.resolve().await?;
-            match credential {
-                Credential::BearerToken(token) if token.expose_secret().is_empty() => Ok(None),
-                Credential::BearerToken(token) => Ok(Some((
-                    "Authorization".to_owned(),
-                    format!("Bearer {}", token.expose_secret()),
-                ))),
-                Credential::AwsCredentials { .. } => Ok(None),
-            }
+            let header = match &credential {
+                Credential::BearerToken(token) if token.expose_secret().is_empty() => None,
+                Credential::BearerToken(token) => {
+                    Some(("Authorization".to_owned(), format!("Bearer {}", token.expose_secret())))
+                }
+                Credential::AwsCredentials { .. } => None,
+            };
+            Ok((header, Some(credential)))
         } else {
             // ~keep Auth headers must be recomputed after per-request provider resolution.
-            Ok(provider_auth_header(prov, self.config.api_key.expose_secret()))
+            Ok((provider_auth_header(prov, self.config.api_key.expose_secret()), None))
         }
     }
 
@@ -929,12 +932,13 @@ impl DefaultClient {
     fn all_headers_for_provider(
         &self,
         prov: &dyn Provider,
+        credential: Option<&Credential>,
         method: &str,
         url: &str,
         body_json: &serde_json::Value,
         body_bytes: &[u8],
     ) -> Result<Vec<(String, String)>> {
-        let mut headers = prov.signing_headers(method, url, body_bytes)?;
+        let mut headers = prov.signing_headers_with_credential(method, url, body_bytes, credential)?;
         headers.extend(
             prov.extra_headers()
                 .iter()
@@ -1028,18 +1032,18 @@ impl DefaultClient {
     /// Uses the pre-computed cached auth header for efficiency.  When a
     /// [`CredentialProvider`] is configured, it is called to obtain a fresh
     /// credential which overrides the cached header.
-    async fn resolve_auth_header(&self) -> Result<Option<(String, String)>> {
+    async fn resolve_auth_header(&self) -> Result<(Option<(String, String)>, Option<Credential>)> {
         if let Some(ref cp) = self.config.credential_provider {
             let credential = cp.resolve().await?;
-            match credential {
-                Credential::BearerToken(token) => Ok(Some((
-                    "Authorization".to_owned(),
-                    format!("Bearer {}", token.expose_secret()),
-                ))),
-                Credential::AwsCredentials { .. } => Ok(None),
-            }
+            let header = match &credential {
+                Credential::BearerToken(token) => {
+                    Some(("Authorization".to_owned(), format!("Bearer {}", token.expose_secret())))
+                }
+                Credential::AwsCredentials { .. } => None,
+            };
+            Ok((header, Some(credential)))
         } else {
-            Ok(self.cached_auth_header.clone())
+            Ok((self.cached_auth_header.clone(), None))
         }
     }
 
@@ -1053,12 +1057,15 @@ impl DefaultClient {
     /// internal Bedrock SigV4 error) instead of sending an unsigned request.
     fn all_headers(
         &self,
+        credential: Option<&Credential>,
         method: &str,
         url: &str,
         body_json: &serde_json::Value,
         body_bytes: &[u8],
     ) -> Result<Vec<(String, String)>> {
-        let mut headers = self.provider.signing_headers(method, url, body_bytes)?;
+        let mut headers = self
+            .provider
+            .signing_headers_with_credential(method, url, body_bytes, credential)?;
         headers.extend(self.cached_extra_headers.iter().cloned());
         headers.extend(self.provider.dynamic_headers(body_json));
         Ok(headers)
@@ -1155,6 +1162,7 @@ fn build_bedrock_provider_config(config: &ClientConfig) -> provider::bedrock::Be
         config.bedrock_secret_access_key.clone(),
         config.bedrock_session_token.clone(),
     )
+    .with_dynamic_credentials(config.credential_provider.is_some())
 }
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
@@ -1168,11 +1176,12 @@ impl LlmClient for DefaultClient {
             // ~keep Pass stream=false so providers can transform non-streaming chat correctly.
             let prepared = self.prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1215,11 +1224,12 @@ impl LlmClient for DefaultClient {
                 .provider
                 .build_stream_url(prepared.provider.chat_completions_path(), bare_model);
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &url,
                 &prepared.body_json,
@@ -1278,11 +1288,12 @@ impl LlmClient for DefaultClient {
             // ~keep Embeddings have no stream flag; passing None prevents inserting one.
             let prepared = self.prepare_request(&req, |p| p.embeddings_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1313,9 +1324,9 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             // ~keep list_models has no model string, so use the construction-time provider.
             let url = self.provider.build_url(self.provider.models_path(), "");
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let mut raw = http::request::get_json_raw_bounded(
@@ -1341,11 +1352,12 @@ impl LlmClient for DefaultClient {
             let model = req.model.as_deref().unwrap_or_default();
             let prepared = self.prepare_request(&req, |p| p.image_generations_path(), model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1376,11 +1388,12 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.audio_speech_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1409,11 +1422,12 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.audio_transcriptions_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1445,11 +1459,12 @@ impl LlmClient for DefaultClient {
             let model = req.model.as_deref().unwrap_or_default();
             let prepared = self.prepare_request(&req, |p| p.moderations_path(), model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1480,11 +1495,12 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.rerank_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1515,11 +1531,12 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.search_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1550,11 +1567,12 @@ impl LlmClient for DefaultClient {
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.ocr_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1585,11 +1603,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1634,11 +1653,12 @@ impl LlmClientRaw for DefaultClient {
                 .provider
                 .build_stream_url(prepared.provider.chat_completions_path(), bare_model);
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &url,
                 &prepared.body_json,
@@ -1693,11 +1713,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.embeddings_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1734,11 +1755,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.image_generations_path(), model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1777,11 +1799,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.audio_transcriptions_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1818,11 +1841,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.moderations_path(), model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1858,11 +1882,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.rerank_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1898,11 +1923,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.search_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1938,11 +1964,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.ocr_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1979,9 +2006,9 @@ impl FileClient for DefaultClient {
     fn create_file(&self, req: CreateFileRequest) -> BoxFuture<'_, Result<FileObject>> {
         Box::pin(async move {
             let url = self.provider.build_url(self.provider.files_path(), "");
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("POST", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             use base64::Engine;
@@ -2023,9 +2050,9 @@ impl FileClient for DefaultClient {
                 self.provider.build_url(self.provider.files_path(), ""),
                 file_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -2049,9 +2076,9 @@ impl FileClient for DefaultClient {
                 self.provider.build_url(self.provider.files_path(), ""),
                 file_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("DELETE", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "DELETE", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::delete_json_bounded(
@@ -2089,9 +2116,9 @@ impl FileClient for DefaultClient {
             } else {
                 base_url
             };
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -2115,9 +2142,9 @@ impl FileClient for DefaultClient {
                 self.provider.build_url(self.provider.files_path(), ""),
                 file_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             http::request::get_binary_bounded(
@@ -2141,8 +2168,8 @@ impl BatchClient for DefaultClient {
             let body_bytes = bytes::Bytes::from(serde_json::to_vec(&req)?);
             let body_json = serde_json::to_value(&req)?;
 
-            let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2167,9 +2194,9 @@ impl BatchClient for DefaultClient {
                 self.provider.build_url(self.provider.batches_path(), ""),
                 batch_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -2204,9 +2231,9 @@ impl BatchClient for DefaultClient {
             } else {
                 base_url
             };
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -2230,10 +2257,10 @@ impl BatchClient for DefaultClient {
                 self.provider.build_url(self.provider.batches_path(), ""),
                 batch_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let body_json = serde_json::Value::Null;
             let body_bytes = bytes::Bytes::new();
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2417,8 +2444,8 @@ impl ResponseClient for DefaultClient {
             let body_json = response_request_body(&req)?;
             let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
 
-            let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2446,8 +2473,8 @@ impl ResponseClient for DefaultClient {
             let body_json = response_stream_request_body(req)?;
             let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
 
-            let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2472,9 +2499,9 @@ impl ResponseClient for DefaultClient {
             let base_url = self.provider.build_url(self.provider.responses_path(), "");
             reject_malformed_responses_url(&base_url, self.provider.name())?;
             let url = format!("{base_url}/{response_id}");
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -2496,10 +2523,10 @@ impl ResponseClient for DefaultClient {
             let base_url = self.provider.build_url(self.provider.responses_path(), "");
             reject_malformed_responses_url(&base_url, self.provider.name())?;
             let url = format!("{base_url}/{response_id}/cancel");
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let body_json = serde_json::Value::Null;
             let body_bytes = bytes::Bytes::new();
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
