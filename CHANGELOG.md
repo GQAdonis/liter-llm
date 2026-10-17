@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Remove vulnerable ZIP 8.6 dependencies from PHP binding builds.
+
 ### Fixed
 
 - Validate canonical package versions during release dry runs while preserving genuine prerelease checks.
