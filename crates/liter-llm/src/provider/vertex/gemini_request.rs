@@ -201,7 +201,7 @@ fn generation_config(body: &Value) -> Value {
             "json_schema" => {
                 gen_config["responseMimeType"] = json!("application/json");
                 if let Some(schema) = rf.get("json_schema").and_then(|s| s.get("schema")) {
-                    gen_config["responseSchema"] = schema.clone();
+                    gen_config["responseJsonSchema"] = schema.clone();
                 }
             }
             _ => {}

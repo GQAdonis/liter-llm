@@ -388,6 +388,8 @@ fn transform_response_cache_tokens_counted_in_prompt() {
     assert_eq!(body["usage"]["prompt_tokens"], 175u64);
     assert_eq!(body["usage"]["completion_tokens"], 10u64);
     assert_eq!(body["usage"]["total_tokens"], 185u64);
+    assert_eq!(body["usage"]["prompt_tokens_details"]["cached_tokens"], 25u64);
+    assert_eq!(body["usage"]["prompt_tokens_details"]["cache_creation_tokens"], 50u64);
 }
 
 #[test]
@@ -506,6 +508,9 @@ fn parse_stream_event_message_start_cache_tokens_in_usage() {
         .expect("expected chunk");
     let usage = chunk.usage.expect("usage should be present");
     assert_eq!(usage.prompt_tokens, 175);
+    let details = usage.prompt_tokens_details.expect("cache details should be present");
+    assert_eq!(details.cached_tokens, 25);
+    assert_eq!(details.cache_creation_tokens, 50);
 }
 
 #[test]
@@ -831,6 +836,30 @@ fn transform_request_json_schema_response_format() {
 }
 
 #[test]
+fn transform_request_uses_native_structured_output_for_supported_model() {
+    let schema = json!({
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+        "additionalProperties": false
+    });
+    let mut body = json!({
+        "model": "claude-opus-5",
+        "messages": [{"role": "user", "content": "Give me structured output"}],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "person", "strict": true, "schema": schema}
+        }
+    });
+    provider()
+        .transform_request(&mut body)
+        .expect("transform_request should not fail");
+    assert_eq!(body["output_config"]["format"]["type"], "json_schema");
+    assert_eq!(body["output_config"]["format"]["schema"], schema);
+    assert!(body.get("system").is_none(), "native format needs no emulation prompt");
+}
+
+#[test]
 fn transform_request_json_object_with_existing_system() {
     let mut body = json!({
         "model": "claude-3-5-sonnet-20241022",
@@ -845,13 +874,13 @@ fn transform_request_json_object_with_existing_system() {
         .expect("transform_request should not fail");
     let system = body["system"].as_array().expect("system should be an array");
     assert_eq!(system.len(), 2);
+    assert_eq!(system[0]["text"], "You are helpful.");
     assert!(
-        system[0]["text"]
+        system[1]["text"]
             .as_str()
             .expect("text should be a string")
             .contains("valid JSON")
     );
-    assert_eq!(system[1]["text"], "You are helpful.");
 }
 
 #[test]

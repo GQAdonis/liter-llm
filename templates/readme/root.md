@@ -15,9 +15,9 @@
 
 ## What and Why?
 
-liter-llm gives you a single, consistent way to call any large language model. Reach 165 providers — OpenAI, Anthropic, Google, Bedrock, and more — through one client, and switch models by changing a name instead of your code. The same client ships to 14 languages, all built on one Rust core, so you get identical behavior everywhere. Need a gateway? Point your existing OpenAI SDK at the built-in, drop-in proxy — no rewrites, no separate service to run.
+liter-llm gives you a single, consistent way to call any large language model. Reach 174 providers — OpenAI, Anthropic, Google, Bedrock, and more — through one client, and switch models by changing a name instead of your code. The same client ships to 14 languages, all built on one Rust core, so you get identical behavior everywhere. Need a gateway? Point your existing OpenAI SDK at the built-in, drop-in proxy — no rewrites, no separate service to run.
 
-- **Work with any provider without rewrites** — 165 providers behind one API; change the model name to switch, your code stays the same.
+- **Work with any provider without rewrites** — 174 providers behind one API; change the model name to switch, your code stays the same.
 - **Use it from your language** — Python, TypeScript, Go, Java, Kotlin, C#, Ruby, PHP, Elixir, Dart, Swift, Zig, and WebAssembly, all built on the same Rust core, plus a C/FFI surface for everything else.
 - **Secure by default** — API keys are wrapped, redacted from logs, and never serialized; cloud auth for Azure, AWS, and Vertex refreshes and rotates for you.
 - **One small binary** — the client, a drop-in OpenAI-compatible proxy, and an MCP server for AI agents ship in a single 35 MB binary with no interpreter and no dependency tree to compromise.
@@ -31,7 +31,7 @@ We credit [litellm](https://github.com/BerriAI/litellm) for proving the category
 
 | Feature | Description |
 | ------- | ----------- |
-| **165 providers** | OpenAI, Anthropic, Google, AWS Bedrock, Groq, Mistral, Together, Fireworks, DeepSeek, Cohere, and 130+ more — compiled at build time |
+| **174 providers** | OpenAI, Anthropic, Google, AWS Bedrock, Groq, Mistral, Together, Fireworks, DeepSeek, Cohere, and 130+ more — compiled at build time |
 | **14 native bindings** | Rust, Python, Node.js, Go, Java, Kotlin, C#, Ruby, PHP, Elixir, Dart, Swift, Zig, WebAssembly — plus a shared C/FFI surface |
 | **First-class streaming** | SSE and AWS EventStream binary protocol with zero-copy buffers |
 | **Proxy & MCP server** | Drop-in OpenAI-compatible proxy (22 endpoints) and MCP tool server in a 35 MB Docker image |
@@ -198,7 +198,7 @@ The `liter-llm` CLI ships both the OpenAI-compatible proxy and the MCP tool serv
 brew install xberg-io/tap/liter-llm
 cargo install liter-llm-cli                 # from crates.io
 cargo binstall liter-llm-cli               # prebuilt binary from GitHub Releases
-npx @xberg-io/liter-llm-cli --help         # npm (self-installs the binary)
+pnpm dlx @xberg-io/liter-llm-cli --help         # npm (self-installs the binary)
 docker run -p 4000:4000 -e LITER_LLM_MASTER_KEY=sk-your-key ghcr.io/xberg-io/liter-llm
 ```
 
@@ -217,13 +217,50 @@ liter-llm mcp --transport stdio               # MCP tool server (stdio)
 liter-llm mcp --transport http --port 3001    # MCP tool server (Streamable HTTP)
 ```
 
-See the [MCP server guide](https://docs.liter-llm.xberg.io/server/mcp-server/) and the [proxy guide](https://docs.liter-llm.xberg.io/server/proxy-server/) for transports, routing, virtual keys, and budgets. To use the MCP server inside a coding agent, install the **liter-llm plugin** (below) — it auto-registers the server, no manual config required.
+See the [MCP server guide](https://docs.liter-llm.xberg.io/server/mcp-server/) and the [proxy guide](https://docs.liter-llm.xberg.io/server/proxy-server/) for transports, routing, virtual keys, and budgets. To use the MCP server inside a coding agent, install the **liter-llm plugin** (below) — it registers the server for your MCP client. The CLI release compatibility requirements below also apply to auto-installed binaries.
 
 </details>
 
 ### AI Coding Assistants
 
-Install the liter-llm plugin from [`xberg-io/liter-llm`](https://github.com/xberg-io/liter-llm). It ships the liter-llm agent skills (chat, streaming, tools, embeddings across 165 providers) and works with every major coding agent — expand your harness below.
+Install the liter-llm plugin from [`xberg-io/liter-llm`](https://github.com/xberg-io/liter-llm). It ships the liter-llm agent skills (chat, streaming, tools, embeddings across 174 providers) — select your runtime below.
+
+The bundle targets Claude Code, Codex, Cursor, Gemini CLI, Kimi, OpenCode, Factory Droid,
+Hermes, Pi, Agent Plugins and GitHub Copilot CLI. Read [the plugin guide](https://github.com/xberg-io/liter-llm/blob/main/plugin/README.md)
+for runtime resources, CLI prerequisites and configuration. MCP-capable adapters expose the
+product's tools; Hermes uses a local stdio bridge and explicitly selected skills. Pi loads
+skills and prompt templates and requires the product CLI for executable operations.
+
+Install only the public [Agent Skills](https://github.com/xberg-io/liter-llm/tree/main/skills),
+without a plugin or MCP registration, using the [skills CLI](https://github.com/vercel-labs/skills):
+
+```sh
+npx skills add xberg-io/liter-llm --list
+npx skills add xberg-io/liter-llm
+```
+
+Choose the skills and target agents interactively. Installing instructions does not install the
+product CLI or configure provider credentials.
+
+Published CLI 2.2.3 predates the local-stdio trust and deferred-provider-credential fixes.
+Until a CLI release includes them, use a source build for startup without an extra auth config:
+
+```sh
+cargo install --git https://github.com/xberg-io/liter-llm \
+  --rev f14fb8862f9cc73e2c4ab38a2876efe77fab8bf4 --locked liter-llm-cli
+```
+
+Put the installed binary on the assistant's PATH. If a plugin has already cached an older binary,
+remove that plugin's `bin/liter-llm` (or `bin/liter-llm.exe`) before retrying so it selects the source build.
+The released 2.2.3 binary requires `mcp.stdio_trust_local = true` or a configured `mcp.stdio_key_id`;
+configured providers may also require credentials at startup. The source build defers missing provider
+credentials until a request uses that provider. HTTP authentication remains configured separately.
+
+The source-built stdio MCP server trusts its local host by default and starts without a provider key.
+Set provider credentials such as `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` before sending
+requests to that provider; missing credentials fail the request. HTTP MCP access retains
+its configured authentication. Use `liter-llm api` for the proxy and `liter-llm mcp` for MCP;
+chat and streaming are SDK, proxy or MCP operations rather than CLI subcommands.
 
 <details open>
 <summary><strong>Claude Code</strong></summary>
@@ -256,9 +293,14 @@ Settings → Plugins → Add from URL → `https://github.com/xberg-io/liter-llm
 <details>
 <summary><strong>Gemini CLI</strong></summary>
 
-```text
-gemini extensions install https://github.com/xberg-io/liter-llm
+From a checkout of this repository:
+
+```sh
+gemini extensions install ./plugin
 ```
+
+The manifest is inside `plugin/`. See the [Gemini extension reference](https://geminicli.com/docs/extensions/reference/)
+for local installation and updates.
 
 </details>
 
@@ -279,6 +321,28 @@ droid plugin install liter-llm@liter-llm
 copilot plugin marketplace add https://github.com/xberg-io/liter-llm
 copilot plugin install liter-llm@liter-llm
 ```
+
+</details>
+
+<details>
+<summary><strong>Pi</strong></summary>
+
+Install from a local checkout now:
+
+```bash
+pi install ./plugin
+```
+
+After the next plugin release, install the same package used by OpenCode:
+
+```bash
+pi install npm:@xberg-io/opencode-liter-llm
+```
+
+Pi loads the bundled skills and prompt templates. Use `/liter-llm-chat` and `/liter-llm-stream`
+to start a task. Install the CLI separately as
+shown in [the plugin README](https://github.com/xberg-io/liter-llm/blob/main/plugin/README.md).
+This package does not register MCP servers, hooks, or executable extensions in Pi.
 
 </details>
 
@@ -312,7 +376,7 @@ Join our [Discord community](https://discord.gg/xt9WY3GnKR) for questions and di
 - [Xberg Enterprise](https://github.com/xberg-io/xberg-enterprise) — managed extraction API with SDKs, dashboards, and observability.
 - [crawlberg](https://github.com/xberg-io/crawlberg) — web crawling and scraping with HTML→Markdown and headless-Chrome fallback.
 - [html-to-markdown](https://github.com/xberg-io/html-to-markdown) — fast, lossless HTML→Markdown engine.
-- [liter-llm](https://github.com/xberg-io/liter-llm) — universal LLM API client with native bindings for 14 languages and 165 providers.
+- [liter-llm](https://github.com/xberg-io/liter-llm) — universal LLM API client with native bindings for 14 languages and 174 providers.
 - [tree-sitter-language-pack](https://github.com/xberg-io/tree-sitter-language-pack) — tree-sitter grammars and code-intelligence primitives.
 - [alef](https://github.com/xberg-io/alef) — the polyglot binding generator that produces every per-language binding across the 5 polyglot repos.
 

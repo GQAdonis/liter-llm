@@ -29,7 +29,7 @@ Install via your preferred package manager:
 {% if "npm" in package_manager %}
 
 ```bash
-npm install {{ package_name }}
+pnpm add {{ package_name }}
 ```
 
 {% endif %}
@@ -171,7 +171,7 @@ pip install {{ package_name }}
 **npm:**
 
 ```bash
-npm install {{ package_name }}
+pnpm add {{ package_name }}
 ```
 
 {% elif pm == "pnpm" %}
@@ -284,7 +284,7 @@ Pre-built binaries available for:
 
 {% elif language == "go" %}
 
-- **Go 1.21+** required
+- **Go 1.26+** required
 - API keys via environment variables (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
   {% elif language == "java" %}
 - **Java 21+** required (Panama FFM API)

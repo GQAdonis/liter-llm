@@ -332,19 +332,33 @@ pub fn is_forbidden(ip: IpAddr) -> bool {
     }
 }
 
+/// Inclusive `(a, b, c)` octet ranges that must not be reached; the fourth octet is never inspected.
+type ForbiddenV4Range = ((u8, u8), (u8, u8), (u8, u8));
+
+const ANY: (u8, u8) = (0, 255);
+
+const FORBIDDEN_V4_RANGES: [ForbiddenV4Range; 13] = [
+    ((0, 0), ANY, ANY),
+    ((10, 10), ANY, ANY),
+    ((100, 100), (64, 127), ANY),
+    ((127, 127), ANY, ANY),
+    ((169, 169), (254, 254), ANY),
+    ((172, 172), (16, 31), ANY),
+    ((192, 192), (0, 0), (0, 0)),
+    ((192, 192), (0, 0), (2, 2)),
+    ((192, 192), (168, 168), ANY),
+    ((198, 198), (18, 19), ANY),
+    ((198, 198), (51, 51), (100, 100)),
+    ((203, 203), (0, 0), (113, 113)),
+    ((224, 255), ANY, ANY),
+];
+
 fn is_forbidden_v4(ip: std::net::Ipv4Addr) -> bool {
     let [a, b, c, _] = ip.octets();
-    a == 0
-        || a == 10
-        || (a == 100 && (64..=127).contains(&b))
-        || a == 127
-        || (a == 169 && b == 254)
-        || (a == 172 && (16..=31).contains(&b))
-        || (a == 192 && b == 0 && (c == 0 || c == 2))
-        || (a == 192 && b == 168)
-        || (a == 198 && (b == 18 || b == 19 || (b == 51 && c == 100)))
-        || (a == 203 && b == 0 && c == 113)
-        || a >= 224
+    let within = |value: u8, (lo, hi): (u8, u8)| (lo..=hi).contains(&value);
+    FORBIDDEN_V4_RANGES
+        .iter()
+        .any(|&(ra, rb, rc)| within(a, ra) && within(b, rb) && within(c, rc))
 }
 
 fn is_forbidden_v6(ip: std::net::Ipv6Addr) -> bool {
@@ -608,9 +622,9 @@ pub use resolver_impl::{cached_guarded_resolver, guarded_resolver};
 #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
 /// Apply authenticated outbound-request protections to a native HTTP client.
 ///
-/// The returned builder validates every resolved address and redirect target.
-/// Cross-origin redirects are rejected so credentials in custom headers cannot
-/// be forwarded to a different origin. Active policies also disable proxies;
+/// The returned builder validates every resolved address and disables redirects
+/// so credentials and request bodies cannot be forwarded to another origin.
+/// Active policies also disable proxies;
 /// otherwise the proxy could resolve the target outside the guarded resolver.
 ///
 /// Callers must validate each initial request URL with [`validate_outbound_url_sync`]
@@ -622,7 +636,7 @@ pub fn configure_outbound_client_builder(
     mut builder: reqwest::ClientBuilder,
     dns_cache_ttl: Option<std::time::Duration>,
 ) -> reqwest::ClientBuilder {
-    builder = builder.redirect(outbound_redirect_policy(false));
+    builder = builder.redirect(reqwest::redirect::Policy::none());
     if !matches!(current_policy(), OutboundPolicy::Off) {
         builder = builder.no_proxy();
         builder = builder.dns_resolver(cached_guarded_resolver(dns_cache_ttl));
@@ -771,6 +785,89 @@ mod tests {
         for (addr, expected) in cases {
             let ip: IpAddr = addr.parse().expect("valid IP");
             assert_eq!(is_forbidden(ip), *expected, "is_forbidden({addr}) should be {expected}");
+        }
+    }
+
+    #[test]
+    fn is_forbidden_v4_range_boundaries() {
+        let cases: &[(&str, bool)] = &[
+            ("0.0.0.0", true),
+            ("0.255.255.255", true),
+            ("1.0.0.0", false),
+            ("9.255.255.255", false),
+            ("10.0.0.0", true),
+            ("10.255.255.255", true),
+            ("11.0.0.0", false),
+            ("100.63.255.255", false),
+            ("100.64.0.0", true),
+            ("100.127.255.255", true),
+            ("100.128.0.0", false),
+            ("126.255.255.255", false),
+            ("127.0.0.0", true),
+            ("127.255.255.255", true),
+            ("128.0.0.0", false),
+            ("169.253.255.255", false),
+            ("169.254.0.0", true),
+            ("169.254.255.255", true),
+            ("169.255.0.0", false),
+            ("172.15.255.255", false),
+            ("172.16.0.0", true),
+            ("172.31.255.255", true),
+            ("172.32.0.0", false),
+            ("191.255.255.255", false),
+            ("192.0.0.0", true),
+            ("192.0.0.255", true),
+            ("192.0.1.0", false),
+            ("192.0.1.255", false),
+            ("192.0.2.0", true),
+            ("192.0.2.255", true),
+            ("192.0.3.0", false),
+            ("192.1.0.0", false),
+            ("192.167.255.255", false),
+            ("192.168.0.0", true),
+            ("192.168.255.255", true),
+            ("192.169.0.0", false),
+            ("198.17.255.255", false),
+            ("198.18.0.0", true),
+            ("198.19.255.255", true),
+            ("198.20.0.0", false),
+            ("198.50.100.0", false),
+            ("198.51.99.255", false),
+            ("198.51.100.0", true),
+            ("198.51.100.255", true),
+            ("198.51.101.0", false),
+            ("198.52.100.0", false),
+            ("202.255.255.255", false),
+            ("203.0.112.255", false),
+            ("203.0.113.0", true),
+            ("203.0.113.255", true),
+            ("203.0.114.0", false),
+            ("203.1.113.0", false),
+            ("204.0.113.0", false),
+            ("223.255.255.255", false),
+            ("224.0.0.0", true),
+            ("255.255.255.255", true),
+        ];
+        for (addr, expected) in cases {
+            let ip: std::net::Ipv4Addr = addr.parse().expect("valid IPv4");
+            assert_eq!(
+                is_forbidden_v4(ip),
+                *expected,
+                "is_forbidden_v4({addr}) should be {expected}"
+            );
+            assert_eq!(
+                is_forbidden(IpAddr::V4(ip)),
+                *expected,
+                "is_forbidden({addr}) should be {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn is_forbidden_ipv4_mapped_ipv6_follows_v4_table() {
+        for (addr, expected) in [("::ffff:10.0.0.1", true), ("::ffff:8.8.8.8", false)] {
+            let ip: IpAddr = addr.parse().expect("valid IPv6");
+            assert_eq!(is_forbidden(ip), expected, "is_forbidden({addr}) should be {expected}");
         }
     }
 
@@ -1141,7 +1238,7 @@ mod tests {
     #[tokio::test]
     #[serial(outbound_policy)]
     #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
-    async fn allowlisted_private_origin_still_rejects_cross_origin_redirect() {
+    async fn allowlisted_private_origin_never_follows_cross_origin_redirect() {
         let target = OneShotServer::start("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}".to_string());
         let target_url = format!("http://localhost:{}/done", target.address.port());
         let source = OneShotServer::start(format!(
@@ -1157,7 +1254,7 @@ mod tests {
             .expect("guarded client");
         let result = crate::http::request::get_json_raw(&client, &source_url, None, &[], 0).await;
         set_outbound_policy(OutboundPolicy::Off);
-        assert!(matches!(result, Err(LiterLlmError::OutboundForbidden { .. })));
+        assert!(matches!(result, Err(LiterLlmError::ServerError { status: 302, .. })));
         assert!(source.finish(), "allowed private source must receive the request");
         assert!(!target.finish(), "different-origin target must not receive the request");
     }
@@ -1292,6 +1389,39 @@ mod tests {
             "allowed source must receive exactly the initial request"
         );
         assert!(!target.finish(), "blocked redirect target must not receive a request");
+    }
+
+    #[tokio::test]
+    #[serial(outbound_policy)]
+    #[cfg(all(feature = "native-http", not(target_arch = "wasm32")))]
+    async fn authenticated_client_never_follows_redirects_when_policy_is_off() {
+        let target = OneShotServer::start("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}".to_string());
+        let target_url = format!("http://target.test:{}/done", target.address.port());
+        let source = OneShotServer::start(format!(
+            "HTTP/1.1 307 Temporary Redirect\r\nLocation: {target_url}\r\nContent-Length: 0\r\n\r\n"
+        ));
+        let source_url = format!("http://source.test:{}/start", source.address.port());
+        set_outbound_policy(OutboundPolicy::Off);
+        let client = configure_outbound_client_builder(
+            reqwest::Client::builder()
+                .resolve("source.test", source.address)
+                .resolve("target.test", target.address),
+            None,
+        )
+        .build()
+        .expect("authenticated client");
+
+        let response = client
+            .post(source_url)
+            .header("authorization", "Bearer secret-token")
+            .body("secret prompt")
+            .send()
+            .await
+            .expect("redirect response");
+
+        assert_eq!(response.status(), reqwest::StatusCode::TEMPORARY_REDIRECT);
+        assert!(source.finish(), "source must receive the initial request");
+        assert!(!target.finish(), "redirect target must not receive credentials or body");
     }
 
     #[tokio::test]

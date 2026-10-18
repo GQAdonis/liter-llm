@@ -4,7 +4,13 @@
   "docs": {
     "topic": "budget",
     "stem": "budget-per-model",
-    "title": "Tests per-model budget limit"
+    "title": "Tests per-model budget limit",
+    "client": {
+      "config": {
+        "api_key": "your-api-key",
+        "budget": { "model_limits": { "gpt-4": 0.0 }, "enforcement": "hard" }
+      }
+    }
   },
   "category": "budget",
   "tags": ["budget"],

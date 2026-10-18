@@ -155,9 +155,9 @@ Authentication context for `liter-llm mcp --transport stdio`. HTTP MCP ignores t
 | Field               | Type    | Default | Description                                                                 |
 | ------------------- | ------- | ------- | --------------------------------------------------------------------------- |
 | `stdio_key_id`      | string? | none    | Bind stdio MCP calls to an existing `[[keys]].key` virtual key.             |
-| `stdio_trust_local` | bool    | `false` | Treat the local stdio process as master access. Use only for trusted local clients. |
+| `stdio_trust_local` | bool | `true` | Treat the local stdio process as master access. Set to `false` to require an explicit virtual key. |
 
-At least one stdio mode must be configured. Prefer `stdio_key_id` for policy enforcement; without `stdio_key_id` or `stdio_trust_local = true`, the stdio MCP server refuses to start.
+Local stdio starts with master context by default. For policy enforcement, configure `stdio_key_id` with an existing virtual key; it takes precedence over local trust. Setting `stdio_trust_local = false` without a virtual key makes stdio refuse startup. Provider keys are separate configuration and are required only for requests to providers that need them.
 
 ## `[rate_limit]`
 

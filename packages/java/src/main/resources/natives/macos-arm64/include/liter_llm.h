@@ -107,6 +107,10 @@ typedef struct LITERLLMCacheBackend LITERLLMCacheBackend;
  */
 typedef struct LITERLLMCacheConfig LITERLLMCacheConfig;
 /**
+ * Provenance for the active model catalog.
+ */
+typedef struct LITERLLMCatalogInfo LITERLLMCatalogInfo;
+/**
  * Plain-data configuration for `refresh_catalog`.
  *
  * Deliberately FFI/binding-friendly: no `Duration` or `PathBuf`, just
@@ -148,6 +152,13 @@ typedef uint64_t LITERLLMChunkMiddleware;
  * Observable state of a circuit breaker.
  */
 typedef struct LITERLLMCircuitState LITERLLMCircuitState;
+/**
+ * Breakdown of tokens used in the completion portion of a request.
+ *
+ * `reasoning_tokens` is included in `Usage::completion_tokens` â it is not
+ * additional usage on top of the completion token count.
+ */
+typedef struct LITERLLMCompletionTokensDetails LITERLLMCompletionTokensDetails;
 /**
  * A single content part in a user message â text, image, document, or audio.
  */
@@ -207,7 +218,7 @@ typedef struct LITERLLMDecodedDataUrl LITERLLMDecodedDataUrl;
 /**
  * Default client implementation backed by `reqwest`.
  *
- * Sends requests to 165 LLM providers with automatic provider detection
+ * Sends requests to 174 LLM providers with automatic provider detection
  * and per-request routing. The provider is resolved at construction time
  * from `model_hint` (or defaults to OpenAI), but individual requests can
  * override the provider via model name prefix (e.g. `"anthropic/claude-3-5-sonnet"`
@@ -341,6 +352,9 @@ typedef struct LITERLLMIntentPrototype LITERLLMIntentPrototype;
 typedef struct LITERLLMJsonSchemaFormat LITERLLMJsonSchemaFormat;
 /**
  * All errors that can occur when using `liter-llm`.
+ *
+ * Each variant carries a stable numeric `error_code` (>= 100) that bindings expose
+ * across the FFI boundary. Codes are append-only: never renumber or reuse a code.
  */
 typedef struct LITERLLMLiterLlmError LITERLLMLiterLlmError;
 /**
@@ -720,6 +734,27 @@ enum LITERLLMAlefFfiErrorCode
   LiterllmAlefUnknown = 2,
   LiterllmAlefPanic = 3,
   LiterllmAlefInvalidHandle = 4,
+  LiterllmAlefCancelled = 5,
+  LiterLlmLiterLlmErrorAuthentication = 100,
+  LiterLlmLiterLlmErrorRateLimited = 101,
+  LiterLlmLiterLlmErrorBadRequest = 102,
+  LiterLlmLiterLlmErrorContextWindowExceeded = 103,
+  LiterLlmLiterLlmErrorContentPolicy = 104,
+  LiterLlmLiterLlmErrorNotFound = 105,
+  LiterLlmLiterLlmErrorServerError = 106,
+  LiterLlmLiterLlmErrorServiceUnavailable = 107,
+  LiterLlmLiterLlmErrorTimeout = 108,
+  LiterLlmLiterLlmErrorNetwork = 109,
+  LiterLlmLiterLlmErrorStreaming = 110,
+  LiterLlmLiterLlmErrorEndpointNotSupported = 111,
+  LiterLlmLiterLlmErrorInvalidHeader = 112,
+  LiterLlmLiterLlmErrorSerialization = 113,
+  LiterLlmLiterLlmErrorBudgetExceeded = 114,
+  LiterLlmLiterLlmErrorHookRejected = 115,
+  LiterLlmLiterLlmErrorInternalError = 116,
+  LiterLlmLiterLlmErrorOutboundForbidden = 117,
+  LiterLlmLiterLlmErrorIdempotencyConflict = 118,
+  LiterLlmLiterLlmErrorIdempotencyInFlight = 119,
 };
 #if __STDC_VERSION__ >= 202311L
 typedef enum LITERLLMAlefFfiErrorCode LITERLLMAlefFfiErrorCode;
@@ -751,6 +786,50 @@ int32_t literllm_last_error_code(void);
  * The returned pointer is borrowed from thread-local storage and must NOT be freed.
  */
 const char *literllm_last_error_context(void);
+
+/**
+ * Return the variant name of the last typed error, such as `RateLimited`.
+ * The pointer is NULL when the last error did not come from a typed error value, and is borrowed
+ * and valid until the next FFI call on this thread.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * The returned pointer is borrowed from thread-local storage and must NOT be freed.
+ */
+const char *literllm_last_error_variant(void);
+
+/**
+ * Return the last error's `status_code` value (the zero value when there is no typed error).
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * This function does not allocate and returns no owned pointer.
+ */
+uint16_t literllm_last_error_status_code(void);
+
+/**
+ * Return the last error's `retry_after` value in whole milliseconds, or `-1` when the last
+ * error did not carry one.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * This function does not allocate and returns no owned pointer.
+ */
+int64_t literllm_last_error_retry_after(void);
+
+/**
+ * Return the last error's `is_transient` value (the zero value when there is no typed error).
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * This function does not allocate and returns no owned pointer.
+ */
+bool literllm_last_error_is_transient(void);
+
+/**
+ * Return the last error's `error_type` value, or NULL when the last error did not carry one.
+ * The pointer is borrowed and valid until the next FFI call on this thread.
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * The returned pointer is borrowed from thread-local storage and must NOT be freed.
+ */
+const char *literllm_last_error_error_type(void);
 
 /**
  * Free a string previously returned by this library.
@@ -792,6 +871,22 @@ const char *literllm_version(void);
  */
 LITERLLMAlefHandle literllm_default_client_chat_stream_start(LITERLLMAlefHandle client,
                                                              LITERLLMAlefHandle req);
+
+/**
+ * Start a streaming chat completion that a cancel token can abort, and return an opaque iterator handle.
+ *
+ * Behaves exactly like `literllm_default_client_chat_stream_start`, and additionally tripping `alef_cancel_token` (created by
+ * `literllm_cancel_token_new`, `0` for none) aborts both the stream-open request and any later
+ * blocking `literllm_default_client_chat_stream_next` call on the returned handle: each returns null with last-error code
+ * `Cancelled`. The handle keeps its own reference to the token, so the token may be freed
+ * before the handle is.
+ *
+ * # Safety
+ * Same contract as `literllm_default_client_chat_stream_start`.
+ */
+LITERLLMAlefHandle literllm_default_client_chat_stream_start_cancellable(LITERLLMAlefHandle client,
+                                                                         LITERLLMAlefHandle req,
+                                                                         LITERLLMAlefHandle alef_cancel_token);
 
 /**
  * Advance the stream and return a heap-allocated chunk, or null.
@@ -1594,6 +1689,81 @@ LITERLLMAlefHandle literllm_cache_config_default(void);
 #endif
 
 /**
+ * Create a `CatalogInfo` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_catalog_info_free`.
+ */
+LITERLLMAlefHandle literllm_catalog_info_from_json(const char *json);
+
+/**
+ * Serialize a `CatalogInfo` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_catalog_info_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `CatalogInfo` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_catalog_info_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `source` field from a `CatalogInfo`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_catalog_info_source(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `source_sha256` field from a `CatalogInfo`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_catalog_info_source_sha256(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `fetched` field from a `CatalogInfo`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_catalog_info_fetched(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `library_version` field from a `CatalogInfo`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_catalog_info_library_version(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `schema_version` field from a `CatalogInfo`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_catalog_info_schema_version(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `origin` field from a `CatalogInfo`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_catalog_info_origin(LITERLLMAlefHandle handle);
+
+/**
  * Create a `CatalogRefreshConfig` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
@@ -2375,6 +2545,36 @@ LITERLLMAlefHandle literllm_choice_finish_reason(LITERLLMAlefHandle handle);
 char *literllm_choice_logprobs(LITERLLMAlefHandle handle);
 
 /**
+ * Create a `CompletionTokensDetails` from a JSON string. Returns null on failure.
+ * # Safety
+ * JSON string must be valid UTF-8 and null-terminated.
+ * Returned handle must be freed with `literllm_completion_tokens_details_free`.
+ */
+LITERLLMAlefHandle literllm_completion_tokens_details_from_json(const char *json);
+
+/**
+ * Serialize a `CompletionTokensDetails` to a JSON string. Returns null on failure.
+ * # Safety
+ * `handle` must be a valid, non-zero handle returned by a `literllm` function.
+ * The returned string must be freed with `literllm_free_string`.
+ */
+char *literllm_completion_tokens_details_to_json(LITERLLMAlefHandle handle);
+
+/**
+ * Free a `CompletionTokensDetails` handle.
+ * # Safety
+ * Handle must have been returned by this library, or be zero.
+ */
+void literllm_completion_tokens_details_free(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `reasoning_tokens` field from a `CompletionTokensDetails`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_completion_tokens_details_reasoning_tokens(LITERLLMAlefHandle handle);
+
+/**
  * Create a `CreateBatchRequest` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
@@ -3014,6 +3214,21 @@ LITERLLMAlefHandle literllm_default_client_chat(LITERLLMAlefHandle this_,
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_chat`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_chat_cancellable(LITERLLMAlefHandle this_,
+                                                            LITERLLMAlefHandle req,
+                                                            LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
@@ -3034,10 +3249,39 @@ LITERLLMAlefHandle literllm_default_client_embed(LITERLLMAlefHandle this_,
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_embed`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_embed_cancellable(LITERLLMAlefHandle this_,
+                                                             LITERLLMAlefHandle req,
+                                                             LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_list_models(LITERLLMAlefHandle this_);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_list_models`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_list_models_cancellable(LITERLLMAlefHandle this_,
+                                                                   LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3047,6 +3291,21 @@ LITERLLMAlefHandle literllm_default_client_list_models(LITERLLMAlefHandle this_)
  */
 LITERLLMAlefHandle literllm_default_client_image_generate(LITERLLMAlefHandle this_,
                                                           LITERLLMAlefHandle req);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_image_generate`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_image_generate_cancellable(LITERLLMAlefHandle this_,
+                                                                      LITERLLMAlefHandle req,
+                                                                      LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3063,11 +3322,44 @@ int32_t literllm_default_client_speech(LITERLLMAlefHandle this_,
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_speech`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+int32_t literllm_default_client_speech_cancellable(LITERLLMAlefHandle this_,
+                                                   LITERLLMAlefHandle req,
+                                                   uint8_t **out_ptr,
+                                                   uintptr_t *out_len,
+                                                   uintptr_t *out_cap,
+                                                   LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_transcribe(LITERLLMAlefHandle this_,
                                                       LITERLLMAlefHandle req);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_transcribe`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_transcribe_cancellable(LITERLLMAlefHandle this_,
+                                                                  LITERLLMAlefHandle req,
+                                                                  LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3081,11 +3373,41 @@ LITERLLMAlefHandle literllm_default_client_moderate(LITERLLMAlefHandle this_,
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_moderate`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_moderate_cancellable(LITERLLMAlefHandle this_,
+                                                                LITERLLMAlefHandle req,
+                                                                LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_rerank(LITERLLMAlefHandle this_,
                                                   LITERLLMAlefHandle req);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_rerank`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_rerank_cancellable(LITERLLMAlefHandle this_,
+                                                              LITERLLMAlefHandle req,
+                                                              LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3099,11 +3421,41 @@ LITERLLMAlefHandle literllm_default_client_search(LITERLLMAlefHandle this_,
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_search`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_search_cancellable(LITERLLMAlefHandle this_,
+                                                              LITERLLMAlefHandle req,
+                                                              LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_ocr(LITERLLMAlefHandle this_,
                                                LITERLLMAlefHandle req);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_ocr`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_ocr_cancellable(LITERLLMAlefHandle this_,
+                                                           LITERLLMAlefHandle req,
+                                                           LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3117,11 +3469,41 @@ LITERLLMAlefHandle literllm_default_client_create_file(LITERLLMAlefHandle this_,
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_create_file`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_create_file_cancellable(LITERLLMAlefHandle this_,
+                                                                   LITERLLMAlefHandle req,
+                                                                   LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_retrieve_file(LITERLLMAlefHandle this_,
                                                          const char *file_id);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_retrieve_file`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_retrieve_file_cancellable(LITERLLMAlefHandle this_,
+                                                                     const char *file_id,
+                                                                     LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3135,11 +3517,41 @@ LITERLLMAlefHandle literllm_default_client_delete_file(LITERLLMAlefHandle this_,
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_delete_file`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_delete_file_cancellable(LITERLLMAlefHandle this_,
+                                                                   const char *file_id,
+                                                                   LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_list_files(LITERLLMAlefHandle this_,
                                                       LITERLLMAlefHandle query);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_list_files`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_list_files_cancellable(LITERLLMAlefHandle this_,
+                                                                  LITERLLMAlefHandle query,
+                                                                  LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3156,11 +3568,44 @@ int32_t literllm_default_client_file_content(LITERLLMAlefHandle this_,
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_file_content`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+int32_t literllm_default_client_file_content_cancellable(LITERLLMAlefHandle this_,
+                                                         const char *file_id,
+                                                         uint8_t **out_ptr,
+                                                         uintptr_t *out_len,
+                                                         uintptr_t *out_cap,
+                                                         LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_create_batch(LITERLLMAlefHandle this_,
                                                         LITERLLMAlefHandle req);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_create_batch`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_create_batch_cancellable(LITERLLMAlefHandle this_,
+                                                                    LITERLLMAlefHandle req,
+                                                                    LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3174,11 +3619,41 @@ LITERLLMAlefHandle literllm_default_client_retrieve_batch(LITERLLMAlefHandle thi
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_retrieve_batch`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_retrieve_batch_cancellable(LITERLLMAlefHandle this_,
+                                                                      const char *batch_id,
+                                                                      LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_list_batches(LITERLLMAlefHandle this_,
                                                         LITERLLMAlefHandle query);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_list_batches`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_list_batches_cancellable(LITERLLMAlefHandle this_,
+                                                                    LITERLLMAlefHandle query,
+                                                                    LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3192,11 +3667,41 @@ LITERLLMAlefHandle literllm_default_client_cancel_batch(LITERLLMAlefHandle this_
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_cancel_batch`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_cancel_batch_cancellable(LITERLLMAlefHandle this_,
+                                                                    const char *batch_id,
+                                                                    LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_fetch_batch_for_polling(LITERLLMAlefHandle this_,
                                                                    const char *batch_id);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_fetch_batch_for_polling`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_fetch_batch_for_polling_cancellable(LITERLLMAlefHandle this_,
+                                                                               const char *batch_id,
+                                                                               LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3228,11 +3733,60 @@ LITERLLMAlefHandle literllm_default_client_wait_for_batch(LITERLLMAlefHandle thi
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_wait_for_batch`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ *
+ * Poll a batch until it reaches a terminal status (Completed, Failed, Expired, Cancelled).
+ *
+ * Uses exponential backoff with configurable initial interval, maximum interval, and backoff
+ * multiplier.
+ * Optionally supports a timeout that aborts polling if exceeded.
+ * \note Returns `BatchWaitError::Failed` if the batch reaches a failure terminal status.
+ * Returns `BatchWaitError::Timeout` if the configured timeout is exceeded.
+ * Returns `BatchWaitError::Client` for underlying client errors.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ * \code
+ * # use liter_llm::client::{DefaultClient, ClientConfig, WaitForBatchConfig};
+ * # async fn run() -> Result<(), Box<dyn std::error::Error>> {
+ * let client = DefaultClient::new(ClientConfig::new("api-key"), None)?;
+ * let batch = client.wait_for_batch("b-123", WaitForBatchConfig::default()).await?;
+ * println!("Batch completed: {:?}", batch.status);
+ * # Ok(())
+ * # }
+ * \endcode
+ */
+LITERLLMAlefHandle literllm_default_client_wait_for_batch_cancellable(LITERLLMAlefHandle this_,
+                                                                      const char *batch_id,
+                                                                      LITERLLMAlefHandle config,
+                                                                      LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_create_response(LITERLLMAlefHandle this_,
                                                            LITERLLMAlefHandle req);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_create_response`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_create_response_cancellable(LITERLLMAlefHandle this_,
+                                                                       LITERLLMAlefHandle req,
+                                                                       LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
@@ -3246,11 +3800,41 @@ LITERLLMAlefHandle literllm_default_client_retrieve_response(LITERLLMAlefHandle 
 
 #if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
 /**
+ * Cancellable variant of `literllm_default_client_retrieve_response`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_retrieve_response_cancellable(LITERLLMAlefHandle this_,
+                                                                         const char *response_id,
+                                                                         LITERLLMAlefHandle alef_cancel_token);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_default_client_cancel_response(LITERLLMAlefHandle this_,
                                                            const char *response_id);
+#endif
+
+#if (defined(LITERLLM_FEATURE_NATIVE_HTTP) || defined(LITERLLM_FEATURE_WASM_HTTP))
+/**
+ * Cancellable variant of `literllm_default_client_cancel_response`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_default_client_cancel_response_cancellable(LITERLLMAlefHandle this_,
+                                                                       const char *response_id,
+                                                                       LITERLLMAlefHandle alef_cancel_token);
 #endif
 
 /**
@@ -4864,6 +5448,22 @@ char *literllm_model_info_to_json(LITERLLMAlefHandle handle);
 void literllm_model_info_free(LITERLLMAlefHandle handle);
 
 /**
+ * Get the `matched_key` field from a `ModelInfo`.
+ * A non-null returned pointer is owned by the caller.
+ * It must be freed with `literllm_free_string`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+char *literllm_model_info_matched_key(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `exact` field from a `ModelInfo`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t literllm_model_info_exact(LITERLLMAlefHandle handle);
+
+/**
  * Get the `input_cost_per_token` field from a `ModelInfo`.
  * # Safety
  * Pointer must be a valid handle returned by this library.
@@ -6060,6 +6660,13 @@ void literllm_prompt_tokens_details_free(LITERLLMAlefHandle handle);
  * Pointer must be a valid handle returned by this library.
  */
 uint64_t literllm_prompt_tokens_details_cached_tokens(LITERLLMAlefHandle handle);
+
+/**
+ * Get the `cache_creation_tokens` field from a `PromptTokensDetails`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+uint64_t literllm_prompt_tokens_details_cache_creation_tokens(LITERLLMAlefHandle handle);
 
 /**
  * Get the `audio_tokens` field from a `PromptTokensDetails`.
@@ -7602,6 +8209,15 @@ uint64_t literllm_usage_total_tokens(LITERLLMAlefHandle handle);
 LITERLLMAlefHandle literllm_usage_prompt_tokens_details(LITERLLMAlefHandle handle);
 
 /**
+ * Get the `completion_tokens_details` field from a `Usage`.
+ * A non-null returned handle is owned by the caller.
+ * It must be freed with `literllm_completion_tokens_details_free`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+LITERLLMAlefHandle literllm_usage_completion_tokens_details(LITERLLMAlefHandle handle);
+
+/**
  * Create a `UserMessage` from a JSON string. Returns null on failure.
  * # Safety
  * JSON string must be valid UTF-8 and null-terminated.
@@ -8693,6 +9309,48 @@ char *literllm_user_content_to_json(LITERLLMAlefHandle handle);
 char *literllm_user_content_to_string(LITERLLMAlefHandle handle);
 
 /**
+ * Allocate a cancel token.
+ *
+ * Pass the token to a `*_cancellable` export to make that blocking call abortable, then call
+ * `literllm_cancel_token_cancel` from any thread to abort it. The call returns with last-error code
+ * `Cancelled` and the underlying request is dropped. One token may be shared by several calls.
+ * A cancelled token stays cancelled.
+ *
+ * Returns `0` on failure (see `literllm_last_error_code`). The caller owns the handle and
+ * MUST release it with `literllm_cancel_token_free` once no call using it is still running.
+ *
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * The returned handle is owned by the caller and must be freed with `literllm_cancel_token_free`.
+ */
+LITERLLMAlefHandle literllm_cancel_token_new(void);
+
+/**
+ * Trip a cancel token. Safe to call from any thread, repeatedly, and while a call using the
+ * token is blocked.
+ *
+ * Returns `0` on success and `-1` for an invalid, stale or wrong-typed handle (see
+ * `literllm_last_error_code`).
+ *
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * This function does not allocate and returns no owned pointer.
+ */
+int32_t literllm_cancel_token_cancel(LITERLLMAlefHandle token);
+
+/**
+ * Free a cancel token created by `literllm_cancel_token_new`.
+ *
+ * Passing `0` is a no-op. The token must not be used afterwards, and no call using it may still
+ * be running.
+ *
+ * # Safety
+ * Caller must ensure all pointer arguments are valid or null.
+ * `token` must be `0` or a handle returned by `literllm_cancel_token_new` that has not been freed.
+ */
+void literllm_cancel_token_free(LITERLLMAlefHandle token);
+
+/**
  * Return all provider configs from the registry.
  *
  * Useful for tooling, documentation generation, or runtime enumeration.
@@ -8715,7 +9373,7 @@ uintptr_t literllm_all_providers_len(void);
 /**
  * Return the capability flags for a named provider.
  *
- * Performs an O(n) linear scan over the embedded registry (165 entries).
+ * Performs an O(n) linear scan over the embedded registry (174 entries).
  * Returns an owned value so bindings can pass capability data without
  * borrowing registry internals.
  *
@@ -8725,6 +9383,13 @@ uintptr_t literllm_all_providers_len(void);
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_capabilities(const char *provider_name);
+
+/**
+ * Return provenance for the active runtime or embedded model catalog.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_catalog_info(void);
 
 /**
  * Assert that `current_len + incoming` does not exceed `limit`.
@@ -8849,6 +9514,33 @@ int32_t literllm_completion_cost_with_cache_has_result(const char *model,
                                                        uint64_t completion_tokens);
 
 /**
+ * Calculate completion cost including both prompt-cache reads and writes.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+double literllm_completion_cost_with_cache_details(const char *model,
+                                                   uint64_t prompt_tokens,
+                                                   uint64_t cached_tokens,
+                                                   uint64_t cache_creation_tokens,
+                                                   uint64_t completion_tokens);
+
+/**
+ * Report whether `completion_cost_with_cache_details` returned `Some`.
+ *
+ * `literllm_completion_cost_with_cache_details` cannot distinguish a `None` result from a legitimate
+ * zero-valued `Some` at the C ABI boundary. Call this function first: `1` means the sibling getter's
+ * return value is meaningful, `0` means the result was absent and the getter's sentinel must be
+ * ignored, `-1` reports an invalid handle or a call error (see `literllm_last_error_code`).
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+int32_t literllm_completion_cost_with_cache_details_has_result(const char *model,
+                                                               uint64_t prompt_tokens,
+                                                               uint64_t cached_tokens,
+                                                               uint64_t cache_creation_tokens,
+                                                               uint64_t completion_tokens);
+
+/**
  * Return the set of complex provider names.
  *
  * Complex providers require custom auth/routing logic beyond simple bearer
@@ -8926,8 +9618,16 @@ LITERLLMAlefHandle literllm_create_client(const char *api_key,
  * Create a new LLM client from a JSON string.
  *
  * The JSON object accepts the same fields as `liter-llm.toml` (snake_case).
- * \note Returns `LiterLlmError.BadRequest` if `json` is not valid JSON or
- * contains unknown fields.
+ * Middleware keys (`cache`, `budget`, `cooldown_secs`, `rate_limit`,
+ * `in_flight_limit`, `health_check_secs`, `cost_tracking`, `tracing`) are
+ * applied: the returned client routes the `LlmClient` methods (`chat`,
+ * `chat_stream`, `embed`, `list_models`, `image_generate`, `speech`,
+ * `transcribe`, `moderate`, `rerank`, `search`, `ocr`) through the managed
+ * Tower stack. File, batch and response operations bypass it. Each `providers`
+ * entry is registered process-wide via `register_custom_provider` (crate::register_custom_provider).
+ * \note Returns `LiterLlmError.BadRequest` if `json` is not valid JSON, contains
+ * unknown fields, or sets middleware keys in a build without the `tower` and
+ * `native-http` features. Provider registration failures are propagated.
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
  * freed with the appropriate free function.
  */
@@ -9022,6 +9722,13 @@ void literllm_ensure_crypto_provider(void);
 #endif
 
 /**
+ * Look up model metadata only when the requested catalog key exists exactly.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_exact_model_info(const char *model);
+
+/**
  * Install the overlay registry from a raw catalog JSON string, bypassing
  * the network and disk cache entirely.
  *
@@ -9098,6 +9805,40 @@ void literllm_record_cost_usd(const char *system,
  * freed with the appropriate free function.
  */
 LITERLLMAlefHandle literllm_refresh_catalog(LITERLLMAlefHandle config);
+
+/**
+ * Cancellable variant of `literllm_refresh_catalog`.
+ *
+ * Takes a trailing `alef_cancel_token` created by `literllm_cancel_token_new`. Tripping it with
+ * `literllm_cancel_token_cancel` from any thread aborts the blocking call, which then fails with the
+ * `Cancelled` error code. Pass `0` for a call that is never cancelled.
+ *
+ * Refresh the runtime catalog overlay per `config`.
+ *
+ * - `config.enabled == false`: returns `Ok(``RefreshOutcome.Disabled``)`
+ *   immediately. No network, filesystem, or overlay activity.
+ * - A fresh on-disk cache (age < `config.ttl_seconds`) exists at the
+ *   resolved cache path (`config.cache_path`, or a default under
+ *   `std::env::temp_dir()`): read + flatten it and install the overlay,
+ *   returning `Ok(``RefreshOutcome.FromCache``)`. No network request is
+ *   made.
+ * - Otherwise: validate `config.source_url` uses `https`
+ *   (`CatalogRefreshError.InsecureUrl` otherwise), fetch it, flatten it,
+ *   install the overlay, best-effort write the raw JSON to the cache path
+ *   (a cache write failure does not fail the refresh), and return
+ *   `Ok(``RefreshOutcome.Fetched``)`.
+ *
+ * On any error return, the overlay is left untouched: the previously
+ * active registry (a prior successful overlay, or the embedded catalog if
+ * none was ever installed) remains in effect. This is what makes the
+ * feature air-gap-safe â an unreachable or invalid `source_url` never
+ * degrades `completion_cost` / `model_info` below embedded-catalog
+ * availability.
+ * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be
+ * freed with the appropriate free function.
+ */
+LITERLLMAlefHandle literllm_refresh_catalog_cancellable(LITERLLMAlefHandle config,
+                                                        LITERLLMAlefHandle alef_cancel_token);
 
 /**
  * Register a custom provider in the global runtime registry.

@@ -36,6 +36,14 @@ values = [
   "**/vendor/**",
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "**/_generated/**",
   "/Package.swift",
   "packages/**",
@@ -80,6 +88,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   "/.ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -118,6 +127,14 @@ values = [
   "**/vendor/**",
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -162,6 +179,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -190,6 +208,14 @@ values = [
   "**/vendor/**",
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -234,6 +260,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -262,6 +289,14 @@ values = [
   "**/vendor/**",
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -306,6 +341,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -799,11 +835,6 @@ values = ["file-too-long"]
 
 [[entries]]
 relative_path = "poly.toml"
-key_path = "per-file-ignores.crates/liter-llm/src/provider/cohere.rs"
-values = ["function-too-long"]
-
-[[entries]]
-relative_path = "poly.toml"
 key_path = "per-file-ignores.crates/liter-llm/src/provider/mod.rs"
 values = ["cyclomatic-complexity", "file-too-long"]
 
@@ -834,11 +865,6 @@ values = ["file-too-long"]
 
 [[entries]]
 relative_path = "poly.toml"
-key_path = "per-file-ignores.crates/liter-llm/src/tower/fallback_chain.rs"
-values = ["function-too-long"]
-
-[[entries]]
-relative_path = "poly.toml"
 key_path = "per-file-ignores.crates/liter-llm/src/tower/guardrail.rs"
 values = ["file-too-long", "function-too-long"]
 
@@ -849,16 +875,6 @@ values = ["file-too-long"]
 
 [[entries]]
 relative_path = "poly.toml"
-key_path = "per-file-ignores.crates/liter-llm/src/tower/hedge.rs"
-values = ["function-too-long"]
-
-[[entries]]
-relative_path = "poly.toml"
-key_path = "per-file-ignores.crates/liter-llm/src/tower/hooks.rs"
-values = ["function-too-long"]
-
-[[entries]]
-relative_path = "poly.toml"
 key_path = "per-file-ignores.crates/liter-llm/src/tower/idempotency.rs"
 values = ["file-too-long", "function-too-long"]
 
@@ -866,11 +882,6 @@ values = ["file-too-long", "function-too-long"]
 relative_path = "poly.toml"
 key_path = "per-file-ignores.crates/liter-llm/src/tower/metrics.rs"
 values = ["file-too-long"]
-
-[[entries]]
-relative_path = "poly.toml"
-key_path = "per-file-ignores.crates/liter-llm/src/tower/rate_limit.rs"
-values = ["function-too-long"]
 
 [[entries]]
 relative_path = "poly.toml"
@@ -933,11 +944,6 @@ values = [
   "SIM105",
   "T201",
 ]
-
-[[entries]]
-relative_path = "poly.toml"
-key_path = "per-file-ignores.scripts/generate_providers_doc.py"
-values = ["function-too-long"]
 
 [[entries]]
 relative_path = "poly.toml"

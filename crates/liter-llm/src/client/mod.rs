@@ -31,7 +31,7 @@ use crate::types::responses::{CreateResponseRequest, ResponseObject, ResponseStr
 use crate::types::search::{SearchRequest, SearchResponse};
 use crate::types::{
     ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, EmbeddingRequest, EmbeddingResponse,
-    ModelsListResponse,
+    ModelsListResponse, Usage,
 };
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
@@ -171,6 +171,72 @@ fn str_pair(pair: &(String, String)) -> (&str, &str) {
     (pair.0.as_str(), pair.1.as_str())
 }
 
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn provider_auth_header(provider: &dyn Provider, api_key: &str) -> Option<(String, String)> {
+    (!api_key.is_empty())
+        .then(|| provider.auth_header(api_key))
+        .flatten()
+        .map(|(name, value)| (name.into_owned(), value.into_owned()))
+}
+
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+#[derive(Default)]
+struct ChatStreamState {
+    usage: Option<Usage>,
+    model: String,
+}
+
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn attribute_chat_model(provider: &dyn Provider, model: &mut String, fallback_model: &str) {
+    if model.is_empty() && matches!(provider.name(), "google_ai" | "vertex_ai") {
+        tracing::debug!(
+            provider = provider.name(),
+            fallback_model,
+            "Gemini omitted modelVersion; using request or prior stream model context"
+        );
+        *model = fallback_model.to_owned();
+    }
+}
+
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn parse_chat_stream_event(
+    provider: &dyn Provider,
+    state: &std::sync::Mutex<ChatStreamState>,
+    data: &str,
+) -> Result<Option<ChatCompletionChunk>> {
+    let mut chunk = match provider.parse_stream_event(data)? {
+        Some(chunk) => chunk,
+        None => return Ok(None),
+    };
+    if !matches!(provider.name(), "anthropic" | "google_ai" | "vertex_ai") {
+        return Ok(Some(chunk));
+    }
+    let mut state = state.lock().map_err(|_| LiterLlmError::InternalError {
+        message: "chat stream state lock poisoned".into(),
+    })?;
+    attribute_chat_model(provider, &mut chunk.model, &state.model);
+    if matches!(provider.name(), "google_ai" | "vertex_ai") {
+        state.model.clone_from(&chunk.model);
+        return Ok(Some(chunk));
+    }
+    if let Some(usage) = chunk.usage.as_mut() {
+        let aggregate = state.usage.get_or_insert_with(Usage::default);
+        aggregate.prompt_tokens = aggregate.prompt_tokens.max(usage.prompt_tokens);
+        aggregate.completion_tokens = aggregate.completion_tokens.max(usage.completion_tokens);
+        aggregate.total_tokens = aggregate.prompt_tokens + aggregate.completion_tokens;
+        if usage.prompt_tokens_details.is_some() {
+            aggregate.prompt_tokens_details.clone_from(&usage.prompt_tokens_details);
+        }
+        if usage.completion_tokens_details.is_some() {
+            aggregate
+                .completion_tokens_details
+                .clone_from(&usage.completion_tokens_details);
+        }
+        usage.clone_from(aggregate);
+    }
+    Ok(Some(chunk))
+}
+
 /// Shallow-merge a top-level `"extra_body"` key into `body`, OpenAI-Python-SDK
 /// style: `{**body, **extra_body}` — extra_body keys override identically
 /// named top-level keys.
@@ -252,7 +318,7 @@ fn json_value_type_name(value: &serde_json::Value) -> &'static str {
 
 /// Core LLM client trait.
 ///
-/// Provides unified access to LLM and multimodal APIs across 165 providers.
+/// Provides unified access to LLM and multimodal APIs across 174 providers.
 /// Requests are routed to the correct provider based on the model name prefix
 /// (e.g. `anthropic/claude-3-5-sonnet` routes to Anthropic) or via explicit
 /// `base_url` override.
@@ -653,7 +719,7 @@ pub trait ResponseClient {
 
 /// Default client implementation backed by `reqwest`.
 ///
-/// Sends requests to 165 LLM providers with automatic provider detection
+/// Sends requests to 174 LLM providers with automatic provider detection
 /// and per-request routing. The provider is resolved at construction time
 /// from `model_hint` (or defaults to OpenAI), but individual requests can
 /// override the provider via model name prefix (e.g. `"anthropic/claude-3-5-sonnet"`
@@ -680,10 +746,32 @@ pub struct DefaultClient {
     /// Pre-computed static extra headers — avoids converting `&'static str` pairs
     /// to `(String, String)` on every request.
     cached_extra_headers: Vec<(String, String)>,
+    /// Tower middleware stack installed by [`create_client_from_json`](crate::create_client_from_json).
+    ///
+    /// ~keep The managed client wraps a separate `DefaultClient` whose own `managed` is `None`,
+    /// so delegation never recurses.
+    #[cfg_attr(not(all(feature = "native-http", feature = "tower")), allow(dead_code))]
+    managed: Option<ManagedHandle>,
 }
+
+/// Handle to the managed middleware stack; uninhabited when the stack is not compiled in.
+#[cfg(all(feature = "native-http", feature = "tower"))]
+type ManagedHandle = Arc<managed::ManagedClient>;
+#[cfg(all(
+    any(feature = "native-http", feature = "wasm-http"),
+    not(all(feature = "native-http", feature = "tower"))
+))]
+type ManagedHandle = std::convert::Infallible;
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 impl DefaultClient {
+    /// Route the [`LlmClient`] methods through `managed`'s middleware stack.
+    #[cfg(all(feature = "native-http", feature = "tower"))]
+    pub(crate) fn with_managed(mut self, managed: Arc<managed::ManagedClient>) -> Self {
+        self.managed = Some(managed);
+        self
+    }
+
     fn response_read_options(&self) -> http::request::ResponseReadOptions {
         http::request::ResponseReadOptions {
             max_retries: self.config.max_retries,
@@ -773,10 +861,7 @@ impl DefaultClient {
             builder.build().map_err(LiterLlmError::from)?
         };
 
-        let cached_auth_header = provider
-            .auth_header(config.api_key.expose_secret())
-            .map(|(name, value)| (name.into_owned(), value.into_owned()));
-
+        let cached_auth_header = provider_auth_header(provider.as_ref(), config.api_key.expose_secret());
         let cached_extra_headers = provider
             .extra_headers()
             .iter()
@@ -789,6 +874,7 @@ impl DefaultClient {
             provider,
             cached_auth_header,
             cached_extra_headers,
+            managed: None,
         })
     }
 
@@ -817,21 +903,23 @@ impl DefaultClient {
 
     /// Compute the auth header for a given provider (potentially different from
     /// the construction-time cached one).
-    async fn resolve_auth_header_for_provider(&self, prov: &dyn Provider) -> Result<Option<(String, String)>> {
+    async fn resolve_auth_header_for_provider(
+        &self,
+        prov: &dyn Provider,
+    ) -> Result<(Option<(String, String)>, Option<Credential>)> {
         if let Some(ref cp) = self.config.credential_provider {
             let credential = cp.resolve().await?;
-            match credential {
-                Credential::BearerToken(token) => Ok(Some((
-                    "Authorization".to_owned(),
-                    format!("Bearer {}", token.expose_secret()),
-                ))),
-                Credential::AwsCredentials { .. } => Ok(None),
-            }
+            let header = match &credential {
+                Credential::BearerToken(token) if token.expose_secret().is_empty() => None,
+                Credential::BearerToken(token) => {
+                    Some(("Authorization".to_owned(), format!("Bearer {}", token.expose_secret())))
+                }
+                Credential::AwsCredentials { .. } => None,
+            };
+            Ok((header, Some(credential)))
         } else {
             // ~keep Auth headers must be recomputed after per-request provider resolution.
-            Ok(prov
-                .auth_header(self.config.api_key.expose_secret())
-                .map(|(name, value)| (name.into_owned(), value.into_owned())))
+            Ok((provider_auth_header(prov, self.config.api_key.expose_secret()), None))
         }
     }
 
@@ -844,12 +932,13 @@ impl DefaultClient {
     fn all_headers_for_provider(
         &self,
         prov: &dyn Provider,
+        credential: Option<&Credential>,
         method: &str,
         url: &str,
         body_json: &serde_json::Value,
         body_bytes: &[u8],
     ) -> Result<Vec<(String, String)>> {
-        let mut headers = prov.signing_headers(method, url, body_bytes)?;
+        let mut headers = prov.signing_headers_with_credential(method, url, body_bytes, credential)?;
         headers.extend(
             prov.extra_headers()
                 .iter()
@@ -891,9 +980,20 @@ impl DefaultClient {
 
         let mut body = serde_json::to_value(serializable)?;
         if let Some(obj) = body.as_object_mut() {
-            obj.insert("model".into(), serde_json::Value::String(bare_model));
+            obj.insert("model".into(), serde_json::Value::String(bare_model.clone()));
             if let Some(s) = stream {
                 obj.insert("stream".into(), serde_json::Value::Bool(s));
+                if s && matches!(prov.name(), "openai" | "azure" | "custom") && !obj.contains_key("stream_options") {
+                    obj.insert("stream_options".into(), serde_json::json!({"include_usage": true}));
+                }
+            }
+            if matches!(prov.name(), "openai" | "azure")
+                && obj.get("max_completion_tokens").is_none()
+                && obj.get("max_tokens").is_some()
+                && model_uses_max_completion_tokens(&bare_model)
+                && let Some(max_tokens) = obj.remove("max_tokens")
+            {
+                obj.insert("max_completion_tokens".into(), max_tokens);
             }
         }
         prov.transform_request(&mut body)?;
@@ -932,18 +1032,18 @@ impl DefaultClient {
     /// Uses the pre-computed cached auth header for efficiency.  When a
     /// [`CredentialProvider`] is configured, it is called to obtain a fresh
     /// credential which overrides the cached header.
-    async fn resolve_auth_header(&self) -> Result<Option<(String, String)>> {
+    async fn resolve_auth_header(&self) -> Result<(Option<(String, String)>, Option<Credential>)> {
         if let Some(ref cp) = self.config.credential_provider {
             let credential = cp.resolve().await?;
-            match credential {
-                Credential::BearerToken(token) => Ok(Some((
-                    "Authorization".to_owned(),
-                    format!("Bearer {}", token.expose_secret()),
-                ))),
-                Credential::AwsCredentials { .. } => Ok(None),
-            }
+            let header = match &credential {
+                Credential::BearerToken(token) => {
+                    Some(("Authorization".to_owned(), format!("Bearer {}", token.expose_secret())))
+                }
+                Credential::AwsCredentials { .. } => None,
+            };
+            Ok((header, Some(credential)))
         } else {
-            Ok(self.cached_auth_header.clone())
+            Ok((self.cached_auth_header.clone(), None))
         }
     }
 
@@ -957,16 +1057,29 @@ impl DefaultClient {
     /// internal Bedrock SigV4 error) instead of sending an unsigned request.
     fn all_headers(
         &self,
+        credential: Option<&Credential>,
         method: &str,
         url: &str,
         body_json: &serde_json::Value,
         body_bytes: &[u8],
     ) -> Result<Vec<(String, String)>> {
-        let mut headers = self.provider.signing_headers(method, url, body_bytes)?;
+        let mut headers = self
+            .provider
+            .signing_headers_with_credential(method, url, body_bytes, credential)?;
         headers.extend(self.cached_extra_headers.iter().cloned());
         headers.extend(self.provider.dynamic_headers(body_json));
         Ok(headers)
     }
+}
+
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn model_uses_max_completion_tokens(model: &str) -> bool {
+    crate::cost::model_info(model).is_some_and(|info| info.supports_reasoning == Some(true))
+        || model.starts_with("gpt-5")
+        || model
+            .strip_prefix('o')
+            .and_then(|suffix| suffix.chars().next())
+            .is_some_and(|character| character.is_ascii_digit())
 }
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
@@ -978,7 +1091,9 @@ impl DefaultClient {
 ///      (Azure embeds the deployment name and `?api-version=…`), construct
 ///      that provider with the override (issue #83).
 ///    - Otherwise, treat the override as a generic OpenAI-compatible endpoint
-///      (LM Studio, Ollama, vLLM, etc.).
+///      (LM Studio, Ollama, vLLM, gateways, etc.).  Models are sent verbatim
+///      except for a leading `custom/` and a leading `X/` where `X` is the
+///      provider named by `model_hint` (issue #249).
 /// 2. `model_hint` -> auto-detect by model name prefix.
 /// 3. Default -> OpenAI.
 fn build_provider(config: &ClientConfig, model_hint: Option<&str>) -> Arc<dyn Provider> {
@@ -1000,15 +1115,27 @@ fn build_provider(config: &ClientConfig, model_hint: Option<&str>) -> Arc<dyn Pr
         {
             return Arc::new(provider::anthropic::AnthropicProvider::with_base_url(base_url.clone()));
         }
-        let model_prefixes = model_hint
-            .and_then(|model| model.split_once('/'))
-            .map(|(provider, _)| vec![format!("{provider}/")])
-            .unwrap_or_default();
+        if let Some(model) = model_hint
+            && (model.starts_with("gemini/") || model.starts_with("google_ai/"))
+        {
+            return Arc::new(provider::google_ai::GoogleAiProvider::with_base_url(base_url.clone()));
+        }
+        if let Some(model) = model_hint
+            && model.starts_with("vertex_ai/")
+        {
+            return Arc::new(provider::vertex::VertexAiProvider::with_base_url(base_url.clone()));
+        }
+        if let Some(model) = model_hint
+            && model.starts_with("bedrock/")
+        {
+            return Arc::new(build_bedrock_provider_config(config).with_base_url(base_url.clone()));
+        }
         return Arc::new(OpenAiCompatibleProvider {
             name: "custom".into(),
             base_url: base_url.clone(),
             env_var: None,
-            model_prefixes,
+            model_prefixes: vec![],
+            hint_provider: model_hint.and_then(provider::hint_provider_name),
         });
     }
 
@@ -1030,27 +1157,38 @@ fn build_provider(config: &ClientConfig, model_hint: Option<&str>) -> Arc<dyn Pr
 /// matching [`provider::bedrock::BedrockProvider::from_env`].
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 fn build_bedrock_provider(config: &ClientConfig) -> Arc<dyn Provider> {
-    Arc::new(provider::bedrock::BedrockProvider::from_config(
+    Arc::new(build_bedrock_provider_config(config))
+}
+
+#[cfg(any(feature = "native-http", feature = "wasm-http"))]
+fn build_bedrock_provider_config(config: &ClientConfig) -> provider::bedrock::BedrockProvider {
+    provider::bedrock::BedrockProvider::from_config(
         config.bedrock_region.clone(),
         config.bedrock_cross_region_prefix.clone(),
         config.bedrock_access_key_id.clone(),
         config.bedrock_secret_access_key.clone(),
         config.bedrock_session_token.clone(),
-    ))
+    )
+    .with_dynamic_credentials(config.credential_provider.is_some())
 }
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 impl LlmClient for DefaultClient {
     fn chat(&self, req: ChatCompletionRequest) -> BoxFuture<'_, Result<ChatCompletionResponse>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.chat(req);
+        }
         Box::pin(async move {
             // ~keep Pass stream=false so providers can transform non-streaming chat correctly.
             let prepared = self.prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1069,7 +1207,9 @@ impl LlmClient for DefaultClient {
             )
             .await?;
             prepared.provider.transform_response(&mut raw)?;
-            serde_json::from_value::<ChatCompletionResponse>(raw).map_err(LiterLlmError::from)
+            let mut response = serde_json::from_value::<ChatCompletionResponse>(raw).map_err(LiterLlmError::from)?;
+            attribute_chat_model(prepared.provider.as_ref(), &mut response.model, &req.model);
+            Ok(response)
         })
     }
 
@@ -1077,6 +1217,10 @@ impl LlmClient for DefaultClient {
         &self,
         req: ChatCompletionRequest,
     ) -> BoxFuture<'_, Result<BoxStream<'static, Result<ChatCompletionChunk>>>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.chat_stream(req);
+        }
         Box::pin(async move {
             // ~keep Prepare first for validation/transforms, then override with provider stream URL.
             let prepared = self.prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(true))?;
@@ -1087,11 +1231,12 @@ impl LlmClient for DefaultClient {
                 .provider
                 .build_stream_url(prepared.provider.chat_completions_path(), bare_model);
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &url,
                 &prepared.body_json,
@@ -1103,7 +1248,11 @@ impl LlmClient for DefaultClient {
             match prepared.provider.stream_format() {
                 provider::StreamFormat::Sse => {
                     let provider = Arc::clone(&prepared.provider);
-                    let parse_event = move |data: &str| provider.parse_stream_event(data);
+                    let state = std::sync::Mutex::new(ChatStreamState {
+                        model: req.model.clone(),
+                        ..Default::default()
+                    });
+                    let parse_event = move |data: &str| parse_chat_stream_event(provider.as_ref(), &state, data);
                     let stream = http::streaming::post_stream_bounded(
                         &self.http,
                         http::request::StreamingPost {
@@ -1138,15 +1287,20 @@ impl LlmClient for DefaultClient {
     }
 
     fn embed(&self, req: EmbeddingRequest) -> BoxFuture<'_, Result<EmbeddingResponse>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.embed(req);
+        }
         Box::pin(async move {
             // ~keep Embeddings have no stream flag; passing None prevents inserting one.
             let prepared = self.prepare_request(&req, |p| p.embeddings_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1173,7 +1327,8 @@ impl LlmClient for DefaultClient {
                 };
                 if response.data.len() != expected {
                     return Err(LiterLlmError::ServerError {
-                        message: "DashScope returned an incomplete embedding batch".into(), status: 502,
+                        message: "DashScope returned an incomplete embedding batch".into(),
+                        status: 502,
                     });
                 }
             }
@@ -1182,12 +1337,16 @@ impl LlmClient for DefaultClient {
     }
 
     fn list_models(&self) -> BoxFuture<'_, Result<ModelsListResponse>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.list_models();
+        }
         Box::pin(async move {
             // ~keep list_models has no model string, so use the construction-time provider.
             let url = self.provider.build_url(self.provider.models_path(), "");
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let mut raw = http::request::get_json_raw_bounded(
@@ -1205,15 +1364,20 @@ impl LlmClient for DefaultClient {
     }
 
     fn image_generate(&self, req: CreateImageRequest) -> BoxFuture<'_, Result<ImagesResponse>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.image_generate(req);
+        }
         Box::pin(async move {
             let model = req.model.as_deref().unwrap_or_default();
             let prepared = self.prepare_request(&req, |p| p.image_generations_path(), model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1237,14 +1401,19 @@ impl LlmClient for DefaultClient {
     }
 
     fn speech(&self, req: CreateSpeechRequest) -> BoxFuture<'_, Result<bytes::Bytes>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.speech(req);
+        }
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.audio_speech_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1266,14 +1435,19 @@ impl LlmClient for DefaultClient {
     }
 
     fn transcribe(&self, req: CreateTranscriptionRequest) -> BoxFuture<'_, Result<TranscriptionResponse>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.transcribe(req);
+        }
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.audio_transcriptions_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1297,15 +1471,20 @@ impl LlmClient for DefaultClient {
     }
 
     fn moderate(&self, req: ModerationRequest) -> BoxFuture<'_, Result<ModerationResponse>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.moderate(req);
+        }
         Box::pin(async move {
             let model = req.model.as_deref().unwrap_or_default();
             let prepared = self.prepare_request(&req, |p| p.moderations_path(), model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1329,14 +1508,19 @@ impl LlmClient for DefaultClient {
     }
 
     fn rerank(&self, req: RerankRequest) -> BoxFuture<'_, Result<RerankResponse>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.rerank(req);
+        }
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.rerank_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1360,14 +1544,19 @@ impl LlmClient for DefaultClient {
     }
 
     fn search(&self, req: SearchRequest) -> BoxFuture<'_, Result<SearchResponse>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.search(req);
+        }
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.search_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1391,14 +1580,19 @@ impl LlmClient for DefaultClient {
     }
 
     fn ocr(&self, req: OcrRequest) -> BoxFuture<'_, Result<OcrResponse>> {
+        #[cfg(all(feature = "native-http", feature = "tower"))]
+        if let Some(managed) = &self.managed {
+            return managed.ocr(req);
+        }
         Box::pin(async move {
             let prepared = self.prepare_request(&req, |p| p.ocr_path(), &req.model, None)?;
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1429,11 +1623,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.chat_completions_path(), &req.model, Some(false))?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1454,7 +1649,8 @@ impl LlmClientRaw for DefaultClient {
 
             let raw_response = Some(raw.clone());
             prepared.provider.transform_response(&mut raw)?;
-            let data = serde_json::from_value::<ChatCompletionResponse>(raw).map_err(LiterLlmError::from)?;
+            let mut data = serde_json::from_value::<ChatCompletionResponse>(raw).map_err(LiterLlmError::from)?;
+            attribute_chat_model(prepared.provider.as_ref(), &mut data.model, &req.model);
 
             Ok(RawExchange {
                 data,
@@ -1477,11 +1673,12 @@ impl LlmClientRaw for DefaultClient {
                 .provider
                 .build_stream_url(prepared.provider.chat_completions_path(), bare_model);
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &url,
                 &prepared.body_json,
@@ -1493,7 +1690,11 @@ impl LlmClientRaw for DefaultClient {
             let stream = match prepared.provider.stream_format() {
                 provider::StreamFormat::Sse => {
                     let provider = Arc::clone(&prepared.provider);
-                    let parse_event = move |data: &str| provider.parse_stream_event(data);
+                    let state = std::sync::Mutex::new(ChatStreamState {
+                        model: req.model.clone(),
+                        ..Default::default()
+                    });
+                    let parse_event = move |data: &str| parse_chat_stream_event(provider.as_ref(), &state, data);
                     http::streaming::post_stream_bounded(
                         &self.http,
                         http::request::StreamingPost {
@@ -1532,11 +1733,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.embeddings_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1573,11 +1775,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.image_generations_path(), model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1616,11 +1819,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.audio_transcriptions_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1657,11 +1861,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.moderations_path(), model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1697,11 +1902,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.rerank_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1737,11 +1943,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.search_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1777,11 +1984,12 @@ impl LlmClientRaw for DefaultClient {
             let prepared = self.prepare_request(&req, |p| p.ocr_path(), &req.model, None)?;
             let raw_request = prepared.body_json.clone();
 
-            let auth_header = self
+            let (auth_header, credential) = self
                 .resolve_auth_header_for_provider(prepared.provider.as_ref())
                 .await?;
             let all_headers = self.all_headers_for_provider(
                 prepared.provider.as_ref(),
+                credential.as_ref(),
                 "POST",
                 &prepared.url,
                 &prepared.body_json,
@@ -1818,9 +2026,9 @@ impl FileClient for DefaultClient {
     fn create_file(&self, req: CreateFileRequest) -> BoxFuture<'_, Result<FileObject>> {
         Box::pin(async move {
             let url = self.provider.build_url(self.provider.files_path(), "");
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("POST", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             use base64::Engine;
@@ -1862,9 +2070,9 @@ impl FileClient for DefaultClient {
                 self.provider.build_url(self.provider.files_path(), ""),
                 file_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -1888,9 +2096,9 @@ impl FileClient for DefaultClient {
                 self.provider.build_url(self.provider.files_path(), ""),
                 file_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("DELETE", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "DELETE", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::delete_json_bounded(
@@ -1928,9 +2136,9 @@ impl FileClient for DefaultClient {
             } else {
                 base_url
             };
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -1954,9 +2162,9 @@ impl FileClient for DefaultClient {
                 self.provider.build_url(self.provider.files_path(), ""),
                 file_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             http::request::get_binary_bounded(
@@ -1980,8 +2188,8 @@ impl BatchClient for DefaultClient {
             let body_bytes = bytes::Bytes::from(serde_json::to_vec(&req)?);
             let body_json = serde_json::to_value(&req)?;
 
-            let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2006,9 +2214,9 @@ impl BatchClient for DefaultClient {
                 self.provider.build_url(self.provider.batches_path(), ""),
                 batch_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -2043,9 +2251,9 @@ impl BatchClient for DefaultClient {
             } else {
                 base_url
             };
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -2069,10 +2277,10 @@ impl BatchClient for DefaultClient {
                 self.provider.build_url(self.provider.batches_path(), ""),
                 batch_id
             );
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let body_json = serde_json::Value::Null;
             let body_bytes = bytes::Bytes::new();
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2256,8 +2464,8 @@ impl ResponseClient for DefaultClient {
             let body_json = response_request_body(&req)?;
             let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
 
-            let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2285,8 +2493,8 @@ impl ResponseClient for DefaultClient {
             let body_json = response_stream_request_body(req)?;
             let body_bytes = bytes::Bytes::from(serde_json::to_vec(&body_json)?);
 
-            let auth_header = self.resolve_auth_header().await?;
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2311,9 +2519,9 @@ impl ResponseClient for DefaultClient {
             let base_url = self.provider.build_url(self.provider.responses_path(), "");
             reject_malformed_responses_url(&base_url, self.provider.name())?;
             let url = format!("{base_url}/{response_id}");
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let auth = auth_header.as_ref().map(str_pair);
-            let all_headers = self.all_headers("GET", &url, &serde_json::Value::Null, &[])?;
+            let all_headers = self.all_headers(credential.as_ref(), "GET", &url, &serde_json::Value::Null, &[])?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
 
             let raw = http::request::get_json_raw_bounded(
@@ -2335,10 +2543,10 @@ impl ResponseClient for DefaultClient {
             let base_url = self.provider.build_url(self.provider.responses_path(), "");
             reject_malformed_responses_url(&base_url, self.provider.name())?;
             let url = format!("{base_url}/{response_id}/cancel");
-            let auth_header = self.resolve_auth_header().await?;
+            let (auth_header, credential) = self.resolve_auth_header().await?;
             let body_json = serde_json::Value::Null;
             let body_bytes = bytes::Bytes::new();
-            let all_headers = self.all_headers("POST", &url, &body_json, &body_bytes)?;
+            let all_headers = self.all_headers(credential.as_ref(), "POST", &url, &body_json, &body_bytes)?;
             let extra: Vec<(&str, &str)> = all_headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
             let auth = auth_header.as_ref().map(str_pair);
 
@@ -2426,7 +2634,7 @@ mod build_provider_tests {
             "bedrock url = {bedrock_url}"
         );
 
-        let google_ai = provider::google_ai::GoogleAiProvider;
+        let google_ai = provider::google_ai::GoogleAiProvider::default();
         let google_ai_url = google_ai.build_url(google_ai.responses_path(), "");
         assert!(
             reject_malformed_responses_url(&google_ai_url, google_ai.name()).is_ok(),
@@ -2464,6 +2672,59 @@ mod build_provider_tests {
         assert_eq!(p.name(), "custom");
         let url = p.build_url("/chat/completions", "llama3.1:8b");
         assert_eq!(url, "http://localhost:11434/v1/chat/completions");
+    }
+
+    #[test]
+    fn base_url_path_is_joined_before_existing_query() {
+        let config = ClientConfigBuilder::new("test-key")
+            .base_url("http://localhost:11434/v1?token=secret")
+            .build();
+        let provider = build_provider(&config, Some("local-model"));
+        let url = provider.build_url("/chat/completions", "local-model");
+        assert_eq!(url, "http://localhost:11434/v1/chat/completions?token=secret");
+    }
+
+    #[test]
+    fn native_provider_prefixes_keep_transforms_with_base_url() {
+        let config = ClientConfigBuilder::new("test-key")
+            .base_url("http://localhost:8080/native")
+            .build();
+
+        for (model, expected_name, expected_path) in [
+            ("gemini/gemini-2.5-flash", "google_ai", ":generateContent"),
+            ("google_ai/gemini-2.5-flash", "google_ai", ":generateContent"),
+            ("vertex_ai/gemini-2.5-flash", "vertex_ai", ":generateContent"),
+            ("bedrock/anthropic.claude-v2", "bedrock", "/model/"),
+        ] {
+            let provider = build_provider(&config, Some(model));
+            let bare_model = provider.strip_model_prefix(model);
+            let url = provider.build_url(provider.chat_completions_path(), bare_model);
+            assert_eq!(provider.name(), expected_name);
+            assert!(url.starts_with("http://localhost:8080/native"), "url = {url}");
+            assert!(url.contains(expected_path), "url = {url}");
+        }
+    }
+
+    #[test]
+    fn base_url_provider_strips_only_hint_provider_and_self_prefix() {
+        let config = ClientConfigBuilder::new("test-key")
+            .base_url("http://localhost:11434/v1")
+            .build();
+
+        let hinted = build_provider(&config, Some("openai"));
+        assert_eq!(hinted.strip_model_prefix("openai/gpt-4o-mini"), "gpt-4o-mini");
+        assert_eq!(hinted.strip_model_prefix("custom/my-model"), "my-model");
+        assert_eq!(hinted.strip_model_prefix("anthropic/claude-x"), "anthropic/claude-x");
+        assert_eq!(hinted.strip_model_prefix("meta-llama/llama-3"), "meta-llama/llama-3");
+        assert_eq!(hinted.strip_model_prefix("llama3.1:8b"), "llama3.1:8b");
+        assert_eq!(hinted.strip_model_prefix("openai/"), "openai/");
+
+        let hinted_with_model = build_provider(&config, Some("openai/gpt-4o-mini"));
+        assert_eq!(hinted_with_model.strip_model_prefix("openai/gpt-4o"), "gpt-4o");
+
+        let unhinted = build_provider(&config, None);
+        assert_eq!(unhinted.strip_model_prefix("openai/gpt-4o-mini"), "openai/gpt-4o-mini");
+        assert_eq!(unhinted.strip_model_prefix("custom/my-model"), "my-model");
     }
 
     #[test]
@@ -2931,6 +3192,107 @@ mod build_provider_tests {
                 prepared.body_json["stream"], streaming,
                 "OpenAI-shaped bodies must keep the transport-controlled stream flag"
             );
+            if streaming {
+                assert_eq!(prepared.body_json["stream_options"]["include_usage"], true);
+            } else {
+                assert!(prepared.body_json.get("stream_options").is_none());
+            }
         }
+    }
+
+    #[test]
+    fn caller_can_disable_default_stream_usage_request() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("gpt-4"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            stream_options: Some(crate::types::StreamOptions {
+                include_usage: Some(false),
+            }),
+            ..Default::default()
+        };
+        let prepared = client
+            .prepare_request(
+                &req,
+                |provider| provider.chat_completions_path(),
+                &req.model,
+                Some(true),
+            )
+            .expect("prepare_request should not fail");
+        assert_eq!(prepared.body_json["stream_options"]["include_usage"], false);
+    }
+
+    #[test]
+    fn openai_reasoning_models_translate_max_tokens() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("openai/gpt-5"))
+            .expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "openai/gpt-5".into(),
+            messages: vec![],
+            max_tokens: Some(512),
+            ..Default::default()
+        };
+        let prepared = client
+            .prepare_request(
+                &req,
+                |provider| provider.chat_completions_path(),
+                &req.model,
+                Some(false),
+            )
+            .expect("prepare_request should not fail");
+        assert_eq!(prepared.body_json["max_completion_tokens"], 512);
+        assert!(prepared.body_json.get("max_tokens").is_none());
+    }
+
+    #[test]
+    fn custom_openai_compatible_endpoint_keeps_max_tokens() {
+        let config = ClientConfigBuilder::new("test-key")
+            .base_url("http://localhost:8080/v1")
+            .build();
+        let client = DefaultClient::new(config, Some("gpt-5")).expect("client construction should succeed");
+        let req = ChatCompletionRequest {
+            model: "gpt-5".into(),
+            messages: vec![],
+            max_tokens: Some(512),
+            ..Default::default()
+        };
+        let prepared = client
+            .prepare_request(
+                &req,
+                |provider| provider.chat_completions_path(),
+                &req.model,
+                Some(false),
+            )
+            .expect("prepare_request should not fail");
+        assert_eq!(prepared.body_json["max_tokens"], 512);
+        assert!(prepared.body_json.get("max_completion_tokens").is_none());
+    }
+
+    #[test]
+    fn empty_api_key_omits_authorization_header() {
+        let config = ClientConfigBuilder::new("").load_env(false).build();
+        let client = DefaultClient::new(config, Some("openai/gpt-4o")).expect("client construction");
+        assert_eq!(client.cached_auth_header, None);
+    }
+
+    #[test]
+    fn anthropic_final_stream_usage_is_cumulative() {
+        let provider = crate::provider::anthropic::AnthropicProvider::new();
+        let cumulative = std::sync::Mutex::new(ChatStreamState::default());
+        let start = r#"{"type":"message_start","message":{"id":"msg_1","model":"claude-sonnet-4-5","usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":200}}}"#;
+        let delta = r#"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":7}}"#;
+
+        parse_chat_stream_event(&provider, &cumulative, start).expect("start event");
+        let final_chunk = parse_chat_stream_event(&provider, &cumulative, delta)
+            .expect("delta event")
+            .expect("final chunk");
+        let usage = final_chunk.usage.expect("final cumulative usage");
+        assert_eq!(usage.prompt_tokens, 310);
+        assert_eq!(usage.completion_tokens, 7);
+        assert_eq!(usage.total_tokens, 317);
+        let details = usage.prompt_tokens_details.expect("cache details");
+        assert_eq!(details.cached_tokens, 200);
+        assert_eq!(details.cache_creation_tokens, 100);
     }
 }

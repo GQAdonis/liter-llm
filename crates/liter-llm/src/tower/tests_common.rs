@@ -53,6 +53,7 @@ impl LiterLlmErrorKind {
             Self::ServiceUnavailable { message } => LiterLlmError::ServiceUnavailable {
                 message: message.clone(),
                 status: 503,
+                retry_after: None,
             },
             Self::Timeout => LiterLlmError::Timeout,
             Self::Authentication { message } => LiterLlmError::BadRequest {
@@ -97,6 +98,7 @@ pub fn make_chat_response(model: &str) -> ChatCompletionResponse {
             completion_tokens: 5,
             total_tokens: 15,
             prompt_tokens_details: None,
+            completion_tokens_details: None,
         }),
         system_fingerprint: None,
         service_tier: None,
@@ -171,6 +173,7 @@ impl LlmClient for MockClient {
                 completion_tokens: 0,
                 total_tokens: 4,
                 prompt_tokens_details: None,
+                completion_tokens_details: None,
             }),
         };
         Box::pin(async move { Ok(resp) })

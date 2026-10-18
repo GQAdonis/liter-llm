@@ -4,7 +4,14 @@
   "docs": {
     "topic": "budget",
     "stem": "budget-tracked",
-    "title": "Tests that cost is tracked after a successful response"
+    "title": "Tests that cost is tracked after a successful response",
+    "client": {
+      "config": {
+        "api_key": "your-api-key",
+        "cost_tracking": true,
+        "budget": { "global_limit": 50.0, "enforcement": "hard" }
+      }
+    }
   },
   "category": "budget",
   "tags": ["budget"],

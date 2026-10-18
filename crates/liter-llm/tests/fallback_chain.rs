@@ -54,6 +54,7 @@ fn ok_response(tag: &str) -> LlmResponse {
             completion_tokens: 1,
             total_tokens: 2,
             prompt_tokens_details: None,
+            completion_tokens_details: None,
         }),
         system_fingerprint: None,
         service_tier: None,
@@ -64,6 +65,7 @@ fn transient_err() -> LiterLlmError {
     LiterLlmError::ServiceUnavailable {
         message: "503".into(),
         status: 503,
+        retry_after: None,
     }
 }
 

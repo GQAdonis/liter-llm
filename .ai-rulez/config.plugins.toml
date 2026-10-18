@@ -1,0 +1,13 @@
+[[marketplaces]]
+name = "basemind"
+source = "Goldziher/basemind"
+type = "github"
+
+[marketplace]
+name = "liter-llm"
+description = "Universal LLM API client for coding agents, by Kreuzberg, Inc."
+members = ["plugin"]
+
+[marketplace.owner]
+name = "Kreuzberg, Inc."
+email = "contact@xberg.io"

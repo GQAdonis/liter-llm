@@ -21,13 +21,18 @@ pub(crate) struct ApiError {
 }
 
 /// All errors that can occur when using `liter-llm`.
+///
+/// Each variant carries a stable numeric `error_code` (>= 100) that bindings expose
+/// across the FFI boundary. Codes are append-only: never renumber or reuse a code.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum LiterLlmError {
     /// `status` preserves the exact HTTP status code received (401 or 403).
+    #[cfg_attr(alef, alef(error_code = 100))]
     #[error("authentication failed: {message}")]
     Authentication { message: String, status: u16 },
 
+    #[cfg_attr(alef, alef(error_code = 101))]
     #[error("rate limited: {message}")]
     RateLimited {
         message: String,
@@ -35,33 +40,44 @@ pub enum LiterLlmError {
     },
 
     /// `status` preserves the exact HTTP status code received (400, 405, 413, 422, …).
+    #[cfg_attr(alef, alef(error_code = 102))]
     #[error("bad request: {message}")]
     BadRequest { message: String, status: u16 },
 
+    #[cfg_attr(alef, alef(error_code = 103))]
     #[error("context window exceeded: {message}")]
     ContextWindowExceeded { message: String },
 
+    #[cfg_attr(alef, alef(error_code = 104))]
     #[error("content policy violation: {message}")]
     ContentPolicy { message: String },
 
+    #[cfg_attr(alef, alef(error_code = 105))]
     #[error("not found: {message}")]
     NotFound { message: String },
 
     /// `status` preserves the exact HTTP status code received (500, or other 5xx not covered
     /// by `ServiceUnavailable`).
+    #[cfg_attr(alef, alef(error_code = 106))]
     #[error("server error: {message}")]
     ServerError { message: String, status: u16 },
 
     /// `status` preserves the exact HTTP status code received (502, 503, or 504).
+    #[cfg_attr(alef, alef(error_code = 107))]
     #[error("service unavailable: {message}")]
-    ServiceUnavailable { message: String, status: u16 },
+    ServiceUnavailable {
+        message: String,
+        status: u16,
+        retry_after: Option<Duration>,
+    },
 
+    #[cfg_attr(alef, alef(error_code = 108))]
     #[error("request timeout")]
     Timeout,
 
-    #[cfg(any(feature = "native-http", feature = "wasm-http"))]
-    #[error(transparent)]
-    Network(reqwest::Error),
+    #[cfg_attr(alef, alef(error_code = 109))]
+    #[error("network error: {message}")]
+    Network { message: String },
 
     /// A catch-all for errors that occur during streaming response processing.
     ///
@@ -69,15 +85,19 @@ pub enum LiterLlmError {
     /// failures, CRC/checksum mismatches (AWS EventStream), JSON parse errors
     /// in individual SSE chunks, and buffer overflow conditions.  The `message`
     /// field contains a human-readable description of the specific failure.
+    #[cfg_attr(alef, alef(error_code = 110))]
     #[error("streaming error: {message}")]
     Streaming { message: String },
 
+    #[cfg_attr(alef, alef(error_code = 111))]
     #[error("provider {provider} does not support {endpoint}")]
     EndpointNotSupported { endpoint: String, provider: String },
 
+    #[cfg_attr(alef, alef(error_code = 112))]
     #[error("invalid header {name:?}: {reason}")]
     InvalidHeader { name: String, reason: String },
 
+    #[cfg_attr(alef, alef(error_code = 113))]
     #[error("serialization error: {0}")]
     Serialization(
         #[from]
@@ -85,9 +105,11 @@ pub enum LiterLlmError {
         serde_json::Error,
     ),
 
+    #[cfg_attr(alef, alef(error_code = 114))]
     #[error("budget exceeded: {message}")]
     BudgetExceeded { message: String, model: Option<String> },
 
+    #[cfg_attr(alef, alef(error_code = 115))]
     #[error("hook rejected: {message}")]
     HookRejected { message: String },
 
@@ -95,6 +117,7 @@ pub enum LiterLlmError {
     ///
     /// This should never surface in normal operation — if it does, it
     /// indicates a bug in the library.
+    #[cfg_attr(alef, alef(error_code = 116))]
     #[error("internal error: {message}")]
     InternalError { message: String },
 
@@ -103,6 +126,7 @@ pub enum LiterLlmError {
     /// Returned when `register_custom_provider` is called with a `base_url` that
     /// violates the policy (e.g. a private-range IP under `DenyPrivate`), or when
     /// the per-connection DNS resolver detects a forbidden address at connect time.
+    #[cfg_attr(alef, alef(error_code = 117))]
     #[error("outbound request to {url} forbidden: {reason}")]
     OutboundForbidden { url: String, reason: String },
 
@@ -113,6 +137,7 @@ pub enum LiterLlmError {
     /// an identical body.  A body mismatch is a hard error (not retryable).
     ///
     /// HTTP equivalent: 409 Conflict.
+    #[cfg_attr(alef, alef(error_code = 118))]
     #[error("idempotency conflict: key '{key}' was already used with a different request body")]
     IdempotencyConflict { key: String },
 
@@ -124,8 +149,14 @@ pub enum LiterLlmError {
     /// the operation twice.
     ///
     /// HTTP equivalent: 409 Conflict (retryable after a brief delay).
+    #[cfg_attr(alef, alef(error_code = 119))]
     #[error("idempotency key '{key}' is currently in-flight; retry after the first request completes")]
     IdempotencyInFlight { key: String },
+
+    /// The upstream provider rejected the request because the account quota is exhausted.
+    #[cfg_attr(alef, alef(error_code = 120))]
+    #[error("provider quota exceeded: {message}")]
+    ProviderQuotaExceeded { message: String, status: u16 },
 }
 
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
@@ -135,7 +166,12 @@ impl From<reqwest::Error> for LiterLlmError {
         if let Some(policy_error) = crate::provider::outbound_forbidden_from_reqwest(&error) {
             return policy_error;
         }
-        Self::Network(error)
+        if error.is_timeout() {
+            return Self::Timeout;
+        }
+        Self::Network {
+            message: error.without_url().to_string(),
+        }
     }
 }
 
@@ -157,8 +193,7 @@ impl LiterLlmError {
             Self::ServerError { status, .. } => *status,
             Self::ServiceUnavailable { status, .. } => *status,
             Self::Timeout => 408,
-            #[cfg(any(feature = "native-http", feature = "wasm-http"))]
-            Self::Network(_) => 0,
+            Self::Network { .. } => 0,
             Self::Streaming { .. } => 0,
             Self::EndpointNotSupported { .. } => 400,
             Self::InvalidHeader { .. } => 400,
@@ -169,6 +204,7 @@ impl LiterLlmError {
             Self::OutboundForbidden { .. } => 0,
             Self::IdempotencyConflict { .. } => 409,
             Self::IdempotencyInFlight { .. } => 409,
+            Self::ProviderQuotaExceeded { status, .. } => *status,
         }
     }
 
@@ -182,7 +218,7 @@ impl LiterLlmError {
     #[must_use]
     pub fn retry_after(&self) -> Option<Duration> {
         match self {
-            Self::RateLimited { retry_after, .. } => *retry_after,
+            Self::RateLimited { retry_after, .. } | Self::ServiceUnavailable { retry_after, .. } => *retry_after,
             _ => None,
         }
     }
@@ -195,14 +231,14 @@ impl LiterLlmError {
     /// alternative endpoint.
     #[must_use]
     pub fn is_transient(&self) -> bool {
-        match self {
-            Self::RateLimited { .. } | Self::ServiceUnavailable { .. } | Self::Timeout | Self::ServerError { .. } => {
-                true
-            }
-            #[cfg(any(feature = "native-http", feature = "wasm-http"))]
-            Self::Network(_) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::RateLimited { .. }
+                | Self::ServiceUnavailable { .. }
+                | Self::Timeout
+                | Self::ServerError { .. }
+                | Self::Network { .. }
+        )
     }
 
     /// Return the OpenTelemetry `error.type` string for this error variant.
@@ -221,8 +257,7 @@ impl LiterLlmError {
             Self::ServerError { .. } => "ServerError",
             Self::ServiceUnavailable { .. } => "ServiceUnavailable",
             Self::Timeout => "Timeout",
-            #[cfg(any(feature = "native-http", feature = "wasm-http"))]
-            Self::Network(_) => "Network",
+            Self::Network { .. } => "Network",
             Self::Streaming { .. } => "Streaming",
             Self::EndpointNotSupported { .. } => "EndpointNotSupported",
             Self::InvalidHeader { .. } => "InvalidHeader",
@@ -233,6 +268,7 @@ impl LiterLlmError {
             Self::OutboundForbidden { .. } => "OutboundForbidden",
             Self::IdempotencyConflict { .. } => "IdempotencyConflict",
             Self::IdempotencyInFlight { .. } => "IdempotencyInFlight",
+            Self::ProviderQuotaExceeded { .. } => "ProviderQuotaExceeded",
         }
     }
 
@@ -271,13 +307,19 @@ impl LiterLlmError {
                 message: message.clone(),
                 status: *status,
             },
-            Self::ServiceUnavailable { message, status } => Self::ServiceUnavailable {
+            Self::ServiceUnavailable {
+                message,
+                status,
+                retry_after,
+            } => Self::ServiceUnavailable {
                 message: message.clone(),
                 status: *status,
+                retry_after: *retry_after,
             },
             Self::Timeout => Self::Timeout,
-            #[cfg(any(feature = "native-http", feature = "wasm-http"))]
-            Self::Network(e) => Self::InternalError { message: e.to_string() },
+            Self::Network { message } => Self::Network {
+                message: message.clone(),
+            },
             Self::Streaming { message } => Self::Streaming {
                 message: message.clone(),
             },
@@ -306,6 +348,10 @@ impl LiterLlmError {
             },
             Self::IdempotencyConflict { key } => Self::IdempotencyConflict { key: key.clone() },
             Self::IdempotencyInFlight { key } => Self::IdempotencyInFlight { key: key.clone() },
+            Self::ProviderQuotaExceeded { message, status } => Self::ProviderQuotaExceeded {
+                message: message.clone(),
+                status: *status,
+            },
         }
     }
 
@@ -319,10 +365,17 @@ impl LiterLlmError {
         let parsed = serde_json::from_str::<ErrorResponse>(body).ok();
         let code = parsed.as_ref().and_then(|r| r.error.code.clone());
         let message = parsed.map(|r| r.error.message).unwrap_or_else(|| body.to_string());
+        let message_lower = message.to_ascii_lowercase();
 
         match status {
             401 | 403 => Self::Authentication { message, status },
+            429 if code.as_deref() == Some("insufficient_quota") => Self::ProviderQuotaExceeded { message, status },
             429 => Self::RateLimited { message, retry_after },
+            529 => Self::ServiceUnavailable {
+                message,
+                status,
+                retry_after,
+            },
             400 | 422 => {
                 if code.as_deref() == Some("context_length_exceeded") {
                     Self::ContextWindowExceeded { message }
@@ -332,12 +385,14 @@ impl LiterLlmError {
                     Self::ContentPolicy { message }
                 }
                 // ~keep Some providers omit `code`, so classify retryable errors from stable message fragments.
-                else if message.contains("context_length_exceeded")
-                    || message.contains("context window")
-                    || message.contains("maximum context length")
+                else if message_lower.contains("context_length_exceeded")
+                    || message_lower.contains("context window")
+                    || message_lower.contains("maximum context length")
+                    || message_lower.contains("prompt is too long")
+                    || message_lower.contains("input token count exceeds the maximum")
                 {
                     Self::ContextWindowExceeded { message }
-                } else if message.contains("content_policy") || message.contains("content_filter") {
+                } else if message_lower.contains("content_policy") || message_lower.contains("content_filter") {
                     Self::ContentPolicy { message }
                 } else {
                     Self::BadRequest { message, status }
@@ -347,7 +402,11 @@ impl LiterLlmError {
             405 | 413 => Self::BadRequest { message, status },
             408 => Self::Timeout,
             500 => Self::ServerError { message, status },
-            502..=504 => Self::ServiceUnavailable { message, status },
+            502..=504 => Self::ServiceUnavailable {
+                message,
+                status,
+                retry_after,
+            },
             400..=499 => Self::BadRequest { message, status },
             _ => Self::ServerError { message, status },
         }

@@ -5,10 +5,54 @@ use bytes::Bytes;
 use crate::error::{LiterLlmError, Result};
 use crate::http::retry;
 
+fn sensitive_header_values<'a>(
+    auth_header: Option<(&'a str, &'a str)>,
+    extra_headers: &'a [(&'a str, &'a str)],
+) -> Vec<&'a str> {
+    let mut values: Vec<&str> = auth_header
+        .into_iter()
+        .chain(extra_headers.iter().copied())
+        .filter(|(name, _)| {
+            name.eq_ignore_ascii_case("authorization")
+                || name.eq_ignore_ascii_case("x-api-key")
+                || name.eq_ignore_ascii_case("x-goog-api-key")
+        })
+        .map(|(_, value)| value)
+        .filter(|value| !value.is_empty())
+        .collect();
+    let bearer_tokens: Vec<&str> = values
+        .iter()
+        .filter_map(|value| value.strip_prefix("Bearer "))
+        .filter(|value| !value.is_empty())
+        .collect();
+    values.extend(bearer_tokens);
+    values
+}
+
+fn redact_sensitive_values(message: &str, sensitive_values: &[&str]) -> String {
+    sensitive_values
+        .iter()
+        .filter(|value| !value.is_empty())
+        .fold(message.to_owned(), |redacted, value| {
+            redacted.replace(value, "[REDACTED]")
+        })
+}
+
 /// Extract an optional `Retry-After` delay from a response.
 pub(crate) fn retry_after_from_response(resp: &reqwest::Response) -> Option<std::time::Duration> {
-    let value = resp.headers().get(reqwest::header::RETRY_AFTER)?.to_str().ok()?;
-    retry::parse_retry_after(value)
+    if let Some(value) = resp
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(retry::parse_retry_after)
+    {
+        return Some(value);
+    }
+    resp.headers()
+        .get("retry-after-ms")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .map(std::time::Duration::from_millis)
 }
 
 /// Sleep for a retry back-off delay, on native or WASM targets.
@@ -25,7 +69,7 @@ where
     F: FnMut() -> Fut,
     Fut: Future<Output = std::result::Result<reqwest::Response, reqwest::Error>>,
 {
-    with_retry_bounded(url, max_retries, None, send).await
+    with_retry_bounded(url, max_retries, None, &[], send).await
 }
 
 #[derive(Clone, Copy)]
@@ -65,7 +109,8 @@ impl StreamingPost<'_> {
         } = options;
         let mut retry_count = 0u32;
 
-        let resp = with_retry_bounded(self.url, max_retries, max_response_bytes, || {
+        let secrets = sensitive_header_values(self.auth_header, self.extra_headers);
+        let resp = with_retry_bounded(self.url, max_retries, max_response_bytes, &secrets, || {
             let mut builder = client
                 .post(self.url)
                 .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -135,9 +180,6 @@ async fn read_limited_response_body(mut response: reqwest::Response, limit: usiz
 }
 
 async fn read_response_json(response: reqwest::Response, limit: Option<usize>) -> Result<serde_json::Value> {
-    if limit.is_none() {
-        return response.json().await.map_err(LiterLlmError::from);
-    }
     let body = read_response_body(response, limit).await?;
     serde_json::from_slice(&body).map_err(LiterLlmError::from)
 }
@@ -151,6 +193,43 @@ async fn read_error_text(response: reqwest::Response, limit: Option<usize>) -> R
     }
     let body = read_response_body(response, limit).await?;
     Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
+#[cfg(test)]
+mod retry_header_tests {
+    use super::*;
+
+    #[test]
+    fn retry_after_ms_is_parsed() {
+        let response: reqwest::Response = http::Response::builder()
+            .status(429)
+            .header("retry-after-ms", "1500")
+            .body("")
+            .expect("response should build")
+            .into();
+        assert_eq!(
+            retry_after_from_response(&response),
+            Some(std::time::Duration::from_millis(1500))
+        );
+    }
+
+    #[test]
+    fn configured_header_values_are_redacted_exactly() {
+        let message = "Incorrect API key provided: sk-SECRETKEY123456";
+        assert_eq!(
+            redact_sensitive_values(message, &["sk-SECRETKEY123456"]),
+            "Incorrect API key provided: [REDACTED]"
+        );
+    }
+
+    #[test]
+    fn bearer_token_is_redacted_without_its_header_prefix() {
+        let secrets = sensitive_header_values(Some(("Authorization", "Bearer sk-SECRETKEY123456")), &[]);
+        assert_eq!(
+            redact_sensitive_values("provider echoed sk-SECRETKEY123456", &secrets),
+            "provider echoed [REDACTED]"
+        );
+    }
 }
 
 /// Drive a single-request closure through the retry / back-off loop.
@@ -172,6 +251,7 @@ pub(crate) async fn with_retry_bounded<F, Fut>(
     url: &str,
     max_retries: u32,
     max_response_bytes: Option<usize>,
+    sensitive_values: &[&str],
     mut send: F,
 ) -> Result<reqwest::Response>
 where
@@ -219,7 +299,7 @@ where
             continue;
         }
 
-        let text = read_error_text(resp, max_response_bytes).await?;
+        let text = redact_sensitive_values(&read_error_text(resp, max_response_bytes).await?, sensitive_values);
         return Err(LiterLlmError::from_status(status, &text, server_retry_after));
     }
 }
@@ -279,7 +359,8 @@ pub(crate) async fn post_json_raw_bounded(
     } = options;
     let mut retry_count = 0u32;
 
-    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
+    let secrets = sensitive_header_values(auth_header, extra_headers);
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, &secrets, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -359,7 +440,8 @@ pub(crate) async fn post_binary_bounded(
     } = options;
     let mut retry_count = 0u32;
 
-    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
+    let secrets = sensitive_header_values(auth_header, extra_headers);
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, &secrets, || {
         let mut builder = client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -440,7 +522,8 @@ pub(crate) async fn post_multipart_bounded(
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
         let server_retry_after = retry_after_from_response(&resp);
-        let text = read_error_text(resp, max_response_bytes).await?;
+        let secrets = sensitive_header_values(auth_header, extra_headers);
+        let text = redact_sensitive_values(&read_error_text(resp, max_response_bytes).await?, &secrets);
         return Err(LiterLlmError::from_status(status, &text, server_retry_after));
     }
 
@@ -486,7 +569,8 @@ pub(crate) async fn get_json_raw_bounded(
 ) -> Result<serde_json::Value> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
+    let secrets = sensitive_header_values(auth_header, extra_headers);
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, &secrets, || {
         let mut builder = client.get(url);
         if let Some((name, value)) = auth_header {
             builder = builder.header(name, value);
@@ -546,7 +630,8 @@ pub(crate) async fn delete_json_bounded(
 ) -> Result<serde_json::Value> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
+    let secrets = sensitive_header_values(auth_header, extra_headers);
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, &secrets, || {
         let mut builder = client.delete(url);
         if let Some((name, value)) = auth_header {
             builder = builder.header(name, value);
@@ -606,7 +691,8 @@ pub(crate) async fn get_binary_bounded(
 ) -> Result<Bytes> {
     let mut retry_count = 0u32;
 
-    let resp = with_retry_bounded(url, max_retries, max_response_bytes, || {
+    let secrets = sensitive_header_values(auth_header, extra_headers);
+    let resp = with_retry_bounded(url, max_retries, max_response_bytes, &secrets, || {
         let mut builder = client.get(url);
         if let Some((name, value)) = auth_header {
             builder = builder.header(name, value);
@@ -854,7 +940,7 @@ mod tests {
 
     #[tokio::test]
     #[serial(outbound_policy)]
-    async fn post_multipart_preserves_redirect_policy_error_classification() {
+    async fn post_multipart_returns_redirect_response_without_following() {
         set_outbound_policy(OutboundPolicy::Off);
         let (source_address, source) = one_shot_server(
             "HTTP/1.1 302 Found\r\nLocation: http://169.254.169.254/token\r\nContent-Length: 0\r\n\r\n".to_owned(),
@@ -875,8 +961,8 @@ mod tests {
 
         source.join().expect("multipart source server");
         assert!(
-            matches!(result, Err(LiterLlmError::OutboundForbidden { .. })),
-            "multipart redirect policy errors must remain non-transient: {result:?}"
+            matches!(result, Err(LiterLlmError::ServerError { status: 302, .. })),
+            "authenticated multipart clients must surface redirects without following them: {result:?}"
         );
     }
 }
