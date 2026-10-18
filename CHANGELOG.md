@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Replace the `php:test` reference to a nonexistent example with a real local smoke check that loads the built
+  extension in isolation, verifies its version and core classes, and propagates failures (#290).
 - Accept the optional upstream models.dev model `type` field in the catalog generator while still rejecting unknown
   fields and model types, so scheduled catalog refreshes succeed again (#289).
 - Validate canonical package versions during release dry runs while preserving genuine prerelease checks.
