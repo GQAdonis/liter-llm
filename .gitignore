@@ -317,6 +317,17 @@ poly.local.toml
 
 # BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
 .ai-rulez/.generated-manifest.json
+.ai-rulez/.generated-manifest.local.json
+.ai-rulez/local/
+.github/agents/
+.github/prompts/iterate.prompt.md
+.github/prompts/parallelize.prompt.md
+.opencode/agents/
+.opencode/commands/
+.pi/agents/
+.pi/mcp.json
+.pi/prompts/
+opencode.json
 # END ai-rulez
 
 # ~keep Alef verifies these generated wrapper artifacts in fresh checkouts.
@@ -332,3 +343,6 @@ test_apps/java/.mvn/*
 !test_apps/java/.mvn/wrapper/
 test_apps/java/.mvn/wrapper/*
 !test_apps/java/.mvn/wrapper/maven-wrapper.properties
+
+!test_apps/node/pnpm-lock.yaml
+!test_apps/wasm/pnpm-lock.yaml

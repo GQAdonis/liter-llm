@@ -1,0 +1,47 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "liter-llm",
+  "version": "2.2.5",
+  "description": "Universal LLM API client for 174 providers — chat, streaming, tools, embeddings, search, OCR, plus an OpenAI-compatible proxy and an MCP server.",
+  "author": {
+    "name": "Kreuzberg, Inc.",
+    "email": "contact@xberg.io",
+    "url": "https://xberg.io"
+  },
+  "homepage": "https://xberg.io",
+  "repository": "https://github.com/xberg-io/liter-llm",
+  "license": "MIT",
+  "keywords": [
+    "llm",
+    "openai",
+    "proxy",
+    "embeddings",
+    "mcp"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "brandColor": "#1F6FEB",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "category": "developer-tools",
+        "composerIcon": "./assets/icon.svg",
+        "defaultPrompt": [
+          "Send a chat completion to openai/gpt-4o",
+          "Embed these documents and rank them",
+          "Run an OpenAI-compatible proxy for my team"
+        ],
+        "developerName": "Kreuzberg, Inc.",
+        "displayName": "Liter-LLM",
+        "logo": "./assets/logo.svg",
+        "longDescription": "Call 174 LLM providers through one unified interface — chat, streaming, tool calling, embeddings, image generation, audio, moderation, web search, OCR, and reranking. Routes by `provider/model` prefix with built-in caching, rate limiting, cost tracking, budgets, and fallback. Ships an OpenAI-compatible proxy server and an auto-installing MCP server exposing 22 tools. The plugin's MCP launcher locates an installed `liter-llm` binary or installs an available CLI on first run.",
+        "privacyPolicyURL": "https://xberg.io/privacy",
+        "shortDescription": "Universal LLM client for 174 providers with proxy and MCP server",
+        "termsOfServiceURL": "https://xberg.io/terms",
+        "websiteURL": "https://xberg.io"
+      }
+    }
+  }
+}

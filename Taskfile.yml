@@ -90,7 +90,7 @@ tasks:
         else
           echo "poly $(poly --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) from $(command -v poly) (not brew) — keep it current on that channel; CI always installs the newest release." >&2
         fi
-      - poly hooks install
+      - task: governance:hooks:install
 
   setup:sdkman:
     desc: "Install and configure sdkman for JVM toolchain management (run separately if you need Java/Maven)"
@@ -149,10 +149,21 @@ tasks:
         scripts/ci/test_dart_consumer_version.py
         scripts/ci/test_consumer_versions.py
         scripts/ci/test_go_release_assets.py
+        scripts/ci/test_release_artifact_versions.py
         scripts/ci/test_swift_task_environment.py
         scripts/ci/test_homebrew_consumer_version.py
         scripts/ci/test_node_public_outputs.py
         scripts/ci/test_go_smoke_test_filter.py
+
+  ci:release-version-forms:
+    desc: Resolve canonical package version forms for release validation
+    cmds:
+      - python3 scripts/ci/release_artifact_versions.py
+
+  ci:prepare-go-release-assets:
+    desc: Prepare version-checked Go installer aliases and checksums
+    cmds:
+      - python3 scripts/ci/prepare_go_release_assets.py go-ffi-release liter-llm "$RELEASE_VERSION"
 
   test:all:
     desc: Run ALL test suites across all languages
@@ -399,3 +410,46 @@ tasks:
     desc: Run Rust E2E tests (alias for rust:e2e:test)
     cmds:
       - task: rust:e2e:test
+
+  governance:hooks:install:
+    desc: Provision machine preferences and install reviewed AI governance hooks
+    cmds:
+      - |
+        python3 - <<'PYTHON'
+        import pathlib
+        import shutil
+        import subprocess
+        import tomllib
+
+        if shutil.which("ai-rulez") is None:
+            raise SystemExit("Install the reviewed ai-rulez CLI before installing hooks")
+        preferences = pathlib.Path("poly.local.toml")
+        text = preferences.read_text() if preferences.exists() else ""
+        data = tomllib.loads(text)
+        if "hook_preferences" not in data:
+            preferences.write_text(text.rstrip() + '\n\n[hook_preferences]\nchannels = ["system"]\n')
+        elif "system" not in data["hook_preferences"].get("channels", []):
+            raise SystemExit("Add system to hook_preferences.channels in poly.local.toml")
+        subprocess.run(["poly", "hooks", "install"], check=True)
+        PYTHON
+
+  plugin:hermes:test:
+    desc: Verify the Hermes bridge against a real MCP stdio fixture
+    cmds:
+      - uv run --no-project --python 3.11 --with mcp==1.28.1 --with PyYAML==6.0.3 python scripts/tests/test_hermes_plugin.py
+
+  governance:check:
+    desc: Check materialized local governance outputs against shared sources
+    cmds:
+      - ai-rulez generate --check --no-local --strict-config
+
+  plugin:skills:test:
+    desc: Verify public skill ownership and resource freshness
+    cmds:
+      - python3 scripts/tests/test_public_skills.py
+      - python3 scripts/sync_public_skills.py --check
+
+  plugin:launcher:test:
+    desc: Verify npm launcher preserves caller directory and relative configuration
+    cmds:
+      - python3 scripts/tests/test_mcp_launcher_cwd.py

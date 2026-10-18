@@ -11,6 +11,12 @@
 
 use super::*;
 
+fn without_resolution_metadata(mut info: ModelInfo) -> ModelInfo {
+    info.matched_key.clear();
+    info.exact = false;
+    info
+}
+
 #[test]
 fn completion_cost_known_model_returns_expected_value() {
     let cost = completion_cost("gpt-4", 100, 50).expect("gpt-4 must be in registry");
@@ -95,6 +101,20 @@ fn completion_cost_with_cache_applies_discount_when_pricing_available() {
                 .cache_read_input_token_cost
                 .expect("cache_read_input_token_cost should be set")
         + 50.0 * pricing.output_cost_per_token;
+    assert!((actual - expected).abs() < 1e-12);
+}
+
+#[test]
+fn completion_cost_accounts_for_cache_creation_surcharge() {
+    let pricing = ModelPricing {
+        input_cost_per_token: 1e-5,
+        output_cost_per_token: 2e-5,
+        cache_read_input_token_cost: Some(1e-6),
+        cache_creation_input_token_cost: Some(1.25e-5),
+        ..Default::default()
+    };
+    let actual = compute_cost(&pricing, 1_000, 200, 300, 50);
+    let expected = 500.0 * 1e-5 + 200.0 * 1e-6 + 300.0 * 1.25e-5 + 50.0 * 2e-5;
     assert!((actual - expected).abs() < 1e-12);
 }
 
@@ -249,10 +269,27 @@ fn model_info_parses_extended_fields() {
 fn model_info_prefix_fallback() {
     let exact = model_info("gpt-4").expect("gpt-4 must be in registry");
     let prefix = model_info("gpt-4-0613").expect("gpt-4-0613 should resolve via prefix fallback to gpt-4");
+    assert_eq!(exact.matched_key, "gpt-4");
+    assert!(exact.exact);
+    assert_eq!(prefix.matched_key, "gpt-4");
+    assert!(!prefix.exact);
     assert!(
         (exact.input_cost_per_token - prefix.input_cost_per_token).abs() < 1e-15,
         "prefix match should return the same pricing as exact match"
     );
+}
+
+#[test]
+fn model_info_does_not_price_unsafe_product_variants_as_base_models() {
+    assert!(model_info("gpt-4-realtime").is_none());
+    assert!(model_info("gpt-4-audio").is_none());
+    assert!(model_info("gpt-4-search").is_none());
+}
+
+#[test]
+fn exact_model_info_rejects_revision_fallback() {
+    assert!(exact_model_info("gpt-4").is_some());
+    assert!(exact_model_info("gpt-4-0613").is_none());
 }
 
 #[test]
@@ -279,21 +316,21 @@ fn completion_cost_uses_tier_above_threshold() {
     }"#;
     let pricing: ModelPricing = serde_json::from_str(json).expect("tiered record must parse");
 
-    let below = compute_cost(&pricing, 100_000, 0, 1_000);
+    let below = compute_cost(&pricing, 100_000, 0, 0, 1_000);
     let expected_below = 100_000.0 * 0.000003 + 1_000.0 * 0.000015;
     assert!(
         (below - expected_below).abs() < 1e-9,
         "expected {expected_below}, got {below}"
     );
 
-    let above = compute_cost(&pricing, 250_000, 0, 1_000);
+    let above = compute_cost(&pricing, 250_000, 0, 0, 1_000);
     let expected_above = 250_000.0 * 0.000006 + 1_000.0 * 0.0000225;
     assert!(
         (above - expected_above).abs() < 1e-9,
         "expected {expected_above}, got {above}"
     );
 
-    let above_cached = compute_cost(&pricing, 250_000, 50_000, 1_000);
+    let above_cached = compute_cost(&pricing, 250_000, 50_000, 0, 1_000);
     let expected_above_cached = 200_000.0 * 0.000006 + 50_000.0 * 0.0000006 + 1_000.0 * 0.0000225;
     assert!(
         (above_cached - expected_above_cached).abs() < 1e-9,
@@ -303,31 +340,46 @@ fn completion_cost_uses_tier_above_threshold() {
 
 /// An unpriced catalog model (no `pricing` object upstream) still resolves
 /// through `model_info` with its limits/mode/capabilities populated, and
-/// `completion_cost` treats it as free (`Some(0.0)`) rather than unknown.
+/// `completion_cost` treats it as unknown rather than silently free.
 #[test]
-fn unpriced_model_resolves_with_zero_cost_and_full_metadata() {
-    let info = model_info("blueclaw/Qwen3.6-27B").expect("unpriced catalog model must still resolve");
+fn unpriced_model_resolves_with_unknown_cost_and_full_metadata() {
+    let info = model_info("agentrouter/claude-opus-4-8").expect("unpriced catalog model must still resolve");
 
     assert_eq!(info.input_cost_per_token, 0.0);
     assert_eq!(info.output_cost_per_token, 0.0);
-    assert_eq!(info.max_tokens, Some(196_608));
+    assert!(!info.price_known);
+    assert_eq!(info.max_tokens, Some(1_000_000));
     assert_eq!(
         info.max_input_tokens,
-        Some(196_608),
+        Some(1_000_000),
         "falls back to context when limit.input is absent"
     );
-    assert_eq!(info.max_output_tokens, Some(65_536));
+    assert_eq!(info.max_output_tokens, Some(128_000));
     assert_eq!(info.mode.as_deref(), Some("chat"));
     assert_eq!(info.supports_function_calling, Some(true));
     assert_eq!(info.supports_reasoning, Some(true));
-    assert_eq!(info.supports_structured_output, Some(true));
-    assert_eq!(info.supports_vision, Some(false));
+    assert_eq!(info.supports_structured_output, Some(false));
+    assert_eq!(info.supports_vision, Some(true));
     assert_eq!(info.supports_audio_input, Some(false));
     assert_eq!(info.supports_audio_output, Some(false));
     assert_eq!(info.supports_prompt_caching, Some(false));
 
-    let cost = completion_cost("blueclaw/Qwen3.6-27B", 1_000, 500);
-    assert_eq!(cost, Some(0.0), "unpriced model must cost exactly zero, not be unknown");
+    let cost = completion_cost("agentrouter/claude-opus-4-8", 1_000, 500);
+    assert_eq!(cost, None, "unpriced model must not be presented as free");
+}
+
+#[test]
+fn zero_priced_non_embedding_models_are_marked_unknown() {
+    for model in [
+        "gpt-image-1",
+        "veo-3.1-generate-preview",
+        "lyria-3-clip-preview",
+        "gemma-4-26b-a4b-it",
+    ] {
+        let info = model_info(model).unwrap_or_else(|| panic!("catalog model {model} must resolve"));
+        assert!(!info.price_known, "{model} must not be presented as free");
+        assert_eq!(completion_cost(model, 1_000_000, 1_000_000), None);
+    }
 }
 
 /// A primary-provider ("openai") model resolves both via its combined
@@ -345,7 +397,8 @@ fn openai_model_resolves_via_combined_key_and_bare_alias() {
     let combined = model_info("openai/gpt-4o").expect("openai/gpt-4o must resolve via combined key");
     let bare = model_info("gpt-4o").expect("gpt-4o must resolve via bare alias (primary provider)");
     assert_eq!(
-        bare, combined,
+        without_resolution_metadata(bare),
+        without_resolution_metadata(combined),
         "bare alias must resolve to the same entry as the combined key"
     );
 }
@@ -360,7 +413,8 @@ fn anthropic_model_resolves_via_combined_key_and_bare_alias() {
         model_info("anthropic/claude-sonnet-4-5").expect("anthropic/claude-sonnet-4-5 must resolve via combined key");
     let bare = model_info("claude-sonnet-4-5").expect("claude-sonnet-4-5 must resolve via bare alias");
     assert_eq!(
-        bare, combined,
+        without_resolution_metadata(bare),
+        without_resolution_metadata(combined),
         "bare alias must resolve to the same entry as the combined key"
     );
 }
@@ -375,7 +429,8 @@ fn google_model_resolves_via_combined_key_and_bare_alias() {
         model_info("google/gemini-2.5-flash-lite").expect("google/gemini-2.5-flash-lite must resolve via combined key");
     let bare = model_info("gemini-2.5-flash-lite").expect("gemini-2.5-flash-lite must resolve via bare alias");
     assert_eq!(
-        bare, combined,
+        without_resolution_metadata(bare),
+        without_resolution_metadata(combined),
         "bare alias must resolve to the same entry as the combined key"
     );
 }
@@ -399,4 +454,71 @@ fn non_primary_provider_bare_name_does_not_resolve() {
         completion_cost("codestral-latest", 100, 50).is_none(),
         "completion_cost must not resolve a non-primary-provider bare name"
     );
+}
+
+#[test]
+fn should_resolve_gemini_routing_prefixes_to_their_catalog_provider() {
+    let google = ModelPricing {
+        input_cost_per_token: 1.0,
+        ..Default::default()
+    };
+    let vertex = ModelPricing {
+        input_cost_per_token: 2.0,
+        ..Default::default()
+    };
+    let models = HashMap::from([
+        ("google/gemini-test".to_owned(), google),
+        ("google-vertex/gemini-test".to_owned(), vertex),
+    ]);
+    for (prefix, provider, input_price) in [
+        ("gemini", "google", 1.0),
+        ("google_ai", "google", 1.0),
+        ("vertex_ai", "google-vertex", 2.0),
+    ] {
+        for suffix in ["", "-001"] {
+            let requested = format!("{prefix}/gemini-test{suffix}");
+            let (key, pricing) = lookup_in(&models, &requested).expect("routing alias resolves");
+            assert_eq!(key, format!("{provider}/gemini-test"));
+            assert_eq!(pricing.input_cost_per_token, input_price);
+        }
+    }
+    assert_eq!(lookup_in(&models, "unknown/gemini-test").map(|(key, _)| key), None);
+}
+
+#[test]
+fn should_prefer_exact_catalog_key_over_google_routing_alias() {
+    let exact = ModelPricing {
+        input_cost_per_token: 3.0,
+        ..Default::default()
+    };
+    let canonical = ModelPricing {
+        input_cost_per_token: 1.0,
+        ..Default::default()
+    };
+    let models = HashMap::from([
+        ("gemini/gemini-test".to_owned(), exact),
+        ("google/gemini-test".to_owned(), canonical),
+    ]);
+    let (key, pricing) = lookup_in(&models, "gemini/gemini-test").expect("exact catalog key resolves");
+    assert_eq!(key, "gemini/gemini-test");
+    assert_eq!(pricing.input_cost_per_token, 3.0);
+}
+
+#[test]
+fn should_prefer_original_routing_key_revision_fallback_over_canonical_alias() {
+    let original = ModelPricing {
+        input_cost_per_token: 3.0,
+        ..Default::default()
+    };
+    let canonical = ModelPricing {
+        input_cost_per_token: 1.0,
+        ..Default::default()
+    };
+    let models = HashMap::from([
+        ("gemini/gemini-test".to_owned(), original),
+        ("google/gemini-test".to_owned(), canonical),
+    ]);
+    let (key, pricing) = lookup_in(&models, "gemini/gemini-test-001").expect("original revision fallback resolves");
+    assert_eq!(key, "gemini/gemini-test");
+    assert_eq!(pricing.input_cost_per_token, 3.0);
 }

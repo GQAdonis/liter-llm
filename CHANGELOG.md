@@ -7,6 +7,206 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Remove vulnerable ZIP 8.6 dependencies from PHP binding builds.
+
+### Fixed
+
+- Validate canonical package versions during release dry runs while preserving genuine prerelease checks.
+- Keep public coding-agent skills synchronized with native plugin resources during version updates.
+
+## [2.2.5] - 2026-10-16
+
+### Fixed
+
+- Send each deployment's configured provider model upstream when proxy clients use aliases, including streaming,
+  deployment pools, and default image/moderation models. (#286)
+- Keep release dry runs from moving existing tags when republishing is requested.
+- Reject whitespace-only resolved Bedrock credentials before sending requests while preserving nonblank signing bytes (#285).
+- Send Gemini and Vertex structured-output schemas through `responseJsonSchema` to preserve nullable fields and nested JSON Schema (#284).
+- Preserve Gemini model metadata and request-model fallbacks across standard and streaming responses, and resolve Gemini routing aliases for cost attribution (#283).
+- Sign Bedrock requests with per-request resolved AWS credentials across standard and streaming clients, including refreshed session tokens (#285).
+
+## [2.2.4] - 2026-10-15
+
+Dependency refresh and regenerated polyglot bindings with Alef 0.110.13.
+
+### Changed
+
+- Upgrade Rust and language-package dependencies and refresh their lockfiles.
+- Regenerate bindings, package scaffolding, documentation, and test suites with the latest Alef.
+- Remove unused-argument lint warnings from the Hermes plugin test fixture.
+
+### Fixed
+
+- Install protobuf development headers in the shared lint runner so etcd-client builds succeed.
+- Mark the native Python client as safe to share across async worker threads.
+- Keep iOS builds compatible with the Flutter Rust bridge by holding libc below its incompatible Apple symbol change.
+- Run mobile CI when Cargo manifests, the workspace lockfile, or Alef configuration changes.
+
+## [2.2.3] - 2026-10-10
+
+Reliable Go publication, smaller bundled native libraries, and static C distribution artifacts.
+Generated with Alef 0.107.12.
+
+### Fixed
+
+- Release catalog uploads retain explicit GitHub repository context, so the prepare gate no longer
+  blocks every downstream package and Go module-tag job after staging files outside the checkout
+  (#281).
+- Go FFI shared libraries strip release debug information and enforce a 40 MiB size budget before
+  packaging, preventing oversized native binaries from entering the module bundle (#282).
+
+### Changed
+
+- C FFI release archives include the static library and its native linker metadata through the
+  shared `xberg-io/actions/build-rust-ffi` action.
+- Removed repository-wide JavaScript lint exemptions for Unicode regexes, array indexing, and
+  string replacement, plus the obsolete async-plugin exemption.
+
+## [2.2.2] - 2026-10-09
+
+Security, provider correctness, bounded Go clients, truthful catalog pricing, and repaired release
+assets. Generated with Alef 0.107.11.
+
+### Added
+
+- Go and the other generated bindings expose `ClientOptions.max_response_bytes`; provider-quota
+  exhaustion has its own stable cross-language error variant (#275, #278).
+- Model metadata exposes `price_known`, allowing callers to distinguish unsupported or missing
+  per-token prices from genuinely free models (#276).
+
+### Fixed
+
+- Authenticated native clients never follow redirects, preventing prompt bodies and credentials
+  from being replayed to another origin even when outbound policy enforcement is disabled (#277).
+- Empty API keys omit authentication headers, and provider error bodies redact both full bearer
+  values and bare echoed tokens (#272, #279).
+- Anthropic's final streaming usage is cumulative and retains prompt-cache details; 529 overloads
+  preserve their status and malformed successful responses are serialization errors (#274, #275).
+- Tagged releases publish catalog checksums, macOS static archives are no longer corrupted by
+  `strip -S`, and the Go module-tag/native-asset publish path uses the corrected Alef packager
+  (#270, #271, #273).
+
+### Changed
+
+- Updated Rust, Node/WASM, and generated language dependency locks.
+
+## [2.2.1] - 2026-10-09
+
+Provider correctness, safer transport errors, refreshed catalog metadata, and portable Go release
+assets. Generated with Alef 0.107.7.
+
+### Added
+
+- Go setup supports explicit static linking, offline native-library directories, and Linux musl
+  targets; release builds now publish stripped musl archives (#267).
+- Catalog responses expose provenance and whether model lookup was exact or used a fallback (#260,
+  #262).
+- Network failures have stable cross-language error code 109, including `ErrNetwork` in Go (#258).
+
+### Fixed
+
+- Gemini and Vertex embedding requests preserve every input, requested dimensions, and response
+  order (#268).
+- OpenAI-compatible streams request usage by default, while preserving explicit caller overrides
+  (#266).
+- Anthropic uses native JSON-schema output configuration, preserves caller system-message order,
+  reports ignored strict/seed options, and derives the default output limit from catalog metadata
+  (#264, #265).
+- OpenAI reasoning requests use `max_completion_tokens`; custom endpoints retain the native Google,
+  Vertex, Bedrock, Azure, and Anthropic transforms (#256, #264).
+- Retry classification handles quota exhaustion, 529 responses, 503 retry hints,
+  `retry-after-ms`, HTTP dates, and context-window error variants correctly (#257).
+- Provider error bodies redact configured secrets, network errors omit request URLs, and custom
+  base URLs append paths before query strings (#259).
+- Gemini and Anthropic usage maps cached, cache-creation, tool-use, and thinking tokens into the
+  public usage fields used for pricing (#254, #255).
+- Catalog refresh uses isolated atomic downloads with integrity checks, layers overlays, refreshes
+  the embedded snapshot, and corrects model modes and embedding dimensions (#261, #262, #263).
+
+### Changed
+
+- Paid down the remaining tracked provider, fallback, and generated-documentation lint complexity
+  debt (#201).
+- Completed the ai-rulez integration tracker for usage, pricing, errors, routing, and distribution
+  (#269).
+
+## [2.2.0] - 2026-10-08
+
+Gemini thinking-token accounting and the corresponding cross-language usage API. Generated with
+Alef 0.106.1.
+
+### Added
+
+- Usage responses expose `completion_tokens_details.reasoning_tokens` in Rust and every generated
+  language binding.
+
+### Fixed
+
+- **Gemini usage includes thinking tokens.** Google AI and Vertex AI responses now add
+  `thoughtsTokenCount` to completion tokens, preserve `totalTokenCount`, and report usage on
+  streaming chunks (#253).
+
+### Changed
+
+- Lint-debt pay-down (#201): split the provider documentation generator into focused helpers and
+  removed its `function-too-long` baseline exemption.
+
+## [2.1.4] - 2026-10-06
+
+Publishes the 2.1.3 changes. The 2.1.3 publish run stopped at version validation, so 2.1.3 reached
+only Packagist; every other registry goes from 2.1.2 to 2.1.4. Generated with Alef 0.106.1.
+
+### Fixed
+
+- **Kotlin Android: the library compiles again.** `LiterLlmError.RateLimited` redeclared
+  `retryAfter`, which the sealed base now exposes as an `open val` accessor; the field is now
+  declared `override`.
+- Plugin bundles and test-app coordinates are pinned to the release version.
+
+## [2.1.3] - 2026-10-06
+
+Go/FFI fixes for the issues filed against 2.1.2, client-config fixes, and nine new providers.
+Generated with Alef 0.105.0.
+
+### Added
+
+- **Providers:** cognition, cortecs, prism, reka, sail, nadir, scx-ai, edenai and
+  qwen_ai_platform (174 providers total). Registry entries can now declare `aliases`, so
+  `lm_studio/`, `ollama_chat/` and `qwencloud/` route and strip like the provider name. DashScope
+  and Qwen AI Platform support rerank via the compatible-api route.
+- **Cache:** an `opendal:<scheme>` backend value selects any OpenDAL service, including
+  `opendal:memory`.
+- **Errors:** every `LiterLlmError` variant has a stable error code, and reqwest timeouts map to
+  `Timeout`.
+
+### Fixed
+
+- **Go: typed errors.** Native errors surface as `*literllm.Error` with code, status, transient
+  flag, error type and `RetryAfter`; `errors.Is` matches the sentinels (#244).
+- **Go: per-call cancellation.** `ChatWithContext` / `EmbedWithContext` cancel the in-flight
+  native request when the context is done (#245).
+- **Go: no more `(nil, nil)`.** Serialisation and decode failures return an error (#246).
+- **FFI static library links on its own.** The cgo preamble declares the system libraries, and
+  the Go release asset ships `native-static-libs.txt` (#247). macOS FFI builds pin
+  `MACOSX_DEPLOYMENT_TARGET=11.0` so C objects match the Rust objects (#248).
+- **`base_url` prefix stripping.** A known `provider/` prefix is stripped from the model name
+  when `base_url` is set; unknown org prefixes such as `meta-llama/` are kept (#249).
+- **JSON client config is applied.** `create_client_from_json` now builds the middleware stack
+  (budget, cache, cost tracking, rate limits, hooks) and registers custom providers, which it
+  previously parsed and ignored (#251). The budget and cache snippets configure a client in
+  every language.
+- **Go README** documents the real release asset names, static vs dynamic linking, the current
+  API, typed errors and the slim FFI build (#250, #252).
+- Swift basic chat snippet compiles.
+
+### Changed
+
+- Lint-debt pay-down (#201): table-driven outbound IPv4 policy, smaller tower hedge, hooks and
+  rate-limit functions.
+
 ## [2.1.1] - 2026-09-25
 
 Two binding fixes from Alef 0.96.4. No Rust, Kotlin or wire-format change — 0.96.4's third fix

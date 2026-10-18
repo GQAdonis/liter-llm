@@ -9,6 +9,13 @@ pub fn build(b: *std.Build) void {
     const ffi_path = b.option([]const u8, "ffi_path", "Path to directory containing libliter_llm_ffi") orelse "../../target/release";
     const ffi_include = b.option([]const u8, "ffi_include_path", "Path to directory containing FFI header") orelse "../../crates/liter-llm-ffi/include";
     const ffi_path_abs = b.pathFromRoot(ffi_path);
+    const ffi_include_abs = b.pathFromRoot(ffi_include);
+    const translate_c = b.addTranslateC(.{
+        .root_source_file = .{ .cwd_relative = b.pathJoin(&.{ ffi_include_abs, "liter_llm.h" }) },
+        .target = target,
+        .optimize = optimize,
+    });
+    translate_c.addIncludePath(.{ .cwd_relative = ffi_include_abs });
 
     const liter_llm_module = b.addModule("liter_llm", .{
         .root_source_file = b.path("../../packages/zig/src/liter_llm.zig"),
@@ -16,6 +23,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
+    liter_llm_module.addImport("c", translate_c.createModule());
     liter_llm_module.addLibraryPath(.{ .cwd_relative = ffi_path });
     liter_llm_module.addIncludePath(.{ .cwd_relative = ffi_include });
     liter_llm_module.linkSystemLibrary("liter_llm_ffi", .{});

@@ -4,7 +4,13 @@
   "docs": {
     "topic": "budget",
     "stem": "budget-enforced",
-    "title": "Tests that a request is rejected when budget is exceeded"
+    "title": "Tests that a request is rejected when budget is exceeded",
+    "client": {
+      "config": {
+        "api_key": "your-api-key",
+        "budget": { "global_limit": 0.0, "enforcement": "hard" }
+      }
+    }
   },
   "category": "budget",
   "tags": ["budget"],

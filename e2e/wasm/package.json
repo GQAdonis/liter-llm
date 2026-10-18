@@ -1,17 +1,17 @@
 {
-  "name": "@xberg-io/liter-llm-wasm-e2e-wasm",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
+  "devDependencies": {
+    "@xberg-io/liter-llm-wasm": "file:../../crates/liter-llm-wasm/pkg/nodejs",
+    "rollup": "^4.64.6",
+    "vitest": "^5.0.4"
+  },
   "engines": {
     "node": ">= 22"
   },
+  "name": "@xberg-io/liter-llm-wasm-e2e-wasm",
+  "private": true,
   "scripts": {
     "test": "NODE_OPTIONS=--max-old-space-size=4096 vitest run"
   },
-  "devDependencies": {
-    "@xberg-io/liter-llm-wasm": "file:../../crates/liter-llm-wasm/pkg/nodejs",
-    "rollup": "^4.63.1",
-    "vitest": "^5.0.0"
-  }
+  "type": "module",
+  "version": "0.1.0"
 }

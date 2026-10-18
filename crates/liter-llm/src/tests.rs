@@ -1218,6 +1218,116 @@ mod provider_tests {
         assert_eq!(p.base_url(), "https://opencode.ai/zen/go/v1");
         assert_eq!(p.env_var(), Some("OPENCODE_API_KEY"));
     }
+
+    #[test]
+    fn detect_litellm_sourced_providers() {
+        let cases = [
+            (
+                "cognition/swe-1.6",
+                "cognition",
+                "https://api.cognition.ai/v1",
+                "COGNITION_API_KEY",
+            ),
+            (
+                "cortecs/some-model",
+                "cortecs",
+                "https://api.cortecs.ai/v1",
+                "CORTECS_API_KEY",
+            ),
+            (
+                "prism/some-model",
+                "prism",
+                "https://api.prisminference.com/v1",
+                "PRISM_API_KEY",
+            ),
+            ("reka/reka-flash", "reka", "https://api.reka.ai/v1", "REKA_API_KEY"),
+            (
+                "sail/some-model",
+                "sail",
+                "https://api.sailresearch.com/v1",
+                "SAIL_API_KEY",
+            ),
+            (
+                "nadir/some-model",
+                "nadir",
+                "https://api.getnadir.com/v1",
+                "NADIR_API_KEY",
+            ),
+            ("scx-ai/some-model", "scx-ai", "https://api.scx.ai/v1", "SCX_API_KEY"),
+            (
+                "edenai/openai/gpt-4o",
+                "edenai",
+                "https://api.edenai.run/v3",
+                "EDENAI_API_KEY",
+            ),
+            (
+                "qwen_ai_platform/qwen-max",
+                "qwen_ai_platform",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "QWEN_AI_PLATFORM_API_KEY",
+            ),
+        ];
+        for (model, name, base_url, env_var) in cases {
+            let p = detect_provider(model).unwrap_or_else(|| panic!("{model} should be detected"));
+            assert_eq!(p.name(), name, "{model}");
+            assert_eq!(p.base_url(), base_url, "{model}");
+            assert_eq!(p.env_var(), Some(env_var), "{model}");
+            let (header, value) = p.auth_header("k").expect("auth header should be present");
+            assert_eq!(header, "Authorization", "{model}");
+            assert_eq!(value, "Bearer k", "{model}");
+        }
+    }
+
+    /// Eden AI model ids are themselves `provider/model`, so only the leading `edenai/` is stripped.
+    #[test]
+    fn edenai_strips_only_its_own_prefix() {
+        let p = detect_provider("edenai/openai/gpt-4o").expect("provider should be detected");
+        assert_eq!(p.strip_model_prefix("edenai/openai/gpt-4o"), "openai/gpt-4o");
+    }
+
+    #[test]
+    fn scx_ai_maps_max_completion_tokens_to_max_tokens() {
+        let p = detect_provider("scx-ai/some-model").expect("provider should be detected");
+        let mut body = serde_json::json!({"model": "some-model", "max_completion_tokens": 64});
+        p.transform_request(&mut body)
+            .expect("transform_request should not fail");
+        assert_eq!(body["max_tokens"], 64);
+        assert!(body.get("max_completion_tokens").is_none());
+    }
+
+    #[test]
+    fn dashscope_family_rerank_uses_the_compatible_api_route() {
+        for (model, url) in [
+            (
+                "dashscope/qwen3-rerank",
+                "https://dashscope-intl.aliyuncs.com/compatible-api/v1/reranks",
+            ),
+            (
+                "qwen_ai_platform/qwen3-rerank",
+                "https://dashscope.aliyuncs.com/compatible-api/v1/reranks",
+            ),
+        ] {
+            let p = detect_provider(model).expect("provider should be detected");
+            assert_eq!(p.build_url(p.rerank_path(), model), url, "{model}");
+            assert!(
+                p.build_url(p.chat_completions_path(), model)
+                    .ends_with("/compatible-mode/v1/chat/completions")
+            );
+        }
+    }
+
+    #[test]
+    fn registry_aliases_route_and_strip_like_the_provider_name() {
+        for (model, provider, upstream) in [
+            ("qwencloud/qwen-max", "dashscope", "qwen-max"),
+            ("lm_studio/local-model", "lmstudio", "local-model"),
+            ("ollama_chat/llama3", "ollama", "llama3"),
+        ] {
+            let p = detect_provider(model).expect("alias should route");
+            assert_eq!(p.name(), provider, "{model}");
+            assert_eq!(p.strip_model_prefix(model), upstream, "{model}");
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1242,6 +1352,52 @@ mod error_tests {
             None,
         );
         assert!(matches!(err, LiterLlmError::RateLimited { .. }));
+    }
+
+    #[test]
+    fn insufficient_quota_is_not_transient_rate_limit() {
+        let err = LiterLlmError::from_status(
+            429,
+            r#"{"error":{"message":"quota exhausted","code":"insufficient_quota"}}"#,
+            Some(std::time::Duration::from_secs(7)),
+        );
+        assert!(matches!(err, LiterLlmError::ProviderQuotaExceeded { status: 429, .. }));
+        assert_eq!(err.status_code(), 429);
+        assert!(!err.is_transient());
+    }
+
+    #[test]
+    fn anthropic_overload_preserves_529_status() {
+        let err = LiterLlmError::from_status(529, "overloaded", Some(std::time::Duration::from_secs(2)));
+        assert!(matches!(
+            err,
+            LiterLlmError::ServiceUnavailable {
+                status: 529,
+                retry_after: Some(_),
+                ..
+            }
+        ));
+        assert_eq!(err.status_code(), 529);
+    }
+
+    #[test]
+    fn provider_context_overflow_messages_are_classified() {
+        for message in [
+            "prompt is too long: 250000 tokens > 200000 maximum",
+            "input token count exceeds the maximum allowed tokens",
+        ] {
+            let body = format!(r#"{{"error":{{"message":"{message}"}}}}"#);
+            assert!(matches!(
+                LiterLlmError::from_status(400, &body, None),
+                LiterLlmError::ContextWindowExceeded { .. }
+            ));
+        }
+    }
+
+    #[test]
+    fn service_unavailable_exposes_retry_after() {
+        let err = LiterLlmError::from_status(503, "unavailable", Some(std::time::Duration::from_secs(3)));
+        assert_eq!(err.retry_after(), Some(std::time::Duration::from_secs(3)));
     }
 
     /// The parsed `Retry-After` delay must be readable through an accessor.
@@ -1349,6 +1505,51 @@ mod error_tests {
         } else {
             panic!("expected ServerError");
         }
+    }
+
+    #[test]
+    fn error_codes_are_unique_domain_codes_covering_every_variant() {
+        let source = include_str!("error.rs");
+        let enum_start = source.find("pub enum LiterLlmError {").expect("enum present");
+        let enum_body = &source[enum_start..];
+        let enum_body = &enum_body[..enum_body.find("\n}\n").expect("enum end")];
+
+        let codes: Vec<u32> = enum_body
+            .lines()
+            .filter_map(|l| l.trim().strip_prefix("#[cfg_attr(alef, alef(error_code = "))
+            .map(|rest| rest.trim_end_matches([')', ']']).parse().expect("numeric error code"))
+            .collect();
+        let variants = enum_body.lines().filter(|l| l.starts_with("    #[error(")).count();
+
+        assert_eq!(codes.len(), variants, "every variant needs an alef error_code");
+        assert!(codes.iter().all(|c| *c >= 100), "codes 0-4 are reserved by alef");
+        let unique: std::collections::BTreeSet<_> = codes.iter().collect();
+        assert_eq!(unique.len(), codes.len(), "error codes must be unique");
+    }
+
+    #[cfg(feature = "native-http")]
+    #[tokio::test]
+    async fn reqwest_timeout_maps_to_timeout_variant() {
+        // ~keep The listener queues connections but never responds, so the request times out.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let url = format!("http://{}/", listener.local_addr().expect("addr"));
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(50))
+            .build()
+            .expect("client");
+        let err = client.get(&url).send().await.expect_err("request must time out");
+        assert!(matches!(LiterLlmError::from(err), LiterLlmError::Timeout));
+    }
+
+    #[cfg(feature = "native-http")]
+    #[tokio::test]
+    async fn reqwest_connect_failure_stays_network() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let url = format!("http://{}/", listener.local_addr().expect("addr"));
+        drop(listener);
+        let client = reqwest::Client::new();
+        let err = client.get(&url).send().await.expect_err("connection refused");
+        assert!(matches!(LiterLlmError::from(err), LiterLlmError::Network { .. }));
     }
 }
 
@@ -1556,14 +1757,14 @@ mod capability_tests {
         assert!(!providers.is_empty(), "registry should have at least one provider");
     }
 
-    /// The total number of providers in the embedded registry must equal 165.
+    /// The total number of providers in the embedded registry must equal 174.
     #[test]
-    fn schema_provider_count_is_165() {
+    fn schema_provider_count_is_174() {
         let providers = all_providers().expect("registry should load");
         assert_eq!(
             providers.len(),
-            165,
-            "expected 165 providers in providers.json, found {}",
+            174,
+            "expected 174 providers in providers.json, found {}",
             providers.len()
         );
     }

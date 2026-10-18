@@ -123,7 +123,7 @@ static DEFAULT_CAPABILITIES: ProviderCapabilities = ProviderCapabilities {
 
 /// Return the capability flags for a named provider.
 ///
-/// Performs an O(n) linear scan over the embedded registry (165 entries).
+/// Performs an O(n) linear scan over the embedded registry (174 entries).
 /// Returns an owned value so bindings can pass capability data without
 /// borrowing registry internals.
 ///
@@ -181,6 +181,15 @@ struct RegionalEndpointConfig {
 struct ProviderEntry {
     #[serde(flatten)]
     config: ProviderConfig,
+    /// Alternative `alias/` namespaces that route to this provider and are stripped like
+    /// `name/` (e.g. `lm_studio` for `lmstudio`). Kept off the public [`ProviderConfig`].
+    #[serde(default)]
+    aliases: Vec<String>,
+    /// Absolute URLs for endpoints that live outside `base_url` (e.g. DashScope rerank under
+    /// `/compatible-api/v1/reranks` while chat is under `/compatible-mode/v1`). Keyed by
+    /// endpoint kind; currently only `rerank` is consulted.
+    #[serde(default)]
+    endpoint_urls: HashMap<String, String>,
     #[serde(default)]
     capabilities: ProviderCapabilities,
     /// Protocol-specific base URLs available in each supported region.
@@ -466,7 +475,16 @@ pub(crate) trait Provider: Send + Sync {
     /// override this to embed deployment names, model IDs, or query parameters
     /// into the URL.
     fn build_url(&self, endpoint_path: &str, _model: &str) -> String {
-        format!("{}{}", self.base_url(), endpoint_path)
+        let Ok(mut base) = url::Url::parse(self.base_url()) else {
+            return format!("{}{}", self.base_url(), endpoint_path);
+        };
+        let path = format!(
+            "{}/{}",
+            base.path().trim_end_matches('/'),
+            endpoint_path.trim_start_matches('/')
+        );
+        base.set_path(&path);
+        base.into()
     }
 
     /// Parse a single SSE event data string into a `ChatCompletionChunk`.
@@ -558,14 +576,32 @@ pub(crate) trait Provider: Send + Sync {
         let _ = (method, url, body);
         Ok(vec![])
     }
+
+    /// Sign with the credential resolved for this request, when configured.
+    ///
+    /// The default preserves static signing for providers without dynamic signing support.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when credentials are unsupported or request signing fails.
+    fn signing_headers_with_credential(
+        &self,
+        method: &str,
+        url: &str,
+        body: &[u8],
+        credential: Option<&crate::auth::Credential>,
+    ) -> Result<Vec<(String, String)>> {
+        let _ = credential;
+        self.signing_headers(method, url, body)
+    }
 }
 
 pub(crate) mod anthropic;
 pub(crate) mod azure;
 pub(crate) mod bedrock;
 pub(crate) mod cohere;
-pub(crate) mod dashscope_multimodal;
 pub mod custom;
+pub(crate) mod dashscope_multimodal;
 pub(crate) mod github_copilot;
 pub(crate) mod google_ai;
 pub(crate) mod mistral;
@@ -694,6 +730,8 @@ pub(crate) struct OpenAiCompatibleProvider {
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub env_var: Option<&'static str>,
     pub model_prefixes: Vec<String>,
+    /// Provider named by the client's `model_hint`; its `name/` prefix is stripped from models.
+    pub hint_provider: Option<String>,
 }
 
 impl Provider for OpenAiCompatibleProvider {
@@ -719,12 +757,30 @@ impl Provider for OpenAiCompatibleProvider {
             .any(|prefix| model.starts_with(prefix.as_str()))
     }
 
+    /// Strip a leading `X/` only when `X` is this provider's own name or the provider
+    /// named by the client's `model_hint`.
+    ///
+    /// This provider fronts a user-supplied `base_url`. Gateways there (OpenRouter, a
+    /// liter-llm or LiteLLM proxy) route on the prefix, so `openai/gpt-4o` must reach them
+    /// verbatim unless the caller declared via `model_hint` that the endpoint is that
+    /// provider. Only the first segment is removed.
     fn strip_model_prefix<'m>(&self, model: &'m str) -> &'m str {
-        self.model_prefixes
-            .iter()
-            .find_map(|prefix| model.strip_prefix(prefix))
-            .unwrap_or(model)
+        if let Some((prefix, rest)) = model.split_once('/')
+            && !rest.is_empty()
+            && (prefix == self.name || self.hint_provider.as_deref() == Some(prefix))
+        {
+            return rest;
+        }
+        model
     }
+}
+
+/// Provider name designated by a `model_hint` (`"openai"` or `"openai/gpt-4o-mini"` -> `"openai"`).
+///
+/// Uses the same `provider/` split as [`detect_provider`].
+pub(crate) fn hint_provider_name(model_hint: &str) -> Option<String> {
+    let name = model_hint.split_once('/').map_or(model_hint, |(prefix, _)| prefix);
+    (!name.is_empty()).then(|| name.to_owned())
 }
 
 /// A data-driven provider backed by a [`ProviderConfig`] entry from providers.json.
@@ -747,12 +803,27 @@ impl Provider for OpenAiCompatibleProvider {
 /// (`/chat/completions`) that fails immediately at the HTTP layer.
 pub(crate) struct ConfigDrivenProvider {
     config: &'static ProviderConfig,
+    aliases: &'static [String],
+    endpoint_urls: Option<&'static HashMap<String, String>>,
 }
 
 impl ConfigDrivenProvider {
+    #[cfg(test)]
     #[must_use]
     pub(crate) fn new(config: &'static ProviderConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            aliases: &[],
+            endpoint_urls: None,
+        }
+    }
+
+    fn from_entry(entry: &'static ProviderEntry) -> Self {
+        Self {
+            config: &entry.config,
+            aliases: &entry.aliases,
+            endpoint_urls: Some(&entry.endpoint_urls),
+        }
     }
 }
 
@@ -767,6 +838,24 @@ impl Provider for ConfigDrivenProvider {
 
     fn env_var(&self) -> Option<&str> {
         self.config.auth.as_ref().and_then(|a| a.env_var.as_deref())
+    }
+
+    fn build_url(&self, endpoint_path: &str, _model: &str) -> String {
+        if endpoint_path == self.rerank_path()
+            && let Some(url) = self.endpoint_urls.and_then(|urls| urls.get("rerank"))
+        {
+            return url.clone();
+        }
+        format!("{}{}", self.base_url(), endpoint_path)
+    }
+
+    fn strip_model_prefix<'m>(&self, model: &'m str) -> &'m str {
+        match model.split_once('/') {
+            Some((prefix, rest)) if prefix == self.config.name || self.aliases.iter().any(|alias| alias == prefix) => {
+                rest
+            }
+            _ => model,
+        }
     }
 
     fn transform_request(&self, body: &mut serde_json::Value) -> Result<()> {
@@ -851,7 +940,7 @@ pub(crate) fn detect_provider(model: &str) -> Option<Box<dyn Provider>> {
     }
 
     if model.starts_with("gemini/") || model.starts_with("google_ai/") {
-        return Some(Box::new(google_ai::GoogleAiProvider));
+        return Some(Box::new(google_ai::GoogleAiProvider::default()));
     }
 
     if model.starts_with("vertex_ai/") {
@@ -884,11 +973,15 @@ pub(crate) fn detect_provider(model: &str) -> Option<Box<dyn Provider>> {
     };
 
     if let Some((prefix, _)) = model.split_once('/')
-        && let Some(entry) = reg.providers.iter().find(|e| e.config.name == prefix)
+        && let Some(entry) = reg
+            .providers
+            .iter()
+            .find(|e| e.config.name == prefix)
+            .or_else(|| reg.providers.iter().find(|e| e.aliases.iter().any(|a| a == prefix)))
         && entry.config.base_url.is_some()
         && !reg.complex_providers.contains(&entry.config.name)
     {
-        return Some(Box::new(ConfigDrivenProvider::new(&entry.config)));
+        return Some(Box::new(ConfigDrivenProvider::from_entry(entry)));
     }
 
     for entry in &reg.providers {
@@ -900,7 +993,7 @@ pub(crate) fn detect_provider(model: &str) -> Option<Box<dyn Provider>> {
                 .iter()
                 .any(|p| model.starts_with(p.as_str()) && !p.ends_with('/'));
             if matches && entry.config.base_url.is_some() {
-                return Some(Box::new(ConfigDrivenProvider::new(&entry.config)));
+                return Some(Box::new(ConfigDrivenProvider::from_entry(entry)));
             }
         }
     }
@@ -980,7 +1073,10 @@ mod tests {
             ),
             ("COHERE_API_KEY", Box::new(super::cohere::CohereProvider)),
             ("MISTRAL_API_KEY", Box::new(super::mistral::MistralProvider)),
-            ("GEMINI_API_KEY", Box::new(super::google_ai::GoogleAiProvider)),
+            (
+                "GEMINI_API_KEY",
+                Box::new(super::google_ai::GoogleAiProvider::default()),
+            ),
             (
                 "AZURE_OPENAI_API_KEY",
                 Box::new(super::azure::AzureProvider::with_base_url("https://x.openai.azure.com")),

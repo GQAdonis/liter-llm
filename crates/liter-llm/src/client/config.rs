@@ -30,7 +30,10 @@ pub struct ClientConfig {
     /// API key for authentication (stored as a secret).
     pub api_key: SecretString,
     /// Override base URL.  When set, all requests go here regardless of model
-    /// name, and provider auto-detection is skipped.
+    /// name, and provider auto-detection is skipped.  The model is sent
+    /// verbatim, except that a leading `X/` is stripped when `X` is the
+    /// provider named by the `model_hint` passed at construction
+    /// (`"openai"` strips `openai/gpt-4o-mini` to `gpt-4o-mini`).
     pub base_url: Option<String>,
     /// Redact `base_url` from Debug output when an embedding host treats the
     /// request-owned endpoint as secret material.

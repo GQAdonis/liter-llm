@@ -300,6 +300,8 @@ api_key = ""
 base_url = "http://192.168.1.100:9000/v1"
 ```
 
+With a custom `base_url`, every request goes to that server and the model name is sent verbatim, so gateways that route on a prefix (OpenRouter's `openai/gpt-4o`, a liter-llm or LiteLLM proxy's `anthropic/...`) receive it unchanged. To have the client strip a provider prefix, pass that provider as `model_hint` (the fifth argument of `create_client`, or the second argument of `DefaultClient::new`): with `model_hint="openai"`, `openai/gpt-4o-mini` is sent as `gpt-4o-mini`, while `anthropic/claude-x` and `meta-llama/llama-3` are still sent as-is. A hint such as `openai/gpt-4o-mini` selects the same provider. The `custom/` prefix is always stripped.
+
 ## Docker Compose
 
 Run Ollama alongside the liter-llm proxy for a self-contained local setup:

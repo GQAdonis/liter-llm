@@ -1,10 +1,19 @@
 {
   "name": "@xberg-io/liter-llm",
-  "version": "2.1.1",
+  "version": "2.2.5",
   "description": "Universal LLM API client with Rust-powered polyglot bindings.",
   "keywords": ["anthropic", "api-client", "llm", "openai"],
   "license": "MIT",
-  "author": "Na'aman Hirschfeld",
+  "author": {
+    "name": "Na'aman Hirschfeld",
+    "email": "naaman@xberg.io"
+  },
+  "contributors": [
+    {
+      "name": "Tobias Perlstein",
+      "email": "tobias@xberg.io"
+    }
+  ],
   "repository": "https://github.com/xberg-io/liter-llm",
   "files": ["index.js", "index.d.ts", "**/*.node"],
   "main": "index.js",
@@ -28,5 +37,6 @@
   "napi": {
     "name": "liter-llm",
     "triples": ["x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "aarch64-apple-darwin", "x86_64-pc-windows-msvc"]
-  }
+  },
+  "packageManager": "pnpm@12.11.2"
 }

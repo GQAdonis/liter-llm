@@ -10,7 +10,17 @@ part 'lib.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `try_convert_assistant_content_from_core`, `try_convert_assistant_part_from_core`, `try_convert_auth_header_format_from_core`, `try_convert_auth_type_from_core`, `try_convert_batch_status_from_core`, `try_convert_cache_backend_from_core`, `try_convert_content_part_from_core`, `try_convert_embedding_content_part_from_core`, `try_convert_embedding_format_from_core`, `try_convert_embedding_input_from_core`, `try_convert_enforcement_from_core`, `try_convert_file_purpose_from_core`, `try_convert_finish_reason_from_core`, `try_convert_image_detail_from_core`, `try_convert_message_from_core`, `try_convert_modality_from_core`, `try_convert_moderation_input_from_core`, `try_convert_ocr_document_from_core`, `try_convert_reasoning_effort_from_core`, `try_convert_refresh_outcome_from_core`, `try_convert_rerank_document_from_core`, `try_convert_response_format_from_core`, `try_convert_stop_sequence_from_core`, `try_convert_stream_format_from_core`, `try_convert_tool_choice_from_core`, `try_convert_tool_choice_mode_from_core`, `try_convert_tool_type_from_core`, `try_convert_user_content_from_core`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `IntentPrototype`, `SingleflightResult`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+
+/// Create a client from binding-friendly options.
+///
+/// **Errors:**
+///
+/// Returns `LiterLlmError.BadRequest` for a zero or platform-overflowing
+/// `max_response_bytes`, plus the errors documented by `create_client`.
+Future<DefaultClient> createClientWithOptions({
+  required ClientOptions options,
+}) => RustLib.instance.api.crateCreateClientWithOptions(options: options);
 
 /// Create a new LLM client with simple scalar configuration.
 ///
@@ -39,11 +49,19 @@ Future<DefaultClient> createClient({
 /// Create a new LLM client from a JSON string.
 ///
 /// The JSON object accepts the same fields as `liter-llm.toml` (snake_case).
+/// Middleware keys (`cache`, `budget`, `cooldown_secs`, `rate_limit`,
+/// `in_flight_limit`, `health_check_secs`, `cost_tracking`, `tracing`) are
+/// applied: the returned client routes the `LlmClient` methods (`chat`,
+/// `chat_stream`, `embed`, `list_models`, `image_generate`, `speech`,
+/// `transcribe`, `moderate`, `rerank`, `search`, `ocr`) through the managed
+/// Tower stack. File, batch and response operations bypass it. Each `providers`
+/// entry is registered process-wide via `register_custom_provider`.
 ///
 /// **Errors:**
 ///
-/// Returns `LiterLlmError.BadRequest` if `json` is not valid JSON or
-/// contains unknown fields.
+/// Returns `LiterLlmError.BadRequest` if `json` is not valid JSON, contains
+/// unknown fields, or sets middleware keys in a build without the `tower` and
+/// `native-http` features. Provider registration failures are propagated.
 Future<DefaultClient> createClientFromJson({required String json}) =>
     RustLib.instance.api.crateCreateClientFromJson(json: json);
 
@@ -91,7 +109,7 @@ Future<bool> unregisterCustomProvider({required String name}) =>
 
 /// Return the capability flags for a named provider.
 ///
-/// Performs an O(n) linear scan over the embedded registry (165 entries).
+/// Performs an O(n) linear scan over the embedded registry (174 entries).
 /// Returns an owned value so bindings can pass capability data without
 /// borrowing registry internals.
 ///
@@ -124,7 +142,7 @@ Future<List<String>> complexProviderNames() =>
 /// Returns `Some(cost_usd)` otherwise, where the value is in US dollars.
 ///
 /// When an exact model name match is not found, progressively shorter prefixes
-/// are tried by stripping from the last `-` or `.` separator.  For example,
+/// are tried by stripping from the last `-` or `.` separator. For example,
 /// `gpt-4-0613` will match `gpt-4` if no `gpt-4-0613` entry exists.
 Future<double?> completionCost({
   required String model,
@@ -166,6 +184,21 @@ Future<double?> completionCostWithCache({
   completionTokens: completionTokens,
 );
 
+/// Calculate completion cost including both prompt-cache reads and writes.
+Future<double?> completionCostWithCacheDetails({
+  required String model,
+  required PlatformInt64 promptTokens,
+  required PlatformInt64 cachedTokens,
+  required PlatformInt64 cacheCreationTokens,
+  required PlatformInt64 completionTokens,
+}) => RustLib.instance.api.crateCompletionCostWithCacheDetails(
+  model: model,
+  promptTokens: promptTokens,
+  cachedTokens: cachedTokens,
+  cacheCreationTokens: cacheCreationTokens,
+  completionTokens: completionTokens,
+);
+
 /// Look up FFI-friendly pricing and capability metadata for a model.
 ///
 /// Returns `null` if the model is not present in the active pricing
@@ -178,6 +211,66 @@ Future<double?> completionCostWithCache({
 /// `model_pricing` for the embedded-only alternative.
 Future<ModelInfo?> modelInfo({required String model}) =>
     RustLib.instance.api.crateModelInfo(model: model);
+
+/// Look up model metadata only when the requested catalog key exists exactly.
+Future<ModelInfo?> exactModelInfo({required String model}) =>
+    RustLib.instance.api.crateExactModelInfo(model: model);
+
+/// Return provenance for the active runtime or embedded model catalog.
+Future<CatalogInfo?> catalogInfo() => RustLib.instance.api.crateCatalogInfo();
+
+/// Install the overlay registry from a raw catalog JSON string, bypassing
+/// the network and disk cache entirely.
+///
+/// Parses and flattens `catalog_json` with the same
+/// `registry_from_catalog_str` logic used for the embedded catalog and the
+/// network refresh path, then atomically swaps it in as the active overlay.
+/// A parse failure returns `CatalogRefreshError.Parse` and leaves any
+/// existing overlay untouched.
+///
+/// This is primarily a testable seam: it lets tests exercise overlay
+/// installation and the embedded/overlay fallback behavior in
+/// `completion_cost` / `model_info` without a real network
+/// call.
+Future<void> installCatalogOverlayFromStr({required String catalogJson}) =>
+    RustLib.instance.api.crateInstallCatalogOverlayFromStr(
+      catalogJson: catalogJson,
+    );
+
+/// Clear the overlay registry, reverting `completion_cost`,
+/// `completion_cost_with_cache`, and `model_info` to the
+/// embedded catalog.
+///
+/// Primarily a test seam (see `install_catalog_overlay_from_str`); also
+/// usable by long-running processes that want to abandon a runtime refresh.
+Future<void> clearCatalogOverlay() =>
+    RustLib.instance.api.crateClearCatalogOverlay();
+
+/// Refresh the runtime catalog overlay per `config`.
+///
+/// - `config.enabled == false`: returns `Ok(RefreshOutcome.Disabled)`
+///   immediately. No network, filesystem, or overlay activity.
+///
+/// - A fresh on-disk cache (age < `config.ttl_seconds`) exists at the
+///   resolved cache path (`config.cache_path`, or a default under
+///   `std.env.temp_dir()`): read + flatten it and install the overlay,
+///   returning `Ok(RefreshOutcome.FromCache)`. No network request is
+///   made.
+///
+/// - Otherwise: validate `config.source_url` uses `https`
+///   (`CatalogRefreshError.InsecureUrl` otherwise), fetch it, flatten it,
+///   install the overlay, best-effort write the raw JSON to the cache path
+///   (a cache write failure does not fail the refresh), and return
+///   `Ok(RefreshOutcome.Fetched)`.
+///
+/// On any error return, the overlay is left untouched: the previously
+/// active registry (a prior successful overlay, or the embedded catalog if
+/// none was ever installed) remains in effect. This is what makes the
+/// feature air-gap-safe — an unreachable or invalid `source_url` never
+/// degrades `completion_cost` / `model_info` below embedded-catalog
+/// availability.
+Future<RefreshOutcome> refreshCatalog({required CatalogRefreshConfig config}) =>
+    RustLib.instance.api.crateRefreshCatalog(config: config);
 
 /// Remove all guardrails from the global registry.
 ///
@@ -238,7 +331,7 @@ Future<void> recordCostUsd({
 /// Assert that `current_len + incoming` does not exceed `limit`.
 ///
 /// Call this before appending `incoming` bytes to any buffer that must
-/// stay below `limit`.  Returns `Err(LiterLlmError.Streaming)` on overflow
+/// stay below `limit`. Returns `Err(LiterLlmError.Streaming)` on overflow
 /// and emits a `tracing.warn!` with context.
 Future<void> checkBound({
   required String context,
@@ -271,58 +364,8 @@ Future<void> checkBound({
 Future<void> ensureCryptoProvider() =>
     RustLib.instance.api.crateEnsureCryptoProvider();
 
-/// Install the overlay registry from a raw catalog JSON string, bypassing
-/// the network and disk cache entirely.
-///
-/// Parses and flattens `catalog_json` with the same
-/// `registry_from_catalog_str` logic used for the embedded catalog and the
-/// network refresh path, then atomically swaps it in as the active overlay.
-/// A parse failure returns `CatalogRefreshError.Parse` and leaves any
-/// existing overlay untouched.
-///
-/// This is primarily a testable seam: it lets tests exercise overlay
-/// installation and the embedded/overlay fallback behavior in
-/// `completion_cost` / `model_info` without a real network
-/// call.
-Future<void> installCatalogOverlayFromStr({required String catalogJson}) =>
-    RustLib.instance.api.crateInstallCatalogOverlayFromStr(
-      catalogJson: catalogJson,
-    );
-
-/// Clear the overlay registry, reverting `completion_cost`,
-/// `completion_cost_with_cache`, and `model_info` to the
-/// embedded catalog.
-///
-/// Primarily a test seam (see `install_catalog_overlay_from_str`); also
-/// usable by long-running processes that want to abandon a runtime refresh.
-Future<void> clearCatalogOverlay() =>
-    RustLib.instance.api.crateClearCatalogOverlay();
-
-/// Refresh the runtime catalog overlay per `config`.
-///
-/// - `config.enabled == false`: returns `Ok(RefreshOutcome.Disabled)`
-///   immediately. No network, filesystem, or overlay activity.
-///
-/// - A fresh on-disk cache (age < `config.ttl_seconds`) exists at the
-///   resolved cache path (`config.cache_path`, or a default under
-///   `std.env.temp_dir()`): read + flatten it and install the overlay,
-///   returning `Ok(RefreshOutcome.FromCache)`. No network request is
-///   made.
-///
-/// - Otherwise: validate `config.source_url` uses `https`
-///   (`CatalogRefreshError.InsecureUrl` otherwise), fetch it, flatten it,
-///   install the overlay, best-effort write the raw JSON to the cache path
-///   (a cache write failure does not fail the refresh), and return
-///   `Ok(RefreshOutcome.Fetched)`.
-///
-/// On any error return, the overlay is left untouched: the previously
-/// active registry (a prior successful overlay, or the embedded catalog if
-/// none was ever installed) remains in effect. This is what makes the
-/// feature air-gap-safe — an unreachable or invalid `source_url` never
-/// degrades `completion_cost` / `model_info` below embedded-catalog
-/// availability.
-Future<RefreshOutcome> refreshCatalog({required CatalogRefreshConfig config}) =>
-    RustLib.instance.api.crateRefreshCatalog(config: config);
+Future<ClientOptions> createClientOptionsFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateClientOptionsFromJson(json: json);
 
 Future<SystemMessage> createSystemMessageFromJson({required String json}) =>
     RustLib.instance.api.crateCreateSystemMessageFromJson(json: json);
@@ -385,6 +428,11 @@ Future<Usage> createUsageFromJson({required String json}) =>
 Future<PromptTokensDetails> createPromptTokensDetailsFromJson({
   required String json,
 }) => RustLib.instance.api.crateCreatePromptTokensDetailsFromJson(json: json);
+
+Future<CompletionTokensDetails> createCompletionTokensDetailsFromJson({
+  required String json,
+}) =>
+    RustLib.instance.api.crateCreateCompletionTokensDetailsFromJson(json: json);
 
 Future<ChatCompletionRequest> createChatCompletionRequestFromJson({
   required String json,
@@ -621,11 +669,18 @@ Future<ProviderConfig> createProviderConfigFromJson({required String json}) =>
 Future<AuthConfig> createAuthConfigFromJson({required String json}) =>
     RustLib.instance.api.crateCreateAuthConfigFromJson(json: json);
 
+Future<CatalogInfo> createCatalogInfoFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateCatalogInfoFromJson(json: json);
+
 Future<ModelInfo> createModelInfoFromJson({required String json}) =>
     RustLib.instance.api.crateCreateModelInfoFromJson(json: json);
 
 Future<ModelTier> createModelTierFromJson({required String json}) =>
     RustLib.instance.api.crateCreateModelTierFromJson(json: json);
+
+Future<CatalogRefreshConfig> createCatalogRefreshConfigFromJson({
+  required String json,
+}) => RustLib.instance.api.crateCreateCatalogRefreshConfigFromJson(json: json);
 
 Future<BudgetConfig> createBudgetConfigFromJson({required String json}) =>
     RustLib.instance.api.crateCreateBudgetConfigFromJson(json: json);
@@ -639,10 +694,6 @@ Future<InFlightLimitConfig> createInFlightLimitConfigFromJson({
 
 Future<RateLimitConfig> createRateLimitConfigFromJson({required String json}) =>
     RustLib.instance.api.crateCreateRateLimitConfigFromJson(json: json);
-
-Future<CatalogRefreshConfig> createCatalogRefreshConfigFromJson({
-  required String json,
-}) => RustLib.instance.api.crateCreateCatalogRefreshConfigFromJson(json: json);
 
 Future<Message> createMessageFromJson({required String json}) =>
     RustLib.instance.api.crateCreateMessageFromJson(json: json);
@@ -722,14 +773,14 @@ Future<StreamFormat> createStreamFormatFromJson({required String json}) =>
 Future<AuthType> createAuthTypeFromJson({required String json}) =>
     RustLib.instance.api.crateCreateAuthTypeFromJson(json: json);
 
+Future<RefreshOutcome> createRefreshOutcomeFromJson({required String json}) =>
+    RustLib.instance.api.crateCreateRefreshOutcomeFromJson(json: json);
+
 Future<Enforcement> createEnforcementFromJson({required String json}) =>
     RustLib.instance.api.crateCreateEnforcementFromJson(json: json);
 
 Future<CacheBackend> createCacheBackendFromJson({required String json}) =>
     RustLib.instance.api.crateCreateCacheBackendFromJson(json: json);
-
-Future<RefreshOutcome> createRefreshOutcomeFromJson({required String json}) =>
-    RustLib.instance.api.crateCreateRefreshOutcomeFromJson(json: json);
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DefaultClient>>
 abstract class DefaultClient implements RustOpaqueInterface {
@@ -1326,6 +1377,57 @@ class CacheConfig {
           backend == other.backend;
 }
 
+/// Provenance for the active model catalog.
+class CatalogInfo {
+  /// Upstream catalog source.
+  final String source;
+
+  /// SHA-256 of the upstream source payload.
+  final String sourceSha256;
+
+  /// Date the upstream source was fetched.
+  final String fetched;
+
+  /// Library version recorded when the catalog was generated.
+  final String libraryVersion;
+
+  /// Catalog schema version.
+  final PlatformInt64 schemaVersion;
+
+  /// Active catalog origin: `"embedded"` or `"overlay"`.
+  final String origin;
+
+  const CatalogInfo({
+    required this.source,
+    required this.sourceSha256,
+    required this.fetched,
+    required this.libraryVersion,
+    required this.schemaVersion,
+    required this.origin,
+  });
+
+  @override
+  int get hashCode =>
+      source.hashCode ^
+      sourceSha256.hashCode ^
+      fetched.hashCode ^
+      libraryVersion.hashCode ^
+      schemaVersion.hashCode ^
+      origin.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CatalogInfo &&
+          runtimeType == other.runtimeType &&
+          source == other.source &&
+          sourceSha256 == other.sourceSha256 &&
+          fetched == other.fetched &&
+          libraryVersion == other.libraryVersion &&
+          schemaVersion == other.schemaVersion &&
+          origin == other.origin;
+}
+
 /// Plain-data configuration for [`refresh_catalog`].
 ///
 /// Deliberately FFI/binding-friendly: no `Duration` or `PathBuf`, just
@@ -1346,7 +1448,7 @@ class CatalogRefreshConfig {
   final PlatformInt64 ttlSeconds;
 
   /// Filesystem path for the on-disk cache. `None` uses a default path
-  /// under `std::env::temp_dir()`.
+  /// under the current user's platform cache directory.
   final String? cachePath;
 
   const CatalogRefreshConfig({
@@ -1408,6 +1510,10 @@ sealed class CatalogRefreshError with _$CatalogRefreshError {
     required String path,
     required String message,
   }) = CatalogRefreshError_Cache;
+
+  /// Catalog bytes did not match the published SHA-256 checksum.
+  const factory CatalogRefreshError.integrity({required String message}) =
+      CatalogRefreshError_Integrity;
 }
 
 /// A streamed chunk of a chat completion response.
@@ -1422,7 +1528,9 @@ class ChatCompletionChunk {
   /// Unix timestamp of chunk creation.
   final PlatformInt64 created;
 
-  /// Model used to generate the chunk.
+  /// Provider-reported model identifier. Gemini chunks without `modelVersion`
+  /// retain the last reported model, or the requested model if none was reported.
+  /// A requested-model fallback does not establish the resolved model version.
   final String model;
 
   /// Streaming choices (delta updates).
@@ -1714,7 +1822,9 @@ class ChatCompletionResponse {
   /// Unix timestamp of response creation.
   final PlatformInt64 created;
 
-  /// Model used to generate the response.
+  /// Provider-reported model identifier. For Gemini, this is `modelVersion`;
+  /// when omitted, the client retains the requested model, which may be an alias
+  /// and does not establish the resolved model version.
   final String model;
 
   /// List of completion choices.
@@ -1845,6 +1955,78 @@ enum CircuitState {
 
   /// One probe request is allowed through to test service health.
   halfOpen,
+}
+
+/// Binding-friendly options for constructing a client without an unbounded response body.
+class ClientOptions {
+  /// Provider API key; an empty value omits the authentication header.
+  final String apiKey;
+
+  /// Optional provider base URL override.
+  final String? baseUrl;
+
+  /// Optional request timeout in seconds.
+  final PlatformInt64? timeoutSecs;
+
+  /// Optional retry count for retryable provider failures.
+  final PlatformInt64? maxRetries;
+
+  /// Optional maximum number of response bytes retained in memory.
+  final PlatformInt64? maxResponseBytes;
+
+  /// Optional model or provider hint used for initial provider selection.
+  final String? modelHint;
+
+  const ClientOptions({
+    required this.apiKey,
+    this.baseUrl,
+    this.timeoutSecs,
+    this.maxRetries,
+    this.maxResponseBytes,
+    this.modelHint,
+  });
+
+  @override
+  int get hashCode =>
+      apiKey.hashCode ^
+      baseUrl.hashCode ^
+      timeoutSecs.hashCode ^
+      maxRetries.hashCode ^
+      maxResponseBytes.hashCode ^
+      modelHint.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ClientOptions &&
+          runtimeType == other.runtimeType &&
+          apiKey == other.apiKey &&
+          baseUrl == other.baseUrl &&
+          timeoutSecs == other.timeoutSecs &&
+          maxRetries == other.maxRetries &&
+          maxResponseBytes == other.maxResponseBytes &&
+          modelHint == other.modelHint;
+}
+
+/// Breakdown of tokens used in the completion portion of a request.
+///
+/// `reasoning_tokens` is included in `Usage::completion_tokens` — it is not
+/// additional usage on top of the completion token count.
+class CompletionTokensDetails {
+  /// Reasoning or thinking tokens present in the completion. Defaults to 0 when absent.
+  final PlatformInt64 reasoningTokens;
+
+  const CompletionTokensDetails({required this.reasoningTokens});
+
+  @override
+  int get hashCode => reasoningTokens.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CompletionTokensDetails &&
+          runtimeType == other.runtimeType &&
+          reasoningTokens == other.reasoningTokens;
 }
 
 @freezed
@@ -2927,8 +3109,11 @@ sealed class LiterLlmError with _$LiterLlmError {
   const factory LiterLlmError.serviceUnavailable({
     required String message,
     required PlatformInt64 status,
+    required PlatformInt64 retryAfter,
   }) = LiterLlmError_ServiceUnavailable;
   const factory LiterLlmError.timeout() = LiterLlmError_Timeout;
+  const factory LiterLlmError.network({required String message}) =
+      LiterLlmError_Network;
 
   /// A catch-all for errors that occur during streaming response processing.
   ///
@@ -2993,6 +3178,12 @@ sealed class LiterLlmError with _$LiterLlmError {
   const factory LiterLlmError.idempotencyInFlight({required String key}) =
       LiterLlmError_IdempotencyInFlight;
 
+  /// The upstream provider rejected the request because the account quota is exhausted.
+  const factory LiterLlmError.providerQuotaExceeded({
+    required String message,
+    required PlatformInt64 status,
+  }) = LiterLlmError_ProviderQuotaExceeded;
+
   /// Return the OpenTelemetry `error.type` string for this error variant.
   ///
   /// Used by the tracing middleware to record the `error.type` span attribute
@@ -3008,6 +3199,16 @@ sealed class LiterLlmError with _$LiterLlmError {
   /// alternative endpoint.
   Future<bool> isTransient() =>
       RustLib.instance.api.crateLiterLlmErrorIsTransient(that: this);
+
+  /// Returns the server-advertised retry delay, when the error carries one.
+  ///
+  /// Parsed from the upstream `Retry-After` header on a 429.  Exposed as an
+  /// accessor alongside [`Self::status_code`] and [`Self::error_type`] so the
+  /// generated bindings can surface it: the value reached the Rust core but
+  /// stopped there, leaving every binding consumer to re-derive its own
+  /// backoff from nothing more than the status code.
+  Future<PlatformInt64?> retryAfter() =>
+      RustLib.instance.api.crateLiterLlmErrorRetryAfter(that: this);
 
   /// Returns the canonical HTTP status code associated with this error.
   ///
@@ -3106,7 +3307,9 @@ class LlmConfig {
   final String? apiKey;
 
   /// Override base URL. When set, all requests go here and provider
-  /// auto-detection is skipped.
+  /// auto-detection is skipped. The model is sent verbatim, except that a
+  /// leading `X/` is stripped when `X` is the provider named by `model_hint`
+  /// (`"openai"` strips `openai/gpt-4o-mini` to `gpt-4o-mini`).
   final String? baseUrl;
 
   /// Request timeout, in seconds.
@@ -3363,6 +3566,15 @@ enum Modality {
 /// `ModelInfo` is an owned plain-data DTO safe to hand across the FFI
 /// boundary — see [`model_info`].
 class ModelInfo {
+  /// Catalog key that supplied this metadata.
+  final String matchedKey;
+
+  /// Whether the requested model key matched the catalog exactly.
+  final bool exact;
+
+  /// Whether the per-token price is known; false prevents cost estimation.
+  final bool priceKnown;
+
   /// Cost in USD per input (prompt) token.
   final double inputCostPerToken;
 
@@ -3422,6 +3634,9 @@ class ModelInfo {
   final List<ModelTier> tiers;
 
   const ModelInfo({
+    required this.matchedKey,
+    required this.exact,
+    required this.priceKnown,
     required this.inputCostPerToken,
     required this.outputCostPerToken,
     this.cacheReadInputTokenCost,
@@ -3445,6 +3660,9 @@ class ModelInfo {
 
   @override
   int get hashCode =>
+      matchedKey.hashCode ^
+      exact.hashCode ^
+      priceKnown.hashCode ^
       inputCostPerToken.hashCode ^
       outputCostPerToken.hashCode ^
       cacheReadInputTokenCost.hashCode ^
@@ -3470,6 +3688,9 @@ class ModelInfo {
       identical(this, other) ||
       other is ModelInfo &&
           runtimeType == other.runtimeType &&
+          matchedKey == other.matchedKey &&
+          exact == other.exact &&
+          priceKnown == other.priceKnown &&
           inputCostPerToken == other.inputCostPerToken &&
           outputCostPerToken == other.outputCostPerToken &&
           cacheReadInputTokenCost == other.cacheReadInputTokenCost &&
@@ -4058,16 +4279,23 @@ class PromptTokensDetails {
   /// Cached tokens present in the prompt. Defaults to 0 when absent.
   final PlatformInt64 cachedTokens;
 
+  /// Tokens written to the provider prompt cache. Defaults to 0 when absent.
+  final PlatformInt64 cacheCreationTokens;
+
   /// Audio input tokens present in the prompt. Defaults to 0 when absent.
   final PlatformInt64 audioTokens;
 
   const PromptTokensDetails({
     required this.cachedTokens,
+    required this.cacheCreationTokens,
     required this.audioTokens,
   });
 
   @override
-  int get hashCode => cachedTokens.hashCode ^ audioTokens.hashCode;
+  int get hashCode =>
+      cachedTokens.hashCode ^
+      cacheCreationTokens.hashCode ^
+      audioTokens.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -4075,6 +4303,7 @@ class PromptTokensDetails {
       other is PromptTokensDetails &&
           runtimeType == other.runtimeType &&
           cachedTokens == other.cachedTokens &&
+          cacheCreationTokens == other.cacheCreationTokens &&
           audioTokens == other.audioTokens;
 }
 
@@ -5090,11 +5319,16 @@ class Usage {
   /// does not return prompt-token details.
   final PromptTokensDetails? promptTokensDetails;
 
+  /// Breakdown of tokens used in the completion, including reasoning tokens.
+  /// Absent when the provider does not return completion-token details.
+  final CompletionTokensDetails? completionTokensDetails;
+
   const Usage({
     required this.promptTokens,
     required this.completionTokens,
     required this.totalTokens,
     this.promptTokensDetails,
+    this.completionTokensDetails,
   });
 
   @override
@@ -5102,7 +5336,8 @@ class Usage {
       promptTokens.hashCode ^
       completionTokens.hashCode ^
       totalTokens.hashCode ^
-      promptTokensDetails.hashCode;
+      promptTokensDetails.hashCode ^
+      completionTokensDetails.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -5112,7 +5347,8 @@ class Usage {
           promptTokens == other.promptTokens &&
           completionTokens == other.completionTokens &&
           totalTokens == other.totalTokens &&
-          promptTokensDetails == other.promptTokensDetails;
+          promptTokensDetails == other.promptTokensDetails &&
+          completionTokensDetails == other.completionTokensDetails;
 }
 
 @freezed
@@ -5191,7 +5427,6 @@ class WaitForBatchConfig {
           timeoutSecs == other.timeoutSecs;
 }
 
-
 extension AssistantContentTextExt on AssistantContent {
   /// Returns the plain-text display value of this content.
   ///
@@ -5202,7 +5437,9 @@ extension AssistantContentTextExt on AssistantContent {
   String text() {
     return switch (this) {
       AssistantContent_Text(:final field0) => field0,
-      AssistantContent_Parts(:final field0) => _extractTextFromContentParts(field0),
+      AssistantContent_Parts(:final field0) => _extractTextFromContentParts(
+        field0,
+      ),
       _ => '',
     };
   }

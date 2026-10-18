@@ -16,9 +16,8 @@ use crate::error::Result;
 /// If `groundingMetadata` is present on the candidate, it is included in the
 /// response as `_grounding_metadata` for supplementary use by callers.
 ///
-/// **Known limitation:** The `model` field in the normalized response is
-/// always `""`.  Gemini/Vertex AI does not include the model name in its
-/// response body -- the model is only present in the request URL path.
+/// The provider-reported `modelVersion` is preserved as `model`. When omitted,
+/// the client supplies the requested model as a fallback, without resolving aliases.
 pub(crate) fn transform_gemini_response(body: &mut Value) -> Result<()> {
     if let Some(normalized) = non_chat_response(body) {
         *body = normalized;
@@ -48,7 +47,7 @@ pub(crate) fn transform_gemini_response(body: &mut Value) -> Result<()> {
     let tool_calls = tool_calls_from_parts(&parts);
     let finish_reason = gemini_finish_reason(finish_reason_raw);
 
-    let (prompt_tokens, completion_tokens) = usage_token_counts(body);
+    let usage = usage_metadata(body);
 
     let response_id = body.get("responseId").cloned().unwrap_or_else(|| json!("gemini-resp"));
 
@@ -68,16 +67,22 @@ pub(crate) fn transform_gemini_response(body: &mut Value) -> Result<()> {
         "id": response_id,
         "object": "chat.completion",
         "created": crate::provider::unix_timestamp_secs(),
-        "model": "",
+        "model": body.get("modelVersion").and_then(Value::as_str).unwrap_or(""),
         "choices": [{
             "index": 0,
             "message": message,
             "finish_reason": finish_reason
         }],
         "usage": {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens,
+            "prompt_tokens_details": {
+                "cached_tokens": usage.cached_tokens
+            },
+            "completion_tokens_details": {
+                "reasoning_tokens": usage.reasoning_tokens
+            }
         }
     });
 
@@ -93,6 +98,17 @@ pub(crate) fn transform_gemini_response(body: &mut Value) -> Result<()> {
 /// Normalize the non-chat response shapes this endpoint also carries: Vertex
 /// `:predict` embeddings, a model listing, or a Gemini `embedContent` result.
 fn non_chat_response(body: &Value) -> Option<Value> {
+    if let Some(embeddings) = body.get("embeddings").and_then(|value| value.as_array()) {
+        let data: Vec<Value> = embeddings
+            .iter()
+            .enumerate()
+            .map(|(index, embedding)| {
+                let values = embedding.get("values").cloned().unwrap_or(json!([]));
+                json!({"object": "embedding", "embedding": values, "index": index})
+            })
+            .collect();
+        return Some(json!({"object": "list", "data": data, "model": ""}));
+    }
     if let Some(predictions) = body.get("predictions").and_then(|p| p.as_array()) {
         let data: Vec<Value> = predictions
             .iter()
@@ -268,7 +284,7 @@ fn blocked_prompt_response(body: &Value) -> Value {
         "id": "gemini-resp",
         "object": "chat.completion",
         "created": crate::provider::unix_timestamp_secs(),
-        "model": "",
+        "model": body.get("modelVersion").and_then(Value::as_str).unwrap_or(""),
         "choices": [{
             "index": 0,
             "message": {"role": "assistant", "content": null},
@@ -284,17 +300,49 @@ fn blocked_prompt_response(body: &Value) -> Value {
     })
 }
 
-/// `(prompt_tokens, completion_tokens)` from Gemini `usageMetadata`.
-fn usage_token_counts(body: &Value) -> (u64, u64) {
-    let prompt_tokens = body
+struct GeminiUsage {
+    prompt_tokens: u64,
+    completion_tokens: u64,
+    total_tokens: u64,
+    reasoning_tokens: u64,
+    cached_tokens: u64,
+}
+
+/// OpenAI-compatible token accounting from Gemini `usageMetadata`.
+fn usage_metadata(body: &Value) -> GeminiUsage {
+    let base_prompt_tokens = body
         .pointer("/usageMetadata/promptTokenCount")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
-    let completion_tokens = body
+    let tool_prompt_tokens = body
+        .pointer("/usageMetadata/toolUsePromptTokenCount")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let prompt_tokens = base_prompt_tokens.saturating_add(tool_prompt_tokens);
+    let candidate_tokens = body
         .pointer("/usageMetadata/candidatesTokenCount")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
-    (prompt_tokens, completion_tokens)
+    let reasoning_tokens = body
+        .pointer("/usageMetadata/thoughtsTokenCount")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let cached_tokens = body
+        .pointer("/usageMetadata/cachedContentTokenCount")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let completion_tokens = candidate_tokens.saturating_add(reasoning_tokens);
+    let total_tokens = body
+        .pointer("/usageMetadata/totalTokenCount")
+        .and_then(|v| v.as_u64())
+        .unwrap_or_else(|| prompt_tokens.saturating_add(completion_tokens));
+    GeminiUsage {
+        prompt_tokens,
+        completion_tokens,
+        total_tokens,
+        reasoning_tokens,
+        cached_tokens,
+    }
 }
 
 impl CollectedParts {

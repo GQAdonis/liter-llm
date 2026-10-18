@@ -12,7 +12,7 @@ side_effect: network
 stdio_trust_local = true
 ```
 
-Use `stdio_trust_local = true` only for trusted local clients. To enforce a virtual-key policy instead, set `stdio_key_id` to an existing `[[keys]].key`.
+Local stdio clients are trusted by default; this table makes the default explicit. To enforce a virtual-key policy, set `stdio_trust_local = false` and `stdio_key_id` to an existing `[[keys]].key`.
 
 ```json title="claude_desktop_config.json (stdio)"
 {

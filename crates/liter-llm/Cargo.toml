@@ -1,4 +1,27 @@
 [package]
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/src/**",
+    "/README.md",
+    "/schemas/catalog.json",
+    "/schemas/providers.json",
+    "!/src/tests.rs",
+    "!/src/cost/refresh_tests.rs",
+    "!/src/cost/tests.rs",
+    "!/src/tower/budget/ledger_tests.rs",
+    "!/src/tower/budget/tests.rs",
+    "!/src/tower/tests.rs",
+    "!/src/tower/tests_common.rs",
+    "!/src/provider/vertex/response_tests.rs",
+    "!/src/provider/vertex/tests.rs",
+    "!/src/provider/bedrock/provider_tests.rs",
+    "!/src/provider/bedrock/tests.rs",
+    "!/src/provider/anthropic/feature_tests.rs",
+    "!/src/provider/anthropic/tests.rs",
+    "!/src/guardrail/tests.rs",
+    "!/src/http/request_body_tests.rs",
+]
 name = "liter-llm"
 # NOTE (local submodule-only patch, not upstreamed): these fields are hardcoded
 # instead of `*.workspace = true`. This crate is consumed by
@@ -12,13 +35,13 @@ name = "liter-llm"
 # same fix already applied to the other vendored crates in vendor/git/
 # (surreal-memory, sycophancy-core). Values must stay in sync with
 # ../../Cargo.toml's `[workspace.package]` table when bumping upstream.
-version = "2.1.1"
+version = "2.2.5"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
 homepage = "https://xberg.io"
-authors = ["Na'aman Hirschfeld <naaman@xberg.io>"]
-description = "Universal LLM API client — 165 providers, streaming, tool calling. Rust-powered, type-safe, compiled."
+authors = ["Na'aman Hirschfeld <naaman@xberg.io>", "Tobias Perlstein <tobias@xberg.io>"]
+description = "Universal LLM API client — 174 providers, streaming, tool calling. Rust-powered, type-safe, compiled."
 readme = "README.md"
 keywords = ["llm", "openai", "api-client", "ai", "xberg"]
 categories = ["api-bindings", "web-programming::http-client"]
@@ -94,7 +117,7 @@ full = [
   "opendal-cache",
 ]
 
-etcd-key-resolver = ["dep:etcd-client", "dep:hex", "dep:sha2"]
+etcd-key-resolver = ["dep:etcd-client"]
 
 # ~keep Default remains native HTTP only so downstream `cargo build` avoids heavy deps.
 default = ["native-http"]
@@ -116,15 +139,17 @@ base64 = "0.23"
 bytes = "1"
 cel-interpreter = { version = "0.10", optional = true }
 dashmap = "6"
-etcd-client = { version = "0.20", default-features = false, optional = true }
+etcd-client = { version = "0.21", default-features = false, optional = true }
 futures-core = "0.3"
 futures-util = { version = "0.3", optional = true }
 gcp_auth = { version = "0.12", default-features = false, features = ["ring"], optional = true }
 gloo-timers = { version = "0.4", features = ["futures"], optional = true }
-hex = { version = "0.4", optional = true }
+hex = "0.4"
+http = "1"
+httpdate = "1"
 jsonwebtoken = { version = "11", default-features = false, features = ["use_pem"], optional = true }
 memchr = { version = "2", optional = true }
-opendal = { version = "0.59.3", default-features = false, features = [
+opendal = { version = "0.59.4", default-features = false, features = [
     "services-memory",
     "services-redis",
     "services-fs",
@@ -143,7 +168,7 @@ rust_decimal = { version = "1", features = ["serde"] }
 secrecy = { version = "0.10", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sha2 = { version = "0.11", optional = true }
+sha2 = "0.11"
 thiserror = "2"
 tokenizers = { version = "0.23", default-features = false, features = ["http", "fancy-regex"], optional = true }
 tokio = { version = "1", features = ["full", "time", "rt", "macros"], optional = true }
@@ -180,21 +205,21 @@ web-time = { version = "1", optional = true }
 # ~keep Non-Windows uses rustls + ring to avoid aws-lc-sys as the bundled TLS provider.
 # ~keep The workspace reqwest base is TLS-agnostic; this layer supplies TLS.
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-opendal-http-transport-reqwest = { version = "0.59.3", default-features = false, optional = true, features = ["rustls-no-provider"] }
+opendal-http-transport-reqwest = { version = "0.59.4", default-features = false, optional = true, features = ["rustls-no-provider"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form", "rustls-no-provider"], optional = true }
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"], optional = true }
 
 # ~keep Windows uses SChannel via native-tls to avoid aws-lc-sys MSVC build failures.
 # ~keep rustls is intentionally not pulled in on Windows.
 [target.'cfg(target_os = "windows")'.dependencies]
-opendal-http-transport-reqwest = { version = "0.59.3", default-features = false, optional = true, features = ["native-tls"] }
+opendal-http-transport-reqwest = { version = "0.59.4", default-features = false, optional = true, features = ["native-tls"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form", "native-tls"], optional = true }
 
 [dev-dependencies]
 ctor = "1.0"
-etcd-client = { version = "0.20", default-features = false }
+etcd-client = { version = "0.21", default-features = false }
 futures-util = "0.3"
-jsonschema = "0.57"
+jsonschema = "0.58"
 serde_json = "1"
 serial_test = "4"
 tempfile = "3"

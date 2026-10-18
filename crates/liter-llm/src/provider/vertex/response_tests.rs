@@ -200,6 +200,40 @@ fn parse_stream_event_basic_chunk() {
 }
 
 #[test]
+fn parse_stream_event_reports_thinking_token_usage() {
+    let p = provider();
+    let event_data = r#"{
+        "candidates": [{
+            "content": {"role": "model", "parts": [{"text": "Hello"}]},
+            "finishReason": "STOP"
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 5,
+            "candidatesTokenCount": 2,
+            "thoughtsTokenCount": 7,
+            "totalTokenCount": 15
+        }
+    }"#;
+
+    let chunk = p
+        .parse_stream_event(event_data)
+        .expect("parse_stream_event should not fail")
+        .expect("should yield a chunk");
+    let usage = chunk.usage.expect("final Gemini chunk should carry usage");
+
+    assert_eq!(usage.prompt_tokens, 5);
+    assert_eq!(usage.completion_tokens, 9);
+    assert_eq!(usage.total_tokens, 15);
+    assert_eq!(
+        usage
+            .completion_tokens_details
+            .expect("thinking tokens should be exposed separately")
+            .reasoning_tokens,
+        7
+    );
+}
+
+#[test]
 fn parse_stream_event_thought_part_routes_to_reasoning_content() {
     // ~keep Regression test for #52: the streaming path must also route "thought"
     // parts to `reasoning_content`, not just the non-streaming response transform.
@@ -319,7 +353,55 @@ fn transform_request_response_format_json_schema() {
         .expect("transform_request should not fail");
 
     assert_eq!(body["generationConfig"]["responseMimeType"], "application/json");
-    assert_eq!(body["generationConfig"]["responseSchema"]["type"], "object");
+    assert_eq!(body["generationConfig"]["responseJsonSchema"]["type"], "object");
+    assert_eq!(body["generationConfig"].get("responseSchema"), None);
+}
+
+#[test]
+fn should_preserve_nullable_json_schema_for_google_and_vertex() {
+    let google = crate::provider::google_ai::GoogleAiProvider::default();
+    let vertex = provider();
+    let providers: [&dyn Provider; 2] = [&google, &vertex];
+    let schema = json!({
+        "type": "object",
+        "required": ["purchase_order", "lines"],
+        "additionalProperties": false,
+        "properties": {
+            "purchase_order": {"type": ["string", "null"]},
+            "lines": {
+                "type": "array",
+                "items": {
+                    "type": ["object", "null"],
+                    "required": ["quantity", "tags"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "quantity": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                        "tags": {"type": ["array", "null"], "items": {"type": ["string", "null"]}}
+                    }
+                }
+            }
+        }
+    });
+    for provider in providers {
+        let mut body = json!({
+            "messages": [{"role": "user", "content": "Extract the invoice."}],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "invoice", "strict": true, "schema": schema}
+            }
+        });
+
+        provider
+            .transform_request(&mut body)
+            .expect("schema request should translate");
+
+        assert_eq!(
+            body["generationConfig"],
+            json!({"responseMimeType": "application/json", "responseJsonSchema": schema}),
+            "{} must use the JSON Schema field without an OpenAPI schema or wrapper fields",
+            provider.name()
+        );
+    }
 }
 
 #[test]
@@ -533,6 +615,71 @@ fn transform_response_text_only_back_compat() {
 }
 
 #[test]
+fn transform_response_reports_thinking_token_usage() {
+    let mut body = json!({
+        "candidates": [{
+            "content": {"parts": [{"text": "Hello!"}]},
+            "finishReason": "STOP"
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 11,
+            "candidatesTokenCount": 3,
+            "thoughtsTokenCount": 13,
+            "totalTokenCount": 27
+        }
+    });
+
+    transform_gemini_response(&mut body).expect("transform must succeed");
+
+    assert_eq!(body["usage"]["prompt_tokens"], 11);
+    assert_eq!(body["usage"]["completion_tokens"], 16);
+    assert_eq!(body["usage"]["total_tokens"], 27);
+    assert_eq!(body["usage"]["completion_tokens_details"]["reasoning_tokens"], 13);
+}
+
+#[test]
+fn transform_response_reports_cached_and_tool_prompt_tokens() {
+    let mut body = json!({
+        "candidates": [{
+            "content": {"parts": [{"text": "Hello!"}]},
+            "finishReason": "STOP"
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 11,
+            "toolUsePromptTokenCount": 5,
+            "cachedContentTokenCount": 7,
+            "candidatesTokenCount": 3,
+            "totalTokenCount": 19
+        }
+    });
+
+    transform_gemini_response(&mut body).expect("transform must succeed");
+
+    assert_eq!(body["usage"]["prompt_tokens"], 16);
+    assert_eq!(body["usage"]["prompt_tokens_details"]["cached_tokens"], 7);
+    assert_eq!(body["usage"]["completion_tokens"], 3);
+    assert_eq!(body["usage"]["total_tokens"], 19);
+}
+
+#[test]
+fn transform_response_preserves_gemini_embedding_batch_order() {
+    let mut body = json!({
+        "embeddings": [
+            {"values": [1.0, 2.0]},
+            {"values": [3.0, 4.0]},
+            {"values": [5.0, 6.0]}
+        ]
+    });
+    transform_gemini_response(&mut body).expect("batch embedding response should transform");
+    let data = body["data"].as_array().expect("embedding data must be an array");
+    assert_eq!(data.len(), 3);
+    assert_eq!(data[0]["index"], 0);
+    assert_eq!(data[1]["index"], 1);
+    assert_eq!(data[2]["index"], 2);
+    assert!(body.get("usage").is_none(), "unknown usage must remain absent");
+}
+
+#[test]
 fn transform_request_response_modalities_translated() {
     let mut body = json!({
         "model": "gemini-2.0-flash",
@@ -548,4 +695,19 @@ fn transform_request_response_modalities_translated() {
     let arr = modalities.as_array().expect("array");
     assert!(arr.contains(&json!("TEXT")), "expected TEXT in {arr:?}");
     assert!(arr.contains(&json!("IMAGE")), "expected IMAGE in {arr:?}");
+}
+
+#[test]
+fn should_preserve_reported_model_when_gemini_blocks_prompt() {
+    let mut body = json!({
+        "modelVersion": "gemini-2.5-flash",
+        "promptFeedback": {"blockReason": "SAFETY"},
+        "usageMetadata": {"promptTokenCount": 337}
+    });
+    provider()
+        .transform_response(&mut body)
+        .expect("normalize blocked response");
+    assert_eq!(body["model"], "gemini-2.5-flash");
+    assert_eq!(body["choices"][0]["finish_reason"], "content_filter");
+    assert_eq!(body["usage"]["prompt_tokens"], 337);
 }

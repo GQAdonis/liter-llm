@@ -1,0 +1,116 @@
+[plugin]
+name = "liter-llm"
+version = "2.2.5"
+runtimes = [
+  "claude",
+  "cursor",
+  "codex",
+  "gemini",
+  "kimi",
+  "opencode",
+  "factory",
+  "hermes",
+  "pi",
+  "agent-plugins",
+  "copilot",
+]
+display_name = "Liter-LLM"
+description = "Universal LLM API client for 174 providers — chat, streaming, tools, embeddings, search, OCR, plus an OpenAI-compatible proxy and an MCP server."
+homepage = "https://xberg.io"
+repository = "https://github.com/xberg-io/liter-llm"
+license = "MIT"
+category = "developer-tools"
+brand_color = "#1F6FEB"
+icon = "./assets/icon.svg"
+logo = "./assets/logo.svg"
+keywords = ["llm", "openai", "proxy", "embeddings", "mcp"]
+
+include = ["scripts/**", "assets/**"]
+
+[plugin.author]
+name = "Kreuzberg, Inc."
+email = "contact@xberg.io"
+url = "https://xberg.io"
+
+[[plugin.mcp]]
+name = "liter-llm"
+command = "${PLUGIN_ROOT}/scripts/mcp-launch.sh"
+args = ["mcp", "--transport", "stdio"]
+
+[plugin.interface]
+display_name = "Liter-LLM"
+short_description = "Universal LLM client for 174 providers with proxy and MCP server"
+long_description = "Call 174 LLM providers through one unified interface — chat, streaming, tool calling, embeddings, image generation, audio, moderation, web search, OCR, and reranking. Routes by `provider/model` prefix with built-in caching, rate limiting, cost tracking, budgets, and fallback. Ships an OpenAI-compatible proxy server and an auto-installing MCP server exposing 22 tools. The plugin's MCP launcher locates an installed `liter-llm` binary or installs an available CLI on first run."
+developer_name = "Kreuzberg, Inc."
+category = "developer-tools"
+capabilities = ["Read", "Write"]
+default_prompt = [
+  "Send a chat completion to openai/gpt-4o",
+  "Embed these documents and rank them",
+  "Run an OpenAI-compatible proxy for my team",
+]
+website_url = "https://xberg.io"
+privacy_policy_url = "https://xberg.io/privacy"
+terms_of_service_url = "https://xberg.io/terms"
+composer_icon = "./assets/icon.svg"
+logo = "./assets/logo.svg"
+brand_color = "#1F6FEB"
+
+[plugin.gemini]
+context_file_name = "GEMINI.md"
+commands = true
+
+[plugin.codex]
+manifest = "both"
+marketplace = true
+
+[plugin.cursor]
+marketplace = true
+
+[plugin.pi]
+package_json = "merge"
+
+[plugin.hermes]
+dependencies = ["mcp==1.28.1", "PyYAML==6.0.3"]
+
+[[plugin.gemini.settings]]
+name = "OpenAI key"
+description = "Configure only when this provider is used by your MCP model routing."
+env_var = "OPENAI_API_KEY"
+sensitive = true
+
+[[plugin.gemini.settings]]
+name = "Anthropic key"
+description = "Configure only when this provider is used by your MCP model routing."
+env_var = "ANTHROPIC_API_KEY"
+sensitive = true
+
+[[plugin.gemini.settings]]
+name = "Gemini key"
+description = "Configure only when this provider is used by your MCP model routing."
+env_var = "GEMINI_API_KEY"
+sensitive = true
+
+[[plugin.gemini.settings]]
+name = "Cohere key"
+description = "Configure only when this provider is used by your MCP model routing."
+env_var = "COHERE_API_KEY"
+sensitive = true
+
+[[plugin.gemini.settings]]
+name = "Mistral key"
+description = "Configure only when this provider is used by your MCP model routing."
+env_var = "MISTRAL_API_KEY"
+sensitive = true
+
+[[plugin.gemini.settings]]
+name = "Azure OpenAI key"
+description = "Configure only when this provider is used by your MCP model routing."
+env_var = "AZURE_OPENAI_API_KEY"
+sensitive = true
+
+[[plugin.gemini.settings]]
+name = "Groq key"
+description = "Configure only when this provider is used by your MCP model routing."
+env_var = "GROQ_API_KEY"
+sensitive = true

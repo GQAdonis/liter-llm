@@ -10,6 +10,7 @@ use std::time::Duration;
 use serde::Deserialize;
 
 use crate::error::{LiterLlmError, Result};
+use crate::provider::custom::{AuthHeaderFormat, CustomProviderConfig};
 
 /// TOML file representation of client configuration.
 ///
@@ -47,6 +48,7 @@ pub struct FileConfig {
     pub model_hint: Option<String>,
     pub timeout_secs: Option<u64>,
     pub max_retries: Option<u32>,
+    pub max_response_bytes: Option<usize>,
     pub extra_headers: Option<HashMap<String, String>>,
     pub cache: Option<FileCacheConfig>,
     pub budget: Option<FileBudgetConfig>,
@@ -105,6 +107,34 @@ pub struct FileProviderConfig {
 }
 
 #[cfg_attr(alef, alef(skip))]
+impl FileProviderConfig {
+    /// Convert into the runtime [`CustomProviderConfig`] accepted by
+    /// [`register_custom_provider`](crate::register_custom_provider).
+    ///
+    /// `auth_header` is matched case-insensitively: unset, `"Bearer"` and
+    /// `"Authorization"` send `Authorization: Bearer <key>`, `"none"` sends no
+    /// auth header, and any other value is used as the name of a custom header
+    /// that carries the raw key.
+    #[must_use]
+    pub fn to_custom_provider_config(&self) -> CustomProviderConfig {
+        let auth_header = match self.auth_header.as_deref() {
+            None => AuthHeaderFormat::Bearer,
+            Some(h) if h.eq_ignore_ascii_case("bearer") || h.eq_ignore_ascii_case("authorization") => {
+                AuthHeaderFormat::Bearer
+            }
+            Some(h) if h.eq_ignore_ascii_case("none") => AuthHeaderFormat::None,
+            Some(h) => AuthHeaderFormat::ApiKey(h.to_owned()),
+        };
+        CustomProviderConfig {
+            name: self.name.clone(),
+            base_url: self.base_url.clone(),
+            auth_header,
+            model_prefixes: self.model_prefixes.clone(),
+        }
+    }
+}
+
+#[cfg_attr(alef, alef(skip))]
 impl FileConfig {
     /// Load from a TOML file path.
     pub fn from_toml_file(path: impl AsRef<Path>) -> Result<Self> {
@@ -159,6 +189,9 @@ impl FileConfig {
         if let Some(r) = self.max_retries {
             builder = builder.max_retries(r);
         }
+        if let Some(limit) = self.max_response_bytes {
+            builder.config.max_response_bytes = Some(limit);
+        }
 
         #[cfg(any(feature = "native-http", feature = "wasm-http"))]
         if let Some(headers) = self.extra_headers.take() {
@@ -185,9 +218,11 @@ impl FileConfig {
             use crate::tower::{CacheBackend, CacheConfig};
             let backend = match cache.backend.as_deref() {
                 Some("memory") | None => CacheBackend::Memory,
+                // ~keep "memory" means the in-process LRU, so OpenDAL's own memory service
+                // (and any other scheme) is reachable explicitly as "opendal:<scheme>".
                 #[cfg(feature = "opendal-cache")]
                 Some(scheme) => CacheBackend::OpenDal {
-                    scheme: scheme.to_string(),
+                    scheme: scheme.strip_prefix("opendal:").unwrap_or(scheme).to_string(),
                     config: cache.backend_config.unwrap_or_default(),
                 },
                 #[cfg(not(feature = "opendal-cache"))]
@@ -337,6 +372,64 @@ max_retries = 2
         let config = file_config.into_builder().build();
         assert_eq!(config.timeout, Duration::from_secs(30));
         assert_eq!(config.max_retries, 2);
+    }
+
+    #[test]
+    fn provider_auth_header_maps_to_auth_header_format() {
+        let provider = |auth_header: Option<&str>| FileProviderConfig {
+            name: "p".into(),
+            base_url: "https://p.example.com/v1".into(),
+            auth_header: auth_header.map(str::to_owned),
+            model_prefixes: vec!["p/".into()],
+        };
+        assert!(matches!(
+            provider(None).to_custom_provider_config().auth_header,
+            AuthHeaderFormat::Bearer
+        ));
+        assert!(matches!(
+            provider(Some("Bearer")).to_custom_provider_config().auth_header,
+            AuthHeaderFormat::Bearer
+        ));
+        assert!(matches!(
+            provider(Some("authorization")).to_custom_provider_config().auth_header,
+            AuthHeaderFormat::Bearer
+        ));
+        assert!(matches!(
+            provider(Some("None")).to_custom_provider_config().auth_header,
+            AuthHeaderFormat::None
+        ));
+        match provider(Some("X-Api-Key")).to_custom_provider_config().auth_header {
+            AuthHeaderFormat::ApiKey(name) => assert_eq!(name, "X-Api-Key"),
+            other => panic!("expected ApiKey, got {other:?}"),
+        }
+        let cfg = provider(None).to_custom_provider_config();
+        assert_eq!(cfg.name, "p");
+        assert_eq!(cfg.base_url, "https://p.example.com/v1");
+        assert_eq!(cfg.model_prefixes, vec!["p/".to_owned()]);
+    }
+
+    #[cfg(feature = "opendal-cache")]
+    #[test]
+    fn opendal_prefix_selects_opendal_even_for_memory() {
+        use crate::tower::CacheBackend;
+        let config = |backend: &str| {
+            FileConfig::from_toml_str(&format!("[cache]\nbackend = \"{backend}\""))
+                .expect("TOML should parse")
+                .into_builder()
+                .build()
+                .cache_config
+                .expect("cache configured")
+                .backend
+        };
+        assert!(matches!(config("memory"), CacheBackend::Memory));
+        match config("opendal:memory") {
+            CacheBackend::OpenDal { scheme, .. } => assert_eq!(scheme, "memory"),
+            other => panic!("expected OpenDal, got {other:?}"),
+        }
+        match config("redis") {
+            CacheBackend::OpenDal { scheme, .. } => assert_eq!(scheme, "redis"),
+            other => panic!("expected OpenDal, got {other:?}"),
+        }
     }
 
     #[test]

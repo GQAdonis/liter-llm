@@ -1014,6 +1014,7 @@ mod inner {
                 completion_tokens: 7,
                 total_tokens: 49,
                 prompt_tokens_details: None,
+                completion_tokens_details: None,
             };
 
             let client = StreamingMockClient {
@@ -1152,7 +1153,21 @@ mod inner {
     pub fn record_realtime_bytes(_provider: &str, _direction: &str, _byte_count: u64) {}
 }
 
-pub use inner::*;
+// ~keep Explicit re-exports, not `pub use inner::*`: alef's `validate_no_private_path_leaks`
+// cannot resolve a glob re-export out of a private module, so every item must be named
+// individually for the generated bindings to receive a public path.
+#[cfg(feature = "otel")]
+pub use inner::{
+    MetricsLayer, MetricsService, global_meter, init_meter, record_budget_rejection, record_budget_spend,
+    record_cache_stale, record_cache_tier_hit, record_cache_tier_miss, record_circuit_trip, record_cost_usd,
+    record_realtime_bytes, record_realtime_event, record_realtime_session_duration, record_retry_attempt,
+};
+#[cfg(not(feature = "otel"))]
+pub use inner::{
+    MetricsLayer, MetricsService, record_budget_rejection, record_budget_spend, record_cache_stale,
+    record_cache_tier_hit, record_cache_tier_miss, record_circuit_trip, record_cost_usd, record_realtime_bytes,
+    record_realtime_event, record_realtime_session_duration, record_retry_attempt,
+};
 
 #[cfg(test)]
 #[cfg(feature = "otel")]
