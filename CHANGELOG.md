@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Accept the optional upstream models.dev model `type` field in the catalog generator while still rejecting unknown
+  fields and model types, so scheduled catalog refreshes succeed again (#289).
 - Validate canonical package versions during release dry runs while preserving genuine prerelease checks.
 - Keep public coding-agent skills synchronized with native plugin resources during version updates.
 
