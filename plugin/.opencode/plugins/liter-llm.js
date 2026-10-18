@@ -1,25 +1,13 @@
 // AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-// Content-Hash: blake3:1ad3d813d05d2ed27d81f6e6848ad8cf124882181d5f4d5ca2e62e81d7bbc91c
-// Source-Hash: blake3:dd13d03eb6ca70c510a251bd39b5a6b48d47105196296233565e75e6dbb4d0da
+// Content-Hash: blake3:eac402ec4f52f0113d2ea1d6d4d29f413c019f2486fd223e3825ccbdf5c1efb4
+// Source-Hash: blake3:084ca4c7fec33b4be004ade1f933542f40edfe39384573517678107797eb945c
 // Schema-Version: v1
 
-/**
- * OpenCode-specific plugin entrypoint.
- *
- * ai-rulez copies this source module into the generated OpenCode package.
- * Shared skills, commands, agents, and MCP configuration belong in their normal
- * `.ai-rulez` sources; add only OpenCode-specific tools or hooks here.
- *
- * To extend this plugin:
- * 1. Import `tool` from `@opencode-ai/plugin`.
- * 2. Define tool arguments with `tool.schema` and validate every external
- * input.
- * 3. Return the OpenCode hooks object from this function.
- * 4. Preview with `ai-rulez generate --plugin --dry-run` before regenerating.
- *
- * Pass subprocess arguments as an array. Never interpolate external input into
- * a shell command.
- */
-const LiterLlmPlugin = async () => ({});
+import { registerBundledContent } from "../ai-rulez-content.js";
 
-export default LiterLlmPlugin;
+export default {
+  id: "liter-llm",
+  async setup(ctx) {
+    await registerBundledContent(ctx);
+  },
+};

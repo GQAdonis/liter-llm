@@ -1161,7 +1161,7 @@ pub struct SpecificFunction {
 ///   chat-completions spec.
 /// - **Gemini / Vertex AI**: translated to
 ///   `generationConfig.responseMimeType = "application/json"` and
-///   `generationConfig.responseSchema = <schema>`. The `name`,
+///   `generationConfig.responseJsonSchema = <schema>`. The `name`,
 ///   `description`, and `strict` fields are dropped — Gemini's
 ///   structured-output API does not consume them.
 /// - **Anthropic**: no native JSON mode. A system instruction is
@@ -1334,6 +1334,10 @@ pub struct Usage {
     /// does not return prompt-token details.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt_tokens_details: Option<PromptTokensDetails>,
+    /// Breakdown of tokens used in the completion, including reasoning tokens.
+    /// Absent when the provider does not return completion-token details.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completion_tokens_details: Option<CompletionTokensDetails>,
 }
 
 /// Breakdown of tokens used in the prompt portion of a request.
@@ -1347,9 +1351,23 @@ pub struct PromptTokensDetails {
     /// Cached tokens present in the prompt. Defaults to 0 when absent.
     #[serde(default)]
     pub cached_tokens: u64,
+    /// Tokens written to the provider prompt cache. Defaults to 0 when absent.
+    #[serde(default)]
+    pub cache_creation_tokens: u64,
     /// Audio input tokens present in the prompt. Defaults to 0 when absent.
     #[serde(default)]
     pub audio_tokens: u64,
+}
+
+/// Breakdown of tokens used in the completion portion of a request.
+///
+/// `reasoning_tokens` is included in `Usage::completion_tokens` — it is not
+/// additional usage on top of the completion token count.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CompletionTokensDetails {
+    /// Reasoning or thinking tokens present in the completion. Defaults to 0 when absent.
+    #[serde(default)]
+    pub reasoning_tokens: u64,
 }
 
 /// Stop sequence(s) that cause the model to stop generating.

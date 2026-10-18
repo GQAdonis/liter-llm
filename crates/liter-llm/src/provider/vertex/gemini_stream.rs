@@ -5,7 +5,7 @@ use serde_json::Value;
 use super::transform_gemini_response;
 use crate::error::{LiterLlmError, Result};
 use crate::types::{
-    ChatCompletionChunk, FinishReason, StreamChoice, StreamDelta, StreamFunctionCall, StreamToolCall, ToolType,
+    ChatCompletionChunk, FinishReason, StreamChoice, StreamDelta, StreamFunctionCall, StreamToolCall, ToolType, Usage,
 };
 
 /// Parse a single SSE event from Gemini's streaming endpoint.
@@ -15,9 +15,8 @@ use crate::types::{
 /// normalize it into OpenAI format, then build a `ChatCompletionChunk` from
 /// the first choice's message content.
 ///
-/// **Note:** The `id` and `model` fields are empty strings on every chunk
-/// because Gemini's streaming payloads do not include them, and this parser
-/// is stateless.
+/// Provider-reported response IDs and model versions are preserved. The client
+/// supplies model context for chunks that omit `modelVersion`.
 pub(crate) fn parse_gemini_stream_event(event_data: &str) -> Result<Option<ChatCompletionChunk>> {
     // ~keep `[DONE]` is consumed by the SSE parser before provider parsing.
     if event_data.trim().is_empty() {
@@ -27,6 +26,7 @@ pub(crate) fn parse_gemini_stream_event(event_data: &str) -> Result<Option<ChatC
     let mut body: Value = serde_json::from_str(event_data).map_err(|e| LiterLlmError::Streaming {
         message: format!("failed to parse Gemini SSE data: {e}"),
     })?;
+    let has_usage = body.get("usageMetadata").is_some();
 
     transform_gemini_response(&mut body)?;
 
@@ -55,6 +55,13 @@ pub(crate) fn parse_gemini_stream_event(event_data: &str) -> Result<Option<ChatC
 
     let stream_tool_calls = stream_tool_calls(choice);
     let finish_reason = stream_finish_reason(finish_reason_str);
+    let usage = has_usage
+        .then(|| body.get("usage").cloned().unwrap_or(Value::Null))
+        .map(serde_json::from_value::<Usage>)
+        .transpose()
+        .map_err(|e| LiterLlmError::Streaming {
+            message: format!("failed to parse normalized Gemini usage: {e}"),
+        })?;
 
     let chunk = ChatCompletionChunk {
         id,
@@ -73,7 +80,7 @@ pub(crate) fn parse_gemini_stream_event(event_data: &str) -> Result<Option<ChatC
             },
             finish_reason,
         }],
-        usage: None,
+        usage,
         system_fingerprint: None,
         service_tier: None,
     };

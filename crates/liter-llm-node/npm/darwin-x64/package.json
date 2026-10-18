@@ -1,6 +1,16 @@
 {
+  "author": {
+    "name": "Na'aman Hirschfeld",
+    "email": "naaman@xberg.io"
+  },
+  "contributors": [
+    {
+      "name": "Tobias Perlstein",
+      "email": "tobias@xberg.io"
+    }
+  ],
   "name": "@xberg-io/liter-llm-darwin-x64",
-  "version": "2.1.1",
+  "version": "2.2.5",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -11,5 +21,6 @@
   "os": ["darwin"],
   "cpu": ["x64"],
   "engines": { "node": ">= 22" },
-  "publishConfig": { "access": "public" }
+  "publishConfig": { "access": "public" },
+  "packageManager": "pnpm@12.11.2"
 }

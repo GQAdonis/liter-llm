@@ -74,6 +74,7 @@ fn with_credentials_overrides_env_for_signing() {
             access_key_id: Some("AKIAEXPLICIT"),
             secret_access_key: Some("explicit-secret"),
             session_token: Some("explicit-token"),
+            use_environment: true,
         },
     )
     .expect("signing should succeed with explicit credentials");
@@ -100,6 +101,7 @@ fn sigv4_sign_fails_without_any_credentials() {
             access_key_id: None,
             secret_access_key: None,
             session_token: None,
+            use_environment: true,
         },
     );
     assert!(result.is_err(), "signing without credentials should fail");
@@ -891,5 +893,66 @@ fn transform_response_finish_reason_mapping() {
             body["choices"][0]["finish_reason"], expected_oai_reason,
             "bedrock stopReason '{bedrock_reason}' should map to '{expected_oai_reason}'"
         );
+    }
+}
+
+#[test]
+#[serial]
+#[cfg(not(feature = "bedrock"))]
+fn should_reject_resolved_aws_credentials_without_signing_feature() {
+    let provider = BedrockProvider::new("us-east-1").with_dynamic_credentials(true);
+    let credential = crate::auth::Credential::AwsCredentials {
+        access_key_id: "resolved-key".into(),
+        secret_access_key: "resolved-secret".into(),
+        session_token: None,
+    };
+    provider
+        .validate()
+        .expect("defer credential validation until resolution");
+    let result = provider.signing_headers_with_credential(
+        "POST",
+        "http://127.0.0.1/model/foo/converse",
+        b"{}",
+        Some(&credential),
+    );
+    assert!(matches!(result, Err(LiterLlmError::Authentication { status: 401, .. })));
+}
+
+#[test]
+fn should_reject_whitespace_only_resolved_credentials_without_changing_nonblank_values() {
+    let mut rejected = 0;
+    for blank in [" ", " \t\r\n ", "\u{00a0}\u{2003}"] {
+        let credentials = [
+            crate::auth::Credential::BearerToken(blank.into()),
+            crate::auth::Credential::AwsCredentials {
+                access_key_id: blank.into(),
+                secret_access_key: "secret".into(),
+                session_token: None,
+            },
+            crate::auth::Credential::AwsCredentials {
+                access_key_id: "key".into(),
+                secret_access_key: blank.into(),
+                session_token: None,
+            },
+        ];
+        for credential in credentials {
+            if matches!(
+                validate_resolved_credential(&credential),
+                Err(LiterLlmError::Authentication { status: 401, .. })
+            ) {
+                rejected += 1;
+            }
+        }
+    }
+    assert_eq!(rejected, 9, "all ASCII and Unicode whitespace cases must be rejected");
+    for credential in [
+        crate::auth::Credential::BearerToken(" token ".into()),
+        crate::auth::Credential::AwsCredentials {
+            access_key_id: "key".into(),
+            secret_access_key: " secret ".into(),
+            session_token: None,
+        },
+    ] {
+        validate_resolved_credential(&credential).expect("nonblank bytes are accepted intact");
     }
 }

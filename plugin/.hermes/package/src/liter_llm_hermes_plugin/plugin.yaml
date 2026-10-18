@@ -1,5 +1,8 @@
 name: "liter-llm"
-version: "2.1.1"
-description: "Universal LLM API client for 165 providers — chat, streaming, tools, embeddings, search, OCR, plus an OpenAI-compatible proxy and an MCP server."
+version: "2.2.5"
+description: "Universal LLM API client for 174 providers — chat, streaming, tools, embeddings, search, OCR, plus an OpenAI-compatible proxy and an MCP server."
 author: "Kreuzberg, Inc."
 kind: "standalone"
+python_dependencies:
+  - "mcp==1.28.1"
+  - "PyYAML==6.0.3"

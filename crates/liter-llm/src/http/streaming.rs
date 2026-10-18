@@ -362,8 +362,7 @@ impl SseDecoder {
     /// # Errors
     /// Returns a streaming error for invalid UTF-8 or excessive buffered data.
     pub fn push(&mut self, bytes: &[u8]) -> Result<()> {
-        if self.buffer.len() + self.data.len() + self.event.len() + self.pending.len() + bytes.len()
-            > MAX_BUFFER_BYTES
+        if self.buffer.len() + self.data.len() + self.event.len() + self.pending.len() + bytes.len() > MAX_BUFFER_BYTES
         {
             return Err(LiterLlmError::Streaming {
                 message: "SSE event exceeds buffer limit".into(),

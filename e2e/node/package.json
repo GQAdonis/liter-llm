@@ -10,8 +10,9 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@types/node": "^26.6.2",
+    "@types/node": "^26.6.5",
     "@xberg-io/liter-llm": "workspace:*",
-    "vitest": "^4.1.11"
-  }
+    "vitest": "^5.0.3"
+  },
+  "packageManager": "pnpm@12.11.2"
 }

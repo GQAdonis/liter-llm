@@ -226,7 +226,9 @@ pub struct ChatCompletionResponse {
     pub object: String,
     /// Unix timestamp of response creation.
     pub created: u64,
-    /// Model used to generate the response.
+    /// Provider-reported model identifier. For Gemini, this is `modelVersion`;
+    /// when omitted, the client retains the requested model, which may be an alias
+    /// and does not establish the resolved model version.
     pub model: String,
     /// List of completion choices.
     pub choices: Vec<Choice>,
@@ -260,8 +262,16 @@ impl ChatCompletionResponse {
     #[must_use]
     pub fn estimated_cost(&self) -> Option<f64> {
         let usage = self.usage.as_ref()?;
-        let cached = usage.prompt_tokens_details.as_ref().map_or(0, |d| d.cached_tokens);
-        cost::completion_cost_with_cache(&self.model, usage.prompt_tokens, cached, usage.completion_tokens)
+        let details = usage.prompt_tokens_details.as_ref();
+        let cached = details.map_or(0, |d| d.cached_tokens);
+        let created = details.map_or(0, |d| d.cache_creation_tokens);
+        cost::completion_cost_with_cache_details(
+            &self.model,
+            usage.prompt_tokens,
+            cached,
+            created,
+            usage.completion_tokens,
+        )
     }
 }
 
@@ -297,16 +307,9 @@ where
     let mut value = serde_json::to_value(message).map_err(serde::ser::Error::custom)?;
     let object = value
         .as_object_mut()
-        .ok_or_else(|| {
-            serde::ser::Error::custom("assistant message did not serialize to an object")
-        })?;
-    object.insert(
-        "role".to_owned(),
-        serde_json::Value::String("assistant".to_owned()),
-    );
-    object
-        .entry("refusal".to_owned())
-        .or_insert(serde_json::Value::Null);
+        .ok_or_else(|| serde::ser::Error::custom("assistant message did not serialize to an object"))?;
+    object.insert("role".to_owned(), serde_json::Value::String("assistant".to_owned()));
+    object.entry("refusal".to_owned()).or_insert(serde_json::Value::Null);
     value.serialize(serializer)
 }
 
@@ -329,7 +332,9 @@ pub struct ChatCompletionChunk {
     /// Unix timestamp of chunk creation.
     #[serde(default)]
     pub created: u64,
-    /// Model used to generate the chunk.
+    /// Provider-reported model identifier. Gemini chunks without `modelVersion`
+    /// retain the last reported model, or the requested model if none was reported.
+    /// A requested-model fallback does not establish the resolved model version.
     #[serde(default)]
     pub model: String,
     /// Streaming choices (delta updates).
@@ -478,8 +483,10 @@ mod tests {
                 total_tokens: 1_050,
                 prompt_tokens_details: Some(PromptTokensDetails {
                     cached_tokens: 200,
+                    cache_creation_tokens: 0,
                     audio_tokens: 0,
                 }),
+                completion_tokens_details: None,
             },
         );
         let with_cache = resp.estimated_cost().expect("should price");
@@ -490,6 +497,7 @@ mod tests {
                 completion_tokens: 50,
                 total_tokens: 1_050,
                 prompt_tokens_details: None,
+                completion_tokens_details: None,
             },
         )
         .estimated_cost()
@@ -508,14 +516,17 @@ mod tests {
             total_tokens: 1_050,
             prompt_tokens_details: Some(PromptTokensDetails {
                 cached_tokens: 500,
+                cache_creation_tokens: 0,
                 audio_tokens: 0,
             }),
+            completion_tokens_details: None,
         };
         let usage_no_details = Usage {
             prompt_tokens: 1_000,
             completion_tokens: 50,
             total_tokens: 1_050,
             prompt_tokens_details: None,
+            completion_tokens_details: None,
         };
         let a = make_response("gpt-4", usage_with_cached)
             .estimated_cost()

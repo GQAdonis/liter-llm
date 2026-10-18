@@ -17,7 +17,7 @@ The MCP server is part of the `liter-llm` binary. Install it any of these ways:
 ```bash
 brew install xberg-io/tap/liter-llm   # Homebrew (macOS/Linux)
 cargo install liter-llm-cli                 # from crates.io
-npx @xberg-io/liter-llm-cli --help         # npm — self-installs the binary
+pnpm dlx @xberg-io/liter-llm-cli --help         # npm — self-installs the binary
 docker run ghcr.io/xberg-io/liter-llm  # container image
 ```
 
@@ -30,9 +30,25 @@ scoop install liter-llm
 
 A prebuilt binary is also attached to every [GitHub release](https://github.com/xberg-io/liter-llm/releases/latest).
 
+## CLI release compatibility
+
+Published CLI 2.2.3 predates the local-stdio trust and deferred-provider-credential fixes.
+Until a CLI release includes them, use a source build for startup without an extra auth config:
+
+```sh
+cargo install --git https://github.com/xberg-io/liter-llm \
+  --rev f14fb8862f9cc73e2c4ab38a2876efe77fab8bf4 --locked liter-llm-cli
+```
+
+Put the installed binary on the assistant's PATH. If a plugin has already cached an older binary,
+remove that plugin's `bin/liter-llm` (or `bin/liter-llm.exe`) before retrying so it selects the source build.
+The released 2.2.3 binary requires `mcp.stdio_trust_local = true` or a configured `mcp.stdio_key_id`;
+configured providers may also require credentials at startup. The source build defers missing provider
+credentials until a request uses that provider. HTTP authentication remains configured separately.
+
 ## Easiest: the liter-llm plugin
 
-To use the MCP server inside a coding agent (Claude Code, Cursor, Codex, Gemini CLI, Factory Droid, GitHub Copilot CLI), install the **liter-llm plugin** from this repo's self-hosted marketplace ([`xberg-io/liter-llm`](https://github.com/xberg-io/liter-llm)). It auto-registers the `liter-llm` MCP server and resolves the binary for you on first run — no manual config:
+To use the MCP server inside a coding agent (Claude Code, Cursor, Codex, Gemini CLI, Factory Droid, GitHub Copilot CLI), install the **liter-llm plugin** from this repo's self-hosted marketplace ([`xberg-io/liter-llm`](https://github.com/xberg-io/liter-llm)). It registers the `liter-llm` MCP server and resolves the binary for you on first run. The CLI release compatibility requirements above apply to auto-installed binaries:
 
 ```text
 /plugin marketplace add xberg-io/liter-llm
@@ -45,7 +61,7 @@ The rest of this page covers running and configuring the server directly.
 
 ## Quick start
 
-Run the server over stdio against an auto-discovered `liter-llm-proxy.toml`. The config must include either `mcp.stdio_key_id` or `mcp.stdio_trust_local = true`:
+With the source build above, run the server over stdio. A local harness is trusted by default; no master key or provider key is needed to start it. The server can use an auto-discovered `liter-llm-proxy.toml`:
 
 ```bash
 liter-llm mcp
@@ -203,14 +219,14 @@ The MCP server and the HTTP proxy use the same `ProxyConfig` loader. That means:
 - `[cache]` caches non-streaming responses across both surfaces.
 - `[files]` persists files uploaded via the `create_file` tool.
 - `[[keys]]` virtual keys are enforced on HTTP MCP requests via Bearer auth.
-- Stdio MCP calls use the configured startup context from `[mcp]`: `stdio_key_id` binds tools to one virtual key, while `stdio_trust_local = true` grants master context for trusted local clients.
+- Stdio MCP calls use the configured startup context from `[mcp]`: `stdio_key_id` binds tools to one virtual key, while `stdio_trust_local = true` grants master context for trusted local clients and is the default.
 
-The master key is also loaded. HTTP clients present it as a Bearer token; stdio clients can only use master context when `stdio_trust_local = true` is set explicitly.
+The master key is also loaded. HTTP clients present it as a Bearer token; stdio clients use master context by default. Set `stdio_trust_local = false` and configure `stdio_key_id` to require a specific virtual key instead. Provider credentials are independent of transport authentication: configure a key for the selected provider before sending requests.
 
 ## Troubleshooting
 
 - **"tool call failed: model 'foo' not found"**: the `model` parameter passed to the tool does not match any `name` in `[[models]]`. Check `liter-llm-proxy.toml` and restart or use `--watch`.
-- **stdio refuses to start**: add `[mcp] stdio_key_id = "vk-..."` for a configured virtual key, or `[mcp] stdio_trust_local = true` for a trusted local-only setup.
+- **stdio refuses to start after disabling local trust**: set `[mcp] stdio_key_id` to an existing virtual key, or restore `stdio_trust_local = true`. If a key id is configured, it must exist even when local trust is enabled.
 - **HTTP returns 401**: include `Authorization: Bearer <master-or-virtual-key>` on the `POST /mcp` request.
 - **stdio transport hangs on startup**: the client expects a JSON-RPC handshake on stdin. Make sure you are launching `liter-llm mcp` from an MCP client, not an interactive shell.
 - **HTTP transport returns 404**: the endpoint is `/mcp`, not `/`. Every request is `POST /mcp`.

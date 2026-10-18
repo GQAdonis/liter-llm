@@ -1,6 +1,6 @@
 //! Universal LLM API client with provider-agnostic chat, embeddings, files,
 //! batches, responses, image generation, transcription, moderation, OCR,
-//! rerank, and web-search across 165 providers.
+//! rerank, and web-search across 174 providers.
 //!
 //! See [`LlmClient`] for the high-level streaming client, [`DefaultClient`]
 //! (native-http only) for the canonical reqwest-backed implementation, and
@@ -87,8 +87,10 @@ pub use http::transport::TransportConfig;
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
 pub use client::DefaultClient;
 // ~keep Binding-friendly constructors require an HTTP stack.
+#[cfg(feature = "native-http")]
+pub use bindings::create_client_with_options;
 #[cfg(any(feature = "native-http", feature = "wasm-http"))]
-pub use bindings::{create_client, create_client_from_json};
+pub use bindings::{ClientOptions, create_client, create_client_from_json};
 // ~keep ManagedClient requires both native HTTP and Tower middleware.
 #[cfg(all(feature = "native-http", feature = "tower"))]
 pub use client::managed::ManagedClient;
@@ -103,7 +105,10 @@ pub use tower::{
     GuardrailStage, NoOpEmbeddingProvider, SystemPromptAwareStrategy, TenantScopedStrategy, VectorMatch, VectorStore,
 };
 // ~keep Re-export provider helpers that are public API while the module stays pub(crate).
-pub use cost::{ModelInfo, ModelTier, completion_cost, completion_cost_with_cache, model_info};
+pub use cost::{
+    CatalogInfo, ModelInfo, ModelTier, catalog_info, completion_cost, completion_cost_with_cache,
+    completion_cost_with_cache_details, exact_model_info, model_info,
+};
 // ~keep Runtime catalog refresh surface. Always compiled so it reaches every
 // ~keep binding; refresh is a runtime toggle (off by default), and the network
 // ~keep fetch degrades to a clean error on builds without `native-http`.

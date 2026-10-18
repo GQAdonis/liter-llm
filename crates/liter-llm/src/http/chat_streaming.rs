@@ -1,7 +1,6 @@
 //! Chat-only terminal contract. Other SSE endpoints retain their own semantics.
 use std::{
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -15,7 +14,6 @@ use super::{
 };
 use crate::{
     error::{LiterLlmError, Result},
-    provider::Provider,
     types::ChatCompletionChunk,
 };
 
@@ -28,18 +26,23 @@ pub(crate) enum ChatStreamProtocol {
     Cohere,
 }
 
-pub(crate) async fn post_chat_stream(
+/// `parse_event` maps one SSE data payload to a chunk; terminal evidence is
+/// judged on the raw payload, independently of what the parser keeps.
+pub(crate) async fn post_chat_stream<P>(
     client: &reqwest::Client,
     request: StreamingPost<'_>,
-    provider: Arc<dyn Provider>,
+    protocol: ChatStreamProtocol,
+    parse_event: P,
     options: ResponseReadOptions,
-) -> Result<crate::client::BoxStream<'static, Result<ChatCompletionChunk>>> {
+) -> Result<crate::client::BoxStream<'static, Result<ChatCompletionChunk>>>
+where
+    P: Fn(&str) -> Result<Option<ChatCompletionChunk>> + Send + 'static,
+{
     let response = request.send(client, options).await?;
-    let protocol = provider.chat_stream_protocol();
     Ok(Box::pin(ChatSseParser {
         inner: response.bytes_stream(),
         decoder: SseDecoder::default(),
-        provider,
+        parse_event,
         protocol,
         terminal: false,
         done: false,
@@ -47,11 +50,11 @@ pub(crate) async fn post_chat_stream(
 }
 
 pin_project! {
-    struct ChatSseParser<S> {
+    struct ChatSseParser<S, P> {
         #[pin]
         inner: S,
         decoder: SseDecoder,
-        provider: Arc<dyn Provider>,
+        parse_event: P,
         protocol: ChatStreamProtocol,
         terminal: bool,
         done: bool,
@@ -64,9 +67,10 @@ fn failure(message: &str) -> LiterLlmError {
     }
 }
 
-impl<S> Stream for ChatSseParser<S>
+impl<S, P> Stream for ChatSseParser<S, P>
 where
     S: Stream<Item = std::result::Result<Bytes, reqwest::Error>>,
+    P: Fn(&str) -> Result<Option<ChatCompletionChunk>>,
 {
     type Item = Result<ChatCompletionChunk>;
 
@@ -79,9 +83,7 @@ where
             while let Some(event) = this.decoder.next_event() {
                 if *this.terminal && !matches!(this.protocol, ChatStreamProtocol::Gemini) {
                     *this.done = true;
-                    return Poll::Ready(Some(Err(failure(
-                        "Provider sent data after the terminal event",
-                    ))));
+                    return Poll::Ready(Some(Err(failure("Provider sent data after the terminal event"))));
                 }
                 if event.data == "[DONE]" {
                     if matches!(this.protocol, ChatStreamProtocol::OpenAi) {
@@ -97,9 +99,7 @@ where
                     Ok(value) => value,
                     Err(_) => {
                         *this.done = true;
-                        return Poll::Ready(Some(Err(failure(
-                            "Malformed provider SSE JSON event",
-                        ))));
+                        return Poll::Ready(Some(Err(failure("Malformed provider SSE JSON event"))));
                     }
                 };
                 let kind = value.get("type").and_then(serde_json::Value::as_str);
@@ -138,7 +138,7 @@ where
                         .and_then(serde_json::Value::as_str)
                         .is_some_and(|reason| !reason.is_empty()),
                 };
-                match this.provider.parse_stream_event(&event.data) {
+                match (this.parse_event)(&event.data) {
                     Ok(chunk) => {
                         *this.terminal |= terminal;
                         if let Some(chunk) = chunk {

@@ -47,6 +47,7 @@ pub fn init(default_filter: &str) -> TelemetryGuard {
 
 fn init_console(default_filter: &str) {
     let _ = tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter)))
         .try_init();
 }
@@ -114,7 +115,7 @@ mod otel {
         opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
         let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter));
-        let fmt_layer = tracing_subscriber::fmt::layer().json();
+        let fmt_layer = tracing_subscriber::fmt::layer().with_writer(std::io::stderr).json();
         let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
         tracing_subscriber::registry()
             .with(env_filter)
@@ -126,5 +127,33 @@ mod otel {
             tracer_provider,
             meter_provider,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn should_write_console_diagnostics_to_stderr() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "telemetry::tests::emit_console_diagnostic",
+                "--ignored",
+                "--nocapture",
+            ])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(!stdout.contains("mcp-stderr-regression-probe"), "{stdout}");
+        assert!(stderr.contains("mcp-stderr-regression-probe"), "{stderr}");
+    }
+
+    #[test]
+    #[ignore = "invoked in a subprocess by should_write_console_diagnostics_to_stderr"]
+    fn emit_console_diagnostic() {
+        super::init_console("warn");
+        tracing::warn!("mcp-stderr-regression-probe");
     }
 }
