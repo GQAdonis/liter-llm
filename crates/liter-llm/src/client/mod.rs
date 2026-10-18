@@ -800,6 +800,28 @@ impl DefaultClient {
     /// become invalid during client construction (extremely rare; indicates a bug).
     /// Returns `LiterLlmError::Http` if the underlying HTTP client cannot be constructed.
     pub fn new(config: ClientConfig, model_hint: Option<&str>) -> Result<Self> {
+        Self::new_inner(config, model_hint, None)
+    }
+
+    /// Construct with a transport owned by the trusted embedding host.
+    /// Provider selection, request transforms, authentication and stream parsing
+    /// use the same path as [`Self::new`]. The host owns the supplied client's
+    /// TLS, DNS, redirects, proxy policy, timeouts and default headers; config
+    /// transport/default-header settings cannot modify an already built client.
+    /// This seam also permits controlled HTTPS protocol integration fixtures
+    /// without changing provider URLs or disabling TLS validation.
+    ///
+    /// # Errors
+    /// Returns the same configuration/provider/authentication errors as `new`.
+    pub fn with_http_client(config: ClientConfig, model_hint: Option<&str>, http: reqwest::Client) -> Result<Self> {
+        Self::new_inner(config, model_hint, Some(http))
+    }
+
+    fn new_inner(
+        config: ClientConfig,
+        model_hint: Option<&str>,
+        supplied_http: Option<reqwest::Client>,
+    ) -> Result<Self> {
         config::validate_response_limit(config.max_response_bytes)?;
         let provider = build_provider(&config, model_hint);
         provider.validate()?;
@@ -848,7 +870,9 @@ impl DefaultClient {
             header_map.insert(name, val);
         }
 
-        let http = {
+        let http = if let Some(http) = supplied_http {
+            http
+        } else {
             #[cfg(feature = "native-http")]
             crate::ensure_crypto_provider();
             let builder = reqwest::Client::builder().default_headers(header_map);
@@ -1248,12 +1272,13 @@ impl LlmClient for DefaultClient {
             match prepared.provider.stream_format() {
                 provider::StreamFormat::Sse => {
                     let provider = Arc::clone(&prepared.provider);
+                    let protocol = provider.chat_stream_protocol();
                     let state = std::sync::Mutex::new(ChatStreamState {
                         model: req.model.clone(),
                         ..Default::default()
                     });
                     let parse_event = move |data: &str| parse_chat_stream_event(provider.as_ref(), &state, data);
-                    let stream = http::streaming::post_stream_bounded(
+                    let stream = http::chat_streaming::post_chat_stream(
                         &self.http,
                         http::request::StreamingPost {
                             url: &url,
@@ -1261,6 +1286,7 @@ impl LlmClient for DefaultClient {
                             extra_headers: &extra,
                             body: prepared.body_bytes,
                         },
+                        protocol,
                         parse_event,
                         self.response_read_options(),
                     )
@@ -1690,12 +1716,13 @@ impl LlmClientRaw for DefaultClient {
             let stream = match prepared.provider.stream_format() {
                 provider::StreamFormat::Sse => {
                     let provider = Arc::clone(&prepared.provider);
+                    let protocol = provider.chat_stream_protocol();
                     let state = std::sync::Mutex::new(ChatStreamState {
                         model: req.model.clone(),
                         ..Default::default()
                     });
                     let parse_event = move |data: &str| parse_chat_stream_event(provider.as_ref(), &state, data);
-                    http::streaming::post_stream_bounded(
+                    http::chat_streaming::post_chat_stream(
                         &self.http,
                         http::request::StreamingPost {
                             url: &url,
@@ -1703,6 +1730,7 @@ impl LlmClientRaw for DefaultClient {
                             extra_headers: &extra,
                             body: prepared.body_bytes,
                         },
+                        protocol,
                         parse_event,
                         self.response_read_options(),
                     )

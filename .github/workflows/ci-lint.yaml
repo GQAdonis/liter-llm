@@ -63,6 +63,7 @@ jobs:
 
   release-regressions:
     name: Release regression tests
+    if: github.repository == 'xberg-io/liter-llm'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

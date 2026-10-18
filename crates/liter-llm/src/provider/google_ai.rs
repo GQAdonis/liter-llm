@@ -117,6 +117,11 @@ impl Provider for GoogleAiProvider {
         }
     }
 
+    #[cfg(any(feature = "native-http", feature = "wasm-http"))]
+    fn chat_stream_protocol(&self) -> crate::http::chat_streaming::ChatStreamProtocol {
+        crate::http::chat_streaming::ChatStreamProtocol::Gemini
+    }
+
     fn parse_stream_event(&self, event_data: &str) -> Result<Option<ChatCompletionChunk>> {
         parse_gemini_stream_event(event_data)
     }
