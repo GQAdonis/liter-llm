@@ -144,28 +144,46 @@ impl Drop for UsageObservingStream {
     }
 }
 
+/// Settles spend with the usage seen so far if the drain task is cancelled
+/// (runtime shutdown, aborted task) before it reaches the end of the stream. ~keep
+struct DrainSettlement {
+    last_usage: Option<Usage>,
+    on_complete: Option<Box<dyn FnOnce(Option<Usage>) + Send>>,
+}
+
+impl Drop for DrainSettlement {
+    fn drop(&mut self) {
+        if let Some(on_complete) = self.on_complete.take() {
+            on_complete(self.last_usage.take());
+        }
+    }
+}
+
 /// Read an abandoned stream to its end so the final chunk's usage settles spend.
 async fn drain_abandoned_stream(
     mut inner: BoxStream<'static, Result<ChatCompletionChunk>>,
-    mut last_usage: Option<Usage>,
+    last_usage: Option<Usage>,
     on_complete: Box<dyn FnOnce(Option<Usage>) + Send>,
 ) {
+    let mut settlement = DrainSettlement {
+        last_usage,
+        on_complete: Some(on_complete),
+    };
+
     for _ in 0..DROP_DRAIN_CHUNK_LIMIT {
         match std::future::poll_fn(|cx| inner.as_mut().poll_next(cx)).await {
             Some(Ok(chunk)) => {
                 if chunk.usage.is_some() {
-                    last_usage = chunk.usage;
+                    settlement.last_usage = chunk.usage;
                 }
             }
             Some(Err(_)) | None => break,
         }
     }
 
-    if last_usage.is_none() {
+    if settlement.last_usage.is_none() {
         tracing::warn!("streamed usage unavailable on abandoned stream; spend not recorded");
     }
-
-    on_complete(last_usage);
 }
 
 /// Tower [`Layer`] that records estimated USD cost on the current tracing span.
@@ -706,6 +724,48 @@ mod tests {
             .expect("abandoned stream must settle once it ends")
             .expect("on_complete must run");
         assert_eq!(recorded, Some(usage), "spend must use the usage from the final chunk");
+    }
+
+    /// If the drain task is cancelled before the stream ends (runtime shutdown),
+    /// the usage seen so far must still settle exactly once.
+    #[test]
+    fn cancelled_drain_settles_with_usage_seen_so_far() {
+        use futures_util::StreamExt as _;
+
+        let usage = Usage {
+            prompt_tokens: 7,
+            completion_tokens: 3,
+            total_tokens: 10,
+            prompt_tokens_details: None,
+            completion_tokens_details: None,
+        };
+        let observed = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let observed_for_cb = std::sync::Arc::clone(&observed);
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime");
+        runtime.block_on(async {
+            let (provider, receiver) = tokio::sync::mpsc::unbounded_channel();
+            let mut wrapped = super::observe_stream_usage(Box::pin(ChannelStream(receiver)), move |u| {
+                observed_for_cb.lock().expect("test mutex must not be poisoned").push(u);
+            });
+            provider.send(chunk(Some(usage.clone()))).expect("first chunk");
+            assert!(wrapped.next().await.is_some());
+            drop(wrapped);
+            tokio::task::yield_now().await;
+            // The sender stays alive, so the drain task never reaches the end of the stream.
+            std::mem::forget(provider);
+        });
+        drop(runtime);
+
+        let recorded = observed.lock().expect("test mutex must not be poisoned").clone();
+        assert_eq!(
+            recorded,
+            vec![Some(usage)],
+            "cancelled drain must settle once with the seen usage"
+        );
     }
 
     /// A stream that fails the test if it is ever polled.

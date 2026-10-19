@@ -24,9 +24,9 @@ let service = FallbackLayer::new(backup).layer(primary);
 ```
 
 :::note[Streaming fallback]
-`LlmService` forwards streaming responses (`ChatStream`) incrementally. Fallback applies to failures before the
-stream starts, such as connection errors and error status codes. An error after the first chunk is delivered to the
-stream consumer instead of triggering the backup service, because chunks have already been yielded.
+`LlmService` forwards streaming responses (`ChatStream`) incrementally. Fallback applies only while the stream is
+being opened, such as connection errors and error status codes. Every error yielded by the returned stream, including
+one in its first item, is delivered to the consumer and does not trigger the backup service.
 :::
 
 ## Router

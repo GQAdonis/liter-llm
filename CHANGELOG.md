@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stream chat completions through `LlmService`, and therefore the proxy, as the provider sends them instead of
   buffering the whole completion before the first chunk. Abandoned streams still settle spend: a background task
   drains them to the usage-bearing final chunk, and `Drop` no longer polls the live provider stream.
+- Hold the in-flight request permit for the lifetime of a streaming response, and settle spend with the usage seen so far
+  when the task draining an abandoned stream is cancelled.
 - Validate canonical package versions during release dry runs while preserving genuine prerelease checks.
 - Keep public coding-agent skills synchronized with native plugin resources during version updates.
 
