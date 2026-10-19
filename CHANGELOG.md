@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `liter-llm config-check --config <path>` validates a proxy configuration without starting the server, printing one
+  JSON line and exiting non-zero when the config is invalid or unreadable (#294).
 - `TransportConfig::disable_proxies` (`with_proxies_disabled`) makes a client ignore ambient `HTTP(S)_PROXY` and
   system proxy settings even when the outbound policy is `Off` (#293).
 
