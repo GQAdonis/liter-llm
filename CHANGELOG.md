@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Anthropic, Gemini, Vertex AI, Cohere and Bedrock chat streams that end before the provider's final event now yield
+  `LiterLlmError::Streaming` instead of ending like a complete response. OpenAI-compatible streams keep ending
+  cleanly without `[DONE]` (#295).
+
 ### Added
 
 - `liter-llm config-check --config <path>` validates a proxy configuration without starting the server, printing one
@@ -20,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reject a Bedrock `messageStop` event without `stopReason` instead of reporting it as `end_turn`, and stop reporting
+  intermediate Gemini and Vertex AI stream chunks as finished (#295).
 - Omit an absent assistant `refusal` from request message history, which strict OpenAI-compatible providers such as
   Groq reject, while completion responses keep the required `refusal: null` key (#292).
 - Replace the `php:test` reference to a nonexistent example with a real local smoke check that loads the built
