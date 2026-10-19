@@ -144,12 +144,13 @@ fn content_block_delta_chunk(v: &Value) -> Result<Option<ChatCompletionChunk>> {
 
 /// `messageStop`: an empty delta carrying the mapped `finish_reason`.
 fn message_stop_chunk(v: &Value) -> Result<Option<ChatCompletionChunk>> {
+    // ~keep The Converse API always sends `stopReason`; defaulting a missing one
+    // would turn a malformed final event into a normal completion (#295).
     let stop_reason = v
         .get("stopReason")
         .and_then(|s| s.as_str())
-        .filter(|reason| !reason.is_empty())
         .ok_or_else(|| LiterLlmError::Streaming {
-            message: "Bedrock messageStop has no stopReason".into(),
+            message: "Bedrock messageStop event is missing stopReason".into(),
         })?;
     let finish_reason = converse_finish_reason(stop_reason);
     chunk_from_json(json!({
