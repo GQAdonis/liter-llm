@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `TransportConfig::disable_proxies` (`with_proxies_disabled`) makes a client ignore ambient `HTTP(S)_PROXY` and
+  system proxy settings even when the outbound policy is `Off` (#293).
+
 ### Security
 
 - Remove vulnerable ZIP 8.6 dependencies from PHP binding builds.
