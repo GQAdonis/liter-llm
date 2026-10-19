@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-19
+
 ### Changed
 
 - Anthropic, Gemini, Vertex AI, Cohere and Bedrock chat streams that end before the provider's final event now yield
