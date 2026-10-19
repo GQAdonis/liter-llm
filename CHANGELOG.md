@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Anthropic, Gemini, Vertex AI, Cohere and Bedrock chat streams that end before the provider's final event now yield
   `LiterLlmError::Streaming` instead of ending like a complete response. OpenAI-compatible streams keep ending
   cleanly without `[DONE]` (#295).
+- Regenerate bindings with alef 0.111.0: the Python binding moves to pyo3 0.30, and the Dart `LiterLlmError.retryAfter()`
+  accessor is now `getRetryAfter()`.
 
 ### Added
 
