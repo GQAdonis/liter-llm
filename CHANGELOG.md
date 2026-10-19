@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   extension in isolation, verifies its version and core classes, and propagates failures (#290).
 - Accept the optional upstream models.dev model `type` field in the catalog generator while still rejecting unknown
   fields and model types, so scheduled catalog refreshes succeed again (#289).
+- Stream chat completions through `LlmService`, and therefore the proxy, as the provider sends them instead of
+  buffering the whole completion before the first chunk. Abandoned streams still settle spend: a background task
+  drains them to the usage-bearing final chunk, and `Drop` no longer polls the live provider stream.
 - Validate canonical package versions during release dry runs while preserving genuine prerelease checks.
 - Keep public coding-agent skills synchronized with native plugin resources during version updates.
 

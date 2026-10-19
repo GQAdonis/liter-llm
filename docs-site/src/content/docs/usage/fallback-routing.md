@@ -23,8 +23,10 @@ let backup  = LlmService::new(anthropic_client);
 let service = FallbackLayer::new(backup).layer(primary);
 ```
 
-:::caution[Streaming buffer]
-When `LlmService` is used inside the Tower stack, streaming responses (`ChatStream`) are fully buffered in memory before being yielded. This is required by Tower's `Service` trait, which mandates `'static` futures. All chunks are collected into a `VecDeque` and replayed. If unbuffered streaming is required, call `LlmClient::chat_stream()` directly, bypassing the Tower stack.
+:::note[Streaming fallback]
+`LlmService` forwards streaming responses (`ChatStream`) incrementally. Fallback applies to failures before the
+stream starts, such as connection errors and error status codes. An error after the first chunk is delivered to the
+stream consumer instead of triggering the backup service, because chunks have already been yielded.
 :::
 
 ## Router
