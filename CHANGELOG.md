@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Omit an absent assistant `refusal` from request message history, which strict OpenAI-compatible providers such as
+  Groq reject, while completion responses keep the required `refusal: null` key (#292).
 - Replace the `php:test` reference to a nonexistent example with a real local smoke check that loads the built
   extension in isolation, verifies its version and core classes, and propagates failures (#290).
 - Accept the optional upstream models.dev model `type` field in the catalog generator while still rejecting unknown
