@@ -1058,6 +1058,16 @@ impl DefaultClient {
         Ok(headers)
     }
 
+    /// Serialize the exact prepared streaming chat body without dispatching it.
+    ///
+    /// Local UAR accounting integration: use the same provider transformation,
+    /// model-prefix normalization and extra-body merging as `chat_stream`.
+    /// This does not replace the managed request path or bypass its controls.
+    pub fn chat_stream_request_body(&self, request: &ChatCompletionRequest) -> Result<Vec<u8>> {
+        Ok(self.prepare_request(request, |provider| provider.chat_completions_path(),
+            &request.model, Some(true))?.body_bytes.to_vec())
+    }
+
     /// Shared helper: resolve the per-request provider, build the URL, strip
     /// model prefix from the request body, set the `stream` flag, apply provider
     /// transform, and return everything needed to fire a request.
