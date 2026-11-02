@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.111.0"
+alef_version = "0.115.10"
 languages = [
   "python",
   "node",
@@ -199,6 +199,11 @@ exclude = [
   "/.cursor-plugin/marketplace.json",
   "/.ai-rulez/.generated-manifest.json",
   "/plugin/.ai-rulez/.generated-manifest.json",
+  # The vendored Bats helper is copied byte-identical from xberg-io/actions, whose shell is
+  # tab-indented; reformatting it here would break `mise run test:scripts:lib:check`. Excluded
+  # from discovery rather than from fmt alone because poly has no per-engine exclude -- and the
+  # file is linted and formatted in the repo that owns it. ~keep
+  "scripts/tests/lib/**",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -248,6 +253,9 @@ exclude = [
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
   "/skills/**",
+  # adrlint owns ADR Markdown with its own rumdl config and content-hash lock; poly would
+  # double-report and its lock-unaware formatter would break locks. ~keep
+  "/adrs/**",
 ]
 
 [workspace.poly.uncomment]
@@ -293,8 +301,14 @@ preserve-patterns = [
 [[workspace.poly.hooks-sources]]
 id = "ai-rulez"
 git = "https://github.com/Goldziher/ai-rulez.git"
-revision = "v5.3.0"
+revision = "v5"
 hooks = ["ai-rulez-validate", "ai-rulez-plugin-verify"]
+
+[[workspace.poly.hooks-sources]]
+id = "adrlint"
+git = "https://github.com/Goldziher/adrlint.git"
+revision = "v0"
+hooks = ["adrlint-lint", "adrlint-format-check", "adrlint-lock-check"]
 [workspace.poly.typos.extend-words]
 # deliberately misspelled stage: a negative test asserts it is rejected ~keep
 inpt = "inpt"
@@ -863,6 +877,8 @@ precondition = "command -v uv >/dev/null 2>&1"
 e2e = [
   "cd e2e/python && uv sync --no-install-project --no-install-workspace",
   "cd e2e/python && uv run --no-sync pytest tests/ -q",
+  "cd e2e/python && uv run --no-sync pytest ../../scripts/tests/test_python_content_accessors.py -q",
+  "cd e2e/python && uv run --no-sync pytest ../../scripts/tests/test_python_stub_matches_reply.py -q",
 ]
 
 [crates.test.node]
@@ -927,7 +943,7 @@ e2e = [
 
 [crates.test.swift]
 precondition = "command -v swift >/dev/null 2>&1"
-before = "task swift:build && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
+before = "mise run swift:build && cargo build --manifest-path e2e/rust/Cargo.toml --bin mock-server --release"
 e2e = "scripts/e2e/run-with-mock-server.sh 'cd e2e/swift_e2e && swift test'"
 
 [crates.test.zig]
@@ -1334,6 +1350,114 @@ options_type = "EmbeddingRequest"
 options_via = "from_json"
 
 [crates.e2e.calls.embed.overrides.swift]
+options_type = "EmbeddingRequest"
+options_via = "from_json"
+
+[crates.e2e.calls.chat_ollama]
+function = "chat"
+path = "/api/chat"
+module = "liter_llm"
+async = true
+
+[[crates.e2e.calls.chat_ollama.args]]
+name = "req"
+field = "input"
+type = "json_object"
+owned = true
+
+[crates.e2e.calls.chat_ollama.overrides.c]
+options_type = "ChatCompletionRequest"
+result_type = "ChatCompletionResponse"
+
+[crates.e2e.calls.chat_ollama.overrides.csharp]
+options_type = "ChatCompletionRequest"
+
+[crates.e2e.calls.chat_ollama.overrides.elixir]
+function = "defaultclient_chat"
+
+[crates.e2e.calls.chat_ollama.overrides.php]
+options_type = "ChatCompletionRequest"
+
+[crates.e2e.calls.chat_ollama.overrides.go]
+client_factory = "CreateClient"
+options_type = "ChatCompletionRequest"
+
+[crates.e2e.calls.chat_ollama.overrides.python]
+options_type = "ChatCompletionRequest"
+options_via = "from_json"
+from_json_module = "liter_llm._internal_bindings"
+
+[crates.e2e.calls.chat_ollama.overrides.ruby]
+options_type = "ChatCompletionRequest"
+
+[crates.e2e.calls.chat_ollama.overrides.java]
+client_factory = "createClient"
+options_type = "ChatCompletionRequest"
+options_via = "from_json"
+enum_fields = { "choices[0].finish_reason" = "FinishReason", "choices[0].message.role" = "Role" }
+
+[crates.e2e.calls.chat_ollama.overrides.wasm]
+options_type = "WasmChatCompletionRequest"
+result_enum_fields = { "choices[0].finish_reason" = "WasmFinishReason" }
+
+[crates.e2e.calls.chat_ollama.overrides.dart]
+options_type = "ChatCompletionRequest"
+options_via = "from_json"
+
+[crates.e2e.calls.chat_ollama.overrides.swift]
+options_type = "ChatCompletionRequest"
+options_via = "from_json"
+
+[crates.e2e.calls.embed_ollama]
+function = "embed"
+path = "/api/embed"
+module = "liter_llm"
+async = true
+
+[[crates.e2e.calls.embed_ollama.args]]
+name = "req"
+field = "input"
+type = "json_object"
+owned = true
+
+[crates.e2e.calls.embed_ollama.overrides.c]
+options_type = "EmbeddingRequest"
+result_type = "EmbeddingResponse"
+
+[crates.e2e.calls.embed_ollama.overrides.csharp]
+options_type = "EmbeddingRequest"
+
+[crates.e2e.calls.embed_ollama.overrides.elixir]
+function = "defaultclient_embed"
+
+[crates.e2e.calls.embed_ollama.overrides.php]
+options_type = "EmbeddingRequest"
+
+[crates.e2e.calls.embed_ollama.overrides.go]
+client_factory = "CreateClient"
+options_type = "EmbeddingRequest"
+
+[crates.e2e.calls.embed_ollama.overrides.python]
+options_type = "EmbeddingRequest"
+options_via = "from_json"
+from_json_module = "liter_llm._internal_bindings"
+
+[crates.e2e.calls.embed_ollama.overrides.ruby]
+options_type = "EmbeddingRequest"
+
+[crates.e2e.calls.embed_ollama.overrides.java]
+client_factory = "createClient"
+options_type = "EmbeddingRequest"
+options_via = "from_json"
+
+[crates.e2e.calls.embed_ollama.overrides.wasm]
+options_type = "WasmEmbeddingRequest"
+
+[crates.e2e.calls.embed_ollama.overrides.dart]
+options_type = "EmbeddingRequest"
+options_via = "from_json"
+
+[crates.e2e.calls.embed_ollama.overrides.swift]
 options_type = "EmbeddingRequest"
 options_via = "from_json"
 
@@ -1888,6 +2012,9 @@ result_is_bytes = true
 [crates.e2e.calls.file_content.overrides.c]
 result_is_bytes = true
 
+[crates.e2e.calls.file_content.overrides.wasm]
+result_is_simple = true
+
 [crates.e2e.calls.file_content.overrides.swift]
 result_is_simple = true
 
@@ -2232,8 +2359,8 @@ name = "liter_llm_ffi"
 name = "LiterLlm"
 
 [crates.e2e.registry.packages.zig]
-version = "2.3.0"
-hash = "liter_llm-2.3.0-Jfgk_AR7FjNQG4Xrznb1QGb5Ok1RHe9S-qBaV1eYM_f4"
+version = "2.4.4"
+hash = "liter_llm-2.4.4-Jfgk_AR7FjNQG4Xrznb1QGb5Ok1RHe9S-qBaV1eYM_f4"
 
 [crates.e2e.registry.packages.homebrew]
 tap = "xberg-io/homebrew-tap"

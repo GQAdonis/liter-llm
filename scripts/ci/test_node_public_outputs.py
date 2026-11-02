@@ -5,6 +5,7 @@ import shlex
 from pathlib import Path
 
 import pytest
+import tomllib
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -13,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 def build_commands() -> dict[str, str]:
     """Read executable commands rather than matching comments or unused examples."""
     package = json.loads((ROOT / "crates/liter-llm-node/package.json").read_text())
-    tasks = yaml.safe_load((ROOT / ".task/languages/node.yml").read_text())["tasks"]
+    with (ROOT / "mise-tasks/languages.toml").open("rb") as config:
+        tasks = tomllib.load(config)
     workflow = yaml.safe_load((ROOT / ".github/workflows/publish.yaml").read_text())
     native_steps = [
         step
@@ -24,8 +26,8 @@ def build_commands() -> dict[str, str]:
     assert len(native_steps) == 1, "Expected exactly one native Node publish build"
     return {
         "package": package["scripts"]["build"],
-        "task-release": tasks["build"]["cmds"][0],
-        "task-debug": tasks["build:dev"]["cmds"][0],
+        "task-release": tasks["node:build"]["run"],
+        "task-debug": tasks["node:build:dev"]["run"],
         "publish": native_steps[0]["run"],
     }
 
@@ -39,3 +41,4 @@ def test_native_build_preserves_public_files(path: str) -> None:
     assert "--no-js" in tokens, f"{path} would overwrite index.js"
     assert tokens.count("--dts") == 1, f"{path} must redirect native declarations"
     assert tokens[tokens.index("--dts") + 1] == "index.native.d.ts", path
+    assert "--platform" in tokens, f"{path} would write a .node file the index.js loader never looks for"

@@ -22,6 +22,51 @@ def assert_error(operation: Callable[[], object], message: str) -> None:
     assert message in received
 
 
+def deny_real_npx(root: Path) -> Path:
+    """Prevent the isolated recipe from escaping its command stub into a real Node package fetch."""
+    guard = root / "deny-real-npx.cjs"
+    guard.write_text(
+        "if (process.argv.some(value => value.includes('npx'))) {\n"
+        "  process.stderr.write('Real npx is forbidden in this fixture\\n');\n"
+        "  process.exit(88);\n"
+        "}\n"
+    )
+    blocked = subprocess.run(
+        ["npx", "--version"],
+        cwd=root,
+        env={**os.environ, "NODE_OPTIONS": f"--require={guard}"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert blocked.returncode == 88 and "Real npx is forbidden" in blocked.stderr
+    return guard
+
+
+def stub_generators(root: Path) -> None:
+    """Replace generation commands while preserving the real task recipe and byte exporter."""
+    binary = root / "bin"
+    binary.mkdir()
+    for name, command in [
+        ("alef", ":"),
+        ("ai-rulez", "exit 90"),
+        (
+            "npx",
+            (
+                'printf "%s\\n" "$*" >> npx-call.txt\n'
+                'case "$*" in\n'
+                '  "-y ai-rulez@latest generate --plugin") test "$#" -eq 4; '
+                "cp plugin/next.md plugin/skills/example/SKILL.md ;;\n"
+                '  "-y ai-rulez@latest -C .ai-rulez lock") test "$#" -eq 5 ;;\n'
+                "  *) exit 89 ;;\nesac"
+            ),
+        ),
+    ]:
+        executable = binary / name
+        executable.write_text("#!/bin/sh\nset -eu\n" + command + "\n")
+        executable.chmod(0o755)
+
+
 class PublicSkillsTests(unittest.TestCase):
     """Use an independent source and export tree for every case."""
 
@@ -77,38 +122,46 @@ class PublicSkillsTests(unittest.TestCase):
             (scripts / script).write_text("")
         generated = "---\nname: example\ndescription: Updated skill.\n---\nUpdated body\n"
         (self.root / "plugin/next.md").write_text(generated)
+        stub_generators(self.root)
         binary = self.root / "bin"
-        binary.mkdir()
-        for name, command in [("alef", ":"), ("ai-rulez", "cp plugin/next.md plugin/skills/example/SKILL.md")]:
-            executable = binary / name
-            executable.write_text("#!/bin/sh\nset -eu\n" + command + "\n")
-            executable.chmod(0o755)
-        (self.root / "Taskfile.yml").write_text(
-            'version: "3"\nincludes:\n'
-            f'  version: "{repository / ".task/tools/version-sync.yml"}"\n'
-            f'  plugin: "{repository / ".task/tools/plugin.yml"}"\n'
+        # ~keep version:sync calls alef:regenerate, plugin:generate and alef:verify:strict from the
+        # toolchains task sets; their file tasks resolve against the project root, so copy them in.
+        shutil.copytree(repository / "mise-tasks/.shared", self.root / "mise-tasks/.shared")
+        includes = [str(repository / "mise-tasks" / name) for name in ("version.toml", "plugin.toml", "shared.toml")]
+        (self.root / "mise.toml").write_text(
+            f'[env]\n_.path = ["bin"]\n[task_config]\nincludes = {includes!r}\n'.replace("'", '"')
         )
         result = subprocess.run(
-            ["task", "version:sync"],
+            ["mise", "run", "version:sync"],
             cwd=self.root,
-            env={**os.environ, "PATH": str(binary) + os.pathsep + os.environ["PATH"]},
+            env={
+                **os.environ,
+                "PATH": str(binary) + os.pathsep + os.environ["PATH"],
+                "MISE_TRUSTED_CONFIG_PATHS": str(self.root),
+                "MISE_CEILING_PATHS": str(self.root.parent),
+                "NODE_OPTIONS": f"--require={deny_real_npx(self.root)}",
+            },
             capture_output=True,
             text=True,
             check=False,
         )
         assert result.returncode == 0, result.stdout + result.stderr
+        assert (self.root / "npx-call.txt").read_text().splitlines() == [
+            "-y ai-rulez@latest generate --plugin",
+            "-y ai-rulez@latest -C .ai-rulez lock",
+        ]
         assert (self.root / "plugin/skills/example/SKILL.md").read_text() == generated
         assert self.module.synchronize(self.root, check=True) == (1, 2)
         assert (self.root / "skills/example/SKILL.md").read_text() == generated
 
-    def test_should_install_task_before_ci_executes_version_sync_regression(self) -> None:
+    def test_should_install_mise_before_ci_executes_version_sync_regression(self) -> None:
         """The public-skill job must provision the real recipe runner it exercises."""
         repository = Path(__file__).resolve().parents[2]
         workflow = (repository / ".github/workflows/ci-plugin.yaml").read_text()
         assert workflow.count("  launcher-contract:\n") == 1
         job = workflow.split("  launcher-contract:\n", 1)[1]
-        installers = list(re.finditer(r"uses: xberg-io/actions/install-task@[0-9a-f]{40}\b", job))
-        assert len(installers) == 1, "Launcher job must install the pinned Task CLI exactly once"
+        installers = list(re.finditer(r"uses: xberg-io/actions/setup-mise@v1\b", job))
+        assert len(installers) == 1, "Launcher job must set up mise exactly once"
         command = "python3 scripts/tests/test_public_skills.py"
         assert job.count(command) == 1
         assert installers[0].start() < job.index(command)

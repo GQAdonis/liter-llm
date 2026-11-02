@@ -33,10 +33,10 @@ Every generated `catalog.json` carries a `$provenance` block:
 
 The embedded catalog is compiled in — the crate build never touches the network. Regenerating it is a separate, opt-in step:
 
-- `task generate:catalog` — refetches `api.json` and rewrites both output files.
-- `task generate:catalog:check` — regenerates in memory and fails if the committed files have drifted from models.dev, without writing anything. Runs in CI on every PR that touches `schemas/catalog.json`, `crates/liter-llm/schemas/catalog.json`, or the generator crate.
+- `mise run generate:catalog` — refetches `api.json` and rewrites both output files.
+- `mise run generate:catalog:check` — regenerates in memory and fails if the committed files have drifted from models.dev, without writing anything. Runs in CI on every PR that touches `schemas/catalog.json`, `crates/liter-llm/schemas/catalog.json`, or the generator crate.
 
-A daily scheduled workflow (`sync-catalog.yml`) also runs `task generate:catalog`, opens a PR when the output changes, and enables auto-merge once required checks pass. A separate workflow (`publish-catalog.yml`) pushes every update to `schemas/catalog.json` on `main` to the rolling `model-catalog` GitHub release, injecting `generated_by_commit` and `release_tag` into `$provenance` before upload. This is the artifact the opt-in [runtime refresh](/guides/catalog-refresh/) downloads from by default.
+A daily scheduled workflow (`sync-catalog.yml`) also runs `mise run generate:catalog`, opens a PR when the output changes, and enables auto-merge once required checks pass. A separate workflow (`publish-catalog.yml`) pushes every update to `schemas/catalog.json` on `main` to the rolling `model-catalog` GitHub release, injecting `generated_by_commit` and `release_tag` into `$provenance` before upload. This is the artifact the opt-in [runtime refresh](/guides/catalog-refresh/) downloads from by default.
 
 ## API
 
@@ -95,6 +95,20 @@ use liter_llm::cost;
 if let Some(info) = cost::model_info("gpt-4o") {
     println!("context window: {:?}", info.max_input_tokens);
     println!("supports vision: {:?}", info.supports_vision);
+}
+```
+
+### `cost::list_catalog_models`
+
+List every model of the catalog without a network call or an API key, for example to fill a model picker. Each entry carries the key, the provider id, the model id, the mode, the token limits and the capability flags. `model_info` and `exact_model_info` accept the key unchanged. The list is sorted by key in byte order, so upper case sorts before lower case. An installed catalog refresh replaces the embedded entries of the same key.
+
+The `provider` argument takes a catalog provider id: the part of a key before the first slash, such as `openai` in `openai/gpt-4o`. The catalog has its own set of provider ids. It is not the set of routing names that `all_providers` returns, and a routing name that is not a catalog id gives an empty list. The comparison is exact and case-sensitive. An absent or empty `provider` keeps every provider.
+
+```rust
+use liter_llm::cost;
+
+for model in cost::list_catalog_models(Some("anthropic")) {
+    println!("{} reasoning: {:?}", model.key, model.supports_reasoning);
 }
 ```
 

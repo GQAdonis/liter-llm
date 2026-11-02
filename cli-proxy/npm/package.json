@@ -21,7 +21,10 @@
   "bin": {
     "liter-llm": "bin/liter-llm.js"
   },
-  "files": ["bin/", "install.js"],
+  "files": [
+    "bin/",
+    "install.js"
+  ],
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -29,5 +32,5 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "pnpm@12.11.2"
+  "packageManager": "pnpm@12.16.1"
 }

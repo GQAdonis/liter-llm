@@ -10,6 +10,199 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Python 3.11 is now the minimum supported version; Python 3.10 reached end of life.
+
+## [2.4.4] - 2026-10-31
+
+### Fixed
+
+- Refresh stale coding-agent plugin provenance that blocked OpenCode and Pi package publication.
+
+### Changed
+
+- Regenerate bindings with Alef 0.115.10, including private Swift `CodingKeys` and Java Maven Enforcer 3.7.0.
+
+## [2.4.3] - 2026-10-30
+
+### Fixed
+
+- Cohere: preserve streamed thinking content separately from visible answer text (#453).
+
+### Changed
+
+- Upgrade Rust dependencies, including PyO3 0.30, RMCP 3.8, JSON Schema 0.60 and OpenDAL 0.59.
+- Regenerate bindings and release scaffolding with Alef 0.115.7.
+
+## [2.4.2] - 2026-10-29
+
+### Added
+
+- WebAssembly: an assistant message has a `contentValue` getter. It returns the content as sent, a string or the list of parts. The `content` getter still returns the display text only (#412).
+
+### Changed
+
+- Build: mise replaces go-task. `mise.toml` pins the toolchain at the xberg-io/toolchains v1.7.1 baseline, every
+  task keeps its name under `mise run`, and CI sets up tools with `setup-mise`. `Taskfile.yml` and `.task/` are gone.
+- Ruby: a message read back from the native extension is an instance of its variant class, such as `LiterLlm::MessageUser`, not a plain Hash. Code that expects a Hash can call `to_h` on it (#412).
+- Regenerate bindings and end-to-end suites with alef 0.115.5 (#412).
+- Sync the model catalog from models.dev (#446, #451).
+
+### Fixed
+
+- Security: update pulldown-cmark to 0.13.5 for RUSTSEC-2026-0414. The crate is a build dependency through prost-build (#448).
+- Build: `mise run version:sync` refreshes the ai-rulez lock, so a version bump no longer fails the lock check (#444).
+- CI: `alef verify` and the poly format check pass on main again (#448).
+- CI: pin poly to 0.31.2, so a new poly release cannot turn main red without a commit (#449).
+- Tests: the bad-purpose file fixture is skipped in Elixir, PHP and Swift, which reject the value before any HTTP request (#416). Every shell script has a Bats suite, and the generated Homebrew consumer checks run through Bats (#443).
+
+## [2.4.1] - 2026-10-27
+
+### Changed
+
+- Regenerate bindings with alef 0.114.0. Five end-to-end fixtures that skipped bindings now run (#391).
+
+### Fixed
+
+- Anthropic: `json_schema` structured output closes every object schema with `additionalProperties: false` (#403).
+- Anthropic: a list-form system message skips blank text parts (#399).
+- Anthropic and Bedrock: streamed tool calls are numbered from 0 across the whole stream, in the order they start. Argument deltas keep the number of their own call (#435).
+- Anthropic: a streamed refusal reports the finish reason `content_filter`, as the reply that is not streamed does, not `other` (#436).
+- Gemini: a tool result carries the name of the function that was called, not `tool` (#417).
+- Gemini: a reply that calls a tool finishes with `tool_calls` (#420).
+- Gemini: presence penalty and frequency penalty are sent (#421). The seed is sent (#422).
+- Gemini and Vertex: streamed tool calls are numbered across the whole stream. The first call is 0, the second is 1, also when the calls arrive in different chunks (#439).
+- Ollama: a stream that stops at the token limit after a tool call finishes with `tool_calls` (#440).
+- An API key that Google reports as not valid is an authentication error, for Google AI and Vertex AI only, on streams
+  and on calls that are not streams (#418, #426).
+- llama.cpp and LM Studio: a request that does not fit the context window raises `ContextWindowExceeded`, not `BadRequest` (#437).
+- `list_catalog_models(provider)` accepts the routing names `gemini`, `google_ai` and `vertex_ai`. They list the models
+  of the catalog ids `google` and `google-vertex`, as the cost lookup already resolves them (#405).
+- Build: the stale pnpm and uv lock files are refreshed, and the PHP end-to-end config no longer holds a macOS path
+  (#413).
+- CI: the release notes start from the CHANGELOG entry of the version (#392). The hook check matches the ai-rulez
+  version exactly (#401). The CHANGELOG entry test passes `check` to `subprocess.run` (#428).
+
+### Not in this release
+
+The next alef bump waits for the alef fix for the dropped end-to-end assertions (xberg-io/alef#412).
+
+## [2.4.0] - 2026-10-24
+
+### Changed
+
+- `ollama/` (and its alias `ollama_chat/`) now uses Ollama's own API, `/api/chat` and `/api/embed`, instead of the
+  OpenAI-compatible path. Settings in `extra_body` such as `num_ctx`, `top_k` and `repeat_penalty` reach Ollama as
+  `options`, where Ollama applies them. Chat streams read newline-delimited JSON. The default `base_url` is now
+  `http://localhost:11434`. A `base_url` that ends in `/v1` still works: native calls strip one trailing `/v1` before
+  they append `/api/...`. An Ollama hint always means the native API: a client built with the hint `ollama` or
+  `ollama_chat`, or with a hint that starts with `ollama/` or `ollama_chat/`, sends every bare model to `/api/chat`
+  and `/api/embed` whatever `base_url` is, and its `list_models` reads `/api/tags`, which Ollama serves, instead of
+  `/models`, and sets `created` from `modified_at`. On such a client a model with another provider's prefix, such as
+  `openai/m`, `groq/m` or the name of a registered custom provider, still goes to the OpenAI-compatible endpoint at
+  the `base_url` as given, with the model name as given; a model whose name holds a slash but no provider prefix, such
+  as `hf.co/user/model`, is bare. To reach Ollama's OpenAI-compatible endpoint, use the `openai/` prefix with the
+  Ollama `base_url`. `reasoning_effort` becomes `think`, with `none` sent as `think: false`, and `logprobs` reach
+  Ollama. An `extra_body` key set to `null` is not sent. Fields Ollama has no equivalent for are dropped, as the
+  Anthropic provider does; the Ollama section of the local LLMs page lists them. A reply that only calls tools keeps
+  an empty `content`. Error text of other providers is unchanged (#308).
+- `ollama/` requests that Ollama's API cannot take now fail with `BadRequest` before they are sent (#308):
+  - An `image_url` part with an `http` or `https` URL, or a data URL without `;base64`: send the image as a base64
+    data URL.
+  - A message content part other than `text` and `image_url`: send text and images only.
+  - Tool-call `arguments` in an assistant message that are not valid JSON: send them as a JSON object.
+  - Embedding `input` that is not a string or a list of strings: send the text as strings.
+- Regenerate bindings with alef 0.112.0. The Rust, Go, Java, PHP and C streaming tests read the stream before they
+  assert a mid-stream error.
+- Swift: the enum case `none` is now `none_` (the serialized value is unchanged).
+- Zig: wrappers report native conversion failures through error unions.
+- Python: getters of untagged enums return the payload of the matching variant. The stub declares them.
+- Python: error classes carry attributes, such as `message` and `status`.
+- PHP: errors are typed exception classes (29 classes under `LiterLlmError` and `CatalogRefreshError`).
+- Dart: errors are typed values, and `retryAfter` and `model` are nullable.
+- Java: builder setters of optional primitive fields take `Long` and have a `long` overload, so the signature changes.
+- Elixir: specs name struct types instead of `map()`.
+- Ruby: an optional string argument of the wrong type raises instead of becoming an empty string.
+- The client option `connect_timeout_secs` (Rust `connect_timeout`) sets how long the client waits for a connection to open. The default is 10 seconds; before, the connect step had no limit of its own, so this changes a public default. It is set in the client options, the TOML and JSON config files, and `LlmConfig` of every binding. A connection that does not open in time fails with `Timeout` and is retried up to `max_retries` times, because the server never saw the request. A request that times out after the connection is open is still sent once. The request `timeout_secs` ends the call first when it is shorter than the connect timeout. A value of zero is a `BadRequest` error when the client is created, on every target. `wasm32` ignores any other value (#341).
+
+### Added
+
+- `StreamFormat` has a new `Ndjson` variant for providers that stream newline-delimited JSON (#308).
+- `list_catalog_models(provider)` lists the models of the built-in catalog without a network call or an API key, in
+  every binding. Each entry has the full catalog name, the provider, the model, the mode, the token limits and the
+  ability flags. The list is sorted by name in byte order and covers an installed catalog refresh. The optional
+  `provider` argument keeps the models of one catalog provider id, such as `openai`; a routing name from
+  `all_providers` that is not a catalog id gives an empty list, and an empty `provider` keeps every provider (#310).
+- The embedding, rerank, image, speech, transcription, moderation, search and OCR requests take an `extra_body` field in
+  every binding. Its keys are merged into the provider request body and override fields with the same name, as the chat
+  `extra_body` does. A Bedrock Cohere embed request takes `input_type` from `extra_body`, such as `search_query`, and
+  still sends `search_document` when `extra_body` has none. Bedrock Cohere and Titan embed requests send other
+  `extra_body` keys, such as `truncate` or `normalize`, in the request body. The embedding cache key includes
+  `extra_body` (#334).
+- Gemini API (`gemini/` and `google_ai/`) embed requests merge the `extra_body` keys, such as `taskType` and `title`,
+  into each embed request (#334).
+
+### Changed
+
+- **Swift: `CreateImageRequest`, `CreateSpeechRequest`, `CreateTranscriptionRequest`, `EmbeddingRequest`,
+  `ModerationRequest`, `OcrRequest`, `RerankRequest` and `SearchRequest` are now `typealias`es over the Rust bridge
+  types**, like `ChatCompletionRequest`, rather than native `struct`s. They gain the `extra_body` field, which holds
+  JSON. Code that built them with the memberwise initialiser must use the bridge initialiser, and they are no longer
+  `Codable` or `Hashable` value types. The 16 public `*Ref` and `*RefMut` typealiases of these eight types, such as `EmbeddingRequestRef` and `EmbeddingRequestRefMut`, are removed (#334).
+
+### Fixed
+
+- One rule now decides the provider route from `model_hint`, and `base_url` changes only the host. Now `cohere`, `cohere/command-r-plus` and `command-r-plus` select the same provider with or without a `base_url`, and the request keeps that provider's body, path, query and reply handling. A path the provider serves outside its own base URL keeps its whole path at the `base_url` host: the Cohere model list goes to `/v1/models?page_size=1000` there. A request model without a `provider/` prefix stays on the provider that the hint selected, and this holds for a model-name hint too: under a `gpt-4o` hint, every bare model is sent as an OpenAI model. **Behaviour change:** these hints now reach a different route. With a `base_url`, a bare or model-name hint for Anthropic, Gemini, Vertex AI, Voyage, Groq, Cohere or Mistral sends that provider's native request to the `base_url` host, where it sent the generic OpenAI-shaped request before, so a gateway that expects an OpenAI-shaped request now receives the native one. Drop the hint to keep the OpenAI-shaped request. With a `base_url`, a model-name hint for OpenAI (such as `gpt-4o`) now strips the `openai/` prefix from `openai/gpt-4o`. Without a `base_url`, a bare `voyage`, `groq`, `mistral`, `cohere`, `gemini` or `vertex_ai` hint now reaches that provider's own host instead of `api.openai.com`, and a `vertex_ai` hint no longer reaches Google AI Studio. With a `base_url` and an empty `api_key`, a bare or model-name hint (`anthropic`, `claude-sonnet-4`, `azure`, `gemini`, `google_ai`, `vertex_ai`, `bedrock`, `cohere`) reads no key from the environment, as before. Only a `provider/` hint reads one there, as before: `anthropic/`, `azure/`, `gemini/` and `google_ai/` read `ANTHROPIC_API_KEY`, `AZURE_OPENAI_API_KEY` and `GEMINI_API_KEY`, `vertex_ai/` gets a Google access token, and `bedrock/` uses `AWS_BEARER_TOKEN_BEDROCK` or signs with your AWS keys. A bare `bedrock` hint at a `base_url` sends the request unsigned unless the client config carries AWS keys. A provider that needs no key, such as `lmstudio`, sends no `Authorization` header at its own host and sends the `api_key` as a bearer token at a `base_url` (#330).
+- Send Vertex AI and Bedrock image, rerank and list-models calls to the paths those services serve. Vertex image generation goes to the Imagen `:predict` method with an `instances` and `parameters` body, and `n` and `size` become `sampleCount` and `aspectRatio`. Vertex list models reads `v1beta1/publishers/google/models` and follows `nextPageToken` to the last page. Bedrock rerank goes to `/rerank` on the `bedrock-agent-runtime` host with a `queries`, `sources` and `rerankingConfiguration` body, and its `relevanceScore` replies parse as results. Bedrock list models reads `/foundation-models` on the `bedrock` host. A `base_url` on a Bedrock client moves every call, rerank and list models included. Before, each call went to a chat-shaped path and failed with a serialization error (#332).
+- `ollama/` embed requests now send `extra_body` to `/api/embed`. The keys `truncate`, `keep_alive` and `dimensions` stay at the top level. Every other key, such as `num_ctx`, goes into `options`, and the keys of an explicit `options` object win on a conflict. Before, the embed request dropped `extra_body` (#329).
+- An error reply with a plain-text `error` field, as Ollama sends, now shows that text as the error message instead of
+  the raw JSON body (#308).
+- `chat_stream_raw` now ends in `LiterLlmError::Streaming` when a stream is cut before the provider's final event, as
+  `chat_stream` does. This covers Ollama, Anthropic, Gemini, Vertex AI, Cohere and Bedrock (#308).
+- Parse the rerank replies of `fireworks_ai/` (hits under `data`), `nvidia_nim/` (hits under `rankings`, with a `logit` for the score) and `huggingface/` Text Embeddings Inference (a bare top-level array, with a `score` and an optional `text`), so these calls return the same `results` as other providers instead of raising `SerializationError`. The reply shape follows the model prefix or the client's `model_hint`, as for Voyage. A reply that has `relevance_score` keeps it. The TEI `text` becomes the result `document`. The NIM `logit` is passed through unchanged and is not limited to `[0, 1]` (#327).
+- Send rerank requests to `nvidia_nim/` and `huggingface/` in the shape those providers document. NVIDIA NIM gets `POST /ranking` with `query` as `{"text": ...}` and the documents as `passages`. TEI gets `texts` for the documents and `return_text` for `return_documents`. Neither documents a field that limits the number of results, so `top_n` is not sent to them (#327).
+- A rerank request to a `voyage/` model, or from a client whose `model_hint` is `voyage`, now sends `top_n` as `top_k`, the field Voyage documents. Other providers keep `top_n` (#319).
+- Vertex AI embed requests send `dimensions` as `parameters.outputDimensionality`. Before, the value was dropped without an error. An `extra_body.parameters` object adds its keys to `outputDimensionality` and does not replace it (#334).
+- Refuse `elevenlabs/`, `deepgram/`, `stability/`, `tavily/`, `fal_ai/`, `runwayml/`, `assemblyai/` and `serper/` models when no `base_url` is set, with the same error as other providers that have no built-in route. These services have native APIs, and the client sent them OpenAI-shaped requests that they reject. The provider list no longer declares audio, image, search or chat endpoints for them, so the providers page shows none. A call with a `base_url` is unchanged, and an empty `base_url` counts as unset. (#333)
+- Refuse calls to an endpoint that a provider has no route for, before any request is sent, with the same error as other providers that have no built-in route. The error names the endpoint. This covers search for `brave/`, `perplexity/`, `exa_ai/`, `firecrawl/`, `linkup/`, `parallel_ai/`, `google_pse/` and `duckduckgo/`, and audio and image for `edenai/`. These services have native APIs for those endpoints, and the client sent them OpenAI-shaped requests that fail. Their other endpoints, such as Brave, Perplexity and Eden AI chat, keep working. A call with a `base_url` is unchanged, and so is a custom provider registered under one of these names. (#350)
+- Cohere embed and list-models calls now use Cohere's own endpoints. Embed sends `POST /v2/embed` with `texts` (or `inputs` for multimodal input), `input_type` (`search_document`) and `embedding_types: ["float"]`, maps `dimensions` to `output_dimension`, and reads `embeddings.float`. List models sends `GET /v1/models` and reads `models`. The bare model name `embed-english-v3.0` takes the same route as `cohere/embed-english-v3.0`. List models asks for `page_size=1000`, the largest page Cohere allows, and returns an error if Cohere still reports a next page. A Cohere embed reply takes the model of the request, because Cohere sends none (other providers keep the reply `model` as sent), and billed image tokens count as input tokens. An empty input list is rejected before any request. An `extra_body` on a Cohere embed request is merged into the request body, so a caller can set `input_type` (#331).
+- The Cohere reply step rebuilds only chat replies. Before, it replaced every other reply it received with an empty chat completion and dropped all of its fields. Other replies now pass through unchanged (#318).
+- Parse Voyage rerank replies, which list the scored documents under `data` instead of `results`, so `voyage/` rerank calls return the same `results` as other providers. The reply shape follows the model in the request, and a client that names Voyage as its `model_hint` reads Voyage replies for a bare model such as `rerank-2`. A custom provider that claims the `voyage/` prefix still decides where the request goes, but the reply is read as a Voyage reply. A `results: null` beside a valid `data` array parses from `data`. The `voyage/` prefix is case-sensitive, like every other provider prefix. (#306)
+- Rerank replies no longer pass through the chat transform of the provider that sends the request. This fixes `cohere/` rerank calls, whose replies the Cohere chat transform rebuilt without the `results` array, and any rerank call from a client pinned to a provider with a chat transform. (#306)
+- `reasoning_effort: "none"` is now accepted by the typed `ReasoningEffort` field in every binding and reaches the server as `"none"` on OpenAI-compatible, Azure and Ollama endpoints. Anthropic and Bedrock send `thinking: {type: "disabled"}`, and Vertex AI and Gemini send a thinking budget of 0 (#301).
+- A model for a registry provider that has no route of its own, such as `snowflake/arctic` or `watsonx/ibm-slate`, now fails with an error that names the provider and asks for a `base_url`. Before, a call without `base_url` fell back to the OpenAI endpoint. The gateways that need a `base_url` (`custom`, `custom_openai`, `hosted_vllm`, `infinity`, `litellm_proxy`, `openai_like`) fail the same way when it is missing. A client hint that names such a provider without a `model` prefix, such as `snowflake`, fails the same way when no `base_url` is set. The proxy refuses to start when a `[[models]]` entry names such a provider and has no `base_url`, and `liter-llm api` now exits with that error instead of staying up with no listener. Plain OpenAI models and providers with a route behave as before.
+- Publish an `abi3` Python wheel for Intel macOS (`macosx_11_0_x86_64`), cross-built on the arm64 runner, and fail the build when any wheel's platform tag or machine code is not the one its build leg promises. (#297)
+- An error event inside an OpenAI-compatible chat stream that already returned 200 now raises the same error kind as the same body on an HTTP error, for example `RateLimitedError` with status 429. An event with no `status_code` takes its status from the error `code` or `type` (#304).
+- An error event inside a chat stream now carries the event's `retry_after` (seconds, as a number or a numeric string, in the error object or at the top level; an unusable value in the error object does not hide the top level), so `retry_after()` on the `RateLimited` error returns it as it does for an HTTP reply (#339).
+- An error event inside a Gemini or Vertex AI chat stream, such as `{"error": {"code": 429, ...}}`, now raises the error kind that the same body gives as an HTTP reply. Before, the stream ended with no error. An error event inside an Anthropic or Cohere chat stream, and an exception frame inside a Bedrock chat stream, raise that kind too, for example `RateLimitedError` for an Anthropic `rate_limit_error` or a Bedrock `throttlingException`. Anthropic `billing_error`, `request_too_large` and `timeout_error` keep the status 402, 413 and 504. A Bedrock `modelStreamErrorException` and `modelErrorException` keep the status 424. The Bedrock exception type is read from the `:exception-type` header of the frame. A Bedrock frame with the message type `error` raises a streaming error with its error code and message. A Gemini or Vertex AI error without a numeric `code` takes its status from the `status` name, such as `RESOURCE_EXHAUSTED` for 429, and a `code` that is a string reads as a number. An error event reads `status_code` as a number or a string. A `status_code` at the top level of the event counts only when it is an error status (400 to 599), and the one in the error object wins. A Cohere `message-end` event with an error text or the finish reason `ERROR` raises a streaming error. Before, Anthropic and Bedrock raised a generic streaming error and Cohere dropped the event (#340, #343).
+- A chat stream that the server closes cleanly with no `data: [DONE]` and no chunk that carries a `finish_reason` now ends with a `Streaming` error. Before, a cut that fell between two events ended the stream with no error, so a short reply looked complete. This reverses the 2.3.0 line that OpenAI-compatible streams keep ending cleanly without `[DONE]` (#295): a close with neither `[DONE]` nor a `finish_reason` is now an error. A stream that ends with `[DONE]`, or with a chunk that has a `finish_reason` and no `[DONE]`, ends as before. The raw chat stream (`chat_stream_raw`) of Anthropic, Gemini, Vertex AI and Cohere now ends with a `Streaming` error on a cut too. Before, it ended with no error. The parsed Anthropic, Gemini, Vertex AI and Cohere streams keep their own error, which names the provider. The Responses API stream is checked too (#367).
+- A Responses API stream (`create_response_stream`) that the server closes cleanly before `response.completed`, `response.incomplete` or `response.failed` now ends with a `Streaming` error after the last event. Before, it ended with no error, so a short reply looked complete. An `error` event followed by a clean close now ends with the `Streaming` error after the error item. A stream that ends with one of these events, or with `data: [DONE]`, ends as before. The error text no longer names `[DONE]` or a finish reason, which do not apply to every stream (#367).
+- A request that times out is no longer sent again. Before, one slow reply cost about `timeout_secs * (max_retries + 1)` plus back-off, and the server ran (and billed) the request each time. The caller now gets `LiterLlmError::Timeout` after about `timeout_secs`. A timeout after the connection is open is sent once. A connection that fails or closes without a reply, `429` and `5xx` replies keep their retries (#316).
+- Apply the client timeout on WASM (wasm32). Before, the WASM client set no timeout, so a call waited for the server for as long as it took. `timeout_secs` now limits each attempt of a call that returns one reply, from the request to the end of the reply body, and the caller gets `LiterLlmError::Timeout`. It limits a stream by the silence between chunks, as on native targets. A request that times out is not sent again. This covers chat, embeddings and every other JSON call, binary calls, file uploads, and server-sent event and Bedrock event streams. A client on wasm32 with no timeout set uses the 60 s default timeout, as on native targets. The `liter-llm` crate alone now builds for wasm32 with the `wasm-http` feature (#365, #366).
+
+### Security
+
+- Reject distrusted emSign certificate chains by updating TLS validation and bundled trust stores
+  (RUSTSEC-2026-0381, RUSTSEC-2026-0382, RUSTSEC-2026-0383).
+
+### Not in this release
+
+These tests stay skipped until alef, the binding generator, fixes the generated test code:
+
+- The parts reply test in Go, C, Java and Kotlin reads the parts through an accessor the binding does not have
+  (xberg-io/alef#688).
+- The Ruby empty response body test names an error class the extension does not define (xberg-io/alef#687).
+- The streamed usage test, in 11 bindings, does not read usage from the last chunk (xberg-io/alef#689).
+- Two wasm file tests: the create-file skip is stale, and the file-content test needs a test-config override.
+
+Two Swift binding defects are open in alef and ship unchanged in this release:
+
+- The Swift binding has no public member that returns the parts of a reply, so its parts reply test is also skipped
+  (xberg-io/alef#691).
+- In Swift, `result.choices()[0].message()` in one expression reads freed memory. Keep the list in a local variable
+  first (xberg-io/alef#693).
+
 ## [2.3.0] - 2026-10-19
 
 ### Changed
@@ -33,6 +226,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Limit a stream by the silence between chunks instead of its total time. `timeout_secs` (60 s by default) now ends a stream only when no data arrives for that long, so a long answer that keeps sending chunks completes. A call that returns one reply keeps the whole-request limit. A stalled stream still fails with the timeout error. (#314)
 - Reject a Bedrock `messageStop` event without `stopReason` instead of reporting it as `end_turn`, and stop reporting
   intermediate Gemini and Vertex AI stream chunks as finished (#295).
 - Omit an absent assistant `refusal` from request message history, which strict OpenAI-compatible providers such as

@@ -46,6 +46,9 @@ impl Provider for DashScopeMultimodalProvider {
     fn base_url(&self) -> &str {
         &self.base_url
     }
+    fn at_base_url(&self, base_url: &str) -> Option<Box<dyn Provider>> {
+        Some(Box::new(Self::with_base_url(base_url.to_owned())))
+    }
     fn env_var(&self) -> Option<&str> {
         Some("DASHSCOPE_API_KEY")
     }

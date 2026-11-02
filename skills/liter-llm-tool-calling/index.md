@@ -1,10 +1,10 @@
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-Content-Hash: blake3:27b7d413268994b2de57be9cce2eba3277c235244cf4dd3d8018746f2b98eeed
-Source-Hash: blake3:88c87867f5079f6c8fcb582aee913cca4f6feefe541c5361d2307a9b45233f97
+Content-Hash: blake3:f3f65adb24af345cb4958faed80bd7960f1d8ecdd71ec071ae8be4755780eb5f
+Source-Hash: blake3:a1296067b021e804d88bfdcb22e11bca928ae06a869bbef2dcc709a7f83858b7
 Schema-Version: v1
 -->
 
 # Concepts
 
-* [Tool Calling](SKILL.md) - Use when defining functions/tools for an LLM to call through liter-llm, or requesting structured JSON outputs. Covers tool schemas, tool_calls handling, and response formats.
+- [Tool Calling](SKILL.md) - Use when defining functions/tools for an LLM to call through liter-llm, or requesting structured JSON outputs. Covers tool schemas, tool_calls handling, and response formats.

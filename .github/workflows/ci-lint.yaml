@@ -23,10 +23,17 @@ permissions:
   contents: read
 
 jobs:
+  toolchain:
+    name: Toolchain baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: xberg-io/actions/check-toolchain@v1
+
   validate:
     name: Validate
     if: github.repository == 'xberg-io/liter-llm' && github.actor != 'dependabot[bot]'
-    uses: xberg-io/actions/.github/workflows/reusable-validate.yml@a5177b8eb2fba9322b45b570725f8823ca03d64b
+    uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1
     with:
       # `check-fixture-snippets` is deliberately NOT enabled here: turning it on
       # installs alef and runs `alef snippets check --strict --cache off`, which
@@ -34,10 +41,10 @@ jobs:
       # as B26, not yet fixed). Flipping this to `true` before B26 lands would
       # make every push/PR red for a reason contributors cannot fix locally.
       # Re-enable once B26 is resolved upstream. ~keep
-      # `poly-version` is deliberately unset: empty means the reusable workflow
-      # resolves the newest release through the GitHub API and installs that exact
-      # tag, so a run is still reproducible while the gate tracks upstream fixes
-      # instead of aging into a build with known defects. ~keep
+      # The poly pin is deliberate: a new poly release must not turn main red with
+      # no commit. To raise it, change this value and the poly pin in mise.toml
+      # (no "v" there), run `poly fmt`, and commit the reformat in the same PR. ~keep
+      poly-version: "v0.32.1"
       setup-rust: true
       setup-python: true
       # poly's checkstyle project check runs `mvn checkstyle:check` on packages/java,
@@ -60,11 +67,14 @@ jobs:
       setup-ruby: true
       setup-dart: true
       setup-elixir: true
+      check-adrs: true
 
   release-regressions:
     name: Release regression tests
     if: github.repository == 'xberg-io/liter-llm'
     runs-on: ubuntu-latest
+    env:
+      UV_PYTHON_PREFERENCE: only-system
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -74,8 +84,10 @@ jobs:
           python-version: "3.14"
           cache-prefix: release-regressions
           install-command: uv sync --locked --only-group dev --python 3.14 --no-install-project --no-install-workspace
-      - name: Install Task
-        uses: xberg-io/actions/install-task@v1
+      - name: Setup mise
+        uses: xberg-io/actions/setup-mise@v1
+        with:
+          install-args: uv
       - name: Run release regression tests
-        run: task test:release-regressions
+        run: mise run test:release-regressions
         shell: bash

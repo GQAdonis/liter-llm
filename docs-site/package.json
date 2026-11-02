@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.42.6",
-    "@xberg-io/docs-theme": "^0.4.1",
+    "@xberg-io/docs-theme": "^0.4.2",
     "astro": "^7.3.8",
     "sharp": "^0.35.5",
     "starlight-llms-txt": "^0.12.0"
@@ -33,5 +33,5 @@
     "textlint-rule-terminology": "5.2.16",
     "textlint-rule-write-good": "2.0.0"
   },
-  "packageManager": "pnpm@12.11.2"
+  "packageManager": "pnpm@12.16.1"
 }

@@ -32,6 +32,7 @@ pub(crate) async fn post_chat_stream<P>(
     client: &reqwest::Client,
     request: StreamingPost<'_>,
     protocol: ChatStreamProtocol,
+    provider_name: String,
     parse_event: P,
     options: ResponseReadOptions,
 ) -> Result<crate::client::BoxStream<'static, Result<ChatCompletionChunk>>>
@@ -44,7 +45,9 @@ where
         decoder: SseDecoder::default(),
         parse_event,
         protocol,
+        provider_name,
         terminal: false,
+        finished: false,
         done: false,
     }))
 }
@@ -56,7 +59,11 @@ pin_project! {
         decoder: SseDecoder,
         parse_event: P,
         protocol: ChatStreamProtocol,
+        provider_name: String,
         terminal: bool,
+        // ~keep OpenAI-compatible only: a chunk carried a finish reason (upstream #356). It does
+        // ~keep not end the stream, because a usage chunk may follow it before `[DONE]`.
+        finished: bool,
         done: bool,
     }
 }
@@ -141,6 +148,9 @@ where
                 match (this.parse_event)(&event.data) {
                     Ok(chunk) => {
                         *this.terminal |= terminal;
+                        *this.finished |= chunk
+                            .as_ref()
+                            .is_some_and(|chunk| chunk.choices.iter().any(|choice| choice.finish_reason.is_some()));
                         if let Some(chunk) = chunk {
                             return Poll::Ready(Some(Ok(chunk)));
                         }
@@ -167,12 +177,18 @@ where
                     if let Err(error) = this.decoder.finish() {
                         return Poll::Ready(Some(Err(error)));
                     }
-                    return if *this.terminal {
+                    let complete =
+                        *this.terminal || (matches!(this.protocol, ChatStreamProtocol::OpenAi) && *this.finished);
+                    return if complete {
                         Poll::Ready(None)
                     } else {
-                        Poll::Ready(Some(Err(failure(
-                            "Provider stream ended without selected protocol terminal evidence",
-                        ))))
+                        Poll::Ready(Some(Err(LiterLlmError::Streaming {
+                            message: format!(
+                                "{} stream ended before its final event; the response is incomplete \
+                                 (no selected protocol terminal evidence)",
+                                this.provider_name
+                            ),
+                        })))
                     };
                 }
                 Poll::Pending => return Poll::Pending,

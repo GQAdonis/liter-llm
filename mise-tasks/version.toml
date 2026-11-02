@@ -1,0 +1,17 @@
+# Version sync, included from mise.toml [task_config]; the bump tasks come from the alef-version set. ~keep
+
+["version:sync"]
+description = "Synchronize version across all package manifests"
+run = [
+  "alef sync-versions",
+  { task = "alef:regenerate" },
+  # Sync the coding-agent plugin: pin plugin/.ai-rulez/config.plugins.toml [plugin].version
+  # to core, then regenerate the per-runtime bundles under plugin/ from it. ~keep
+  "python3 scripts/sync_plugin_version.py",
+  "python3 scripts/ci/check_consumer_versions.py --sync",
+  { task = "plugin:generate" },
+  # ~keep The plugin skill files carry the version, so the ai-rulez lock digests change
+  # with every bump. Refresh the lock here so the bump and the lock land in one commit.
+  "npx -y ai-rulez@latest -C .ai-rulez lock",
+  { task = "alef:verify:strict" },
+]

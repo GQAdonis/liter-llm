@@ -1,6 +1,6 @@
 {
   "name": "@xberg-io/liter-llm",
-  "version": "2.3.0",
+  "version": "2.4.4",
   "description": "Universal LLM API client with Rust-powered polyglot bindings.",
   "license": "MIT",
   "repository": {
@@ -37,22 +37,25 @@
   "exports": {
     ".": {
       "types": "./index.d.ts",
+      "import": "./index.mjs",
       "require": "./index.js",
       "default": "./index.js"
     }
   },
   "files": [
     "index.js",
+    "binding.cjs",
+    "index.mjs",
     "index.d.ts",
     "*.node"
   ],
   "optionalDependencies": {
-    "@xberg-io/liter-llm-darwin-arm64": "2.3.0",
-    "@xberg-io/liter-llm-darwin-x64": "2.3.0",
-    "@xberg-io/liter-llm-linux-arm64-gnu": "2.3.0",
-    "@xberg-io/liter-llm-linux-x64-gnu": "2.3.0",
-    "@xberg-io/liter-llm-win32-arm64-msvc": "2.3.0",
-    "@xberg-io/liter-llm-win32-x64-msvc": "2.3.0"
+    "@xberg-io/liter-llm-darwin-arm64": "2.4.4",
+    "@xberg-io/liter-llm-darwin-x64": "2.4.4",
+    "@xberg-io/liter-llm-linux-arm64-gnu": "2.4.4",
+    "@xberg-io/liter-llm-linux-x64-gnu": "2.4.4",
+    "@xberg-io/liter-llm-win32-arm64-msvc": "2.4.4",
+    "@xberg-io/liter-llm-win32-x64-msvc": "2.4.4"
   },
   "napi": {
     "packageName": "@xberg-io/liter-llm",
@@ -80,5 +83,5 @@
   "devDependencies": {
     "@napi-rs/cli": "^3.10.8"
   },
-  "packageManager": "pnpm@12.11.2"
+  "packageManager": "pnpm@12.16.1"
 }

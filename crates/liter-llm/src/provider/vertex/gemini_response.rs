@@ -4,7 +4,7 @@ use std::sync::atomic::Ordering;
 
 use serde_json::{Value, json};
 
-use super::TOOL_CALL_COUNTER;
+use super::{TOOL_CALL_COUNTER, imagen};
 use crate::error::Result;
 
 /// Normalize a Gemini `generateContent` response to OpenAI chat completion format.
@@ -45,7 +45,7 @@ pub(crate) fn transform_gemini_response(body: &mut Value) -> Result<()> {
 
     let collected = collect_parts(&parts);
     let tool_calls = tool_calls_from_parts(&parts);
-    let finish_reason = gemini_finish_reason(finish_reason_raw);
+    let finish_reason = gemini_finish_reason(finish_reason_raw, !tool_calls.is_empty());
 
     let usage = usage_metadata(body);
 
@@ -108,6 +108,12 @@ fn non_chat_response(body: &Value) -> Option<Value> {
             })
             .collect();
         return Some(json!({"object": "list", "data": data, "model": ""}));
+    }
+    if imagen::is_image_response(body) {
+        return Some(imagen::transform_imagen_response(body));
+    }
+    if let Some(models) = body.get("publisherModels").and_then(|m| m.as_array()) {
+        return Some(imagen::transform_publisher_models(models));
     }
     if let Some(predictions) = body.get("predictions").and_then(|p| p.as_array()) {
         let data: Vec<Value> = predictions
@@ -258,8 +264,12 @@ fn tool_calls_from_parts(parts: &[Value]) -> Vec<Value> {
 }
 
 /// Map a Gemini `finishReason` to an OpenAI `finish_reason`.
-fn gemini_finish_reason(finish_reason_raw: &str) -> &'static str {
+///
+/// Gemini ends a function-call turn with `STOP` plus a `functionCall` part, never
+/// `FUNCTION_CALL`, so `STOP` with tool calls maps to `tool_calls`.
+fn gemini_finish_reason(finish_reason_raw: &str, has_tool_calls: bool) -> &'static str {
     match finish_reason_raw {
+        "STOP" if has_tool_calls => "tool_calls",
         "STOP" => "stop",
         "MAX_TOKENS" => "length",
         "SAFETY" | "RECITATION" | "BLOCKLIST" | "PROHIBITED_CONTENT" | "SPII" | "IMAGE_SAFETY" => "content_filter",

@@ -8,6 +8,8 @@ on:
       - packages/**
       - e2e/**
       - fixtures/**
+      - scripts/tests/test_python_content_accessors.py
+      - scripts/tests/test_python_stub_matches_reply.py
       - schemas/**
       - Cargo.toml
       - Cargo.lock
@@ -23,8 +25,9 @@ on:
       - composer.lock
       - go.mod
       - go.sum
-      - .task/**
-      - Taskfile.yml
+      - mise.toml
+      - mise.lock
+      - mise-tasks/**
       - .github/workflows/ci-e2e.yaml
   pull_request:
     branches: [main]
@@ -33,6 +36,8 @@ on:
       - packages/**
       - e2e/**
       - fixtures/**
+      - scripts/tests/test_python_content_accessors.py
+      - scripts/tests/test_python_stub_matches_reply.py
       - schemas/**
       - Cargo.toml
       - Cargo.lock
@@ -48,8 +53,9 @@ on:
       - composer.lock
       - go.mod
       - go.sum
-      - .task/**
-      - Taskfile.yml
+      - mise.toml
+      - mise.lock
+      - mise-tasks/**
       - .github/workflows/ci-e2e.yaml
   workflow_dispatch:
 
@@ -82,13 +88,14 @@ jobs:
             target: aarch64-unknown-linux-gnu
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os: macos-latest
+          - os: macos-26
             target: aarch64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v7
 
+      # ~keep rust is a mise lock gap (rustup script install); rust-toolchain.toml pins it.
       - name: Setup Rust
         uses: xberg-io/actions/setup-rust@v1
         with:
@@ -131,51 +138,52 @@ jobs:
     name: E2E (${{ matrix.lang }})
     if: github.repository == 'xberg-io/liter-llm' && github.actor != 'dependabot[bot]'
     needs: [build-ffi]
-    runs-on: ${{ matrix.lang == 'swift' && 'macos-14' || 'ubuntu-24.04-arm' }}
+    runs-on: ${{ matrix.lang == 'swift' && 'macos-26' || 'ubuntu-24.04-arm' }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
           - lang: rust
-            test-cmd: "RUSTFLAGS='-A unpredictable-function-pointer-comparisons -A mismatched-lifetime-syntaxes' task rust:e2e:test"
+            test-cmd: "RUSTFLAGS='-A unpredictable-function-pointer-comparisons -A mismatched-lifetime-syntaxes' mise run rust:e2e:test"
           - lang: python
             python-version: "3.13"
-            test-cmd: "cd packages/python && uv sync --no-install-project --no-install-workspace && uvx maturin develop --release && cd ../.. && task python:e2e:test"
+            test-cmd: "cd packages/python && uv sync --no-install-project --no-install-workspace && uvx maturin develop --release && cd ../.. && mise run python:e2e:test"
           - lang: node
-            node-version: "24"
-            test-cmd: "task node:build && task node:e2e:test"
+            setup-node: true
+            test-cmd: "mise run node:build && mise run node:test && mise run node:e2e:test"
           - lang: wasm
-            node-version: "24"
-            test-cmd: "RUSTFLAGS='-A unpredictable-function-pointer-comparisons -A mismatched-lifetime-syntaxes' task wasm:build:node && (cd e2e/wasm && pnpm install --force) && RUSTFLAGS='-A unpredictable-function-pointer-comparisons -A mismatched-lifetime-syntaxes' task wasm:e2e:test"
+            setup-node: true
+            mise-tools: github:rustwasm/wasm-pack
+            test-cmd: "RUSTFLAGS='-A unpredictable-function-pointer-comparisons -A mismatched-lifetime-syntaxes' mise run wasm:build:node && (cd e2e/wasm && pnpm install --force) && RUSTFLAGS='-A unpredictable-function-pointer-comparisons -A mismatched-lifetime-syntaxes' mise run wasm:e2e:test"
           - lang: go
-            go-version: "1.26"
-            test-cmd: "task go:e2e:test"
+            mise-tools: go
+            test-cmd: "mise run go:e2e:test"
           - lang: ruby
-            ruby-version: "3.4"
-            test-cmd: "cd packages/ruby && bundle exec rake compile && cd ../.. && task ruby:e2e:test"
+            mise-tools: ruby
+            test-cmd: "cd packages/ruby && bundle install && bundle exec rake compile && cd ../.. && mise run ruby:test && mise run ruby:e2e:test"
           - lang: java
-            java-version: "25"
-            test-cmd: "task java:e2e:test"
+            mise-tools: java maven
+            test-cmd: "mise run java:e2e:test"
           - lang: csharp
             dotnet-version: "10.0.x"
-            test-cmd: "task csharp:install && task csharp:e2e:test"
+            test-cmd: "mise run csharp:install && mise run csharp:e2e:test"
           - lang: php
             php-version: "8.4"
-            test-cmd: "composer install --no-progress --prefer-dist && task php:build && task php:e2e:test"
+            test-cmd: "composer install --no-progress --prefer-dist && mise run php:build && mise run php:test && mise run php:e2e:test"
           - lang: elixir
             elixir-version: "1.19"
             otp-version: "28"
-            test-cmd: "cd packages/elixir && mix deps.get && cd ../.. && task elixir:build && task elixir:e2e:test"
+            test-cmd: "cd packages/elixir && mix deps.get && cd ../.. && mise run elixir:build && mise run elixir:e2e:test"
           - lang: c
-            test-cmd: "task c:e2e:test"
+            test-cmd: "mise run c:e2e:test"
           - lang: dart
             dart-version: "stable"
             test-cmd: "alef test --lang dart --e2e"
           - lang: swift
             test-cmd: "cd e2e/swift_e2e && swift test"
           - lang: zig
-            zig-version: "0.16.0"
+            mise-tools: zig
             test-cmd: "alef test --lang zig --e2e"
           - lang: kotlin_android
             java-version: "21"
@@ -188,6 +196,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # ~keep rust is a mise lock gap (rustup script install); rust-toolchain.toml pins it.
       - name: Setup Rust
         uses: xberg-io/actions/setup-rust@v1
         with:
@@ -325,7 +334,7 @@ jobs:
           echo "MOCK_SERVER_URL=${MOCK_SERVER_URL}" >> "$GITHUB_ENV"
 
       - name: Create WASM pkg stub
-        if: matrix.node-version || matrix.lang == 'wasm'
+        if: matrix.setup-node || matrix.lang == 'wasm'
         shell: bash
         run: mkdir -p crates/liter-llm-wasm/pkg/nodejs && echo '{"name":"liter_llm","version":"0.0.0"}' > crates/liter-llm-wasm/pkg/nodejs/package.json
 
@@ -337,39 +346,31 @@ jobs:
           cache-prefix: e2e-py-${{ matrix.python-version }}
 
       - name: Setup Node
-        if: matrix.node-version
+        if: matrix.setup-node
         uses: xberg-io/actions/setup-node-workspace@v1
 
       - name: Install WASI SDK
         if: matrix.lang == 'wasm'
         uses: xberg-io/actions/install-wasi-sdk@v1
 
-      - name: Install wasm-pack
-        if: matrix.lang == 'wasm'
-        shell: bash
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Setup Go
-        if: matrix.go-version
-        uses: actions/setup-go@v7
+      # ~keep One setup-mise per leg: Go, Ruby, the Java 25 JDK, Maven, Zig and wasm-pack come from
+      # mise.toml; legs without mise-tools install nothing and run their tasks with the tools set up
+      # above.
+      - name: Setup mise
+        uses: xberg-io/actions/setup-mise@v1
         with:
-          go-version: ${{ matrix.go-version }}
+          install: ${{ matrix.mise-tools && 'true' || 'false' }}
+          install-args: ${{ matrix.mise-tools }}
 
-      - name: Setup Ruby
-        if: matrix.ruby-version
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: ${{ matrix.ruby-version }}
-          bundler-cache: true
-          working-directory: packages/ruby
-
+      # ~keep The CI profile locks the JDK lines besides mise.toml's (mise.ci.toml).
       - name: Setup Java
         if: matrix.java-version
-        uses: actions/setup-java@v6
+        uses: xberg-io/actions/setup-mise@v1
         with:
-          distribution: temurin
-          java-version: ${{ matrix.java-version }}
+          mise-env: ci
+          tools: java=temurin-${{ matrix.java-version }}
 
+      # ~keep Android SDK/NDK stays on its setup action (org toolchain policy).
       - name: Setup Android SDK
         if: matrix.lang == 'kotlin_android'
         uses: android-actions/setup-android@v4
@@ -382,12 +383,14 @@ jobs:
         with:
           gradle-version: "wrapper"
 
+      # ~keep dotnet is a mise lock gap (script install, no checksummed artifact).
       - name: Setup .NET
         if: matrix.dotnet-version
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
 
+      # ~keep PHP stays on its setup action (org toolchain policy).
       - name: Setup PHP
         if: matrix.php-version
         uses: xberg-io/actions/setup-php@v1
@@ -395,6 +398,7 @@ jobs:
           php-version: ${{ matrix.php-version }}
           tools: composer
 
+      # ~keep BEAM stays on its setup action until evaluated for mise (org toolchain policy).
       - name: Setup Elixir
         if: matrix.elixir-version
         uses: xberg-io/actions/setup-elixir@v1
@@ -402,6 +406,7 @@ jobs:
           elixir-version: ${{ matrix.elixir-version }}
           otp-version: ${{ matrix.otp-version }}
 
+      # ~keep Dart/Flutter stays on its setup action (org toolchain policy).
       - name: Setup Dart
         if: matrix.dart-version
         uses: dart-lang/setup-dart@v1
@@ -411,12 +416,6 @@ jobs:
       - name: Install flutter_rust_bridge_codegen
         if: matrix.lang == 'dart'
         run: cargo install flutter_rust_bridge_codegen --locked
-
-      - name: Setup Zig
-        if: matrix.zig-version
-        uses: xberg-io/actions/setup-zig@v1
-        with:
-          version: ${{ matrix.zig-version }}
 
       - name: Setup C/C++ tools
         if: matrix.lang == 'c'
@@ -450,9 +449,6 @@ jobs:
         run: |
           echo "PKG_CONFIG_PATH=${PWD}/crates/liter-llm-ffi:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=${PWD}/target/release:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
-
-      - name: Install Task
-        uses: xberg-io/actions/install-task@v1
 
       - name: Install alef CLI
         uses: xberg-io/actions/install-alef@v1

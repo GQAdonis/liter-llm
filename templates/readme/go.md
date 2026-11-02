@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://cdn.jsdelivr.net/gh/xberg-io/assets@v1/banner/readme-banner-dark.svg">
+    <img alt="Xberg" width="420" src="https://cdn.jsdelivr.net/gh/xberg-io/assets@v1/banner/readme-banner-light.svg">
+  </picture>
+</p>
+
 # liter-llm — Go
 
 {% include 'partials/badges.html' %}
@@ -266,7 +273,7 @@ if err != nil {
 
 | Key                                                                             | Description                                                              |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `api_key`, `base_url`, `model_hint`, `timeout_secs`, `max_retries`, `extra_headers` | Client settings                                                      |
+| `api_key`, `base_url`, `model_hint`, `timeout_secs`, `connect_timeout_secs`, `max_retries`, `extra_headers` | Client settings                                                      |
 | `cache`                                                                         | `max_entries`, `ttl_seconds`, `backend`, `backend_config`                |
 | `budget`                                                                        | `global_limit` and `model_limits` in USD; `enforcement` is `"hard"` or `"soft"` |
 | `rate_limit`                                                                    | `rpm`, `tpm`, `window_seconds`                                           |
@@ -376,8 +383,7 @@ for _, model := range []string{
 
 ## Testing / Tooling
 
-- `task go:lint` — runs `gofmt` and `golangci-lint`
-- `task go:test` — executes `go test ./...` (after building the static FFI library)
-- `task e2e:go:verify` — regenerates fixtures and runs `go test ./...` inside `e2e/go`
+- `mise run lint` — runs `gofmt` and `golangci-lint` through poly
+- `mise run go:e2e:test` — runs the generated suite inside `e2e/go`
 
 Need help? Open an issue at [github.com/xberg-io/liter-llm/issues](https://github.com/xberg-io/liter-llm/issues).

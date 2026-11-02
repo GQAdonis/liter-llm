@@ -50,7 +50,6 @@ coverage.lcov
 coverage.out
 coverage/
 htmlcov/
-.mypy_cache/
 .pytest_cache/
 .ruff_cache/
 .hypothesis/
@@ -143,6 +142,7 @@ e2e/csharp/obj/
 e2e/elixir/deps/
 e2e/elixir/_build/
 e2e/php/vendor/
+e2e/php/php-liter-llm.ini
 
 # Swift Package Manager
 **/.build/
@@ -185,7 +185,7 @@ crates/liter-llm-ffi/tests/c/*.dSYM/
 # NAPI-RS generated files (both index.js and index.d.ts are committed for npm packaging)
 
 # Transient lockfiles produced when alef runs package managers inside crate
-# source dirs during `task update`/`task upgrade`. Canonical lockfiles live
+# source dirs during `mise run update`/`mise run upgrade`. Canonical lockfiles live
 # under packages/<lang>/.
 crates/liter-llm-py/src/uv.lock
 crates/liter-llm-php/src/composer.lock
@@ -221,7 +221,6 @@ CLAUDE.md
 # plugin/.ai-rulez-generated.json) that CI's `ai-rulez verify --plugin` reads;
 # it must be committed like its sibling bundles. ~keep
 !plugin/.mcp.json
-.github/copilot-instructions.md
 AGENTS.md
 GEMINI.md
 
@@ -316,18 +315,11 @@ poly.local.toml
 **/.alef/
 
 # BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
+.ai-rulez/.config.local.*
 .ai-rulez/.generated-manifest.json
-.ai-rulez/.generated-manifest.local.json
-.ai-rulez/local/
-.github/agents/
-.github/prompts/iterate.prompt.md
-.github/prompts/parallelize.prompt.md
 .opencode/agents/
 .opencode/commands/
-.pi/agents/
-.pi/mcp.json
-.pi/prompts/
-opencode.json
+/opencode.json
 # END ai-rulez
 
 # ~keep Alef verifies these generated wrapper artifacts in fresh checkouts.
@@ -346,3 +338,16 @@ test_apps/java/.mvn/wrapper/*
 
 !test_apps/node/pnpm-lock.yaml
 !test_apps/wasm/pnpm-lock.yaml
+
+# Agent harness output outside the ai-rulez managed block: the machine-local overlay,
+# plugin-root manifests, and presets this repository does not enable.
+.ai-rulez/config.local.*
+.ai-rulez/local/
+**/.ai-rulez/.generated-manifest.local.json
+plugin/.ai-rulez/.generated-manifest.json
+.agents/settings.json
+.claude/settings.json
+.claude/plugins.json
+.codex/commands/
+.codex/plugins.json
+.github/commands/

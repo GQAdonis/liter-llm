@@ -1,6 +1,6 @@
 {
   "name": "liter-llm",
-  "version": "2.3.0",
+  "version": "2.4.4",
   "description": "Universal LLM API client for 174 providers — chat, streaming, tools, embeddings, search, OCR, plus an OpenAI-compatible proxy and an MCP server.",
   "author": {
     "name": "Kreuzberg, Inc.",
@@ -18,7 +18,7 @@
     "embeddings",
     "mcp"
   ],
-  "brandColor": "#1F6FEB",
+  "brandColor": "#00E0C2",
   "icon": "./assets/icon.svg",
   "logo": "./assets/logo.svg"
 }

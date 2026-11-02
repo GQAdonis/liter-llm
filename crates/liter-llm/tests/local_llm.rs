@@ -2,7 +2,7 @@
 //! Integration tests against local LLM providers (Ollama).
 //!
 //! These tests require a running Ollama instance with models pulled.
-//! Start with: `task local:up`
+//! Start with: `docker compose -f docker/docker-compose.local-llm.yml up -d`
 //! Run with: `cargo test -p liter-llm --test local_llm -- --ignored`
 
 mod common;
@@ -42,6 +42,7 @@ fn simple_embed_request(model: &str) -> EmbeddingRequest {
         encoding_format: None,
         dimensions: None,
         user: None,
+        extra_body: None,
     }
 }
 

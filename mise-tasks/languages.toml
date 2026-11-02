@@ -1,0 +1,159 @@
+# Per-language build, test, lint and e2e tasks, included from mise.toml [task_config]. ~keep
+
+# ---- Rust --------------------------------------------------------------------------------------
+
+["rust:install"]
+description = "Install Rust toolchain and tools"
+run = ["rustc --version", "rustup component add rustfmt clippy", { task = "rust:install:cargo-machete" }]
+
+["rust:install:cargo-machete"]
+description = "Install cargo-machete for unused dependency detection"
+run = "mise install github:bnjbvr/cargo-machete || true"
+
+["rust:build"]
+description = "Build all crates"
+run = "cargo build --workspace"
+
+["rust:test"]
+description = "Run all Rust tests"
+run = "cargo test --workspace"
+
+["rust:lint:check"]
+description = "Check Rust code linting without modifications"
+run = [
+  "cargo fmt --all -- --check",
+  "cargo clippy --workspace --exclude liter-llm-wasm --exclude liter-llm-swift --exclude liter-llm-dart -- -D warnings",
+]
+
+["rust:format:check"]
+description = "Check Rust formatting (CI)"
+run = "cargo fmt --all -- --check"
+
+["rust:e2e:test"]
+description = "Run Rust E2E tests using Alef-configured test commands"
+run = "alef test --lang rust --e2e"
+
+# ---- Python ------------------------------------------------------------------------------------
+
+["python:e2e:test"]
+description = "Run Python E2E tests using Alef-configured test commands"
+run = "alef test --lang python --e2e"
+
+# ---- Node --------------------------------------------------------------------------------------
+
+["node:build"]
+description = "Build NAPI-RS native module (release)"
+dir = "{{config_root}}/crates/liter-llm-node"
+run = "pnpm exec napi build --platform --no-js --dts index.native.d.ts --release"
+
+["node:build:dev"]
+description = "Build NAPI-RS native module (debug)"
+dir = "{{config_root}}/crates/liter-llm-node"
+run = "pnpm exec napi build --platform --no-js --dts index.native.d.ts"
+
+["node:test"]
+description = "Smoke test Node.js native module"
+dir = "{{config_root}}/crates/liter-llm-node"
+run = """node -e "const m = require('./'); console.log('Module loaded:', Object.keys(m))\""""
+
+["node:e2e:test"]
+description = "Run TypeScript/Node E2E tests using Alef-configured test commands"
+run = "alef test --lang node --e2e"
+
+# ---- WASM --------------------------------------------------------------------------------------
+
+["wasm:build:node"]
+description = "Build WASM package (Node.js target → pkg/nodejs/)"
+run = [{ task = "wasm:build nodejs" }]
+
+["wasm:lint:check"]
+description = "Lint liter-llm-wasm for wasm32-unknown-unknown (CI)"
+run = "cargo clippy --target wasm32-unknown-unknown -p liter-llm-wasm -- -D warnings"
+
+["wasm:test:wasm32"]
+description = "Run the liter-llm wasm32 tests in Node.js (CI). Needs wasm-bindgen-test-runner at the wasm-bindgen version in Cargo.lock."
+env.CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER = "wasm-bindgen-test-runner"
+run = "cargo test --target wasm32-unknown-unknown -p liter-llm --no-default-features --features wasm-http --test wasm_timeout"
+
+["wasm:e2e:setup"]
+description = "Build the Node.js-target WASM pkg and install e2e deps"
+depends = ["wasm:build:node"]
+dir = "{{config_root}}/e2e/wasm"
+run = "pnpm install"
+
+["wasm:e2e:test"]
+description = "Run WASM E2E tests using Alef-configured test commands"
+depends = ["wasm:e2e:setup"]
+run = "alef test --lang wasm --e2e"
+
+# ---- Go ----------------------------------------------------------------------------------------
+
+["go:e2e:test"]
+description = "Run Go E2E tests using Alef-configured test commands"
+run = "alef test --lang go --e2e"
+
+# ---- Java --------------------------------------------------------------------------------------
+
+["java:e2e:test"]
+description = "Run Java E2E tests using Alef-configured test commands"
+run = "alef test --lang java --e2e"
+
+# ---- C# ----------------------------------------------------------------------------------------
+
+["csharp:install"]
+description = "Restore C# dependencies"
+dir = "{{config_root}}/packages/csharp"
+run = "dotnet restore LiterLlm/LiterLlm.csproj"
+
+["csharp:e2e:test"]
+description = "Run C# E2E tests using Alef-configured test commands"
+run = "alef test --lang csharp --e2e"
+
+# ---- PHP ---------------------------------------------------------------------------------------
+
+["php:build"]
+description = "Build PHP extension (requires php-config)"
+run = "cargo build --release --manifest-path crates/liter-llm-php/Cargo.toml"
+
+["php:test"]
+description = "Run the PHP smoke test against the locally built extension (run php:build first)"
+run = "bash scripts/php/smoke.sh"
+
+["php:e2e:test"]
+description = "Run PHP E2E tests using Alef-configured test commands"
+run = "alef test --lang php --e2e"
+
+# ---- Ruby --------------------------------------------------------------------------------------
+
+["ruby:test"]
+description = "Run Ruby tests"
+dir = "{{config_root}}/packages/ruby"
+run = "bundle exec rspec"
+
+["ruby:e2e:test"]
+description = "Run Ruby E2E tests using Alef-configured test commands"
+run = "alef test --lang ruby --e2e"
+
+# ---- Elixir ------------------------------------------------------------------------------------
+
+["elixir:build"]
+description = "Compile Elixir project (includes Rustler NIF)"
+dir = "{{config_root}}/packages/elixir"
+env.LITER_LLM_BUILD = "1"
+run = "mix compile"
+
+["elixir:e2e:test"]
+description = "Run Elixir E2E tests using Alef-configured test commands"
+run = "alef test --lang elixir --e2e"
+
+# ---- C and Swift -------------------------------------------------------------------------------
+
+["c:e2e:test"]
+description = "Run C E2E tests using Alef-configured test commands"
+run = "alef test --lang ffi --e2e"
+
+# Task env stays on this task only; C and Ruby compilers must not inherit an iOS target. ~keep
+["swift:build"]
+description = "Build Swift native libraries for the declared minimum Apple OS versions"
+env = { MACOSX_DEPLOYMENT_TARGET = "13.0", IPHONEOS_DEPLOYMENT_TARGET = "16.0" }
+run = "cargo build --locked --release -p liter-llm-swift -p liter-llm-ffi"

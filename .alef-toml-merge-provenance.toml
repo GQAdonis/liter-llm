@@ -44,6 +44,7 @@ values = [
   ".cursor-plugin/marketplace.json",
   ".ai-rulez/.generated-manifest.json",
   "plugin/.ai-rulez/.generated-manifest.json",
+  "scripts/tests/lib/**",
   "**/_generated/**",
   "/Package.swift",
   "packages/**",
@@ -89,6 +90,7 @@ values = [
   ".agents/plugins/marketplace.json",
   "/.ai-rulez-generated.json",
   "skills/**",
+  "adrs/**",
 ]
 
 [[entries]]
@@ -135,6 +137,7 @@ values = [
   ".cursor-plugin/marketplace.json",
   ".ai-rulez/.generated-manifest.json",
   "plugin/.ai-rulez/.generated-manifest.json",
+  "scripts/tests/lib/**",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -180,6 +183,7 @@ values = [
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
   "skills/**",
+  "adrs/**",
 ]
 
 [[entries]]
@@ -216,6 +220,7 @@ values = [
   ".cursor-plugin/marketplace.json",
   ".ai-rulez/.generated-manifest.json",
   "plugin/.ai-rulez/.generated-manifest.json",
+  "scripts/tests/lib/**",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -261,6 +266,7 @@ values = [
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
   "skills/**",
+  "adrs/**",
 ]
 
 [[entries]]
@@ -297,6 +303,7 @@ values = [
   ".cursor-plugin/marketplace.json",
   ".ai-rulez/.generated-manifest.json",
   "plugin/.ai-rulez/.generated-manifest.json",
+  "scripts/tests/lib/**",
   "**/_generated/**",
   "Package.swift",
   "packages/**",
@@ -342,6 +349,7 @@ values = [
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
   "skills/**",
+  "adrs/**",
 ]
 
 [[entries]]

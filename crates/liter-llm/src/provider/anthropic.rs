@@ -89,6 +89,10 @@ impl Default for AnthropicProvider {
 }
 
 impl Provider for AnthropicProvider {
+    fn at_base_url(&self, base_url: &str) -> Option<Box<dyn Provider>> {
+        Some(Box::new(Self::with_base_url(base_url)))
+    }
+
     fn name(&self) -> &str {
         "anthropic"
     }
@@ -213,6 +217,8 @@ impl Provider for AnthropicProvider {
     /// Anthropic event types handled:
     /// - `message_start`: emits a role-only delta chunk.
     /// - `content_block_start`: emits empty delta (tool_use: emits tool_call header chunk).
+    ///   The tool call `index` is the Anthropic block number. The client renumbers it while it
+    ///   reads the stream, so the first tool call of a stream has `index` 0.
     /// - `content_block_delta`: emits text, thinking, or tool input JSON delta.
     /// - `message_delta`: emits final chunk with finish_reason and usage.
     /// - `message_stop`: signals end of stream, returns `Ok(None)`.
@@ -306,5 +312,7 @@ fn map_stop_reason(stop_reason: &str) -> &'static str {
 
 #[cfg(test)]
 mod feature_tests;
+#[cfg(test)]
+mod stream_tests;
 #[cfg(test)]
 mod tests;

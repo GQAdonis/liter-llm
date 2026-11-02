@@ -4,6 +4,89 @@ fn init_crypto_for_unit_tests() {
     crate::ensure_crypto_provider();
 }
 
+/// A loopback port that fails every request at once and that no other process can take.
+///
+/// The port listens and closes each connection without a reply, so a request to it fails with
+/// a transport error on every platform. A bound socket that never listens is not enough: Linux
+/// refuses a connect to it, but macOS drops the SYN and the connect waits for the operating
+/// system timeout. The listener keeps the port while the value lives.
+/// A port that a test binds and then frees can go to another test process before the test
+/// connects to it. Keep the value in a named binding until the test ends, inside a Tokio runtime.
+#[cfg(test)]
+pub(crate) struct ClosingPort {
+    server: tokio::task::JoinHandle<()>,
+    address: std::net::SocketAddr,
+    url: String,
+}
+
+#[cfg(test)]
+impl ClosingPort {
+    pub(crate) fn new() -> Self {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind the closing port");
+        listener.set_nonblocking(true).expect("non-blocking listener");
+        let address = listener.local_addr().expect("closing port address");
+        let listener = tokio::net::TcpListener::from_std(listener).expect("register the closing port");
+        let server = tokio::spawn(async move {
+            loop {
+                // An accept error must not end the loop: that would free the port.
+                match listener.accept().await {
+                    Ok((stream, _)) => drop(stream),
+                    Err(_) => tokio::time::sleep(std::time::Duration::from_millis(10)).await,
+                }
+            }
+        });
+        Self {
+            server,
+            address,
+            url: format!("http://{address}/"),
+        }
+    }
+
+    pub(crate) fn address(&self) -> std::net::SocketAddr {
+        self.address
+    }
+
+    pub(crate) fn url(&self) -> &str {
+        &self.url
+    }
+}
+
+#[cfg(test)]
+impl Drop for ClosingPort {
+    fn drop(&mut self) {
+        self.server.abort();
+    }
+}
+
+#[cfg(test)]
+mod closing_port_tests {
+    use super::ClosingPort;
+    use tokio::io::AsyncReadExt as _;
+
+    #[tokio::test]
+    async fn a_held_closing_port_ends_connections_and_cannot_be_bound_again() {
+        let port = ClosingPort::new();
+
+        let bind = std::net::TcpListener::bind(port.address());
+        assert_eq!(
+            bind.err().map(|e| e.kind()),
+            Some(std::io::ErrorKind::AddrInUse),
+            "another socket cannot take the port while the guard lives"
+        );
+        let mut stream = tokio::net::TcpStream::connect(port.address())
+            .await
+            .expect("the held port accepts the connection");
+        let mut buffer = [0_u8; 1];
+        let read = tokio::time::timeout(std::time::Duration::from_secs(10), stream.read(&mut buffer))
+            .await
+            .expect("the held port ends the connection at once");
+        assert!(
+            matches!(read, Ok(0) | Err(_)),
+            "the connection ends with no data, got {read:?}"
+        );
+    }
+}
+
 #[cfg(test)]
 mod serde_tests {
     use crate::types::*;
@@ -145,6 +228,7 @@ mod serde_tests {
             encoding_format: None,
             dimensions: Some(256),
             user: None,
+            extra_body: None,
         };
 
         let json = serde_json::to_string(&req).expect("serialization should not fail");
@@ -341,6 +425,7 @@ mod serde_tests {
             encoding_format: Some(EmbeddingFormat::Base64),
             dimensions: Some(1024),
             user: Some("user-123".into()),
+            extra_body: None,
         };
 
         let json = serde_json::to_string(&req).expect("serialization should not fail");
@@ -617,6 +702,7 @@ mod serde_tests {
             max_results: Some(5),
             search_domain_filter: Some(vec!["rust-lang.org".into()]),
             country: Some("US".into()),
+            extra_body: None,
         };
         let json = serde_json::to_string(&req).expect("serialization should not fail");
         assert!(json.contains("max_results"));
@@ -651,6 +737,7 @@ mod serde_tests {
             },
             pages: None,
             include_image_base64: None,
+            extra_body: None,
         };
         let json = serde_json::to_string(&req).expect("serialization should not fail");
         let parsed: OcrRequest = serde_json::from_str(&json).expect("deserialization should not fail");
@@ -761,7 +848,55 @@ mod provider_tests {
     fn detect_ollama() {
         let p = detect_provider("ollama/llama3").expect("provider should be detected");
         assert_eq!(p.name(), "ollama");
-        assert_eq!(p.base_url(), "http://localhost:11434/v1");
+        assert_eq!(p.base_url(), "http://localhost:11434");
+        assert_eq!(
+            p.chat_completions_path(),
+            "/api/chat",
+            "the native provider, not the registry entry"
+        );
+        assert_eq!(p.embeddings_path(), "/api/embed");
+        assert_eq!(p.models_path(), "/api/tags");
+    }
+
+    #[test]
+    fn a_provider_prefix_is_a_registry_name_or_alias_or_a_builtin() {
+        use crate::provider::has_provider_prefix;
+        for model in [
+            "openai/m",
+            "openai/",
+            "anthropic/m",
+            "azure/m",
+            "gemini/m",
+            "google_ai/m",
+            "vertex_ai/m",
+            "bedrock/m",
+            "cohere/m",
+            "mistral/m",
+            "voyage/m",
+            "github_copilot/m",
+            "ollama/m",
+            "ollama_chat/m",
+            "lm_studio/m",
+            "groq/m",
+            "snowflake/m",
+            "custom/m",
+            "openrouter/anthropic/claude",
+        ] {
+            assert!(has_provider_prefix(model), "{model} names a provider");
+        }
+        for model in [
+            "m",
+            "gpt-4o",
+            "claude-3-5-sonnet",
+            "llama3.1:8b",
+            "hf.co/user/model",
+            "library/llama3",
+            "/m",
+            "Openai/m",
+            "unregistered-vendor/m",
+        ] {
+            assert!(!has_provider_prefix(model), "{model} is bare");
+        }
     }
 
     #[test]
@@ -1340,8 +1475,156 @@ mod error_tests {
             401,
             r#"{"error":{"message":"Invalid API key","type":"invalid_request_error"}}"#,
             None,
+            false,
         );
         assert!(matches!(err, LiterLlmError::Authentication { .. }));
+    }
+
+    #[test]
+    fn google_invalid_api_key_with_http_400_is_authentication() {
+        let err = LiterLlmError::from_status(
+            400,
+            r#"{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com"}]}}"#,
+            None,
+            true,
+        );
+
+        assert!(matches!(
+            &err,
+            LiterLlmError::Authentication { message, status: 400 }
+                if message == "API key not valid. Please pass a valid API key."
+        ));
+        assert_eq!(err.status_code(), 400);
+        assert_eq!(err.error_type(), "Authentication");
+    }
+
+    #[test]
+    fn invalid_api_key_reason_without_the_google_rule_is_bad_request() {
+        let err = LiterLlmError::from_status(
+            400,
+            r#"{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com"}]}}"#,
+            None,
+            false,
+        );
+
+        assert!(matches!(err, LiterLlmError::BadRequest { status: 400, .. }));
+    }
+
+    #[test]
+    fn other_google_http_400_remains_bad_request() {
+        let err = LiterLlmError::from_status(
+            400,
+            r#"{"error":{"code":400,"message":"Invalid argument","status":"INVALID_ARGUMENT","details":[{"reason":"INVALID_ARGUMENT"}]}}"#,
+            None,
+            true,
+        );
+
+        assert!(matches!(err, LiterLlmError::BadRequest { status: 400, .. }));
+    }
+
+    #[test]
+    fn numeric_error_code_detects_context_window_through_the_message() {
+        let err = LiterLlmError::from_status(
+            400,
+            r#"{"error":{"code":400,"message":"The input token count exceeds the maximum number of tokens allowed","status":"INVALID_ARGUMENT"}}"#,
+            None,
+            false,
+        );
+        assert!(matches!(
+            &err,
+            LiterLlmError::ContextWindowExceeded { message }
+                if message == "The input token count exceeds the maximum number of tokens allowed"
+        ));
+    }
+
+    #[test]
+    fn numeric_error_code_keeps_content_policy_detection() {
+        let err = LiterLlmError::from_status(
+            400,
+            r#"{"error":{"code":400,"message":"blocked by content_filter","status":"INVALID_ARGUMENT"}}"#,
+            None,
+            false,
+        );
+        assert!(matches!(&err, LiterLlmError::ContentPolicy { message } if message == "blocked by content_filter"));
+    }
+
+    #[test]
+    fn numeric_error_code_rate_limit_keeps_the_message() {
+        let err = LiterLlmError::from_status(
+            429,
+            r#"{"error":{"code":429,"message":"Resource exhausted","status":"RESOURCE_EXHAUSTED"}}"#,
+            None,
+            false,
+        );
+        assert!(matches!(&err, LiterLlmError::RateLimited { message, .. } if message == "Resource exhausted"));
+    }
+
+    #[test]
+    fn string_insufficient_quota_code_still_selects_quota_exceeded() {
+        let err = LiterLlmError::from_status(
+            429,
+            r#"{"error":{"code":"insufficient_quota","message":"quota exhausted"}}"#,
+            None,
+            false,
+        );
+        assert!(matches!(err, LiterLlmError::ProviderQuotaExceeded { status: 429, .. }));
+    }
+
+    #[test]
+    fn string_context_length_exceeded_code_selects_context_window() {
+        // The message holds no context-window fragment, so only the code can decide.
+        let err = LiterLlmError::from_status(
+            400,
+            r#"{"error":{"code":"context_length_exceeded","message":"request rejected"}}"#,
+            None,
+            false,
+        );
+        assert!(matches!(&err, LiterLlmError::ContextWindowExceeded { message } if message == "request rejected"));
+    }
+
+    #[test]
+    fn string_content_filter_code_selects_content_policy() {
+        // The message holds no policy fragment, so only the code can decide.
+        let err = LiterLlmError::from_status(
+            400,
+            r#"{"error":{"code":"content_filter","message":"request rejected"}}"#,
+            None,
+            false,
+        );
+        assert!(matches!(&err, LiterLlmError::ContentPolicy { message } if message == "request rejected"));
+    }
+
+    #[test]
+    fn string_content_policy_violation_code_selects_content_policy() {
+        // The message holds no policy fragment, so only the code can decide.
+        let err = LiterLlmError::from_status(
+            400,
+            r#"{"error":{"code":"content_policy_violation","message":"request rejected"}}"#,
+            None,
+            false,
+        );
+        assert!(matches!(&err, LiterLlmError::ContentPolicy { message } if message == "request rejected"));
+    }
+
+    #[test]
+    fn insufficient_quota_code_without_a_string_message_is_quota_exceeded() {
+        // The code is the authoritative signal; the body is kept as the message.
+        let body = r#"{"error":{"code":"insufficient_quota","message":42}}"#;
+        let err = LiterLlmError::from_status(429, body, None, false);
+        assert!(matches!(&err, LiterLlmError::ProviderQuotaExceeded { status: 429, message } if message == body));
+        let err = LiterLlmError::from_status(429, r#"{"error":{"code":"insufficient_quota"}}"#, None, false);
+        assert!(matches!(err, LiterLlmError::ProviderQuotaExceeded { status: 429, .. }));
+    }
+
+    #[test]
+    fn invalid_key_reason_outside_a_400_keeps_the_status_kind() {
+        let err = LiterLlmError::from_status(
+            500,
+            r#"{"error":{"code":500,"message":"backend error","details":[{"reason":"API_KEY_INVALID"}]}}"#,
+            None,
+            true,
+        );
+        assert!(matches!(err, LiterLlmError::ServerError { status: 500, .. }));
     }
 
     #[test]
@@ -1350,6 +1633,7 @@ mod error_tests {
             429,
             r#"{"error":{"message":"Rate limited","type":"rate_limit_error"}}"#,
             None,
+            false,
         );
         assert!(matches!(err, LiterLlmError::RateLimited { .. }));
     }
@@ -1360,6 +1644,7 @@ mod error_tests {
             429,
             r#"{"error":{"message":"quota exhausted","code":"insufficient_quota"}}"#,
             Some(std::time::Duration::from_secs(7)),
+            false,
         );
         assert!(matches!(err, LiterLlmError::ProviderQuotaExceeded { status: 429, .. }));
         assert_eq!(err.status_code(), 429);
@@ -1368,7 +1653,7 @@ mod error_tests {
 
     #[test]
     fn anthropic_overload_preserves_529_status() {
-        let err = LiterLlmError::from_status(529, "overloaded", Some(std::time::Duration::from_secs(2)));
+        let err = LiterLlmError::from_status(529, "overloaded", Some(std::time::Duration::from_secs(2)), false);
         assert!(matches!(
             err,
             LiterLlmError::ServiceUnavailable {
@@ -1388,15 +1673,86 @@ mod error_tests {
         ] {
             let body = format!(r#"{{"error":{{"message":"{message}"}}}}"#);
             assert!(matches!(
-                LiterLlmError::from_status(400, &body, None),
+                LiterLlmError::from_status(400, &body, None, false),
                 LiterLlmError::ContextWindowExceeded { .. }
             ));
         }
     }
 
+    const LLAMA_CPP_CONTEXT_ERROR: &str = r#"{"code":400,"message":"request (6420 tokens) exceeds the available context size (256 tokens), try increasing it","type":"exceed_context_size_error","n_prompt_tokens":6420,"n_ctx":256}"#;
+
+    /// Revert line: remove `exceeds the available context size` and `exceed_context_size_error`
+    /// from the message phrases in `LiterLlmError::from_status`, and both bodies become `BadRequest`.
+    #[test]
+    fn llama_cpp_context_overflow_is_classified() {
+        let object_body = format!(r#"{{"error":{LLAMA_CPP_CONTEXT_ERROR}}}"#);
+        // LM Studio wraps the llama.cpp error object in a string.
+        let string_body = serde_json::json!({
+            "error": format!("Engine protocol predict request returned 400: {LLAMA_CPP_CONTEXT_ERROR}")
+        })
+        .to_string();
+        for body in [object_body, string_body] {
+            assert!(
+                matches!(
+                    LiterLlmError::from_status(400, &body, None, false),
+                    LiterLlmError::ContextWindowExceeded { .. }
+                ),
+                "body {body}"
+            );
+        }
+    }
+
+    #[test]
+    fn llama_cpp_context_overflow_type_alone_is_classified() {
+        let body = r#"{"error":"server answered: exceed_context_size_error"}"#;
+        assert!(matches!(
+            LiterLlmError::from_status(400, body, None, false),
+            LiterLlmError::ContextWindowExceeded { .. }
+        ));
+    }
+
+    /// Revert line: remove the `error_type` test from `LiterLlmError::from_status`, and an error
+    /// object with this type and a message of its own stays `BadRequest`.
+    #[test]
+    fn context_overflow_error_type_is_matched_on_the_error_object() {
+        let body = r#"{"error":{"type":"exceed_context_size_error","message":"x"}}"#;
+        assert!(matches!(
+            LiterLlmError::from_status(400, body, None, false),
+            LiterLlmError::ContextWindowExceeded { .. }
+        ));
+    }
+
+    #[test]
+    fn bad_request_with_an_unrelated_error_type_stays_a_bad_request() {
+        let body = r#"{"error":{"type":"invalid_request_error","message":"x"}}"#;
+        assert!(matches!(
+            LiterLlmError::from_status(400, body, None, false),
+            LiterLlmError::BadRequest { status: 400, .. }
+        ));
+    }
+
+    #[test]
+    fn ordinary_bad_requests_stay_bad_requests() {
+        for message in [
+            "request body is not valid JSON",
+            "the available models are listed at /v1/models",
+            "temperature exceeds the allowed range",
+            "context is required",
+        ] {
+            let body = format!(r#"{{"error":{{"message":"{message}"}}}}"#);
+            assert!(
+                matches!(
+                    LiterLlmError::from_status(400, &body, None, false),
+                    LiterLlmError::BadRequest { status: 400, .. }
+                ),
+                "message {message}"
+            );
+        }
+    }
+
     #[test]
     fn service_unavailable_exposes_retry_after() {
-        let err = LiterLlmError::from_status(503, "unavailable", Some(std::time::Duration::from_secs(3)));
+        let err = LiterLlmError::from_status(503, "unavailable", Some(std::time::Duration::from_secs(3)), false);
         assert_eq!(err.retry_after(), Some(std::time::Duration::from_secs(3)));
     }
 
@@ -1407,7 +1763,7 @@ mod error_tests {
     /// Node, PHP or WASM had to invent its own backoff.
     #[test]
     fn rate_limited_error_exposes_retry_after() {
-        let err = LiterLlmError::from_status(429, "slow down", Some(std::time::Duration::from_secs(30)));
+        let err = LiterLlmError::from_status(429, "slow down", Some(std::time::Duration::from_secs(30)), false);
 
         assert_eq!(err.retry_after(), Some(std::time::Duration::from_secs(30)));
     }
@@ -1416,8 +1772,11 @@ mod error_tests {
     /// `None` rather than a fabricated delay.
     #[test]
     fn retry_after_is_none_when_the_server_did_not_advertise_one() {
-        assert_eq!(LiterLlmError::from_status(429, "slow down", None).retry_after(), None);
-        assert_eq!(LiterLlmError::from_status(500, "boom", None).retry_after(), None);
+        assert_eq!(
+            LiterLlmError::from_status(429, "slow down", None, false).retry_after(),
+            None
+        );
+        assert_eq!(LiterLlmError::from_status(500, "boom", None, false).retry_after(), None);
     }
 
     #[test]
@@ -1426,31 +1785,32 @@ mod error_tests {
             400,
             r#"{"error":{"message":"maximum context length exceeded","type":"invalid_request_error"}}"#,
             None,
+            false,
         );
         assert!(matches!(err, LiterLlmError::ContextWindowExceeded { .. }));
     }
 
     #[test]
     fn error_from_plain_text() {
-        let err = LiterLlmError::from_status(500, "Internal Server Error", None);
+        let err = LiterLlmError::from_status(500, "Internal Server Error", None, false);
         assert!(matches!(err, LiterLlmError::ServerError { .. }));
     }
 
     #[test]
     fn error_from_503() {
-        let err = LiterLlmError::from_status(503, "Service Unavailable", None);
+        let err = LiterLlmError::from_status(503, "Service Unavailable", None, false);
         assert!(matches!(err, LiterLlmError::ServiceUnavailable { .. }));
     }
 
     #[test]
     fn error_from_403_forbidden() {
-        let err = LiterLlmError::from_status(403, "Forbidden", None);
+        let err = LiterLlmError::from_status(403, "Forbidden", None, false);
         assert!(matches!(err, LiterLlmError::Authentication { .. }));
     }
 
     #[test]
     fn error_from_502_bad_gateway() {
-        let err = LiterLlmError::from_status(502, "Bad Gateway", None);
+        let err = LiterLlmError::from_status(502, "Bad Gateway", None, false);
         assert!(matches!(err, LiterLlmError::ServiceUnavailable { .. }));
     }
 
@@ -1468,7 +1828,7 @@ mod error_tests {
 
     #[test]
     fn error_from_504_gateway_timeout() {
-        let err = LiterLlmError::from_status(504, "Gateway Timeout", None);
+        let err = LiterLlmError::from_status(504, "Gateway Timeout", None, false);
         assert!(matches!(err, LiterLlmError::ServiceUnavailable { .. }));
     }
 
@@ -1478,6 +1838,7 @@ mod error_tests {
             400,
             r#"{"error":{"message":"Request violates content_filter policy","type":"invalid_request_error"}}"#,
             None,
+            false,
         );
         assert!(matches!(err, LiterLlmError::ContentPolicy { .. }));
     }
@@ -1488,6 +1849,7 @@ mod error_tests {
             400,
             r#"{"error":{"message":"content_policy violation detected","type":"invalid_request_error"}}"#,
             None,
+            false,
         );
         assert!(matches!(err, LiterLlmError::ContentPolicy { .. }));
     }
@@ -1499,6 +1861,7 @@ mod error_tests {
             500,
             &format!(r#"{{"error":{{"message":"{}","type":"server_error"}}}}"#, msg),
             None,
+            false,
         );
         if let LiterLlmError::ServerError { message, .. } = err {
             assert_eq!(message, msg);
@@ -1541,14 +1904,29 @@ mod error_tests {
         assert!(matches!(LiterLlmError::from(err), LiterLlmError::Timeout));
     }
 
-    #[cfg(feature = "native-http")]
+    // macOS drops the SYN to a bound, non-listening socket, so this test runs on Linux only.
+    #[cfg(all(feature = "native-http", target_os = "linux"))]
     #[tokio::test]
     async fn reqwest_connect_failure_stays_network() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
-        let url = format!("http://{}/", listener.local_addr().expect("addr"));
-        drop(listener);
+        let socket = tokio::net::TcpSocket::new_v4().expect("create socket");
+        socket.set_reuseaddr(false).expect("disable address reuse");
+        socket
+            .bind("127.0.0.1:0".parse().expect("loopback address"))
+            .expect("bind the refusing port");
+        let url = format!("http://{}/", socket.local_addr().expect("refusing port address"));
         let client = reqwest::Client::new();
         let err = client.get(&url).send().await.expect_err("connection refused");
+        assert!(err.is_connect(), "the request fails at connect: {err:?}");
+        assert!(matches!(LiterLlmError::from(err), LiterLlmError::Network { .. }));
+        drop(socket);
+    }
+
+    #[cfg(feature = "native-http")]
+    #[tokio::test]
+    async fn reqwest_transport_failure_stays_network() {
+        let port = super::ClosingPort::new();
+        let client = reqwest::Client::new();
+        let err = client.get(port.url()).send().await.expect_err("connection closed");
         assert!(matches!(LiterLlmError::from(err), LiterLlmError::Network { .. }));
     }
 }

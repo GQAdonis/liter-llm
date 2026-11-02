@@ -50,8 +50,16 @@ impl GoogleAiProvider {
 }
 
 impl Provider for GoogleAiProvider {
+    fn at_base_url(&self, base_url: &str) -> Option<Box<dyn Provider>> {
+        Some(Box::new(Self::with_base_url(base_url)))
+    }
+
     fn name(&self) -> &str {
         "google_ai"
+    }
+
+    fn reports_invalid_key_as_400(&self) -> bool {
+        true
     }
 
     fn base_url(&self) -> &str {
@@ -343,6 +351,32 @@ mod tests {
         assert_eq!(body["choices"][0]["finish_reason"], "stop");
         assert_eq!(body["usage"]["prompt_tokens"], 5);
         assert_eq!(body["usage"]["completion_tokens"], 4);
+    }
+
+    /// Revert line: remove the `stream_error_event` call from `parse_gemini_stream_event`
+    /// to make this test fail.
+    #[test]
+    fn parse_stream_event_error_event_is_rate_limited() {
+        let event = r#"{"error":{"code":429,"message":"quota","status":"RESOURCE_EXHAUSTED"}}"#;
+        let err = provider().parse_stream_event(event).unwrap_err();
+        assert!(
+            matches!(err, crate::error::LiterLlmError::RateLimited { .. }),
+            "got: {err:?}"
+        );
+        assert!(err.to_string().contains("quota"), "got: {err}");
+    }
+
+    /// Revert line: drop `details` from the body that `stream_error_event` builds
+    /// to make this test fail (the invalid key then stays a bad request).
+    #[test]
+    fn parse_stream_event_invalid_api_key_is_authentication() {
+        let event = r#"{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com"}]}}"#;
+        let err = provider().parse_stream_event(event).unwrap_err();
+        assert!(
+            matches!(&err, crate::error::LiterLlmError::Authentication { status: 400, message }
+                if message == "API key not valid. Please pass a valid API key."),
+            "got: {err:?}"
+        );
     }
 
     #[test]

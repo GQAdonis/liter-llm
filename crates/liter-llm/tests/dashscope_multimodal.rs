@@ -16,6 +16,7 @@ fn request() -> EmbeddingRequest {
         encoding_format: None,
         dimensions: Some(1152),
         user: None,
+        extra_body: None,
     }
 }
 fn native(indices: &[usize], dimensions: usize) -> Value {

@@ -50,9 +50,11 @@ jobs:
         abi: [arm64-v8a, x86_64]
     steps:
       - uses: actions/checkout@v7
+      # ~keep rust is a mise lock gap (rustup script install); rust-toolchain.toml pins it.
       - uses: xberg-io/actions/setup-rust@v1
         with:
           cache-key-prefix: ci-mobile-android-${{ matrix.abi }}
+      # ~keep Android SDK/NDK stays on its setup action (org toolchain policy).
       - uses: xberg-io/actions/setup-android-ndk@v1
       - name: cargo ndk check liter-llm-dart
         run: cargo ndk --target ${{ matrix.abi }} --platform 21 -- check -p liter-llm-dart
@@ -62,7 +64,7 @@ jobs:
   ios-check:
     name: iOS cargo check (${{ matrix.target }})
     if: github.repository == 'xberg-io/liter-llm' && github.actor != 'dependabot[bot]'
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -70,6 +72,7 @@ jobs:
         target: [aarch64-apple-ios, aarch64-apple-ios-sim]
     steps:
       - uses: actions/checkout@v7
+      # ~keep rust is a mise lock gap (rustup script install); rust-toolchain.toml pins it.
       - uses: xberg-io/actions/setup-rust@v1
         with:
           target: ${{ matrix.target }}
@@ -82,10 +85,11 @@ jobs:
   xcframework-build:
     name: Build iOS XCFramework
     if: github.repository == 'xberg-io/liter-llm' && github.actor != 'dependabot[bot]'
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+      # ~keep rust is a mise lock gap (rustup script install); rust-toolchain.toml pins it.
       - uses: xberg-io/actions/setup-rust@v1
       - uses: xberg-io/actions/build-ios-xcframework@v1
         with:
@@ -103,9 +107,11 @@ jobs:
         abi: [arm64-v8a, x86_64]
     steps:
       - uses: actions/checkout@v7
+      # ~keep rust is a mise lock gap (rustup script install); rust-toolchain.toml pins it.
       - uses: xberg-io/actions/setup-rust@v1
         with:
           cache-key-prefix: ci-mobile-android-${{ matrix.abi }}
+      # ~keep Android SDK/NDK stays on its setup action (org toolchain policy).
       - uses: xberg-io/actions/setup-android-ndk@v1
       - name: Build liter-llm-jni for ${{ matrix.abi }}
         run: cargo ndk --target ${{ matrix.abi }} --platform 21 -- build -p liter-llm-jni --release
@@ -126,10 +132,11 @@ jobs:
           for abi_dir in packages/kotlin-android/src/main/jniLibs/*/; do
             [ "$(basename "$abi_dir")" = "${{ matrix.abi }}" ] || rm -rf "$abi_dir"
           done
-      - uses: actions/setup-java@v6
+      # ~keep The CI profile locks JDK 17 besides mise.toml's JDK (mise.ci.toml).
+      - uses: xberg-io/actions/setup-mise@v1
         with:
-          distribution: temurin
-          java-version: "17"
+          mise-env: ci
+          tools: java=temurin-17
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "wrapper"
