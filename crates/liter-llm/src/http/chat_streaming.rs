@@ -34,7 +34,7 @@ pub(crate) async fn post_chat_stream<P>(
     protocol: ChatStreamProtocol,
     provider_name: String,
     parse_event: P,
-    options: ResponseReadOptions,
+    options: ResponseReadOptions<'_>,
 ) -> Result<crate::client::BoxStream<'static, Result<ChatCompletionChunk>>>
 where
     P: Fn(&str) -> Result<Option<ChatCompletionChunk>> + Send + 'static,

@@ -65,9 +65,10 @@ native-http = [
   "dep:tokio-util",
   "dep:memchr",
   "dep:gcp_auth",
+  "dep:ipnet",
 ]
 
-wasm-http = ["dep:reqwest", "dep:memchr", "dep:gloo-timers"]
+wasm-http = ["dep:reqwest", "dep:memchr", "dep:gloo-timers", "dep:ipnet"]
 
 otel = ["dep:tracing-opentelemetry", "dep:opentelemetry"]
 
@@ -147,6 +148,7 @@ gloo-timers = { version = "0.4", features = ["futures"], optional = true }
 hex = "0.4"
 http = "1"
 httpdate = "1"
+ipnet = { version = "2.12", optional = true }
 jsonwebtoken = { version = "11", default-features = false, features = ["use_pem"], optional = true }
 memchr = { version = "2", optional = true }
 opendal = { version = "0.59.5", default-features = false, features = [
