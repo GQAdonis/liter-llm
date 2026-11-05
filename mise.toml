@@ -6,7 +6,7 @@ lockfile_platforms = ["linux-x64", "linux-arm64", "macos-arm64", "windows-x64"]
 
 [tools]
 python = "3.15.2"
-uv = "0.13.6"
+uv = "0.13.7"
 node = "26.13.0"
 pnpm = "12.16.1"
 go = "1.27.3"
@@ -14,7 +14,7 @@ java = "temurin-25.0.5+8.0.LTS"
 maven = "3.10.0"
 ruby = "4.0.9"
 zig = "0.17.0"
-"github:Goldziher/poly" = "0.32.1"
+"github:Goldziher/poly" = "0.32.5"
 "github:Goldziher/adrlint" = "0.4.1"
 cargo-deny = "0.20.2"
 "github:taiki-e/cargo-llvm-cov" = "0.9.1"
@@ -25,7 +25,7 @@ jq = "1.8.2"
 actionlint = "1.7.12"
 bats = "1.14.0"
 lychee = "0.24.2"
-"github:rust-cross/cargo-zigbuild" = "0.24.0"
+"github:rust-cross/cargo-zigbuild" = "0.24.1"
 
 [task_config]
 includes = [
@@ -73,6 +73,9 @@ run = ["python3 scripts/ci/check_consumer_versions.py", """\
   scripts/ci/test_go_release_assets.py \
   scripts/ci/test_release_artifact_versions.py \
   scripts/ci/test_swift_task_environment.py \
+  scripts/ci/test_swift_macos_minimum.py \
+  scripts/ci/test_swift_release_path.py \
+  scripts/ci/test_macos_deployment_target.py \
   scripts/ci/test_homebrew_consumer_version.py \
   scripts/ci/test_node_public_outputs.py \
   scripts/ci/test_go_smoke_test_filter.py \

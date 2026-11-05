@@ -1,0 +1,33 @@
+name: Prepare Swift release
+
+# Step 1 of a release: dispatch on main after the version bump lands. The shared workflow builds the Swift
+# bundle once, pins its checksum into Package.swift, pushes that commit with the vX.Y.Z tag and attaches the
+# exact ZIP and receipt to a draft release. Step 2 is Publish Release on the tag. Procedure:
+# https://github.com/xberg-io/actions/blob/v1/prepare-swift-release/README.md ~keep
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Build, pin and verify, and report the ref plan, without pushing, tagging or releasing"
+        type: boolean
+        default: false
+
+concurrency:
+  group: prepare-swift-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  swift:
+    uses: xberg-io/actions/.github/workflows/reusable-swift-release-prepare.yml@v1
+    secrets:
+      app-id: ${{ secrets.BOT_APP_ID }}
+      app-private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+    with:
+      dry-run: ${{ inputs.dry-run }}
+      crate-name: liter-llm-swift
+      artifact-name: LiterLlm-rs
+      binary-target-name: RustBridgeBinary
+      header-path: target/release/build/liter-llm-swift-*/out
