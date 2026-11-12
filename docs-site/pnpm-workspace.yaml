@@ -5,3 +5,8 @@ minimumReleaseAgeExclude:
   - "@xberg-io/docs-theme@0.4.0 || 0.4.1"
 overrides:
   "js-yaml@>=4.0.0 <4.3.2": "4.3.2"
+  "fast-uri@>=3.0.0 <3.1.9": "3.1.9"
+  "textlint>glob": "14.0.2"
+  "glob@14.0.2>minimatch": "11.0.1"
+  "postcss-selector-parser@>=6.0.0 <6.1.5": "6.1.5"
+  "undici@>=8.0.0 <8.12.2": "8.12.2"

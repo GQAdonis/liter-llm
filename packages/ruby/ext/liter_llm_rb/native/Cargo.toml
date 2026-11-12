@@ -47,3 +47,7 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 dbg_macro = "deny"
 print_stderr = "deny"
 print_stdout = "deny"
+
+[patch.crates-io]
+indicatif = { path = "../../../../../vendor/patches/indicatif-0.17.11" }
+tokenizers = { path = "../../../../../vendor/patches/tokenizers-0.23.2" }

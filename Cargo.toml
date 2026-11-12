@@ -105,7 +105,7 @@ rb-sys = "0.9"
 regex = "1"
 # ~keep Async / HTTP: TLS-agnostic base only; each crate adds TLS features target-conditionally.
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form"] }
-rmcp = { version = "3.5", features = [
+rmcp = { version = "3.9.0", features = [
     "server",
     "macros",
     "transport-io",
@@ -185,3 +185,8 @@ strip = false
 [profile.dev]
 opt-level = 0
 debug = true
+
+[patch.crates-io]
+indicatif = { path = "vendor/patches/indicatif-0.17.11" }
+tokenizers = { path = "vendor/patches/tokenizers-0.23.2" }
+cel-interpreter = { path = "vendor/patches/cel-interpreter-0.10.0" }
