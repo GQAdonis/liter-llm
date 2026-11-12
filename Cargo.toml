@@ -104,7 +104,7 @@ rb-sys = "0.9"
 regex = "1"
 # ~keep Async / HTTP: TLS-agnostic base only; each crate adds TLS features target-conditionally.
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form"] }
-rmcp = { version = "3.4", features = [
+rmcp = { version = "3.9.0", features = [
     "server",
     "macros",
     "transport-io",
@@ -114,7 +114,7 @@ rmcp = { version = "3.4", features = [
 ] }
 rust_decimal = { version = "1", features = ["serde"] }
 rustler = "0.38"
-rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 
 schemars = "1"
 
@@ -129,7 +129,7 @@ tempfile = "3"
 thiserror = "2"
 tikv-jemallocator = { version = "0.7" }
 tokenizers = { version = "0.23", default-features = false, features = ["http", "fancy-regex"] }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.53.3", features = ["full"] }
 # ~keep Use `rustls-tls-native-roots` so tokio-tungstenite does not pull
 # ~keep native-tls -> openssl-sys, which breaks Linux brew bottles without
 # ~keep `openssl-dev` and would force OpenSSL on downstream liter-llm-proxy users.
@@ -184,3 +184,9 @@ strip = false
 [profile.dev]
 opt-level = 0
 debug = true
+
+[patch.crates-io]
+indicatif = { path = "vendor/patches/indicatif-0.17.11" }
+ext-php-rs = { path = "vendor/patches/ext-php-rs-0.15.15" }
+tokenizers = { path = "vendor/patches/tokenizers-0.23.2" }
+cel-interpreter = { path = "vendor/patches/cel-interpreter-0.10.0" }

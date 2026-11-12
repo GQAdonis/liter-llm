@@ -54,3 +54,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("native-ht
 dbg_macro = "deny"
 print_stderr = "deny"
 print_stdout = "deny"
+
+[patch.crates-io]
+indicatif = { path = "../../../../vendor/patches/indicatif-0.17.11" }
+tokenizers = { path = "../../../../vendor/patches/tokenizers-0.23.2" }

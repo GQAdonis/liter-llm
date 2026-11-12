@@ -108,6 +108,10 @@ packages/ruby/tmp/
 
 # PHP
 vendor/
+# Keep Cargo source overlays in the recursive source archive.
+!/vendor/
+/vendor/*
+!/vendor/patches/
 # Orphaned lockfile — the canonical composer.json/lock live at the repo root.
 packages/php/composer.lock
 
