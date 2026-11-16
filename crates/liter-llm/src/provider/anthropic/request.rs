@@ -2,6 +2,7 @@
 
 use serde_json::{Value, json};
 
+use super::replay::{insert_by_index, positioned_blocks, replayed_thinking_blocks};
 use super::{DEFAULT_MAX_TOKENS, is_hosted_tool_type, sanitize_tool_call_id};
 use crate::error::{LiterLlmError, Result};
 
@@ -29,6 +30,8 @@ pub(super) fn transform_request(body: &mut Value) -> Result<()> {
     let converted_messages: Vec<Value> = non_system_messages
         .into_iter()
         .map(convert_message_to_anthropic)
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
         .filter(has_content)
         .collect();
 
@@ -42,16 +45,32 @@ pub(super) fn transform_request(body: &mut Value) -> Result<()> {
 
     body["messages"] = json!(merged_messages);
 
+    let caller_set_max_tokens = body.get("max_tokens").is_some() || body.get("max_completion_tokens").is_some();
     apply_max_tokens(body);
     apply_stop_sequences(body);
     apply_tool_choice(body);
     convert_tools(body);
-    apply_reasoning_effort(body);
+    apply_reasoning_effort(body, caller_set_max_tokens);
     apply_response_format(body);
     warn_on_dropped_params(body);
     strip_unsupported_params(body);
+    prepare_extra_body(body);
 
     Ok(())
+}
+
+fn prepare_extra_body(body: &mut Value) {
+    let generated_output_config = body.get("output_config").and_then(Value::as_object).cloned();
+    let Some(extra) = body.get_mut("extra_body").and_then(Value::as_object_mut) else {
+        return;
+    };
+    extra.remove("reasoning_effort");
+    if let Some(mut config) = generated_output_config
+        && let Some(native) = extra.get_mut("output_config").and_then(Value::as_object_mut)
+    {
+        config.append(native);
+        *native = config;
+    }
 }
 
 /// Take the `messages` array out of `body`, rejecting a missing or empty one.
@@ -179,9 +198,15 @@ fn convert_tools(body: &mut Value) {
     }
 }
 
-/// Map `reasoning_effort` (top-level or `extra_body`) to an extended-thinking
-/// budget, raising `max_tokens` above the budget when needed.
-fn apply_reasoning_effort(body: &mut Value) {
+/// Map `reasoning_effort` (top-level or `extra_body`) to Anthropic's thinking controls.
+///
+/// Models that think adaptively (Claude Opus 4.6+, Sonnet 4.6+, Haiku 5+, Fable,
+/// Mythos) get `thinking: {"type": "adaptive"}` plus `output_config.effort`; most of
+/// them reject `budget_tokens`. Older models, and model names this crate cannot parse,
+/// keep an extended-thinking budget, raising `max_tokens` above the budget when needed.
+/// Adaptive thinking spends `max_tokens` on thinking and answer together, so a default
+/// `max_tokens` (one the caller did not set) is raised to leave room for both.
+fn apply_reasoning_effort(body: &mut Value, caller_set_max_tokens: bool) {
     let reasoning_effort = body
         .as_object_mut()
         .and_then(|o| o.remove("reasoning_effort"))
@@ -191,34 +216,152 @@ fn apply_reasoning_effort(body: &mut Value) {
                 .and_then(|v| v.as_str().map(String::from))
         });
 
-    if let Some(effort) = reasoning_effort {
-        // ~keep "none" sends an explicit disabled block: newer Claude models think by default
-        // when `thinking` is absent, so dropping the field would not turn thinking off.
-        if effort == "none" {
-            body["thinking"] = json!({"type": "disabled"});
+    let Some(effort) = reasoning_effort.map(|effort| effort.to_ascii_lowercase()) else {
+        return;
+    };
+    let model = body.get("model").and_then(Value::as_str).and_then(ClaudeModel::parse);
+
+    let effort = if effort == "none" {
+        if let Some(thinking) = disabled_thinking(model) {
+            body["thinking"] = thinking;
             return;
         }
-        // ~keep 1024 is Anthropic's documented minimum thinking budget_tokens, so
-        // "minimal" and "low" both floor there — the duplicate value is intentional.
-        let budget_tokens: u64 = match effort.as_str() {
-            "minimal" => 1024,
-            "low" => 1024,
-            "medium" => 4096,
-            "high" => 16384,
-            "max" => 32768,
-            _ => 4096,
-        };
-        body["thinking"] = json!({
-            "type": "enabled",
-            "budget_tokens": budget_tokens
-        });
+        "low"
+    } else {
+        effort.as_str()
+    };
 
-        let min_max_tokens = budget_tokens + 1;
-        let current_max = body.get("max_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-        if current_max < min_max_tokens {
-            body["max_tokens"] = json!(min_max_tokens);
+    if let Some(model) = model.filter(|m| m.thinks_adaptively()) {
+        let level = model.effort_level(effort);
+        body["thinking"] = json!({"type": "adaptive"});
+        set_output_config(body, "effort", json!(level));
+        if !caller_set_max_tokens {
+            let output_limit = body
+                .get("model")
+                .and_then(Value::as_str)
+                .and_then(crate::cost::model_info)
+                .and_then(|info| info.max_output_tokens);
+            raise_max_tokens(body, adaptive_max_tokens_floor(level, output_limit));
+        }
+        return;
+    }
+
+    // ~keep 1024 is Anthropic's documented minimum thinking budget_tokens, so
+    // "minimal" and "low" both floor there — the duplicate value is intentional.
+    let budget_tokens: u64 = match effort {
+        "minimal" => 1024,
+        "low" => 1024,
+        "medium" => 4096,
+        "high" => 16384,
+        "xhigh" => 24576,
+        "max" => 32768,
+        _ => 4096,
+    };
+    body["thinking"] = json!({
+        "type": "enabled",
+        "budget_tokens": budget_tokens
+    });
+    raise_max_tokens(body, budget_tokens + 1);
+}
+
+/// The `max_tokens` adaptive thinking at `level` needs when the caller set none, capped
+/// at the model's output limit when the catalog knows it.
+pub(super) fn adaptive_max_tokens_floor(level: &str, output_limit: Option<u64>) -> u64 {
+    // ~keep Anthropic's guidance: at least 64K at `xhigh`/`max` so output does not
+    // truncate mid-thought, and a generous 16K otherwise.
+    let floor = if matches!(level, "xhigh" | "max") {
+        64_000
+    } else {
+        16_000
+    };
+    output_limit.map_or(floor, |limit| floor.min(limit))
+}
+
+/// Raise `max_tokens` to at least `floor`.
+fn raise_max_tokens(body: &mut Value, floor: u64) {
+    let current_max = body.get("max_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+    if current_max < floor {
+        body["max_tokens"] = json!(floor);
+    }
+}
+
+pub(in crate::provider) fn disabled_thinking(model: Option<ClaudeModel<'_>>) -> Option<Value> {
+    match model.map(|model| (model.family, model.version)) {
+        Some(("fable", _) | ("opus", (5, 5))) => None,
+        Some(("sonnet", (5, 5))) => Some(json!({"type": "between_tools"})),
+        _ => Some(json!({"type": "disabled"})),
+    }
+}
+
+/// Set one field of `output_config`, which both effort and structured output use.
+fn set_output_config(body: &mut Value, key: &str, value: Value) {
+    if !body.get("output_config").is_some_and(Value::is_object) {
+        body["output_config"] = json!({});
+    }
+    body["output_config"][key] = value;
+}
+
+/// Family and version of a Claude model id such as `claude-opus-5-5` or
+/// `claude-haiku-4-5-20251001`.
+#[derive(Clone, Copy)]
+pub(in crate::provider) struct ClaudeModel<'a> {
+    pub(super) family: &'a str,
+    pub(super) version: (u32, u32),
+}
+
+impl<'a> ClaudeModel<'a> {
+    /// Parse the `claude-<family>-<major>[-<minor>][-<date>]` naming. The older
+    /// `claude-3-7-sonnet-…` naming predates adaptive thinking and is not parsed.
+    pub(in crate::provider) fn parse(model: &'a str) -> Option<Self> {
+        let start = model.find("claude-")? + "claude-".len();
+        let mut parts = model[start..].split('-');
+        let family = parts.next().filter(|f| f.chars().all(|c| c.is_ascii_alphabetic()))?;
+        // ~keep Versions may carry a suffix (`4-6@20260101`, `4-6[1m]`, `5-5:0`), and a date
+        // (8 digits) or a tag such as `latest` in the minor position is not a minor version.
+        // ~keep A major of more than two digits is a date (`claude-sonnet-20250514`).
+        let major = parts.next().and_then(|p| leading_number(p, 2))?;
+        let minor = parts.next().and_then(|p| leading_number(p, 2)).unwrap_or(0);
+        Some(Self {
+            family,
+            version: (major, minor),
+        })
+    }
+
+    /// Whether the model takes adaptive thinking with `output_config.effort`.
+    /// Opus 4.6 and Sonnet 4.6 still accept `budget_tokens`, but Anthropic
+    /// deprecated it there in favour of adaptive thinking.
+    /// An unknown family counts as adaptive from Claude 5 on, where every model rejects
+    /// `budget_tokens`.
+    pub(in crate::provider) fn thinks_adaptively(self) -> bool {
+        match self.family {
+            "fable" | "mythos" => true,
+            "opus" | "sonnet" | "haiku" => self.version >= (4, 6),
+            _ => self.version >= (5, 0),
         }
     }
+
+    /// The `output_config.effort` level this model accepts for a `reasoning_effort` value.
+    /// Anthropic has no `minimal` (its lowest is `low`); Opus 4.6 and Sonnet 4.6 have no
+    /// `xhigh`, so it rounds up to `max` there; an unknown value falls back to `medium`.
+    pub(in crate::provider) fn effort_level(self, effort: &str) -> &'static str {
+        match effort {
+            "minimal" | "low" => "low",
+            "high" => "high",
+            "xhigh" if self.version < (4, 7) && !matches!(self.family, "fable" | "mythos") => "max",
+            "xhigh" => "xhigh",
+            "max" => "max",
+            _ => "medium",
+        }
+    }
+}
+
+/// The number `part` starts with, when it starts with 1 to `max_digits` digits.
+fn leading_number(part: &str, max_digits: usize) -> Option<u32> {
+    let digits = part.len() - part.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+    if digits == 0 || digits > max_digits {
+        return None;
+    }
+    part[..digits].parse().ok()
 }
 
 /// Translate supported JSON schemas natively and emulate other formats with a system instruction.
@@ -238,12 +381,14 @@ fn apply_response_format(body: &mut Value) {
     {
         let mut schema = schema;
         close_object_schemas(&mut schema);
-        body["output_config"] = json!({
-            "format": {
+        set_output_config(
+            body,
+            "format",
+            json!({
                 "type": "json_schema",
                 "schema": schema
-            }
-        });
+            }),
+        );
         return;
     }
     if rf_type == "json_schema" && response_format.pointer("/json_schema/strict").and_then(Value::as_bool) == Some(true)
@@ -397,7 +542,6 @@ fn strip_unsupported_params(body: &mut Value) {
             "service_tier",
             "user",
             "reasoning_effort",
-            "extra_body",
             "logprobs",
             "top_logprobs",
             "store",
@@ -480,7 +624,7 @@ fn content_as_blocks(content: Option<&Value>) -> Vec<Value> {
 }
 
 /// Anthropic rejects a text block that is empty or only whitespace.
-fn is_blank(text: &str) -> bool {
+pub(super) fn is_blank(text: &str) -> bool {
     text.trim().is_empty()
 }
 
@@ -495,16 +639,16 @@ fn has_content(msg: &Value) -> bool {
 }
 
 /// Convert an OpenAI-format message JSON value to Anthropic Messages API format.
-fn convert_message_to_anthropic(msg: Value) -> Value {
+fn convert_message_to_anthropic(msg: Value) -> Result<Value> {
     let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("");
 
-    match role {
+    Ok(match role {
         "user" => convert_user_message(&msg),
-        "assistant" => convert_assistant_message(&msg),
+        "assistant" => convert_assistant_message(&msg)?,
         "tool" => convert_tool_message(&msg),
         "function" => convert_function_message(&msg),
         _ => msg,
-    }
+    })
 }
 
 /// A `user` message: content parts become blocks, and a message-level
@@ -522,11 +666,30 @@ fn convert_user_message(msg: &Value) -> Value {
 }
 
 /// An `assistant` message: text (a string or a list of text parts) and tool calls
-/// become `text` / `tool_use` blocks.
-/// A turn with neither gets an empty `content`; [`has_content`] drops it.
-fn convert_assistant_message(msg: &Value) -> Value {
-    let mut blocks: Vec<Value> = Vec::new();
+/// become `text` / `tool_use` blocks, and `thinking_blocks` go back where the reply had them.
+/// A turn with none of these gets an empty `content`; [`has_content`] drops it.
+fn convert_assistant_message(msg: &Value) -> Result<Value> {
+    let thinking = replayed_thinking_blocks(msg.get("thinking_blocks"))?;
+    let tool_uses = tool_use_blocks(msg);
 
+    let positioned = match msg.get("content") {
+        Some(Value::String(text)) => positioned_blocks(text, msg.get("cache_control"), &tool_uses, &thinking),
+        None | Some(Value::Null) => positioned_blocks("", None, &tool_uses, &thinking),
+        Some(_) => None,
+    };
+    let blocks = positioned.unwrap_or_else(|| {
+        let mut blocks = text_blocks(msg);
+        blocks.extend(tool_uses);
+        insert_by_index(&mut blocks, thinking);
+        blocks
+    });
+
+    Ok(json!({"role": "assistant", "content": blocks}))
+}
+
+/// The `text` blocks of an assistant message's content.
+fn text_blocks(msg: &Value) -> Vec<Value> {
+    let mut blocks: Vec<Value> = Vec::new();
     match msg.get("content") {
         Some(Value::String(text)) if !is_blank(text) => {
             let mut block = json!({"type": "text", "text": text});
@@ -553,9 +716,17 @@ fn convert_assistant_message(msg: &Value) -> Value {
         }
         _ => {}
     }
+    blocks
+}
 
-    if let Some(tool_calls) = msg.get("tool_calls").and_then(|tc| tc.as_array()) {
-        for tc in tool_calls {
+/// The `tool_use` blocks of an assistant message's `tool_calls`.
+fn tool_use_blocks(msg: &Value) -> Vec<Value> {
+    let Some(tool_calls) = msg.get("tool_calls").and_then(|tc| tc.as_array()) else {
+        return Vec::new();
+    };
+    tool_calls
+        .iter()
+        .map(|tc| {
             let id = tc.get("id").and_then(|v| v.as_str()).unwrap_or("");
             let name = tc.pointer("/function/name").and_then(|v| v.as_str()).unwrap_or("");
             let arguments_str = tc
@@ -563,16 +734,14 @@ fn convert_assistant_message(msg: &Value) -> Value {
                 .and_then(|v| v.as_str())
                 .unwrap_or("{}");
             let input: Value = serde_json::from_str(arguments_str).unwrap_or_else(|_| json!({}));
-            blocks.push(json!({
+            json!({
                 "type": "tool_use",
                 "id": id,
                 "name": name,
                 "input": input
-            }));
-        }
-    }
-
-    json!({"role": "assistant", "content": blocks})
+            })
+        })
+        .collect()
 }
 
 /// A `tool` message: a `user` turn carrying one `tool_result` block.

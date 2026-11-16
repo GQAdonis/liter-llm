@@ -4,6 +4,7 @@ use serde_json::{Value, json};
 
 use super::map_stop_reason;
 use crate::error::Result;
+use crate::types::ThinkingBlock;
 
 /// Normalize an Anthropic Messages API response into OpenAI chat completion
 /// format. A body without `stop_reason` is assumed to already be OpenAI-shaped
@@ -40,7 +41,14 @@ pub(super) fn transform_response(body: &mut Value) -> Result<()> {
 
     let usage = usage_token_counts(body);
 
-    let message = assistant_message(text_content.as_deref(), tool_calls, reasoning_content);
+    let mut message = assistant_message(text_content.as_deref(), tool_calls, reasoning_content);
+
+    // ~keep Anthropic requires thinking blocks back unchanged, signature included, at their
+    // ~keep position in the turn; `reasoning_content` above cannot carry either.
+    let thinking_blocks = content_blocks.as_deref().map(thinking_blocks).unwrap_or_default();
+    if !thinking_blocks.is_empty() {
+        message["thinking_blocks"] = json!(thinking_blocks);
+    }
 
     *body = json!({
         "id": id,
@@ -65,6 +73,27 @@ pub(super) fn transform_response(body: &mut Value) -> Result<()> {
     });
 
     Ok(())
+}
+
+/// The thinking blocks of a turn, each with its position: its block index, and the text
+/// (in bytes of the joined `content`) and tool calls that come before it.
+fn thinking_blocks(blocks: &[Value]) -> Vec<ThinkingBlock> {
+    let mut text_offset = 0usize;
+    let mut tool_call_offset = 0usize;
+    let mut thinking_blocks = Vec::new();
+    for (index, block) in blocks.iter().enumerate() {
+        match block.get("type").and_then(Value::as_str) {
+            Some("text") => text_offset += block.get("text").and_then(Value::as_str).map_or(0, str::len),
+            Some("tool_use" | "server_tool_use") => tool_call_offset += 1,
+            Some("thinking" | "redacted_thinking") => thinking_blocks.push(ThinkingBlock {
+                text_offset: u32::try_from(text_offset).ok(),
+                tool_call_offset: u32::try_from(tool_call_offset).ok(),
+                ..super::thinking_block(block, u32::try_from(index).ok())
+            }),
+            _ => {}
+        }
+    }
+    thinking_blocks
 }
 
 /// Concatenate, in order, the `field` text of every block whose `type` is

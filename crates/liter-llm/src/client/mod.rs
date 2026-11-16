@@ -404,6 +404,22 @@ impl Stream for RequireTerminalChunk {
     }
 }
 
+/// Remove `thinking_blocks` from every message of a chat body bound for a provider whose
+/// transform does not consume them ([`Provider::accepts_thinking_blocks`]).
+fn strip_unaccepted_thinking_blocks(prov: &dyn Provider, body: &mut serde_json::Value) {
+    if prov.accepts_thinking_blocks() {
+        return;
+    }
+    let Some(messages) = body.get_mut("messages").and_then(serde_json::Value::as_array_mut) else {
+        return;
+    };
+    for message in messages {
+        if let Some(fields) = message.as_object_mut() {
+            fields.remove("thinking_blocks");
+        }
+    }
+}
+
 /// Shallow-merge a top-level `"extra_body"` key into `body`, OpenAI-Python-SDK
 /// style: `{**body, **extra_body}` — extra_body keys override identically
 /// named top-level keys.
@@ -1387,6 +1403,7 @@ impl DefaultClient {
                 obj.insert("max_completion_tokens".into(), max_tokens);
             }
         }
+        strip_unaccepted_thinking_blocks(prov.as_ref(), &mut body);
         if endpoint == provider::Endpoint::Embedding {
             prov.transform_embedding_request(&mut body)?;
         } else {
@@ -1401,6 +1418,8 @@ impl DefaultClient {
         // whose format does carry it (OpenAI-compatible, Anthropic, Cohere) keep it.
         let provider_wire_carries_stream = body.get("stream").is_some();
         merge_extra_body(&mut body);
+        // ~keep `extra_body` can carry `messages` of its own, merged after the transform.
+        strip_unaccepted_thinking_blocks(prov.as_ref(), &mut body);
         // ~keep extra_body must never override `stream`: the transport path
         // (post_json_raw vs post_stream) is chosen by the calling method, not the
         // body, so a mismatched wire flag would desync request from response parsing.
@@ -3950,38 +3969,47 @@ mod build_provider_tests {
     }
 
     #[test]
-    fn anthropic_provider_leaves_no_extra_body_key_in_final_body() {
-        let client = DefaultClient::new(
-            ClientConfigBuilder::new("test-key").build(),
-            Some("claude-3-5-sonnet-20241022"),
-        )
-        .expect("client construction should succeed");
+    fn anthropic_provider_forwards_native_extra_body_fields() {
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some("claude-opus-4-7"))
+            .expect("client construction should succeed");
         let req = ChatCompletionRequest {
-            model: "claude-3-5-sonnet-20241022".into(),
+            model: "claude-opus-4-7".into(),
             messages: vec![crate::types::Message::User(crate::types::UserMessage {
                 content: crate::types::UserContent::Text("Hi".into()),
                 name: None,
             })],
             max_tokens: Some(100),
-            extra_body: Some(serde_json::json!({"reasoning_effort": "high"})),
+            extra_body: Some(serde_json::json!({
+                "reasoning_effort": "high",
+                "cache_control": {"type": "ephemeral"},
+                "output_config": {"sentinel": true},
+                "native_sentinel": 17,
+            })),
             ..Default::default()
         };
 
-        let prepared = client
-            .prepare_request(
-                &req,
-                |p| p.chat_completions_path(),
-                &req.model,
-                provider::Endpoint::Chat,
-                Some(false),
-            )
-            .expect("prepare_request should not fail");
-
-        assert!(
-            prepared.body_json.get("extra_body").is_none(),
-            "anthropic's own transform_request already strips extra_body"
-        );
-        assert_eq!(prepared.body_json["thinking"]["budget_tokens"], 16384);
+        for stream in [false, true] {
+            let prepared = client
+                .prepare_request(
+                    &req,
+                    |p| p.chat_completions_path(),
+                    &req.model,
+                    provider::Endpoint::Chat,
+                    Some(stream),
+                )
+                .expect("prepare_request should not fail");
+            let body = prepared.body_json;
+            assert!(body.get("extra_body").is_none());
+            assert!(body.get("reasoning_effort").is_none());
+            assert_eq!(body["thinking"]["type"], "adaptive");
+            assert_eq!(
+                body["output_config"],
+                serde_json::json!({"effort": "high", "sentinel": true})
+            );
+            assert_eq!(body["cache_control"]["type"], "ephemeral");
+            assert_eq!(body["native_sentinel"], 17);
+            assert_eq!(body["stream"], stream);
+        }
     }
 
     fn base_response_request() -> CreateResponseRequest {
@@ -4327,6 +4355,92 @@ mod build_provider_tests {
         }
     }
 
+    fn thinking_turn_request(model: &str) -> ChatCompletionRequest {
+        let blocks = vec![crate::types::ThinkingBlock {
+            block_type: Some("thinking".into()),
+            thinking: Some("Hmm".into()),
+            signature: Some("sig".into()),
+            index: Some(0),
+            ..Default::default()
+        }];
+        ChatCompletionRequest {
+            model: model.into(),
+            messages: vec![
+                crate::types::Message::User(crate::types::UserMessage {
+                    content: crate::types::UserContent::Text("Hi".into()),
+                    name: None,
+                }),
+                crate::types::Message::Assistant(crate::types::AssistantMessage {
+                    content: Some(crate::types::AssistantContent::Text("Hello".into())),
+                    thinking_blocks: Some(blocks),
+                    ..Default::default()
+                }),
+                crate::types::Message::User(crate::types::UserMessage {
+                    content: crate::types::UserContent::Text("Again".into()),
+                    name: None,
+                }),
+            ],
+            ..Default::default()
+        }
+    }
+
+    fn prepared_chat_body(model: &str) -> serde_json::Value {
+        prepare_chat_body(&thinking_turn_request(model))
+    }
+
+    fn prepare_chat_body(req: &ChatCompletionRequest) -> serde_json::Value {
+        let model = req.model.as_str();
+        let client = DefaultClient::new(ClientConfigBuilder::new("test-key").build(), Some(model))
+            .expect("client construction should succeed");
+        client
+            .prepare_request(
+                req,
+                |p| p.chat_completions_path(),
+                &req.model,
+                provider::Endpoint::Chat,
+                Some(false),
+            )
+            .expect("prepare_request should not fail")
+            .body_json
+    }
+
+    #[test]
+    fn thinking_blocks_never_reach_a_provider_other_than_anthropic() {
+        for model in [
+            "gpt-4o-mini",
+            "mistral/mistral-large-latest",
+            "groq/llama-3.3-70b-versatile",
+        ] {
+            let body = prepared_chat_body(model);
+            assert_eq!(body["messages"][1]["content"], "Hello", "{model}");
+            assert!(body["messages"][1].get("thinking_blocks").is_none(), "{model}: {body}");
+        }
+    }
+
+    #[test]
+    fn thinking_blocks_in_extra_body_messages_never_reach_a_provider_other_than_anthropic() {
+        let mut req = thinking_turn_request("gpt-4o-mini");
+        req.extra_body = Some(serde_json::json!({"messages": [
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello", "thinking_blocks": [{"type": "thinking", "signature": "sig"}]}
+        ]}));
+        let body = prepare_chat_body(&req);
+        assert_eq!(body["messages"][1]["content"], "Hello");
+        assert!(body["messages"][1].get("thinking_blocks").is_none(), "body was: {body}");
+    }
+
+    #[test]
+    fn thinking_blocks_reach_anthropic_at_their_index() {
+        let body = prepared_chat_body("claude-haiku-5-5");
+        assert_eq!(
+            body["messages"][1]["content"],
+            serde_json::json!([
+                {"type": "thinking", "thinking": "Hmm", "signature": "sig"},
+                {"type": "text", "text": "Hello"}
+            ])
+        );
+    }
+
     #[test]
     fn anthropic_client_request_with_reasoning_effort_none_disables_thinking() {
         let model = "claude-sonnet-4-20250514";
@@ -4348,6 +4462,7 @@ mod build_provider_tests {
         assert!(prepared.body_json.get("reasoning_effort").is_none());
     }
 
+    #[cfg(feature = "bedrock")]
     #[test]
     #[serial_test::serial]
     fn bedrock_client_request_with_reasoning_effort_none_disables_thinking() {
@@ -4919,6 +5034,7 @@ mod build_provider_tests {
         }
     }
 
+    #[cfg(feature = "bedrock")]
     fn bedrock_embed_client(model: &str) -> DefaultClient {
         let config = ClientConfigBuilder::new("test-key")
             .bedrock_credentials("test-access-key", "test-secret-key", None)
@@ -4926,6 +5042,7 @@ mod build_provider_tests {
         DefaultClient::new(config, Some(model)).expect("client construction should succeed")
     }
 
+    #[cfg(feature = "bedrock")]
     #[test]
     #[serial_test::serial]
     fn bedrock_cohere_embed_keeps_search_document_when_the_caller_sets_no_input_type() {
@@ -4947,6 +5064,7 @@ mod build_provider_tests {
         assert_eq!(prepared.body_json["texts"], serde_json::json!(["what is rust?"]));
     }
 
+    #[cfg(feature = "bedrock")]
     #[test]
     #[serial_test::serial]
     fn bedrock_cohere_embed_takes_input_type_and_other_fields_from_extra_body() {
@@ -4974,6 +5092,7 @@ mod build_provider_tests {
         assert_eq!(sent, prepared.body_json, "the signed bytes carry the merged body");
     }
 
+    #[cfg(feature = "bedrock")]
     #[test]
     #[serial_test::serial]
     fn bedrock_titan_embed_takes_extra_body_fields() {

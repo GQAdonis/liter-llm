@@ -1,5 +1,5 @@
 [workspace]
-alef_version = "0.124.2"
+alef_version = "0.129.6"
 languages = [
   "python",
   "node",
@@ -535,7 +535,11 @@ app_name = "liter_llm"
 [crates.elixir.extra_dependencies]
 futures-util = "0.3"
 
+[crates.wasm.extra_dependencies]
+futures = "0.3"
+
 [crates.wasm]
+omit_getrandom_02 = true
 features = ["wasm-http"]
 exclude_types = [
   "BudgetConfig",
@@ -592,6 +596,7 @@ libc = "=0.2.189"
 
 [crates.swift]
 package_name = "LiterLlm"
+min_macos_version = "15.0"
 exclude_functions = ["all_providers"]
 
 [crates.swift.client_constructor_body]
@@ -2390,7 +2395,7 @@ name = "liter_llm_ffi"
 name = "LiterLlm"
 
 [crates.e2e.registry.packages.zig]
-version = "2.6.0"
+version = "2.7.2"
 
 [crates.e2e.registry.packages.homebrew]
 tap = "xberg-io/homebrew-tap"

@@ -6,7 +6,8 @@ use crate::error::Result;
 use crate::provider::Provider;
 use crate::types::ChatCompletionChunk;
 
-mod request;
+pub(super) mod replay;
+pub(super) mod request;
 mod response;
 mod stream;
 
@@ -117,14 +118,16 @@ impl Provider for AnthropicProvider {
     /// Compute request-dependent beta headers based on the request body.
     ///
     /// Inspects the body for features that require Anthropic beta headers:
-    /// - `thinking` field present -> `anthropic-beta: thinking-2025-04-14`
+    /// - `thinking.type` is `enabled` -> `anthropic-beta: thinking-2025-04-14`
     /// - Hosted tools (computer_use, web_search, code_execution) -> appropriate betas
     ///
     /// Multiple betas are combined with comma separator.
     fn dynamic_headers(&self, body: &serde_json::Value) -> Vec<(String, String)> {
         let mut betas: Vec<&str> = Vec::new();
 
-        if body.get("thinking").is_some() {
+        // ~keep Adaptive and `between_tools` thinking are generally available; only the
+        // ~keep extended-thinking budget (`enabled`) keeps the beta header it was sent with.
+        if body.pointer("/thinking/type").and_then(Value::as_str) == Some("enabled") {
             betas.push(BETA_THINKING);
         }
 
@@ -163,6 +166,10 @@ impl Provider for AnthropicProvider {
 
     fn matches_model(&self, model: &str) -> bool {
         model.starts_with("claude-") || model.starts_with("anthropic/")
+    }
+
+    fn accepts_thinking_blocks(&self) -> bool {
+        true
     }
 
     fn strip_model_prefix<'m>(&self, model: &'m str) -> &'m str {
@@ -218,8 +225,10 @@ impl Provider for AnthropicProvider {
     /// - `message_start`: emits a role-only delta chunk.
     /// - `content_block_start`: emits empty delta (tool_use: emits tool_call header chunk).
     ///   The tool call `index` is the Anthropic block number. The client renumbers it while it
-    ///   reads the stream, so the first tool call of a stream has `index` 0.
-    /// - `content_block_delta`: emits text, thinking, or tool input JSON delta.
+    ///   reads the stream, so the first tool call of a stream has `index` 0. A `thinking` or
+    ///   `redacted_thinking` block emits its opening `thinking_blocks` fragment.
+    /// - `content_block_delta`: emits text, thinking, or tool input JSON delta. Thinking text
+    ///   and `signature_delta` also emit `thinking_blocks` fragments keyed by block index.
     /// - `message_delta`: emits final chunk with finish_reason and usage.
     /// - `message_stop`: signals end of stream, returns `Ok(None)`.
     /// - `content_block_stop`, `ping`: skipped (returns `Ok(None)` — no content to emit).
@@ -237,6 +246,28 @@ impl Provider for AnthropicProvider {
 
     fn parse_stream_event(&self, event_data: &str) -> Result<Option<ChatCompletionChunk>> {
         stream::parse_stream_event(event_data)
+    }
+}
+
+/// Whether `block` is a `thinking` or `redacted_thinking` content block.
+fn is_thinking_block(block: &Value) -> bool {
+    matches!(
+        block.get("type").and_then(Value::as_str),
+        Some("thinking" | "redacted_thinking")
+    )
+}
+
+/// The [`ThinkingBlock`](crate::types::ThinkingBlock) fields of an Anthropic content block
+/// (or stream fragment of one) at `index`.
+fn thinking_block(block: &Value, index: Option<u32>) -> crate::types::ThinkingBlock {
+    let field = |name: &str| block.get(name).and_then(Value::as_str).map(str::to_owned);
+    crate::types::ThinkingBlock {
+        block_type: field("type"),
+        thinking: field("thinking"),
+        signature: field("signature"),
+        data: field("data"),
+        index,
+        ..Default::default()
     }
 }
 
@@ -311,8 +342,12 @@ fn map_stop_reason(stop_reason: &str) -> &'static str {
 }
 
 #[cfg(test)]
+mod effort_tests;
+#[cfg(test)]
 mod feature_tests;
 #[cfg(test)]
 mod stream_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod thinking_tests;

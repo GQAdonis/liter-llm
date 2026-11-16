@@ -35,7 +35,7 @@ name = "liter-llm"
 # same fix already applied to the other vendored crates in vendor/git/
 # (surreal-memory, sycophancy-core). Values must stay in sync with
 # ../../Cargo.toml's `[workspace.package]` table when bumping upstream.
-version = "2.6.0"
+version = "2.7.2"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/liter-llm"
@@ -47,7 +47,7 @@ keywords = ["llm", "openai", "api-client", "ai", "xberg"]
 categories = ["api-bindings", "web-programming::http-client"]
 
 [package.metadata.cargo-machete]
-ignored = ["dashmap", "tower-http"]
+ignored = ["dashmap"]
 
 [features]
 
@@ -72,7 +72,7 @@ wasm-http = ["dep:reqwest", "dep:memchr", "dep:gloo-timers", "dep:ipnet"]
 
 otel = ["dep:tracing-opentelemetry", "dep:opentelemetry"]
 
-tower = ["dep:tower", "dep:tower-http", "dep:futures-util", "dep:rand"]
+tower = ["dep:tower", "dep:futures-util", "dep:rand"]
 
 opendal-cache = ["dep:opendal", "dep:opendal-http-transport-reqwest", "dep:rustls", "tower"]
 
@@ -144,7 +144,6 @@ etcd-client = { version = "0.21", default-features = false, optional = true }
 futures-core = "0.3"
 futures-util = { version = "0.3", optional = true }
 gcp_auth = { version = "0.12", default-features = false, features = ["ring"], optional = true }
-gloo-timers = { version = "0.4", features = ["futures"], optional = true }
 hex = "0.4"
 http = "1"
 httpdate = "1"
@@ -175,7 +174,7 @@ thiserror = "2"
 tokenizers = { version = "0.23", default-features = false, features = ["http", "fancy-regex"], optional = true }
 tokio = { version = "1", features = ["full", "time", "rt", "macros"], optional = true }
 tokio-util = { version = "0.7", features = ["rt"], optional = true }
-toml = "1.1"
+toml = "1.2"
 tower = { version = "0.5", features = [
     "retry",
     "limit",
@@ -186,17 +185,6 @@ tower = { version = "0.5", features = [
     "util",
     "discover",
     "ready-cache",
-], optional = true }
-tower-http = { version = "0.7", features = [
-    "follow-redirect",
-    "set-header",
-    "sensitive-headers",
-    "trace",
-    "request-id",
-    "cors",
-    "compression-gzip",
-    "catch-panic",
-    "limit",
 ], optional = true }
 tracing = "0.1"
 tracing-opentelemetry = { version = "0.34", optional = true }
@@ -217,6 +205,7 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "logg
 getrandom = { version = "0.4", features = ["wasm_js"] }
 # ~keep ahash still depends on getrandom 0.3, which needs its own `wasm_js` feature under that cfg.
 getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+gloo-timers = { version = "0.4", features = ["futures"], optional = true }
 
 # ~keep Windows uses SChannel via native-tls to avoid aws-lc-sys MSVC build failures.
 # ~keep rustls is intentionally not pulled in on Windows.
@@ -233,7 +222,7 @@ serde_json = "1"
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 ctor = "1.0"
 etcd-client = { version = "0.21", default-features = false }
-jsonschema = "0.60"
+jsonschema = "0.61"
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "multipart", "form", "gzip"] }
 serial_test = "4"
 tempfile = "3"
@@ -261,13 +250,13 @@ perf = { level = "deny", priority = -1 }
 style = { level = "warn", priority = -1 }
 # ~keep unused-unit: generated FFI bridge shims (alef/swift-bridge) emit `-> ()`.
 # ~keep Denying this would require patching generated output on every regen.
-unused-unit = "allow"
+unused_unit = "allow"
 # ~keep needless-pass-by-value: public API takes owned values for FFI-friendliness;
 # ~keep changing signatures would break cross-language ABI stability.
-needless-pass-by-value = "allow"
-module-name-repetitions = "allow"
-missing-errors-doc = "allow"
-missing-panics-doc = "allow"
+needless_pass_by_value = "allow"
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
 # ~keep Diagnostics use tracing; CLI result output opts in with expect(print_stdout).
 # ~keep Cargo build-script directives are exempt from the print lint automatically.
 print_stdout = "deny"
