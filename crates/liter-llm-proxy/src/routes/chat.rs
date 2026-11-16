@@ -1,7 +1,11 @@
 use axum::Extension;
 use axum::Json;
 use axum::extract::State;
+use std::time::Instant;
+
 use axum::response::{IntoResponse, Response};
+use futures_util::StreamExt;
+use liter_llm::error::LiterLlmError;
 use tower::Service;
 
 use liter_llm::tower::types::{LlmRequest, LlmResponse};
@@ -68,11 +72,41 @@ pub async fn chat_completions(
     let llm_req = llm_req.with_tenant_id(key_ctx.tenant_id.clone());
 
     let mut svc = state.service_pool.get_service(&model)?;
-    let resp = svc.call(llm_req).await?;
+    let started = Instant::now();
+    let resp = svc.call(llm_req).await.inspect_err(|err| {
+        log_upstream_failure(&model, is_stream, started, err, "before response");
+    })?;
 
     match resp {
-        LlmResponse::ChatStream(stream) => Ok(streaming::sse_response(stream)),
+        LlmResponse::ChatStream(stream) => {
+            // ~keep Mid-stream failures reach the client as an SSE error event only;
+            // ~keep log them here too so operators can attribute them to a model.
+            let stream = stream.inspect(move |item| {
+                if let Err(err) = item {
+                    log_upstream_failure(&model, true, started, err, "mid-stream");
+                }
+            });
+            Ok(streaming::sse_response(Box::pin(stream)))
+        }
         LlmResponse::Chat(completion) => Ok(Json(completion).into_response()),
         other => Err(ProxyError::internal(format!("unexpected response variant: {other:?}"))),
     }
+}
+
+/// Log a failed upstream chat call with the model alias and elapsed time.
+///
+/// The `tower_http` trace layer only records status and latency, so a stream of
+/// identical 500s cannot be traced to a provider without this line.
+fn log_upstream_failure(model: &str, stream: bool, started: Instant, err: &LiterLlmError, phase: &str) {
+    let message: String = err.to_string().chars().take(300).collect();
+    tracing::warn!(
+        model,
+        stream,
+        phase,
+        elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+        upstream_status = err.status_code(),
+        error_type = err.error_type(),
+        message = %message,
+        "upstream chat request failed"
+    );
 }

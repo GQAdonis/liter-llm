@@ -56,9 +56,17 @@ use crate::state::AppState;
 /// so a server-side request timeout reports identically to an upstream
 /// client timeout.
 async fn request_timeout_middleware(State(timeout): State<Duration>, request: Request, next: Next) -> Response {
+    let path = request.uri().path().to_owned();
     match tokio::time::timeout(timeout, next.run(request)).await {
         Ok(response) => response,
-        Err(_) => ProxyError::from(LiterLlmError::Timeout).into_response(),
+        Err(_) => {
+            tracing::warn!(
+                path = %path,
+                timeout_secs = timeout.as_secs(),
+                "request exceeded [server] request_timeout_secs before a response started"
+            );
+            ProxyError::from(LiterLlmError::Timeout).into_response()
+        }
     }
 }
 
